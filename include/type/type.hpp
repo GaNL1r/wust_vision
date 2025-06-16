@@ -246,6 +246,7 @@ struct Armor {
   float distance_to_image_center;
   float yaw;
   std::chrono::steady_clock::time_point timestamp;
+  bool is_ok;
 };
 struct Armors {
   std::vector<Armor> armors;
@@ -270,6 +271,7 @@ struct Target {
   float d_zc = 0;
   float yaw_diff;
   float position_diff;
+  int count = 0;
 
   void clear() {
     id = ArmorNumber::UNKNOWN;
@@ -284,6 +286,35 @@ struct Target {
     radius_2 = 0.0;
     d_zc = 0.0;
     d_za = 0.0;
+    yaw_diff = 0.0;
+    position_diff = 0.0;
+  }
+};
+struct OneTarget {
+  std::chrono::steady_clock::time_point timestamp;
+  std::string frame_id;
+  std::string type;
+  bool tracking = false;
+  ArmorNumber id = ArmorNumber::UNKNOWN;
+
+  Position position_ = Position();
+  Position velocity_ = Position();
+  float yaw = 0;
+  float v_yaw = 0;
+  float distance_to_image_center = 0;
+  float yaw_diff;
+  float position_diff;
+  int count = 0;
+
+  void clear() {
+    id = ArmorNumber::UNKNOWN;
+    tracking = false;
+
+    type = "";
+    position_ = Position();
+    velocity_ = Position();
+    yaw = 0.0;
+    v_yaw = 0.0;
     yaw_diff = 0.0;
     position_diff = 0.0;
   }
@@ -411,3 +442,5 @@ const std::vector<cv::Point3f> RUNE_OBJECT_POINTS = {
    (sign))
 
 #define SMALL_RUNE_CURVE(x, a, b, c, sign) (((a) * ((x) + (b)) + (c)) * (sign))
+
+enum class ArmorsNum { NORMAL_4 = 4, OUTPOST_3 = 3 };

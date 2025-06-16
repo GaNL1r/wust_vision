@@ -17,8 +17,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ARMOR_SOLVER_TRACKER_HPP_
-#define ARMOR_SOLVER_TRACKER_HPP_
+#pragma once
 
 // std
 #include <memory>
@@ -30,10 +29,10 @@
 
 // project
 #include "tracker/extended_kalman_filter.hpp"
-#include "tracker/motion_modela.hpp"
+#include "tracker/motion_modelonea.hpp"
 #include "type/type.hpp"
 
-inline double normalizeAngle(double angle) {
+inline double onormalizeAnglea(double angle) {
   while (angle > M_PI)
     angle -= 2 * M_PI;
   while (angle < -M_PI)
@@ -41,13 +40,15 @@ inline double normalizeAngle(double angle) {
   return angle;
 }
 
-class Tracker {
+class OneTracker {
 public:
-  Tracker(double max_match_distance, double max_match_yaw,
-          double max_match_z_diff_);
+  OneTracker(double max_match_distance, double max_match_yaw,
+             double max_match_z_diff_);
 
   void init(const Armors &armors_msg) noexcept;
   void update(const Armors &armors_msg) noexcept;
+  void init(const Armor &armor_msg) noexcept;
+  void update(const Armor &armor_msg) noexcept;
 
   enum State {
     LOST,
@@ -55,8 +56,10 @@ public:
     TRACKING,
     TEMP_LOST,
   } tracker_state;
+  static Eigen::Vector3d
+  getArmorPositionFromState(const Eigen::VectorXd &x) noexcept;
 
-  std::unique_ptr<armor_motion_model::RobotStateEKF> ekf;
+  std::unique_ptr<onearmor_motion_model::RobotStateEKF> ekf;
 
   int tracking_thres;
   int lost_thres;
@@ -64,11 +67,12 @@ public:
   Armor tracked_armor;
 
   ArmorNumber tracked_id;
-  ArmorsNum tracked_armors_num;
   std::string type;
   int retype;
   Eigen::VectorXd measurement;
   Eigen::VectorXd target_state;
+
+  double distance_to_image_center;
 
   double d_za, another_r;
   double d_zc;
@@ -81,32 +85,18 @@ public:
   int max_inconsistent_count_ = 3;
   int rotation_inconsistent_cooldown_limit_ = 5;
   double jump_thresh = 0.4;
-
-  // Eigen::Vector2f last_obs_position_;
-  // std::chrono::steady_clock::time_point last_obs_time_;
-
-  // int xy_track_update_count_ = 0;
-  // std::deque<float> xy_velocity_diff_buffer_;
-  // int xy_inconsistent_count_ = 0;
-  // int xy_inconsistent_cooldown_ = 0;
-
-  // int max_xy_inconsistent_count_ = 3;
-  // int xy_inconsistent_cooldown_limit_ = 30;
-  // float max_xy_velocity_diff_thresh_ = 1.0f;  // m/s
+  double max_match_distance_;
+  double max_match_yaw_diff_;
+  double max_match_z_diff_;
 
 private:
   void initEKF(const Armor &a) noexcept;
   void handleArmorJump(const Armor &a) noexcept;
 
   double orientationToYaw(const tf2::Quaternion &q) noexcept;
-  static Eigen::Vector3d
-  getArmorPositionFromState(const Eigen::VectorXd &x) noexcept;
+
   void updateBestYawdiff(const Armor &armor1, const Armor &armor2);
   void updateYawStateConsistency(double measured_yaw);
-
-  double max_match_distance_;
-  double max_match_yaw_diff_;
-  double max_match_z_diff_;
 
   int detect_count_;
   int lost_count_;
@@ -124,8 +114,6 @@ private:
 
   int rotation_inconsistent_cooldown_ = 0;
 
-  std::string tracker_logger = "tracker";
+  std::string tracker_logger = "onetracker";
   std::deque<std::chrono::steady_clock::time_point> armor_jump_timestamps_;
 };
-
-#endif // ARMOR_SOLVER_TRACKER_HPP_

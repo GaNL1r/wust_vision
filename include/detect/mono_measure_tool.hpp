@@ -28,6 +28,7 @@ struct Target_info {
   std::vector<Position> pos;
   std::vector<tf2::Quaternion> ori;
   int select_id;
+  std::vector<bool> is_ok;
 };
 
 class MonoMeasureTool {

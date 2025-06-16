@@ -13,6 +13,8 @@
 #include <stdio.h>
 #include <sys/mman.h>
 #include <unistd.h>
+namespace serial {
+
 Serial::Serial()
     : device_name_(""), config_(SerialPortConfig()), is_usb_ok_(false),
       running_(false), driver_() {}
@@ -392,28 +394,34 @@ void Serial::transformGimbalCmd(GimbalCmd &gimbal_cmd, bool appear) {
       return std::clamp(val, -max_change, max_change);
     };
 
-    double delta_yaw = gimbal_cmd.yaw - lastyaw_;
-    double delta_pitch = gimbal_cmd.pitch - lastpitch_;
+    double delta_yaw = gimbal_cmd.yaw - lastyaw_aaa;
+    double delta_pitch = gimbal_cmd.pitch - lastpitch_aaa;
 
     delta_yaw = limit(delta_yaw, max_yaw_change);
     delta_pitch = limit(delta_pitch, max_pitch_change);
 
-    send_robot_cmd_data_.yaw = lastyaw_ + alpha_yaw * delta_yaw;
-    send_robot_cmd_data_.pitch = lastpitch_ + alpha_pitch * delta_pitch;
+    send_robot_cmd_data_.yaw = lastyaw_aaa + alpha_yaw * delta_yaw;
+    send_robot_cmd_data_.pitch = lastpitch_aaa + alpha_pitch * delta_pitch;
 
-    lastyaw_ = send_robot_cmd_data_.yaw;
-    lastpitch_ = send_robot_cmd_data_.pitch;
+    lastyaw_aaa = send_robot_cmd_data_.yaw;
+    lastpitch_aaa = send_robot_cmd_data_.pitch;
   } else {
-    send_robot_cmd_data_.yaw = lastyaw_;
-    send_robot_cmd_data_.pitch = lastpitch_;
+    send_robot_cmd_data_.yaw = lastyaw_aaa;
+    send_robot_cmd_data_.pitch = lastpitch_aaa;
   }
-
+  // std::cout<<"yaw: "<<send_robot_cmd_data_.yaw<<" pitch:
+  // "<<send_robot_cmd_data_.pitch<<std::endl;
   send_robot_cmd_data_.distance = gimbal_cmd.distance;
   send_robot_cmd_data_.pitch_diff = gimbal_cmd.pitch_diff;
   send_robot_cmd_data_.yaw_diff = gimbal_cmd.yaw_diff;
   send_robot_cmd_data_.fire = gimbal_cmd.fire_advice;
   send_robot_cmd_data_.detect_color = detect_color_;
   send_robot_cmd_data_.appear = appear;
+  auto now = std::chrono::steady_clock::now();
+  auto duration = now.time_since_epoch();
+  uint64_t millis =
+      std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+  send_robot_cmd_data_.time_stamp = static_cast<uint32_t>(millis);
 }
 void Serial::shmTheard() {
 
@@ -448,3 +456,4 @@ void Serial::shmTheard() {
   WUST_INFO(serial_logger) << "shmTheard end";
   return;
 }
+} // namespace serial

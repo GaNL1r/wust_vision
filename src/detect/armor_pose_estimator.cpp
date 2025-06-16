@@ -125,6 +125,7 @@ ArmorPoseEstimator::extractArmorPoses(const std::vector<ArmorObject> &armors,
       armor_.ori.w = new_q.w();
       armor_.distance_to_image_center =
           pnp_solver_->calculateDistanceToCenter(armor.center);
+      armor_.is_ok = true;
 
       Eigen::Vector3d rpy = rotationMatrixToRPY(q.toRotationMatrix());
       // std::cout << "Roll: " << rpy.x() * 180 / M_PI << " degrees" <<

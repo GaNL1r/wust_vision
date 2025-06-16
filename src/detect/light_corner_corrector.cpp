@@ -28,7 +28,7 @@ void LightCornerCorrector::correctCorners(ArmorObject &armor) noexcept {
   if (armor.whole_gray_img.empty()) {
     return;
   }
-
+  // auto start=std::chrono::steady_clock::now();
   double zero_x = armor.new_x;
   double zero_y = armor.new_y;
 
@@ -167,6 +167,11 @@ void LightCornerCorrector::correctCorners(ArmorObject &armor) noexcept {
   } else {
     armor.center = armor_center;
   }
+  // auto end=std::chrono::steady_clock::now();
+  // WUST_INFO("LightCornerCorrector") << "Time taken by function: "
+  //                                  <<
+  //                                  std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count()
+  //                                  << " milliseconds" ;
 }
 
 SymmetryAxis LightCornerCorrector::findSymmetryAxis(const cv::Mat &gray_img,

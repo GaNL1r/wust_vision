@@ -359,6 +359,7 @@ bool MonoMeasureTool::reprojectArmorsCorners(Armors &armors,
     target_info.pts.push_back(pts);
     target_info.pos.push_back(armor.pos);
     target_info.ori.push_back(armor.ori);
+    target_info.is_ok.push_back(armor.is_ok);
   }
   return true;
 }
@@ -425,7 +426,7 @@ void MonoMeasureTool::processDetectedArmors(
       armor.number = obj.number;
       armor.type = armor_type;
       armor.distance_to_image_center = calcDistanceToCenter(obj);
-
+      armor.is_ok = false;
       armors_out.armors.emplace_back(armor);
 
     } catch (const cv::Exception &e) {

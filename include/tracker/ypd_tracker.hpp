@@ -17,8 +17,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ARMOR_SOLVER_TRACKER_HPP_
-#define ARMOR_SOLVER_TRACKER_HPP_
+#pragma once
 
 // std
 #include <memory>
@@ -30,10 +29,10 @@
 
 // project
 #include "tracker/extended_kalman_filter.hpp"
-#include "tracker/motion_modela.hpp"
+#include "tracker/motion_modelypd.hpp"
 #include "type/type.hpp"
 
-inline double normalizeAngle(double angle) {
+inline double normalizeAnglec(double angle) {
   while (angle > M_PI)
     angle -= 2 * M_PI;
   while (angle < -M_PI)
@@ -41,10 +40,10 @@ inline double normalizeAngle(double angle) {
   return angle;
 }
 
-class Tracker {
+class YpdTracker {
 public:
-  Tracker(double max_match_distance, double max_match_yaw,
-          double max_match_z_diff_);
+  YpdTracker(double max_match_distance, double max_match_yaw,
+             double max_match_z_diff_);
 
   void init(const Armors &armors_msg) noexcept;
   void update(const Armors &armors_msg) noexcept;
@@ -56,7 +55,7 @@ public:
     TEMP_LOST,
   } tracker_state;
 
-  std::unique_ptr<armor_motion_model::RobotStateEKF> ekf;
+  std::unique_ptr<ypdarmor_motion_model::RobotStateEKF> ekf;
 
   int tracking_thres;
   int lost_thres;
@@ -124,8 +123,6 @@ private:
 
   int rotation_inconsistent_cooldown_ = 0;
 
-  std::string tracker_logger = "tracker";
+  std::string tracker_logger = "ypdtracker";
   std::deque<std::chrono::steady_clock::time_point> armor_jump_timestamps_;
 };
-
-#endif // ARMOR_SOLVER_TRACKER_HPP_

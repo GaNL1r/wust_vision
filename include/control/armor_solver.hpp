@@ -38,6 +38,8 @@ public:
   // Solve a new gimbal command; timestamp in seconds
   GimbalCmd solve(const Target &target,
                   std::chrono::steady_clock::time_point current_time);
+  GimbalCmd solve(const Target &target, std::vector<OneTarget> one_targets_,
+                  std::chrono::steady_clock::time_point current_time);
   GimbalCmd solve(const Target &target,
                   std::chrono::steady_clock::time_point current_time,
                   double extra_prediction_time);
@@ -49,6 +51,9 @@ public:
   std::vector<std::pair<double, double>> getTrajectory() const noexcept;
 
   enum State { TRACKING_ARMOR = 0, TRACKING_CENTER = 1 };
+  std::vector<GimbalCmd>
+  solveBatch(const Target &target,
+             std::chrono::steady_clock::time_point base_time, int count);
 
 private:
   void init(const YAML::Node &config);

@@ -3,7 +3,7 @@ only_nav_enable: false
 use_auto_labeler: false
 init_attack_mode: 0
 camera:
-  acquisition_frame_rate: 200
+  acquisition_frame_rate: 160
   adc_bit_depth: Bits_8
   camera_info_path: /home/hy/wust_vision/config/camera_info.yaml
   exposure_time: 3500
@@ -11,8 +11,8 @@ camera:
   pixel_format: BayerRG8
   recorder: false
   video_player:
-    use: true
-    path: /home/hy/6.11/output.mp4
+    use: false
+    path: /home/hy/wust_data/video/1749800971.avi
     loop: true
     fps : 90
     start_frame: 0
@@ -20,11 +20,11 @@ camera:
 classify_label_path: /home/hy/wust_vision/model/label.txt
 classify_model_path: /home/hy/wust_vision/model/lenet.onnx
 control:
-  alpha_pitch: 0.9
+  alpha_pitch: 0.8
   alpha_yaw: 0.9
   control_rate: 1000
   device_name: /dev/ttyACM0
-  max_pitch_change: 5
+  max_pitch_change: 50
   max_yaw_change: 10
   use_serial: false
   use_nav:  false
@@ -42,12 +42,12 @@ light:
   max_ratio: 0.45
   min_ratio: 0.02
 logger:
-  log_level: DEBUG
+  log_level: INFO
   log_path: /home/hy/wust_log
   use_logcli: true
   use_logfile: false
   use_simplelog: true
-max_infer_running: 4
+max_infer_running: 7
 model:
   conf_threshold: 0.7
   device_type: GPU
@@ -66,64 +66,17 @@ solver:
     d_min: 5
     h_max: 0.4
     h_min: -1
-    pitch_off: 0
+    pitch_off: 0.1
     yaw_off: 0
-  - d_max: 6
-    d_min: 5
-    h_max: 0.8
-    h_min: 0.4
-    pitch_off: 0
-    yaw_off: 0
-  - d_max: 6
-    d_min: 5
-    h_max: 1.2
-    h_min: 0.8
-    pitch_off: 0
-    yaw_off: 0
-  - d_max: 7
-    d_min: 6
-    h_max: 0.4
-    h_min: -1
-    pitch_off: 0
-    yaw_off: 0
-  - d_max: 7
-    d_min: 6
-    h_max: 0.8
-    h_min: 0.4
-    pitch_off: 0
-    yaw_off: 0
-  - d_max: 7
-    d_min: 6
-    h_max: 1.2
-    h_min: 0.8
-    pitch_off: 0
-    yaw_off: 0
-  - d_max: 8
-    d_min: 7
-    h_max: 0.4
-    h_min: -1
-    pitch_off: 0
-    yaw_off: 0
-  - d_max: 8
-    d_min: 7
-    h_max: 0.8
-    h_min: 0.4
-    pitch_off: 0
-    yaw_off: 0
-  - d_max: 8
-    d_min: 7
-    h_max: 1.2
-    h_min: 0.8
-    pitch_off: 0
-    yaw_off: 0
+  
   prediction_delay: 0.05
   resistance: 0.092
   shooting_range_h: 0.12
   shooting_range_w: 0.12
   side_angle: 20
 tf:
-  gimbal2camera_pitch: 6
-  gimbal2camera_roll: 1
+  gimbal2camera_pitch: 0
+  gimbal2camera_roll: 0
   gimbal2camera_x: 0
   gimbal2camera_y: 0
   gimbal2camera_yaw: 180
@@ -143,6 +96,40 @@ tracker:
     s2qy: 10
     s2qyaw: 20
     s2qz: 1
+
+    yr_y: 0.3042568339
+    yr_p: 0.0010738330
+    yr_d: 0.0065388986
+    yr_yaw: 0.2946025203
+    ys2qd_zc: 800
+    ys2qr: 80
+    ys2qx: 10
+    ys2qy: 10
+    ys2qyaw: 20
+    ys2qz: 1
+# R_yaw: 0.3042568339
+# R_pitch: 0.0010738330
+# R_dist: 0.0065388986
+# R_ori_yaw: 0.2946025203
+
+    or_x: 0.0180952234
+    or_y: 0.0214626785
+    or_yaw: 0.609218545
+    or_z: 0.0016992016
+    os2qx: 10
+    os2qy: 10
+    os2qyaw: 20
+    os2qz: 1
+
+
+    oyr_y: 0.3042568339
+    oyr_p: 0.0010738330
+    oyr_d: 0.0065388986
+    oyr_yaw: 0.2946025203
+    oys2qx: 10
+    oys2qy: 10
+    oys2qyaw: 20
+    oys2qz: 1
   jump_thresh: 0.4
   lost_time_thres: 0.2
   max_inconsistent_count: 2
@@ -156,14 +143,13 @@ tracker:
   rotation_inconsistent_cooldown_limit: 5
   target_frame: gimbal_odom
   tracking_thres: 5
+  one_lost_time_thres: 0.1
 use_calculation: false
-
-
 rune_detector:
   detect_r_tag: true
   min_lightness: 80
   model: "/home/hy/wust_vision/model/yolox_rune_3.6m.onnx"
-  device_type: "GPU"
+  device_type: "AUTO"
   confidence_threshold: 0.5
   top_k: 128
   nms_threshold: 0.3

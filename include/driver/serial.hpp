@@ -6,6 +6,8 @@
 #include <thread>
 #include <unordered_map>
 #include <vector>
+
+namespace serial {
 static constexpr int USB_PROTECT_SLEEP_MS = 1000;
 static constexpr int USB_NOT_OK_SLEEP_MS = 1000;
 class Serial {
@@ -25,8 +27,8 @@ public:
   void transformGimbalCmd(GimbalCmd &gimbal_cmd, bool appear);
 
   void shmTheard();
-  double lastyaw_;
-  double lastpitch_;
+  double lastyaw_aaa;
+  double lastpitch_aaa;
   std::string device_name_;
   SerialPortConfig config_;
   std::atomic<bool> is_usb_ok_;
@@ -43,3 +45,4 @@ public:
   double max_yaw_change;
   double max_pitch_change;
 };
+} // namespace serial

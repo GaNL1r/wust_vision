@@ -12,6 +12,7 @@
 #include "type/type.hpp"
 #include "yaml-cpp/yaml.h"
 #include <opencv2/core/mat.hpp>
+#include "tracker/tracker_manager.hpp"
 class WustVision {
 public:
   WustVision();
@@ -33,7 +34,8 @@ public:
   void startTimer();
   void stopTimer();
   void transformArmorData(Armors &armors);
-  Armors visualizeTargetProjection(Target armor_target_);
+  Armors visualizeTargetProjection(Target armor_target_,
+    std::vector<OneTarget> one_armor_targets_);
 
   std::unique_ptr<HikCamera> camera_;
   std::unique_ptr<AdaptedTRTModule> detector_;
@@ -50,19 +52,18 @@ public:
   std::atomic<bool> timer_running_{false};
   std::thread timer_thread_;
   std::unique_ptr<Tracker> tracker_;
+  std::vector<OneTarget> one_armor_targets;
   Target armor_target;
   Armors armors_gobal;
   imgframe imgframe_;
-  double s2qx_, s2qy_, s2qz_, s2qyaw_, s2qr_, s2qd_zc_;
-  double r_x_, r_y_, r_z_, r_yaw_;
-  double lost_time_thres_;
+  std::unique_ptr<TrackerManager> tracker_manager_;
   double gimbal2camera_x_, gimbal2camera_y_, gimbal2camera_z_,
       gimbal2camera_yaw_, gimbal2camera_roll_, gimbal2camera_pitch_;
   std::string target_frame_;
 
   double dt_;
   bool only_nav_enable;
-  Serial serial_;
+  serial::Serial serial_;
   std::unique_ptr<Solver> solver_;
 
   std::unique_ptr<ArmorPoseEstimator> armor_pose_estimator_;

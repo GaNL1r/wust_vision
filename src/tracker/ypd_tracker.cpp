@@ -1,4 +1,4 @@
-#include "tracker/tracker.hpp"
+#include "tracker/ypd_tracker.hpp"
 #include "common/angles.h"
 #include "common/gobal.hpp"
 #include "common/logger.hpp"
@@ -13,8 +13,8 @@
 #include <ostream>
 #include <string>
 
-Tracker::Tracker(double max_match_distance, double max_match_yaw_diff,
-                 double max_match_z_diff)
+YpdTracker::YpdTracker(double max_match_distance, double max_match_yaw_diff,
+                       double max_match_z_diff)
     : tracker_state(LOST), tracked_id(ArmorNumber::UNKNOWN),
       measurement(Eigen::VectorXd::Zero(4)),
       target_state(Eigen::VectorXd::Zero(9)),
@@ -23,7 +23,7 @@ Tracker::Tracker(double max_match_distance, double max_match_yaw_diff,
       max_match_z_diff_(max_match_z_diff), detect_count_(0), lost_count_(0),
       last_yaw_(0) {}
 
-void Tracker::init(const Armors &armors_msg) noexcept {
+void YpdTracker::init(const Armors &armors_msg) noexcept {
   if (armors_msg.armors.empty())
     return;
 
@@ -52,7 +52,7 @@ void Tracker::init(const Armors &armors_msg) noexcept {
   }
 }
 
-void Tracker::update(const Armors &armors_msg) noexcept {
+void YpdTracker::update(const Armors &armors_msg) noexcept {
   Eigen::VectorXd ekf_prediction = ekf->predict();
   bool matched = false;
   target_state = ekf_prediction;
@@ -113,7 +113,10 @@ void Tracker::update(const Armors &armors_msg) noexcept {
       matched = true;
       auto p = tracked_armor.target_pos;
       double measured_yaw = orientationToYaw(tracked_armor.target_ori);
-      measurement = Eigen::Vector4d(p.x, p.y, p.z, measured_yaw);
+      double ypd_y = std::atan2(p.y, p.x);
+      double ypd_p = std::atan2(p.z, std::sqrt(p.x * p.x + p.y * p.y));
+      double ypd_d = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
+      measurement = Eigen::Vector4d(ypd_y, ypd_p, ypd_d, measured_yaw);
       target_state = ekf->update(measurement);
       if (if_have_last_track_) {
         updateYawStateConsistency(measured_yaw);
@@ -178,14 +181,14 @@ void Tracker::update(const Armors &armors_msg) noexcept {
   }
 }
 
-void Tracker::initEKF(const Armor &a) noexcept {
+void YpdTracker::initEKF(const Armor &a) noexcept {
   double xa = a.target_pos.x;
   double ya = a.target_pos.y;
   double za = a.target_pos.z;
   last_yaw_ = 0;
   double yaw = orientationToYaw(a.target_ori);
 
-  target_state = Eigen::VectorXd::Zero(armor_motion_model::X_N);
+  target_state = Eigen::VectorXd::Zero(ypdarmor_motion_model::X_N);
   double r = 0.24;
   double xc = xa + r * cos(yaw);
   double yc = ya + r * sin(yaw);
@@ -195,11 +198,11 @@ void Tracker::initEKF(const Armor &a) noexcept {
   ekf->setState(target_state);
 }
 
-void Tracker::handleArmorJump(const Armor &current_armor) noexcept {
+void YpdTracker::handleArmorJump(const Armor &current_armor) noexcept {
 
   double last_yaw = target_state(6);
   double yaw = orientationToYaw(current_armor.target_ori);
-  double delta_yaw = normalizeAngle(yaw - last_yaw);
+  double delta_yaw = normalizeAnglec(yaw - last_yaw);
 
   if (std::abs(delta_yaw) > jump_thresh) {
     target_state(6) = yaw;
@@ -235,7 +238,7 @@ void Tracker::handleArmorJump(const Armor &current_armor) noexcept {
   ekf->setState(target_state);
 }
 
-double Tracker::orientationToYaw(const tf2::Quaternion &q) noexcept {
+double YpdTracker::orientationToYaw(const tf2::Quaternion &q) noexcept {
   double roll, pitch, yaw;
   tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
   yaw = last_yaw_ + angles::shortest_angular_distance(last_yaw_, yaw);
@@ -244,14 +247,14 @@ double Tracker::orientationToYaw(const tf2::Quaternion &q) noexcept {
 }
 
 Eigen::Vector3d
-Tracker::getArmorPositionFromState(const Eigen::VectorXd &x) noexcept {
+YpdTracker::getArmorPositionFromState(const Eigen::VectorXd &x) noexcept {
   double xc = x(0), yc = x(2), za = x(4) + x(9);
   double yaw = x(6), r = x(8);
   double xa = xc - r * cos(yaw);
   double ya = yc - r * sin(yaw);
   return Eigen::Vector3d(xa, ya, za);
 }
-void Tracker::updateYawStateConsistency(double measured_yaw) {
+void YpdTracker::updateYawStateConsistency(double measured_yaw) {
   track_update_count_++;
 
   if (track_update_count_ >= 10) {
@@ -260,7 +263,7 @@ void Tracker::updateYawStateConsistency(double measured_yaw) {
                     .count();
 
     if (dt > 1e-5) {
-      double yaw_diff_a = normalizeAngle(measured_yaw - last_track_yaw_);
+      double yaw_diff_a = normalizeAnglec(measured_yaw - last_track_yaw_);
       float yaw_velocity = yaw_diff_a / dt;
 
       yaw_velocity_buffer_.push_back(yaw_velocity);

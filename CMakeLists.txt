@@ -38,6 +38,10 @@ add_executable(${PROJECT_NAME}_openvino
   src/driver/recorder.cpp
   src/driver/labeler.cpp
   src/driver/video_player.cpp
+  src/tracker/one_tracker.cpp
+  src/tracker/ypd_tracker.cpp
+  src/tracker/one_ypd_tracker.cpp
+  src/tracker/tracker_manager.cpp
 )
 add_executable(${PROJECT_NAME}_trt
 
@@ -67,6 +71,10 @@ add_executable(${PROJECT_NAME}_trt
   src/driver/recorder.cpp
   src/driver/labeler.cpp
   src/driver/video_player.cpp
+  src/tracker/one_tracker.cpp
+  src/tracker/ypd_tracker.cpp
+  src/tracker/one_ypd_tracker.cpp
+  src/tracker/tracker_manager.cpp
 
 )
 include_directories(

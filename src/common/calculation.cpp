@@ -42,104 +42,247 @@ void ex(double &a, double &min, double &max) {
     max = a;
   }
 }
-void command_callback(Armors &armors) {
+void command_callbacka(const Armors &armors) {
   std::ofstream log_file("/tmp/calculation.txt", std::ios::trunc);
   log_file << "已经收集了" << datas.size() << "个数据" << std::endl;
-
   datas.push_back(armors);
+
   auto current_time = std::chrono::steady_clock::now();
-  auto delta_time = std::chrono::duration_cast<std::chrono::milliseconds>(
-                        current_time - last_time_)
-                        .count() /
-                    1000.0;
+  double delta_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+                          current_time - last_time_)
+                          .count() / 1000.0;
 
   if (!armors.armors.empty() && delta_time > 0.5) {
     last_time_ = current_time;
+
+    const auto &pos = armors.armors[0].target_pos;
+    double yaw = orientationToYaw(armors.armors[0].target_ori);
+
     if (datas.size() == 1) {
-      last_x_ = armors.armors[0].target_pos.x;
-      last_y_ = armors.armors[0].target_pos.y;
-      last_z_ = armors.armors[0].target_pos.z;
-      last_yaw_ = orientationToYaw(armors.armors[0].target_ori);
+      last_x_ = pos.x;
+      last_y_ = pos.y;
+      last_z_ = pos.z;
+      last_yaw_ = yaw;
     } else {
-      double current_x = armors.armors[0].target_pos.x;
-      double current_y = armors.armors[0].target_pos.y;
-      double current_z = armors.armors[0].target_pos.z;
-      double current_yaw = orientationToYaw(armors.armors[0].target_ori);
+      double v_x = (pos.x - last_x_) / delta_time;
+      double v_y = (pos.y - last_y_) / delta_time;
+      double v_z = (pos.z - last_z_) / delta_time;
+      double v_yaw = (yaw - last_yaw_) / delta_time;
 
-      if (delta_time > 0) {
-        double v_x = (current_x - last_x_) / delta_time;
-        double v_y = (current_y - last_y_) / delta_time;
-        double v_z = (current_z - last_z_) / delta_time;
-        double v_yaw = (current_yaw - last_yaw_) / delta_time;
+      s2qx = std::exp(-(std::abs(v_x) + 0.5 * std::abs(v_yaw))) * (s2qx_max - s2qx_min) + s2qx_min;
+      ex(s2qx, s2qx_min, s2qx_max);
 
-        s2qx = exp(-(abs(v_x) + 0.5 * abs(v_yaw))) * (s2qx_max - s2qx_min) +
-               s2qx_min;
-        ex(s2qx, s2qx_min, s2qx_max);
-        s2qy = exp(-(abs(v_y) + 0.5 * abs(v_yaw))) * (s2qy_max - s2qy_min) +
-               s2qy_min;
-        ex(s2qy, s2qy_min, s2qy_max);
-        s2qz = exp(-(abs(v_z) + 0.5 * abs(v_yaw))) * (s2qz_max - s2qz_min) +
-               s2qz_min;
-        ex(s2qz, s2qz_min, s2qz_max);
-        s2qyaw = exp(-(abs(v_x) + 0.5 * abs(v_z))) * (s2qyaw_max - s2qyaw_min) +
-                 s2qyaw_min;
-        ex(s2qyaw, s2qyaw_min, s2qyaw_max);
-      }
+      s2qy = std::exp(-(std::abs(v_y) + 0.5 * std::abs(v_yaw))) * (s2qy_max - s2qy_min) + s2qy_min;
+      ex(s2qy, s2qy_min, s2qy_max);
 
-      last_x_ = current_x;
-      last_y_ = current_y;
-      last_z_ = current_z;
-      last_yaw_ = current_yaw;
+      s2qz = std::exp(-(std::abs(v_z) + 0.5 * std::abs(v_yaw))) * (s2qz_max - s2qz_min) + s2qz_min;
+      ex(s2qz, s2qz_min, s2qz_max);
+
+      s2qyaw = std::exp(-(std::abs(v_x) + 0.5 * std::abs(v_z))) * (s2qyaw_max - s2qyaw_min) + s2qyaw_min;
+      ex(s2qyaw, s2qyaw_min, s2qyaw_max);
+
+      last_x_ = pos.x;
+      last_y_ = pos.y;
+      last_z_ = pos.z;
+      last_yaw_ = yaw;
     }
   }
 
   if (datas.size() == 5000) {
-    double all_x = 0.0, all_y = 0.0, all_z = 0.0, all_yaw = 0.0;
+    double all_yaw = 0.0, all_pitch = 0.0, all_dist = 0.0, all_ori_yaw = 0.0;
+    time_ = 0;
 
-    for (int i = 0; i < 5000; i++) {
-      if (!datas[i].armors.empty()) {
-        time_ += 1;
-        all_x += datas[i].armors[0].target_pos.x;
-        all_y += datas[i].armors[0].target_pos.y;
-        all_z += datas[i].armors[0].target_pos.z;
-        all_yaw += orientationToYaw(datas[i].armors[0].target_ori);
+    for (const auto &data : datas) {
+      if (!data.armors.empty()) {
+        time_++;
+        const auto &armor = data.armors[0];
+        double yaw = orientationToYaw(armor.target_ori);
+
+        double armor_x = armor.target_pos.x;
+        double armor_y = armor.target_pos.y;
+        double armor_z = armor.target_pos.z;
+
+        double xy_dist = std::sqrt(armor_x * armor_x + armor_y * armor_y);
+        double dist = std::sqrt(xy_dist * xy_dist + armor_z * armor_z);
+        double pitch = std::atan2(armor_z, xy_dist);
+
+        all_yaw += yaw;
+        all_pitch += pitch;
+        all_dist += dist;
+        all_ori_yaw += yaw;
       }
     }
 
-    double mean_x = all_x / time_;
-    double mean_y = all_y / time_;
-    double mean_z = all_z / time_;
     double mean_yaw = all_yaw / time_;
+    double mean_pitch = all_pitch / time_;
+    double mean_dist = all_dist / time_;
+    double mean_ori_yaw = all_ori_yaw / time_;
 
-    double variance_x = 0.0, variance_y = 0.0, variance_z = 0.0,
-           variance_yaw = 0.0;
+    double var_yaw = 0.0, var_pitch = 0.0, var_dist = 0.0, var_ori_yaw = 0.0;
 
-    for (int i = 0; i < 5000; i++) {
-      if (!datas[i].armors.empty()) {
-        variance_x += pow(mean_x - datas[i].armors[0].target_pos.x, 2);
-        variance_y += pow(mean_y - datas[i].armors[0].target_pos.y, 2);
-        variance_z += pow(mean_z - datas[i].armors[0].target_pos.z, 2);
-        variance_yaw +=
-            pow(mean_yaw - orientationToYaw(datas[i].armors[0].target_ori), 2);
+    for (const auto &data : datas) {
+      if (!data.armors.empty()) {
+        const auto &armor = data.armors[0];
+        double yaw = orientationToYaw(armor.target_ori);
+
+        double armor_x = armor.target_pos.x;
+        double armor_y = armor.target_pos.y;
+        double armor_z = armor.target_pos.z;
+
+        double xy_dist = std::sqrt(armor_x * armor_x + armor_y * armor_y);
+        double dist = std::sqrt(xy_dist * xy_dist + armor_z * armor_z);
+        double pitch = std::atan2(armor_z, xy_dist);
+
+        var_yaw += std::pow(yaw - mean_yaw, 2);
+        var_pitch += std::pow(pitch - mean_pitch, 2);
+        var_dist += std::pow(dist - mean_dist, 2);
+        var_ori_yaw += std::pow(yaw - mean_ori_yaw, 2);
       }
     }
 
-    R_x = variance_x / time_;
-    R_y = variance_y / time_;
-    R_z = variance_z / time_;
-    R_yaw = variance_yaw / time_;
+    R_x = var_yaw / time_;
+    R_y = var_pitch / time_;
+    R_z = var_dist / time_;
+    R_yaw = var_ori_yaw / time_;
   }
 
   if (datas.size() > 5000) {
+    std::ofstream log_file("/tmp/calculation.txt", std::ios::app);
     log_file << std::fixed << std::setprecision(10);
-    log_file << "R_x: " << R_z << std::endl;
-    log_file << "R_y: " << R_x << std::endl;
-    log_file << "R_z: " << R_y << std::endl;
-    log_file << "R_yaw: " << R_yaw << std::endl;
+    log_file << "R_yaw: " << R_x << std::endl;
+    log_file << "R_pitch: " << R_y << std::endl;
+    log_file << "R_dist: " << R_z << std::endl;
+    log_file << "R_ori_yaw: " << R_yaw << std::endl;
 
-    log_file << "s2qx: " << s2qz << std::endl;
-    log_file << "s2qy: " << s2qx << std::endl;
-    log_file << "s2qz: " << s2qy << std::endl;
+    log_file << "s2qx: " << s2qx << std::endl;
+    log_file << "s2qy: " << s2qy << std::endl;
+    log_file << "s2qz: " << s2qz << std::endl;
     log_file << "s2qyaw: " << s2qyaw << std::endl;
+    log_file.close();
+  }
+}
+
+void command_callbackypd(const Armors &armors) {
+  std::ofstream log_file("/tmp/calculation.txt", std::ios::trunc);
+  log_file << "已经收集了" << datas.size() << "个数据" << std::endl;
+  // 记录数据
+  datas.push_back(armors);
+
+  auto current_time = std::chrono::steady_clock::now();
+  double delta_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+                          current_time - last_time_)
+                          .count() / 1000.0;
+
+  if (!armors.armors.empty() && delta_time > 0.5) {
+    last_time_ = current_time;
+
+    const auto &pos = armors.armors[0].target_pos;
+    double yaw = orientationToYaw(armors.armors[0].target_ori);
+
+    if (datas.size() == 1) {
+      last_x_ = pos.x;
+      last_y_ = pos.y;
+      last_z_ = pos.z;
+      last_yaw_ = yaw;
+    } else {
+      double v_x = (pos.x - last_x_) / delta_time;
+      double v_y = (pos.y - last_y_) / delta_time;
+      double v_z = (pos.z - last_z_) / delta_time;
+      double v_yaw = (yaw - last_yaw_) / delta_time;
+
+      // 结合 EKF 状态维度，对过程噪声进行自适应估计
+      s2qx = std::exp(-(std::abs(v_x) + 0.5 * std::abs(v_yaw))) * (s2qx_max - s2qx_min) + s2qx_min;
+      ex(s2qx, s2qx_min, s2qx_max);
+
+      s2qy = std::exp(-(std::abs(v_y) + 0.5 * std::abs(v_yaw))) * (s2qy_max - s2qy_min) + s2qy_min;
+      ex(s2qy, s2qy_min, s2qy_max);
+
+      s2qz = std::exp(-(std::abs(v_z) + 0.5 * std::abs(v_yaw))) * (s2qz_max - s2qz_min) + s2qz_min;
+      ex(s2qz, s2qz_min, s2qz_max);
+
+      s2qyaw = std::exp(-(std::abs(v_x) + 0.5 * std::abs(v_z))) * (s2qyaw_max - s2qyaw_min) + s2qyaw_min;
+      ex(s2qyaw, s2qyaw_min, s2qyaw_max);
+
+      last_x_ = pos.x;
+      last_y_ = pos.y;
+      last_z_ = pos.z;
+      last_yaw_ = yaw;
+    }
+  }
+
+  if (datas.size() == 5000) {
+    double all_yaw = 0.0, all_pitch = 0.0, all_dist = 0.0, all_ori_yaw = 0.0;
+    time_ = 0;
+
+    for (const auto &data : datas) {
+      if (!data.armors.empty()) {
+        time_++;
+        const auto &armor = data.armors[0];
+        double ori_yaw = orientationToYaw(armor.target_ori);
+
+        // 按测量模型，计算yaw,pitch和distance
+        double armor_x = armor.target_pos.x;
+        double armor_y = armor.target_pos.y;
+        double armor_z = armor.target_pos.z;
+
+        double xy_dist = std::sqrt(armor_x * armor_x + armor_y * armor_y);
+        double dist = std::sqrt(xy_dist * xy_dist + armor_z * armor_z);
+        double pitch = std::atan2(armor_z, xy_dist);
+        double yaw = std::atan2(armor_y, armor_x);
+
+
+        all_yaw += yaw;
+        all_pitch += pitch;
+        all_dist += dist;
+        all_ori_yaw += ori_yaw; 
+      }
+    }
+
+    double mean_yaw = all_yaw / time_;
+    double mean_pitch = all_pitch / time_;
+    double mean_dist = all_dist / time_;
+    double mean_ori_yaw = all_ori_yaw / time_;
+
+    double var_yaw = 0.0, var_pitch = 0.0, var_dist = 0.0, var_ori_yaw = 0.0;
+
+    for (const auto &data : datas) {
+      if (!data.armors.empty()) {
+        const auto &armor = data.armors[0];
+        double yaw = orientationToYaw(armor.target_ori);
+
+        double armor_x = armor.target_pos.x;
+        double armor_y = armor.target_pos.y;
+        double armor_z = armor.target_pos.z;
+
+        double xy_dist = std::sqrt(armor_x * armor_x + armor_y * armor_y);
+        double dist = std::sqrt(xy_dist * xy_dist + armor_z * armor_z);
+        double pitch = std::atan2(armor_z, xy_dist);
+
+        var_yaw += std::pow(yaw - mean_yaw, 2);
+        var_pitch += std::pow(pitch - mean_pitch, 2);
+        var_dist += std::pow(dist - mean_dist, 2);
+        var_ori_yaw += std::pow(yaw - mean_ori_yaw, 2);
+      }
+    }
+
+    R_x = var_yaw / time_;
+    R_y = var_pitch / time_;
+    R_z = var_dist / time_;
+    R_yaw = var_ori_yaw / time_;
+  }
+
+  if (datas.size() > 5000) {
+    std::ofstream log_file("/tmp/calculation.txt", std::ios::app);
+    log_file << std::fixed << std::setprecision(10);
+    log_file << "R_yaw: " << R_x << std::endl;
+    log_file << "R_pitch: " << R_y << std::endl;
+    log_file << "R_dist: " << R_z << std::endl;
+    log_file << "R_ori_yaw: " << R_yaw << std::endl;
+
+    log_file << "s2qx: " << s2qx << std::endl;
+    log_file << "s2qy: " << s2qy << std::endl;
+    log_file << "s2qz: " << s2qz << std::endl;
+    log_file << "s2qyaw: " << s2qyaw << std::endl;
+    log_file.close();
   }
 }

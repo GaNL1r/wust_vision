@@ -1,5 +1,6 @@
 #include "common/gobal.hpp"
 #include "control/armor_solver.hpp"
+#include "control/bspline.hpp"
 #include "control/rune_solver.hpp"
 #include "detect/armor_pose_estimator.hpp"
 #include "detect/openvino.hpp"
@@ -10,9 +11,11 @@
 #include "driver/recorder.hpp"
 #include "driver/serial.hpp"
 #include "driver/video_player.hpp"
+#include "tracker/tracker_manager.hpp"
 #include "type/type.hpp"
 #include "yaml-cpp/yaml.h"
 #include <opencv2/core/mat.hpp>
+
 class WustVision {
 public:
   WustVision();
@@ -44,8 +47,10 @@ public:
   void runeTargetCallback(const Rune rune_target);
   void update();
   void initRune(const std::string &camera_info_path);
-  Armors visualizeTargetProjection(Target armor_target_);
-  void StartNewVideo(std::string path, int width, int height, double fps);
+  // Armors visualizeTargetProjection(Target armor_target_);
+  Armors visualizeTargetProjection(Target armor_target_,
+                                   std::vector<OneTarget> one_armor_targets_);
+  
 
   std::thread image_thread_;
   std::unique_ptr<ThreadPool> thread_pool_;
@@ -55,22 +60,19 @@ public:
   int max_infer_running_;
   std::mutex callback_mutex_;
   std::atomic<int> infer_running_count_{0};
-  double dt_;
+
   std::string vision_logger = "openvino_vision";
   std::atomic<bool> run_loop_{false};
   std::string target_frame_;
   std::atomic<bool> timer_running_{false};
   std::thread timer_thread_;
-  std::unique_ptr<Tracker> tracker_;
-  double s2qx_, s2qy_, s2qz_, s2qyaw_, s2qr_, s2qd_zc_;
-  double r_x_, r_y_, r_z_, r_yaw_;
-  double lost_time_thres_;
+  std::unique_ptr<TrackerManager> tracker_manager_;
   double gimbal2camera_x_, gimbal2camera_y_, gimbal2camera_z_,
       gimbal2camera_yaw_, gimbal2camera_roll_, gimbal2camera_pitch_;
 
-  Serial serial_;
+  serial::Serial serial_;
   std::unique_ptr<Solver> solver_;
-  std::chrono::steady_clock::time_point last_time_;
+
   std::unique_ptr<ArmorPoseEstimator> armor_pose_estimator_;
   Eigen::Matrix3d imu_to_camera_;
   bool only_nav_enable;
@@ -78,6 +80,8 @@ public:
   std::unique_ptr<std::thread> capture_thread_;
   std::atomic<bool> capture_running_;
   Target armor_target;
+  // OneTarget one_armor_target;
+  std::vector<OneTarget> one_armor_targets;
   Armors armors_gobal;
   Rune rune_gobal;
   imgframe imgframe_;
@@ -90,4 +94,6 @@ public:
   bool use_auto_labeler;
   bool use_video;
   std::vector<RuneObject> rune_objects_;
+
+  std::unique_ptr<RealtimeBSplineSegment> spline;
 };

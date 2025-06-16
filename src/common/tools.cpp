@@ -983,8 +983,10 @@ void draw_debug_overlay(const imgframe &src_img, const Armors *armors,
       }
     }
 
+    int size_pts=target_info->pts.size();
+   
     if (target_info->select_id != -1 &&
-        !target_info->pts[target_info->select_id].empty()) {
+        !target_info->pts[target_info->select_id].empty()&&target_info->select_id==size_pts-1) {
       cv::Point2f center(0.f, 0.f);
       for (int i = 0; i < 4; ++i)
         center += target_info->pts[target_info->select_id][i];
@@ -1106,6 +1108,8 @@ void draw_debug_overlaywrite(const imgframe &src_img, const Armors *armors,
                              const std::optional<GimbalCmd> &gimbal_cmd) {
   static auto last_show_time = std::chrono::steady_clock::now();
   // static bool window_initialized = false;
+  if (!armors || !target_info || !target || !state || !gimbal_cmd)
+    return;
 
   if (src_img.img.empty())
     return;
@@ -1141,8 +1145,17 @@ void draw_debug_overlaywrite(const imgframe &src_img, const Armors *armors,
       if (!measure_tool_->reprojectArmorCorners_raw(armor, pts))
         continue;
 
-      for (size_t i = 0; i < 4; ++i)
-        cv::line(debug_img, pts[i], pts[(i + 1) % 4], cv::Scalar(0, 255, 0), 2);
+      for (size_t i = 0; i < 4; ++i) {
+        // cv::line(debug_img, pts[i], pts[(i + 1) % 4], cv::Scalar(0, 255, 0),
+        // 2);
+        if (armor.is_ok) {
+          cv::line(debug_img, pts[i], pts[next_indices[i]],
+                   cv::Scalar(0, 255, 0), 2);
+        } else {
+          cv::line(debug_img, pts[i], pts[next_indices[i]],
+                   cv::Scalar(0, 0, 255), 2);
+        }
+      }
 
       std::string yaw_info =
           fmt::format("Yaw: {:.2f}", armor.yaw * 180.0 / M_PI);
@@ -1213,9 +1226,17 @@ void draw_debug_overlaywrite(const imgframe &src_img, const Armors *armors,
       const auto &pts = target_info->pts[i];
       const auto &pos = target_info->pos[i];
       const auto &ori = target_info->ori[i];
+      const auto &is_ok = target_info->is_ok[i];
 
-      for (size_t j = 0; j < 4; ++j)
-        cv::line(debug_img, pts[j], pts[(j + 1) % 4], cv::Scalar(255, 0, 0), 2);
+      for (size_t j = 0; j < 4; ++j) {
+        if (is_ok) {
+          cv::line(debug_img, pts[j], pts[(j + 1) % 4], cv::Scalar(255, 0, 0),
+                   2);
+        } else {
+          cv::line(debug_img, pts[j], pts[(j + 1) % 4], cv::Scalar(0, 0, 255),
+                   2);
+        }
+      }
 
       all_corners.insert(all_corners.end(), pts.begin(), pts.end());
 
@@ -1236,9 +1257,10 @@ void draw_debug_overlaywrite(const imgframe &src_img, const Armors *armors,
                     cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(50, 255, 255), 1);
       }
     }
-
+    int size_pts=target_info->pts.size();
+   
     if (target_info->select_id != -1 &&
-        !target_info->pts[target_info->select_id].empty()) {
+        !target_info->pts[target_info->select_id].empty()&&target_info->select_id==size_pts-1) {
       cv::Point2f center(0.f, 0.f);
       for (int i = 0; i < 4; ++i)
         center += target_info->pts[target_info->select_id][i];
@@ -1496,8 +1518,10 @@ cv::Mat draw_debug_overlayMat(const imgframe &src_img, const Armors *armors,
       }
     }
 
+    int size_pts=target_info->pts.size();
+   
     if (target_info->select_id != -1 &&
-        !target_info->pts[target_info->select_id].empty()) {
+        !target_info->pts[target_info->select_id].empty()&&target_info->select_id==size_pts-1) {
       cv::Point2f center(0.f, 0.f);
       for (int i = 0; i < 4; ++i)
         center += target_info->pts[target_info->select_id][i];
