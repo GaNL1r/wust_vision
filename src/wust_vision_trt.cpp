@@ -351,90 +351,89 @@ void WustVision::armorsCallback(Armors armors_, const cv::Mat &src_img) {
   one_armor_targets = one_targets_;
 }
 
-
 Armors WustVision::visualizeTargetProjection(
-  Target armor_target_, std::vector<OneTarget> one_armor_targets_) {
+    Target armor_target_, std::vector<OneTarget> one_armor_targets_) {
 
-Armors armor_data;
-armor_data.frame_id = "odom";
-armor_data.timestamp = armor_target_.timestamp;
+  Armors armor_data;
+  armor_data.frame_id = "odom";
+  armor_data.timestamp = armor_target_.timestamp;
 
-if (armor_target_.tracking) {
-  double yaw = armor_target_.yaw, r1 = armor_target_.radius_1,
-         r2 = armor_target_.radius_2;
-  float xc = armor_target_.position_.x, yc = armor_target_.position_.y,
-        zc = armor_target_.position_.z;
-  double d_za = armor_target_.d_za, d_zc = armor_target_.d_zc;
-  xc = xc + armor_target_.velocity_.x * debug_show_dt_;
-  yc = yc + armor_target_.velocity_.y * debug_show_dt_;
-  zc = zc + armor_target_.velocity_.z * debug_show_dt_;
-  yaw = yaw + armor_target_.v_yaw * debug_show_dt_;
+  if (armor_target_.tracking) {
+    double yaw = armor_target_.yaw, r1 = armor_target_.radius_1,
+           r2 = armor_target_.radius_2;
+    float xc = armor_target_.position_.x, yc = armor_target_.position_.y,
+          zc = armor_target_.position_.z;
+    double d_za = armor_target_.d_za, d_zc = armor_target_.d_zc;
+    xc = xc + armor_target_.velocity_.x * debug_show_dt_;
+    yc = yc + armor_target_.velocity_.y * debug_show_dt_;
+    zc = zc + armor_target_.velocity_.z * debug_show_dt_;
+    yaw = yaw + armor_target_.v_yaw * debug_show_dt_;
 
-  bool is_current_pair = true;
+    bool is_current_pair = true;
 
-  armor_data.armors.clear();
+    armor_data.armors.clear();
 
-  size_t a_n = armor_target_.armors_num;
+    size_t a_n = armor_target_.armors_num;
 
-  armor_data.armors.reserve(a_n);
+    armor_data.armors.reserve(a_n);
 
-  for (size_t i = 0; i < a_n; ++i) {
-    double tmp_yaw = yaw + i * (2 * M_PI / a_n);
-    double cos_yaw = std::cos(tmp_yaw);
-    double sin_yaw = std::sin(tmp_yaw);
+    for (size_t i = 0; i < a_n; ++i) {
+      double tmp_yaw = yaw + i * (2 * M_PI / a_n);
+      double cos_yaw = std::cos(tmp_yaw);
+      double sin_yaw = std::sin(tmp_yaw);
 
-    Position pos;
-    if (a_n == 4) {
-      double r = is_current_pair ? r1 : r2;
-      pos.z = zc + d_zc + (is_current_pair ? 0 : d_za);
-      pos.x = xc - r * cos_yaw;
-      pos.y = yc - r * sin_yaw;
-      is_current_pair = !is_current_pair;
-    } else {
-      pos.z = zc;
-      pos.x = xc - r1 * cos_yaw;
-      pos.y = yc - r1 * sin_yaw;
+      Position pos;
+      if (a_n == 4) {
+        double r = is_current_pair ? r1 : r2;
+        pos.z = zc + d_zc + (is_current_pair ? 0 : d_za);
+        pos.x = xc - r * cos_yaw;
+        pos.y = yc - r * sin_yaw;
+        is_current_pair = !is_current_pair;
+      } else {
+        pos.z = zc;
+        pos.x = xc - r1 * cos_yaw;
+        pos.y = yc - r1 * sin_yaw;
+      }
+
+      tf2::Quaternion ori;
+      ori.setRPY(M_PI / 2,
+                 armor_target_.id == ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
+                 tmp_yaw);
+
+      armor_data.armors.emplace_back(Armor{.type = armor_target_.type,
+                                           .pos = pos,
+                                           .ori = ori,
+                                           .is_ok = true,
+                                           //.target_pos = {xc, yc, zc},
+                                           .distance_to_image_center = 0.0f});
     }
-
-    tf2::Quaternion ori;
-    ori.setRPY(M_PI / 2,
-               armor_target_.id == ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
-               tmp_yaw);
-
-    armor_data.armors.emplace_back(Armor{.type = armor_target_.type,
-                                         .pos = pos,
-                                         .ori = ori,
-                                         .is_ok = true,
-                                         //.target_pos = {xc, yc, zc},
-                                         .distance_to_image_center = 0.0f});
   }
-}
-for (auto one_armor_target_ : one_armor_targets_) {
-  if (one_armor_target_.tracking) {
-    Position pos;
-    pos.x = one_armor_target_.position_.x +
-            one_armor_target_.velocity_.x * debug_show_dt_;
-    pos.y = one_armor_target_.position_.y +
-            one_armor_target_.velocity_.y * debug_show_dt_;
-    pos.z = one_armor_target_.position_.z +
-            one_armor_target_.velocity_.z * debug_show_dt_;
-    double tmp_yaw =
-        one_armor_target_.yaw + one_armor_target_.v_yaw * debug_show_dt_;
-    tf2::Quaternion ori;
-    ori.setRPY(M_PI / 2,
-               one_armor_target_.id == ArmorNumber::OUTPOST ? -0.2618
-                                                            : 0.2618,
-               tmp_yaw);
+  for (auto one_armor_target_ : one_armor_targets_) {
+    if (one_armor_target_.tracking) {
+      Position pos;
+      pos.x = one_armor_target_.position_.x +
+              one_armor_target_.velocity_.x * debug_show_dt_;
+      pos.y = one_armor_target_.position_.y +
+              one_armor_target_.velocity_.y * debug_show_dt_;
+      pos.z = one_armor_target_.position_.z +
+              one_armor_target_.velocity_.z * debug_show_dt_;
+      double tmp_yaw =
+          one_armor_target_.yaw + one_armor_target_.v_yaw * debug_show_dt_;
+      tf2::Quaternion ori;
+      ori.setRPY(M_PI / 2,
+                 one_armor_target_.id == ArmorNumber::OUTPOST ? -0.2618
+                                                              : 0.2618,
+                 tmp_yaw);
 
-    armor_data.armors.emplace_back(Armor{.type = one_armor_target_.type,
-                                         .pos = pos,
-                                         .ori = ori,
-                                         .is_ok = false,
-                                         .distance_to_image_center = 0.0f});
+      armor_data.armors.emplace_back(Armor{.type = one_armor_target_.type,
+                                           .pos = pos,
+                                           .ori = ori,
+                                           .is_ok = false,
+                                           .distance_to_image_center = 0.0f});
+    }
   }
-}
 
-return armor_data;
+  return armor_data;
 }
 
 void WustVision::DetectCallback(const std::vector<ArmorObject> &objs,
@@ -546,12 +545,9 @@ void WustVision::timerCallback() {
   std::vector<OneTarget> one_targets;
   one_targets = one_armor_targets;
 
-
-
- 
   Tracker::State state;
   bool appear;
-  bool one_appear=false;
+  bool one_appear = false;
   for (auto &one_target : one_targets) {
     if (one_target.tracking) {
       one_appear = true;
@@ -568,19 +564,18 @@ void WustVision::timerCallback() {
   auto now = std::chrono::steady_clock::now();
   AttackMode mode = toAttackMode(attack_mode);
 
+  auto latency_nano = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                          now - target.timestamp)
+                          .count();
+  latency_ms = static_cast<double>(latency_nano) / 1e6;
 
-    auto latency_nano = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                            now - target.timestamp)
-                            .count();
-    latency_ms = static_cast<double>(latency_nano) / 1e6;
- 
   GimbalCmd gimbal_cmd;
 
-  if (target.tracking|| one_appear ) {
+  if (target.tracking || one_appear) {
     try {
-      
-      gimbal_cmd = solver_->solve(target,one_targets, now);
-      
+
+      gimbal_cmd = solver_->solve(target, one_targets, now);
+
       last_cmd_ = gimbal_cmd;
       if (gimbal_cmd.fire_advice) {
         fire_count_++;

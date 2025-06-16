@@ -983,10 +983,11 @@ void draw_debug_overlay(const imgframe &src_img, const Armors *armors,
       }
     }
 
-    int size_pts=target_info->pts.size();
-   
+    int size_pts = target_info->pts.size();
+
     if (target_info->select_id != -1 &&
-        !target_info->pts[target_info->select_id].empty()&&target_info->select_id==size_pts-1) {
+        !target_info->pts[target_info->select_id].empty() &&
+        target_info->select_id == size_pts - 1) {
       cv::Point2f center(0.f, 0.f);
       for (int i = 0; i < 4; ++i)
         center += target_info->pts[target_info->select_id][i];
@@ -1257,10 +1258,11 @@ void draw_debug_overlaywrite(const imgframe &src_img, const Armors *armors,
                     cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(50, 255, 255), 1);
       }
     }
-    int size_pts=target_info->pts.size();
-   
+    int size_pts = target_info->pts.size();
+
     if (target_info->select_id != -1 &&
-        !target_info->pts[target_info->select_id].empty()&&target_info->select_id==size_pts-1) {
+        !target_info->pts[target_info->select_id].empty() &&
+        target_info->select_id == size_pts - 1) {
       cv::Point2f center(0.f, 0.f);
       for (int i = 0; i < 4; ++i)
         center += target_info->pts[target_info->select_id][i];
@@ -1518,10 +1520,11 @@ cv::Mat draw_debug_overlayMat(const imgframe &src_img, const Armors *armors,
       }
     }
 
-    int size_pts=target_info->pts.size();
-   
+    int size_pts = target_info->pts.size();
+
     if (target_info->select_id != -1 &&
-        !target_info->pts[target_info->select_id].empty()&&target_info->select_id==size_pts-1) {
+        !target_info->pts[target_info->select_id].empty() &&
+        target_info->select_id == size_pts - 1) {
       cv::Point2f center(0.f, 0.f);
       for (int i = 0; i < 4; ++i)
         center += target_info->pts[target_info->select_id][i];

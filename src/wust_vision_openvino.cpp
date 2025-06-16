@@ -749,7 +749,7 @@ void WustVision::timerCallback() {
   rune = rune_gobal;
   Tracker::State state;
   bool appear;
-  bool one_appear=false;
+  bool one_appear = false;
   for (auto &one_target : one_targets) {
     if (one_target.tracking) {
       one_appear = true;
@@ -779,13 +779,13 @@ void WustVision::timerCallback() {
   }
   GimbalCmd gimbal_cmd;
 
-  if (target.tracking || one_appear||
+  if (target.tracking || one_appear ||
       rune_solver_->tracker_state == Tracker::State::TRACKING) {
     try {
       // switch (mode) {
       // case AttackMode::ARMOR: {
       //  static int last_target_count = -1;
-      gimbal_cmd = solver_->solve(target, one_targets,now);
+      gimbal_cmd = solver_->solve(target, one_targets, now);
       //   auto cmds=solver_->solveBatch(target,now,10);
       //   std::vector<Eigen::Vector2d> control_pts;
       //   if (target.count != last_target_count) {

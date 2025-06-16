@@ -50,7 +50,8 @@ void command_callbacka(const Armors &armors) {
   auto current_time = std::chrono::steady_clock::now();
   double delta_time = std::chrono::duration_cast<std::chrono::milliseconds>(
                           current_time - last_time_)
-                          .count() / 1000.0;
+                          .count() /
+                      1000.0;
 
   if (!armors.armors.empty() && delta_time > 0.5) {
     last_time_ = current_time;
@@ -69,16 +70,24 @@ void command_callbacka(const Armors &armors) {
       double v_z = (pos.z - last_z_) / delta_time;
       double v_yaw = (yaw - last_yaw_) / delta_time;
 
-      s2qx = std::exp(-(std::abs(v_x) + 0.5 * std::abs(v_yaw))) * (s2qx_max - s2qx_min) + s2qx_min;
+      s2qx = std::exp(-(std::abs(v_x) + 0.5 * std::abs(v_yaw))) *
+                 (s2qx_max - s2qx_min) +
+             s2qx_min;
       ex(s2qx, s2qx_min, s2qx_max);
 
-      s2qy = std::exp(-(std::abs(v_y) + 0.5 * std::abs(v_yaw))) * (s2qy_max - s2qy_min) + s2qy_min;
+      s2qy = std::exp(-(std::abs(v_y) + 0.5 * std::abs(v_yaw))) *
+                 (s2qy_max - s2qy_min) +
+             s2qy_min;
       ex(s2qy, s2qy_min, s2qy_max);
 
-      s2qz = std::exp(-(std::abs(v_z) + 0.5 * std::abs(v_yaw))) * (s2qz_max - s2qz_min) + s2qz_min;
+      s2qz = std::exp(-(std::abs(v_z) + 0.5 * std::abs(v_yaw))) *
+                 (s2qz_max - s2qz_min) +
+             s2qz_min;
       ex(s2qz, s2qz_min, s2qz_max);
 
-      s2qyaw = std::exp(-(std::abs(v_x) + 0.5 * std::abs(v_z))) * (s2qyaw_max - s2qyaw_min) + s2qyaw_min;
+      s2qyaw = std::exp(-(std::abs(v_x) + 0.5 * std::abs(v_z))) *
+                   (s2qyaw_max - s2qyaw_min) +
+               s2qyaw_min;
       ex(s2qyaw, s2qyaw_min, s2qyaw_max);
 
       last_x_ = pos.x;
@@ -171,7 +180,8 @@ void command_callbackypd(const Armors &armors) {
   auto current_time = std::chrono::steady_clock::now();
   double delta_time = std::chrono::duration_cast<std::chrono::milliseconds>(
                           current_time - last_time_)
-                          .count() / 1000.0;
+                          .count() /
+                      1000.0;
 
   if (!armors.armors.empty() && delta_time > 0.5) {
     last_time_ = current_time;
@@ -191,16 +201,24 @@ void command_callbackypd(const Armors &armors) {
       double v_yaw = (yaw - last_yaw_) / delta_time;
 
       // 结合 EKF 状态维度，对过程噪声进行自适应估计
-      s2qx = std::exp(-(std::abs(v_x) + 0.5 * std::abs(v_yaw))) * (s2qx_max - s2qx_min) + s2qx_min;
+      s2qx = std::exp(-(std::abs(v_x) + 0.5 * std::abs(v_yaw))) *
+                 (s2qx_max - s2qx_min) +
+             s2qx_min;
       ex(s2qx, s2qx_min, s2qx_max);
 
-      s2qy = std::exp(-(std::abs(v_y) + 0.5 * std::abs(v_yaw))) * (s2qy_max - s2qy_min) + s2qy_min;
+      s2qy = std::exp(-(std::abs(v_y) + 0.5 * std::abs(v_yaw))) *
+                 (s2qy_max - s2qy_min) +
+             s2qy_min;
       ex(s2qy, s2qy_min, s2qy_max);
 
-      s2qz = std::exp(-(std::abs(v_z) + 0.5 * std::abs(v_yaw))) * (s2qz_max - s2qz_min) + s2qz_min;
+      s2qz = std::exp(-(std::abs(v_z) + 0.5 * std::abs(v_yaw))) *
+                 (s2qz_max - s2qz_min) +
+             s2qz_min;
       ex(s2qz, s2qz_min, s2qz_max);
 
-      s2qyaw = std::exp(-(std::abs(v_x) + 0.5 * std::abs(v_z))) * (s2qyaw_max - s2qyaw_min) + s2qyaw_min;
+      s2qyaw = std::exp(-(std::abs(v_x) + 0.5 * std::abs(v_z))) *
+                   (s2qyaw_max - s2qyaw_min) +
+               s2qyaw_min;
       ex(s2qyaw, s2qyaw_min, s2qyaw_max);
 
       last_x_ = pos.x;
@@ -230,11 +248,10 @@ void command_callbackypd(const Armors &armors) {
         double pitch = std::atan2(armor_z, xy_dist);
         double yaw = std::atan2(armor_y, armor_x);
 
-
         all_yaw += yaw;
         all_pitch += pitch;
         all_dist += dist;
-        all_ori_yaw += ori_yaw; 
+        all_ori_yaw += ori_yaw;
       }
     }
 

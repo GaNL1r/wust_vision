@@ -50,7 +50,6 @@ public:
   // Armors visualizeTargetProjection(Target armor_target_);
   Armors visualizeTargetProjection(Target armor_target_,
                                    std::vector<OneTarget> one_armor_targets_);
-  
 
   std::thread image_thread_;
   std::unique_ptr<ThreadPool> thread_pool_;

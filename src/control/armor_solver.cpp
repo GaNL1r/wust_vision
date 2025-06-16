@@ -208,12 +208,13 @@ GimbalCmd Solver::solve(const Target &target,
   std::array<double, 3> rpy{last_roll, last_pitch + gimbal2camera_pitch,
                             last_yaw};
   int one_idx = 0;
-  int target_armor_num=target.armors_num;
+  int target_armor_num = target.armors_num;
   // 2. 选择最佳单目标
   OneTarget best_target;
   double min_dist = std::numeric_limits<double>::max();
-  for (int i=0;i<one_targets_.size();i++) {
-    if (one_targets_[i].tracking && one_targets_[i].distance_to_image_center < min_dist) {
+  for (int i = 0; i < one_targets_.size(); i++) {
+    if (one_targets_[i].tracking &&
+        one_targets_[i].distance_to_image_center < min_dist) {
       min_dist = one_targets_[i].distance_to_image_center;
       best_target = one_targets_[i];
       one_idx = i;
@@ -332,7 +333,7 @@ GimbalCmd Solver::solve(const Target &target,
                                                 target.velocity_.z);
       yaw += controller_delay * target.v_yaw;
     }
-    select_id=target_armor_num+one_idx;
+    select_id = target_armor_num + one_idx;
     applyCompensate(pos, raw_yaw, raw_pitch, cmd_yaw, cmd_pitch, distance,
                     fire_advice);
   }

@@ -9,10 +9,10 @@
 #include "driver/serial.hpp"
 #include "driver/video_player.hpp"
 #include "tracker/tracker.hpp"
+#include "tracker/tracker_manager.hpp"
 #include "type/type.hpp"
 #include "yaml-cpp/yaml.h"
 #include <opencv2/core/mat.hpp>
-#include "tracker/tracker_manager.hpp"
 class WustVision {
 public:
   WustVision();
@@ -35,7 +35,7 @@ public:
   void stopTimer();
   void transformArmorData(Armors &armors);
   Armors visualizeTargetProjection(Target armor_target_,
-    std::vector<OneTarget> one_armor_targets_);
+                                   std::vector<OneTarget> one_armor_targets_);
 
   std::unique_ptr<HikCamera> camera_;
   std::unique_ptr<AdaptedTRTModule> detector_;
