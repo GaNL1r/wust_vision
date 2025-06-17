@@ -144,6 +144,7 @@ tracker:
   target_frame: gimbal_odom
   tracking_thres: 5
   one_lost_time_thres: 0.1
+  v_yaw_update_thres: 1.5
 use_calculation: false
 rune_detector:
   detect_r_tag: true

@@ -38,7 +38,7 @@ void OneTracker::init(const Armors &armors_msg) noexcept {
       type = armor.type;
     }
   }
-  WUST_INFO(tracker_logger) << "INIT EKF";
+  WUST_DEBUG(tracker_logger) << "INIT EKF";
   initEKF(tracked_armor);
   tracked_id = tracked_armor.number;
   tracker_state = DETECTING;
@@ -53,7 +53,7 @@ void OneTracker::init(const Armor &armor_msg) noexcept {
   retype = retypetotracker(armor_msg.number);
   type = armor_msg.type;
 
-  WUST_INFO(tracker_logger) << "INIT EKF";
+  WUST_DEBUG(tracker_logger) << "INIT EKF";
   initEKF(tracked_armor);
   tracked_id = tracked_armor.number;
   tracker_state = DETECTING;
@@ -166,6 +166,7 @@ void OneTracker::update(const Armors &armors_msg) noexcept {
     }
   }
 }
+
 void OneTracker::update(const Armor &armor_msg) noexcept {
   Eigen::VectorXd ekf_prediction = ekf->predict();
   bool matched = false;

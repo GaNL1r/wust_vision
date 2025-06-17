@@ -38,11 +38,27 @@ void OneYpdTracker::init(const Armors &armors_msg) noexcept {
       type = armor.type;
     }
   }
-  WUST_INFO(tracker_logger) << "INIT EKF";
+  WUST_DEBUG(tracker_logger) << "INIT EKF";
   initEKF(tracked_armor);
   tracked_id = tracked_armor.number;
   tracker_state = DETECTING;
 }
+void OneYpdTracker::init(const Armor &armor_msg) noexcept {
+
+  double min_distance = DBL_MAX;
+  tracked_armor = armor_msg;
+
+  min_distance = armor_msg.distance_to_image_center;
+  tracked_armor = armor_msg;
+  retype = retypetotracker(armor_msg.number);
+  type = armor_msg.type;
+
+  WUST_DEBUG(tracker_logger) << "INIT EKF";
+  initEKF(tracked_armor);
+  tracked_id = tracked_armor.number;
+  tracker_state = DETECTING;
+}
+
 
 void OneYpdTracker::update(const Armors &armors_msg) noexcept {
   Eigen::VectorXd ekf_prediction = ekf->predict();
@@ -156,7 +172,61 @@ void OneYpdTracker::update(const Armors &armors_msg) noexcept {
     }
   }
 }
+void OneYpdTracker::update(const Armor &armor_msg) noexcept {
+  Eigen::VectorXd ekf_prediction = ekf->predict();
+  bool matched = false;
+  target_state = ekf_prediction;
+  std::vector<Armor> another_armors;
+  double dis = std::sqrt(armor_msg.pos.x * armor_msg.pos.x +
+                         armor_msg.pos.y * armor_msg.pos.y +
+                         armor_msg.pos.z * armor_msg.pos.z);
+  if (dis > 0.1) {
+    tracked_armor = armor_msg;
+    tracked_armor.timestamp = armor_msg.timestamp;
+    matched = true;
+    auto p = tracked_armor.target_pos;
+    double measured_yaw = orientationToYaw(tracked_armor.target_ori);
+    double ypd_y = std::atan2(p.y, p.x);
+    double ypd_p = std::atan2(p.z, std::sqrt(p.x * p.x + p.y * p.y));
+    double ypd_d = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
+    measurement = Eigen::Vector4d(ypd_y, ypd_p, ypd_d, measured_yaw);
+    target_state = ekf->update(measurement);
+    distance_to_image_center = armor_msg.distance_to_image_center;
+  } else {
 
+    matched = false;
+  }
+
+  // 状态机管理
+  if (tracker_state == DETECTING) {
+    if (matched) {
+      detect_count_++;
+      if (detect_count_ > tracking_thres) {
+        detect_count_ = 0;
+        tracker_state = TRACKING;
+      }
+    } else {
+      detect_count_ = 0;
+      tracker_state = LOST;
+    }
+  } else if (tracker_state == TRACKING) {
+    if (!matched) {
+      tracker_state = TEMP_LOST;
+      lost_count_++;
+    }
+  } else if (tracker_state == TEMP_LOST) {
+    if (!matched) {
+      lost_count_++;
+      if (lost_count_ > lost_thres) {
+        lost_count_ = 0;
+        tracker_state = LOST;
+      }
+    } else {
+      tracker_state = TRACKING;
+      lost_count_ = 0;
+    }
+  }
+}
 void OneYpdTracker::initEKF(const Armor &a) noexcept {
   double xa = a.target_pos.x;
   double ya = a.target_pos.y;

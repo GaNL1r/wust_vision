@@ -1,4 +1,4 @@
-#include "tracker/ypd_tracker.hpp"
+#include "tracker/one_ca_tracker.hpp"
 #include "common/angles.h"
 #include "common/gobal.hpp"
 #include "common/logger.hpp"
@@ -13,7 +13,7 @@
 #include <ostream>
 #include <string>
 
-YpdTracker::YpdTracker(double max_match_distance, double max_match_yaw_diff,
+OneCaTracker::OneCaTracker(double max_match_distance, double max_match_yaw_diff,
                        double max_match_z_diff)
     : tracker_state(LOST), tracked_id(ArmorNumber::UNKNOWN),
       measurement(Eigen::VectorXd::Zero(4)),
@@ -23,16 +23,14 @@ YpdTracker::YpdTracker(double max_match_distance, double max_match_yaw_diff,
       max_match_z_diff_(max_match_z_diff), detect_count_(0), lost_count_(0),
       last_yaw_(0) {}
 
-void YpdTracker::init(const Armors &armors_msg) noexcept {
+void OneCaTracker::init(const Armors &armors_msg) noexcept {
   if (armors_msg.armors.empty())
     return;
 
   double min_distance = DBL_MAX;
   tracked_armor = armors_msg.armors[0];
   for (const auto &armor : armors_msg.armors) {
-    if (!armor.is_ok) {
-      continue;
-    }
+
     if (armor.distance_to_image_center < min_distance) {
       min_distance = armor.distance_to_image_center;
       tracked_armor = armor;
@@ -44,15 +42,24 @@ void YpdTracker::init(const Armors &armors_msg) noexcept {
   initEKF(tracked_armor);
   tracked_id = tracked_armor.number;
   tracker_state = DETECTING;
+}
+void OneCaTracker::init(const Armor &armor_msg) noexcept {
 
-  if (tracked_id == ArmorNumber::OUTPOST) {
-    tracked_armors_num = ArmorsNum::OUTPOST_3;
-  } else {
-    tracked_armors_num = ArmorsNum::NORMAL_4;
-  }
+  double min_distance = DBL_MAX;
+  tracked_armor = armor_msg;
+
+  min_distance = armor_msg.distance_to_image_center;
+  tracked_armor = armor_msg;
+  retype = retypetotracker(armor_msg.number);
+  type = armor_msg.type;
+
+  WUST_DEBUG(tracker_logger) << "INIT EKF";
+  initEKF(tracked_armor);
+  tracked_id = tracked_armor.number;
+  tracker_state = DETECTING;
 }
 
-void YpdTracker::update(const Armors &armors_msg) noexcept {
+void OneCaTracker::update(const Armors &armors_msg) noexcept {
   Eigen::VectorXd ekf_prediction = ekf->predict();
   bool matched = false;
   target_state = ekf_prediction;
@@ -71,21 +78,16 @@ void YpdTracker::update(const Armors &armors_msg) noexcept {
     double yaw_diff = DBL_MAX;
 
     for (auto &armor : armors_msg.armors) {
-      if (!armor.is_ok) {
-        continue;
-      }
 
       if (retypetotracker(armor.number) == retype) {
         same_id_armor = armor;
         same_id_armors_count++;
-        // WUST_INFO(tracker_logger)<<"Same ID armor
-        // found!"<<fmt::format("count: {}\n", same_id_armors_count);
+
         auto p = armor.target_pos;
         Eigen::Vector3d position_vec(p.x, p.y, p.z);
+
         double position_diff = (predicted_position - position_vec).norm();
         double z_diff = std::abs(armor.target_pos.z - predicted_position.z());
-        // WUST_INFO(tracker_logger)<<"Armor
-        // found!"<<fmt::format("position_diff: {}\n", position_diff);
 
         if (position_diff < min_position_diff) {
           min_position_diff = position_diff;
@@ -96,11 +98,6 @@ void YpdTracker::update(const Armors &armors_msg) noexcept {
           tracked_armor.timestamp = armors_msg.timestamp;
           yaw_diff_ = yaw_diff;
 
-          if (tracked_id == ArmorNumber::OUTPOST) {
-            tracked_armors_num = ArmorsNum::OUTPOST_3;
-          } else {
-            tracked_armors_num = ArmorsNum::NORMAL_4;
-          }
         } else {
           another_armors.push_back(armor);
           position_diff_ = position_diff;
@@ -113,31 +110,30 @@ void YpdTracker::update(const Armors &armors_msg) noexcept {
       matched = true;
       auto p = tracked_armor.target_pos;
       double measured_yaw = orientationToYaw(tracked_armor.target_ori);
-      double ypd_y = std::atan2(p.y, p.x);
-      double ypd_p = std::atan2(p.z, std::sqrt(p.x * p.x + p.y * p.y));
-      double ypd_d = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
-      measurement = Eigen::Vector4d(ypd_y, ypd_p, ypd_d, measured_yaw);
+      measurement = Eigen::Vector4d(p.x, p.y, p.z, measured_yaw);
       target_state = ekf->update(measurement);
-     
+
+      if (if_have_last_track_) {
+        updateYawStateConsistency(measured_yaw);
+
+      } else {
+
+        if_have_last_track_ = true;
+        last_track_yaw_ = measured_yaw;
+        last_track_time_ = tracked_armor.timestamp;
+        yaw_velocity_buffer_.clear();
+        track_update_count_ = 0;
+      }
 
     } else if (same_id_armors_count == 1 && yaw_diff > max_match_yaw_diff_ &&
                min_z_diff < max_match_z_diff_) {
-
       handleArmorJump(same_id_armor);
+
       if_have_last_track_ = false;
 
     } else {
       // WUST_DEBUG(tracker_logger)<<"No matched armor found!";
     }
-  }
-
-  // 限制状态变量范围
-  if (target_state(8) < 0.12) {
-    target_state(8) = 0.12;
-    ekf->setState(target_state);
-  } else if (target_state(8) > 0.4) {
-    target_state(8) = 0.4;
-    ekf->setState(target_state);
   }
 
   // 状态机管理
@@ -170,48 +166,82 @@ void YpdTracker::update(const Armors &armors_msg) noexcept {
     }
   }
 }
-void YpdTracker::updatev_yaw(double v_yaw) noexcept { 
+void OneCaTracker::update(const Armor &armor_msg) noexcept {
+  Eigen::VectorXd ekf_prediction = ekf->predict();
+  bool matched = false;
+  target_state = ekf_prediction;
+  std::vector<Armor> another_armors;
+  double dis = std::sqrt(armor_msg.pos.x * armor_msg.pos.x +
+                         armor_msg.pos.y * armor_msg.pos.y +
+                         armor_msg.pos.z * armor_msg.pos.z);
+  if (dis > 0.1) {
+    tracked_armor = armor_msg;
+    tracked_armor.timestamp = armor_msg.timestamp;
+    matched = true;
+    auto p = tracked_armor.target_pos;
+    double measured_yaw = orientationToYaw(tracked_armor.target_ori);
+    measurement = Eigen::Vector4d(p.x, p.y, p.z, measured_yaw);
+    target_state = ekf->update(measurement);
+    distance_to_image_center = armor_msg.distance_to_image_center;
+  } else {
+    matched = false;
+  }
 
-  target_state(7) = v_yaw;
-  ekf->setState(target_state);
-  WUST_INFO(tracker_logger)<<"update v_yaw"<<v_yaw;
+  // 状态机管理
+  if (tracker_state == DETECTING) {
+    if (matched) {
+      detect_count_++;
+      if (detect_count_ > tracking_thres) {
+        detect_count_ = 0;
+        tracker_state = TRACKING;
+      }
+    } else {
+      detect_count_ = 0;
+      tracker_state = LOST;
+    }
+  } else if (tracker_state == TRACKING) {
+    if (!matched) {
+      tracker_state = TEMP_LOST;
+      lost_count_++;
+    }
+  } else if (tracker_state == TEMP_LOST) {
+    if (!matched) {
+      lost_count_++;
+      if (lost_count_ > lost_thres) {
+        lost_count_ = 0;
+        tracker_state = LOST;
+      }
+    } else {
+      tracker_state = TRACKING;
+      lost_count_ = 0;
+    }
+  }
 }
 
-
-void YpdTracker::initEKF(const Armor &a) noexcept {
+void OneCaTracker::initEKF(const Armor &a) noexcept {
   double xa = a.target_pos.x;
   double ya = a.target_pos.y;
   double za = a.target_pos.z;
   last_yaw_ = 0;
   double yaw = orientationToYaw(a.target_ori);
 
-  target_state = Eigen::VectorXd::Zero(ypdarmor_motion_model::X_N);
-  double r = 0.24;
-  double xc = xa + r * cos(yaw);
-  double yc = ya + r * sin(yaw);
-  double zc = za;
-  d_za = 0, d_zc = 0, another_r = r;
-  target_state << xc, 0, yc, 0, zc, 0, yaw, 0, r, d_zc;
+  target_state = Eigen::VectorXd::Zero(onecaarmor_motion_model::X_N);
+  target_state << xa, 0,0, ya,0, 0, za, 0,0, yaw, 0;
   ekf->setState(target_state);
 }
 
-void YpdTracker::handleArmorJump(const Armor &current_armor) noexcept {
+void OneCaTracker::handleArmorJump(const Armor &current_armor) noexcept {
 
   double last_yaw = target_state(6);
   double yaw = orientationToYaw(current_armor.target_ori);
-  double delta_yaw = normalizeAnglec(yaw - last_yaw);
+  double delta_yaw = onormalizeAnglem(yaw - last_yaw);
 
   if (std::abs(delta_yaw) > jump_thresh) {
-    target_state(6) = yaw;
+    double v_yaw = target_state(7);
+    initEKF(current_armor);
+    target_state(9) = yaw;
+    target_state(10) = v_yaw;
 
-    if (tracked_armors_num == ArmorsNum::NORMAL_4) {
-      d_za = target_state(4) + target_state(9) - current_armor.target_pos.z;
-      std::swap(target_state(8), another_r);
-      // std::cout<<d_za<<"c"<<d_zc<<"t4"<<target_state(4)<<"az"<<current_armor.target_pos.z<<std::endl;
-      d_zc = d_zc == 0 ? -d_za : 0;
-
-      target_state(9) = d_zc;
-    }
     WUST_DEBUG(tracker_logger) << "Armor Jump!";
   }
 
@@ -221,21 +251,22 @@ void YpdTracker::handleArmorJump(const Armor &current_armor) noexcept {
   Eigen::Vector3d infer_p = getArmorPositionFromState(target_state);
 
   if ((current_p - infer_p).norm() > max_match_distance_) {
-    d_zc = 0;
-    double r = target_state(8);
-    target_state(0) = current_armor.target_pos.x + r * cos(yaw);
+
+    target_state(0) = current_armor.target_pos.x;
     target_state(1) = 0;
-    target_state(2) = current_armor.target_pos.y + r * sin(yaw);
-    target_state(3) = 0;
-    target_state(4) = current_armor.target_pos.z;
+    target_state(2) = 0;
+    target_state(3) = current_armor.target_pos.y;
+    target_state(4) = 0;
     target_state(5) = 0;
-    target_state(9) = d_zc;
+    target_state(6) = current_armor.target_pos.z;
+    target_state(7) = 0;
+    target_state(8) = 0;
   }
 
   ekf->setState(target_state);
 }
 
-double YpdTracker::orientationToYaw(const tf2::Quaternion &q) noexcept {
+double OneCaTracker::orientationToYaw(const tf2::Quaternion &q) noexcept {
   double roll, pitch, yaw;
   tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
   yaw = last_yaw_ + angles::shortest_angular_distance(last_yaw_, yaw);
@@ -244,14 +275,12 @@ double YpdTracker::orientationToYaw(const tf2::Quaternion &q) noexcept {
 }
 
 Eigen::Vector3d
-YpdTracker::getArmorPositionFromState(const Eigen::VectorXd &x) noexcept {
-  double xc = x(0), yc = x(2), za = x(4) + x(9);
-  double yaw = x(6), r = x(8);
-  double xa = xc - r * cos(yaw);
-  double ya = yc - r * sin(yaw);
-  return Eigen::Vector3d(xa, ya, za);
+OneCaTracker::getArmorPositionFromState(const Eigen::VectorXd &x) noexcept {
+    double xa = x(0), ya = x(3), za = x(6);
+    return Eigen::Vector3d(xa, ya, za);
+
 }
-void YpdTracker::updateYawStateConsistency(double measured_yaw) {
+void OneCaTracker::updateYawStateConsistency(double measured_yaw) {
   track_update_count_++;
 
   if (track_update_count_ >= 10) {
@@ -260,7 +289,7 @@ void YpdTracker::updateYawStateConsistency(double measured_yaw) {
                     .count();
 
     if (dt > 1e-5) {
-      double yaw_diff_a = normalizeAnglec(measured_yaw - last_track_yaw_);
+      double yaw_diff_a = onormalizeAnglem(measured_yaw - last_track_yaw_);
       float yaw_velocity = yaw_diff_a / dt;
 
       yaw_velocity_buffer_.push_back(yaw_velocity);
@@ -273,7 +302,7 @@ void YpdTracker::updateYawStateConsistency(double measured_yaw) {
                           yaw_velocity_buffer_.end(), 0.0f) /
           yaw_velocity_buffer_.size();
 
-      float v_yaw_target = target_state(7);
+      float v_yaw_target = target_state(10);
 
       auto getRotationState = [](float v, float stationary_thresh,
                                  float min_valid) {
@@ -299,7 +328,7 @@ void YpdTracker::updateYawStateConsistency(double measured_yaw) {
             WUST_WARN(tracker_logger)
                 << "yaw rotation mismatch: OBS-PRED change ";
             // tracker_state = LOST;
-            target_state(7) = yaw_velocity_avg;
+            target_state(10) = yaw_velocity_avg;
             ekf->setState(target_state);
             rotation_inconsistent_count_ = 0;
             rotation_inconsistent_cooldown_ =

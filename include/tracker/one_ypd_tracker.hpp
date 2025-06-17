@@ -47,6 +47,8 @@ public:
 
   void init(const Armors &armors_msg) noexcept;
   void update(const Armors &armors_msg) noexcept;
+  void init(const Armor &armor_msg) noexcept;
+  void update(const Armor &armor_msg) noexcept;
 
   enum State {
     LOST,
@@ -54,6 +56,8 @@ public:
     TRACKING,
     TEMP_LOST,
   } tracker_state;
+  static Eigen::Vector3d
+  getArmorPositionFromState(const Eigen::VectorXd &x) noexcept;
 
   std::unique_ptr<oneypdarmor_motion_model::RobotStateEKF> ekf;
 
@@ -67,6 +71,11 @@ public:
   int retype;
   Eigen::VectorXd measurement;
   Eigen::VectorXd target_state;
+
+  double distance_to_image_center;
+  double max_match_distance_;
+  double max_match_yaw_diff_;
+  double max_match_z_diff_;
 
   double d_za, another_r;
   double d_zc;
@@ -85,14 +94,11 @@ private:
   void handleArmorJump(const Armor &a) noexcept;
 
   double orientationToYaw(const tf2::Quaternion &q) noexcept;
-  static Eigen::Vector3d
-  getArmorPositionFromState(const Eigen::VectorXd &x) noexcept;
+  
   void updateBestYawdiff(const Armor &armor1, const Armor &armor2);
   void updateYawStateConsistency(double measured_yaw);
 
-  double max_match_distance_;
-  double max_match_yaw_diff_;
-  double max_match_z_diff_;
+  
 
   int detect_count_;
   int lost_count_;

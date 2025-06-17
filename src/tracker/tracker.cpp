@@ -40,7 +40,7 @@ void Tracker::init(const Armors &armors_msg) noexcept {
       type = armor.type;
     }
   }
-  WUST_INFO(tracker_logger) << "INIT EKF";
+  WUST_DEBUG(tracker_logger) << "INIT EKF";
   initEKF(tracked_armor);
   tracked_id = tracked_armor.number;
   tracker_state = DETECTING;

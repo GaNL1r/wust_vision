@@ -299,6 +299,7 @@ struct OneTarget {
 
   Position position_ = Position();
   Position velocity_ = Position();
+  Position acceleration_ = Position();
   float yaw = 0;
   float v_yaw = 0;
   float distance_to_image_center = 0;

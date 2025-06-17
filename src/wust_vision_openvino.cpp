@@ -424,11 +424,7 @@ void WustVision::runeTargetCallback(const Rune rune_target) {
 }
 
 void WustVision::armorsCallback(Armors armors_, const cv::Mat &src_img) {
-  static int count_ = 0;
-  if (count_ <= 10) {
-    count_++;
-    return;
-  }
+
   transformArmorData(armors_);
   if (armors_.timestamp <= tracker_manager_->last_time_) {
     // WUST_WARN(vision_logger) << "Received out-of-order armor data,
@@ -452,8 +448,7 @@ void WustVision::armorsCallback(Armors armors_, const cv::Mat &src_img) {
   target_.frame_id = target_frame_;
   tracker_manager_->update(target_, one_targets_, armors_, time);
 
-  target_.count = count_;
-  count_++;
+ 
   armor_target = target_;
   one_armor_targets = one_targets_;
 }
@@ -876,14 +871,21 @@ void WustVision::timerCallback() {
       if (!measure_tool_->reprojectArmorsCorners(armor_data, target_info))
         return;
       write_target_log_to_json(target);
-
+      try {
       draw_debug_overlaywrite(imgframe_, &armors, &target_info, &target, state,
                               gimbal_cmd);
+      }catch (const std::exception &e) {
+        std::cerr << "draw_debug_overlaywrite failed: " << e.what() << '\n';
+      }
 
     } else {
       double predict_angle = rune_solver_->last_pre_angle;
+      try {
       drawRuneandprewrite(src, rune_objects_, imgframe_.timestamp,
                           predict_angle);
+       }catch (const std::exception &e) {
+        std::cerr << "drawRuneandprewrite failed: " << e.what() << '\n';
+      }
     }
 
     auto now = std::chrono::steady_clock::now();

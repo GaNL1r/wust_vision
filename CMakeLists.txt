@@ -42,6 +42,7 @@ add_executable(${PROJECT_NAME}_openvino
   src/tracker/ypd_tracker.cpp
   src/tracker/one_ypd_tracker.cpp
   src/tracker/tracker_manager.cpp
+  src/tracker/one_ca_tracker.cpp
 )
 add_executable(${PROJECT_NAME}_trt
 
@@ -75,6 +76,7 @@ add_executable(${PROJECT_NAME}_trt
   src/tracker/ypd_tracker.cpp
   src/tracker/one_ypd_tracker.cpp
   src/tracker/tracker_manager.cpp
+  src/tracker/one_ca_tracker.cpp
 
 )
 include_directories(

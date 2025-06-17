@@ -1154,7 +1154,7 @@ void draw_debug_overlaywrite(const imgframe &src_img, const Armors *armors,
                    cv::Scalar(0, 255, 0), 2);
         } else {
           cv::line(debug_img, pts[i], pts[next_indices[i]],
-                   cv::Scalar(0, 0, 255), 2);
+                   cv::Scalar(0, 255, 255), 2);
         }
       }
 

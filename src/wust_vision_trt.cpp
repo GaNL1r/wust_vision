@@ -624,9 +624,13 @@ void WustVision::timerCallback() {
       if (!measure_tool_->reprojectArmorsCorners(armor_data, target_info))
         return;
       write_target_log_to_json(target);
-
+      try{
       draw_debug_overlaywrite(imgframe_, &armors, &target_info, &target, state,
-                              gimbal_cmd);
+              gimbal_cmd);
+      }catch (const std::exception &e) {
+      std::cerr << "draw_debug_overlaywrite failed: " << e.what() << '\n';
+      }
+
 
     } else {
       // double predict_angle = rune_solver_->last_pre_angle;
@@ -652,18 +656,35 @@ void WustVision::timerCallback() {
       cmd_yaw_log_.push_back(last_cmd_.yaw);
       cmd_pitch_log_.push_back(last_cmd_.pitch);
       if (!armors.armors.empty()) {
-        auto min_armor_it = std::min_element(
-            armors.armors.begin(), armors.armors.end(),
-            [](const Armor &a, const Armor &b) {
-              return a.distance_to_image_center < b.distance_to_image_center;
-            });
-        const Armor &min_armor = *min_armor_it;
-        last_distance =
-            std::sqrt(min_armor.target_pos.x * min_armor.target_pos.x +
-                      min_armor.target_pos.y * min_armor.target_pos.y +
-                      min_armor.target_pos.z * min_armor.target_pos.z);
-        armor_dis_log_.push_back(last_distance);
+      
+        std::vector<Armor> ok_armors;
+        for (const auto &armor : armors.armors) {
+          if (armor.is_ok) {
+            ok_armors.push_back(armor);
+          }
+        }
+      
+        if (!ok_armors.empty()) {
+    
+          auto min_armor_it = std::min_element(
+              ok_armors.begin(), ok_armors.end(),
+              [](const Armor &a, const Armor &b) {
+                return a.distance_to_image_center < b.distance_to_image_center;
+              });
+      
+          const Armor &min_armor = *min_armor_it;
+          last_distance =
+              std::sqrt(min_armor.target_pos.x * min_armor.target_pos.x +
+                        min_armor.target_pos.y * min_armor.target_pos.y +
+                        min_armor.target_pos.z * min_armor.target_pos.z);
+          armor_dis_log_.push_back(last_distance);
+        } else {
+         
+          armor_dis_log_.push_back(last_distance);
+        }
+      
       } else {
+ 
         armor_dis_log_.push_back(last_distance);
       }
 

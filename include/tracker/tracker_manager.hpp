@@ -3,6 +3,7 @@
 #include "tracker/one_ypd_tracker.hpp"
 #include "tracker/tracker.hpp"
 #include "tracker/ypd_tracker.hpp"
+#include "tracker/one_ca_tracker.hpp"
 #include "type/type.hpp"
 #include "yaml-cpp/yaml.h"
 class TrackerManager {
@@ -25,6 +26,7 @@ public:
   std::unique_ptr<OneYpdTracker> one_ypd_tracker_;
   int track_one_num;
   std::vector<std::unique_ptr<OneTracker>> one_trackers_;
+  std::vector<std::unique_ptr<OneYpdTracker>> one_ypd_trackers_;
   double s2qx_, s2qy_, s2qz_, s2qyaw_, s2qr_, s2qd_zc_;
   double ys2qx_, ys2qy_, ys2qz_, ys2qyaw_, ys2qr_, ys2qd_zc_;
   double os2qx_, os2qy_, os2qz_, os2qyaw_;
@@ -36,6 +38,7 @@ public:
   double lost_time_thres_;
   double one_lost_time_thres_;
   std::chrono::steady_clock::time_point last_time_;
+  double v_yaw_update_thres_;
 
   std::vector<OneTarget> one_targets;
 };

@@ -27,8 +27,8 @@ public:
   void transformGimbalCmd(GimbalCmd &gimbal_cmd, bool appear);
 
   void shmTheard();
-  double lastyaw_aaa;
-  double lastpitch_aaa;
+  double serial_last_yaw;
+  double serial_last_pitch;
   std::string device_name_;
   SerialPortConfig config_;
   std::atomic<bool> is_usb_ok_;

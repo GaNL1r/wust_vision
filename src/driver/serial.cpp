@@ -394,20 +394,20 @@ void Serial::transformGimbalCmd(GimbalCmd &gimbal_cmd, bool appear) {
       return std::clamp(val, -max_change, max_change);
     };
 
-    double delta_yaw = gimbal_cmd.yaw - lastyaw_aaa;
-    double delta_pitch = gimbal_cmd.pitch - lastpitch_aaa;
+    double delta_yaw = gimbal_cmd.yaw - serial_last_yaw;
+    double delta_pitch = gimbal_cmd.pitch - serial_last_pitch;
 
     delta_yaw = limit(delta_yaw, max_yaw_change);
     delta_pitch = limit(delta_pitch, max_pitch_change);
 
-    send_robot_cmd_data_.yaw = lastyaw_aaa + alpha_yaw * delta_yaw;
-    send_robot_cmd_data_.pitch = lastpitch_aaa + alpha_pitch * delta_pitch;
+    send_robot_cmd_data_.yaw = serial_last_yaw + alpha_yaw * delta_yaw;
+    send_robot_cmd_data_.pitch = serial_last_pitch + alpha_pitch * delta_pitch;
 
-    lastyaw_aaa = send_robot_cmd_data_.yaw;
-    lastpitch_aaa = send_robot_cmd_data_.pitch;
+    serial_last_yaw = send_robot_cmd_data_.yaw;
+    serial_last_pitch = send_robot_cmd_data_.pitch;
   } else {
-    send_robot_cmd_data_.yaw = lastyaw_aaa;
-    send_robot_cmd_data_.pitch = lastpitch_aaa;
+    send_robot_cmd_data_.yaw = serial_last_yaw;
+    send_robot_cmd_data_.pitch = serial_last_pitch;
   }
   // std::cout<<"yaw: "<<send_robot_cmd_data_.yaw<<" pitch:
   // "<<send_robot_cmd_data_.pitch<<std::endl;
