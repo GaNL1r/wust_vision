@@ -20,3 +20,4 @@ std::atomic<bool> exit_flag(false);
 bool use_calculation_ = false;
 bool use_serial = false;
 int attack_mode = 0;
+

@@ -72,6 +72,7 @@ private:
   int selectBestArmor(const std::vector<Eigen::Vector3d> &armors,
                       const Eigen::Vector3d &center, double yaw, double v_yaw,
                       size_t num) const noexcept;
+  int selectBestTarget(const std::vector<OneTarget> &targets)const noexcept;
 
   double shooting_range_w = 0.135;
   double shooting_range_h = 0.135;

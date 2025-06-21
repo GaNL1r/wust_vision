@@ -95,7 +95,7 @@ set(EXTERNAL_INCLUDE_DIRS ${G2O_INCLUDE_DIR})
 set(EXTERNAL_LIBS ${G2O_LIBRARIES})
 
 # 查找依赖
-find_package(OpenCV REQUIRED)
+find_package(OpenCV  REQUIRED)
 find_package(OpenVINO REQUIRED COMPONENTS Runtime ONNX)
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 find_package(Eigen3 REQUIRED)

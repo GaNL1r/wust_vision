@@ -58,6 +58,7 @@ public:
   } tracker_state;
   static Eigen::Vector3d
   getArmorPositionFromState(const Eigen::VectorXd &x) noexcept;
+  double orientationToYaw(const tf2::Quaternion &q) noexcept;
 
   std::unique_ptr<onearmor_motion_model::RobotStateEKF> ekf;
 
@@ -93,7 +94,7 @@ private:
   void initEKF(const Armor &a) noexcept;
   void handleArmorJump(const Armor &a) noexcept;
 
-  double orientationToYaw(const tf2::Quaternion &q) noexcept;
+  
 
   void updateBestYawdiff(const Armor &armor1, const Armor &armor2);
   void updateYawStateConsistency(double measured_yaw);

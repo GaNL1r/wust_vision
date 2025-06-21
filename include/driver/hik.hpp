@@ -5,6 +5,7 @@
 #include "common/ThreadPool.h"
 #include "driver/recorder.hpp"
 #include "type/image.hpp"
+#include <Eigen/Dense>
 #include <chrono>
 #include <condition_variable>
 #include <functional>
@@ -16,11 +17,12 @@
 #include <string>
 #include <thread>
 #include <vector>
+
 class HikCamera {
 public:
   HikCamera();
   ~HikCamera();
-  void setFrameCallback(std::function<void(const ImageFrame &)> cb) {
+  void setFrameCallback(std::function<void(const ImageFrame &,Eigen::Matrix3d)> cb) {
     on_frame_callback_ = std::move(cb);
   }
 
@@ -49,7 +51,7 @@ private:
   int video_fps_;
   int expected_width_ = 0;
   int expected_height_ = 0;
-  std::function<void(const ImageFrame &)> on_frame_callback_;
+  std::function<void(const ImageFrame &,Eigen::Matrix3d)> on_frame_callback_;
   std::unique_ptr<Recorder> recorder_;
 };
 

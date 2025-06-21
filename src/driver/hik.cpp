@@ -1,5 +1,6 @@
 #include "driver/hik.hpp"
 #include "common/logger.hpp"
+#include <Eigen/Dense>
 #include <chrono>
 #include <filesystem>
 #include <iostream>
@@ -8,6 +9,7 @@
 #include <regex>
 #include <stdexcept>
 #include <unistd.h>
+#include "common/gobal.hpp"
 
 HikCamera::HikCamera() : camera_handle_(nullptr), fail_count_(0) {}
 
@@ -240,9 +242,13 @@ void HikCamera::hikCaptureLoop() {
         MV_CC_ConvertPixelType(camera_handle_, &convert_param_);
         auto current_time = std::chrono::steady_clock::now();
         frame.timestamp = current_time;
-
+       
         if (on_frame_callback_) {
-          on_frame_callback_(frame);
+          Eigen::Matrix3d R_gimbal2odom;
+          R_gimbal2odom = Eigen::AngleAxisd(last_yaw+gimbal2camera_yaw,   Eigen::Vector3d::UnitZ()) *
+          Eigen::AngleAxisd(-last_pitch-gimbal2camera_pitch, Eigen::Vector3d::UnitY()) *
+          Eigen::AngleAxisd(last_roll+gimbal2camera_roll,  Eigen::Vector3d::UnitX());
+          on_frame_callback_(frame,R_gimbal2odom);
         }
         if (recorder_ != nullptr) {
           recorder_->addFrame(frame.data);

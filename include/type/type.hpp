@@ -427,8 +427,8 @@ constexpr double ARM_LENGTH = 0.700;
 
 // Acceptable distance between robot and rune, Unit: m
 // True value = 6.436 m
-constexpr double MIN_RUNE_DISTANCE = 4.0;
-constexpr double MAX_RUNE_DISTANCE = 9.0;
+constexpr double MIN_RUNE_DISTANCE = 1.0;
+constexpr double MAX_RUNE_DISTANCE = 19.0;
 
 // Rune object points
 // r_tag, bottom_left, top_left, top_right, bottom_right

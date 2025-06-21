@@ -18,13 +18,14 @@ public:
   WustVision();
   ~WustVision();
   void init();
-  void processImage(const ImageFrame &frame);
+  void processImage(const ImageFrame &frame,Eigen::Matrix3d R_gimbal2odom);
   // void processImage(const cv::Mat &frame,
   // std::chrono::steady_clock::time_point timestamp); void captureLoop();
   void printStats();
   void DetectCallback(const std::vector<ArmorObject> &objs,
                       std::chrono::steady_clock::time_point timestamp,
-                      const cv::Mat &src_img);
+                      const cv::Mat &src_img,
+                      Eigen::Matrix4d T_camera_to_odom);
   void stop();
   void armorsCallback(Armors armors_, const cv::Mat &src_img);
   void initTF();
@@ -34,6 +35,7 @@ public:
   void startTimer();
   void stopTimer();
   void transformArmorData(Armors &armors);
+  void transformArmorData(Armors &armors,Eigen::Matrix4d T_camera_to_odom);
   Armors visualizeTargetProjection(Target armor_target_,
                                    std::vector<OneTarget> one_armor_targets_);
 
@@ -55,6 +57,7 @@ public:
   std::vector<OneTarget> one_armor_targets;
   Target armor_target;
   Armors armors_gobal;
+  std::mutex img_mutex_;
   imgframe imgframe_;
   std::unique_ptr<TrackerManager> tracker_manager_;
   double gimbal2camera_x_, gimbal2camera_y_, gimbal2camera_z_,
@@ -68,6 +71,10 @@ public:
 
   std::unique_ptr<ArmorPoseEstimator> armor_pose_estimator_;
   Eigen::Matrix3d imu_to_camera_;
+  Eigen::Vector3d t_gimbal_to_camera;
+  Eigen::Matrix4d T_camera_to_odom_;
+  Eigen::Matrix3d R_gimbal_camera;
+
 
   // std::unique_ptr<hikcamera::ImageCapturer> capturer_;
   // std::unique_ptr<std::thread> capture_thread_;

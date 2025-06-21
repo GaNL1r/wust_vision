@@ -22,7 +22,7 @@ public:
   ~WustVision();
 
   void init();
-  void processImage(const ImageFrame &frame);
+  void processImage(const ImageFrame &frame,Eigen::Matrix3d R_gimbal2odom);
   void processImage(const cv::Mat &frame,
                     std::chrono::steady_clock::time_point timestamp);
   void captureLoop();
@@ -30,7 +30,8 @@ public:
   void printStats();
   void DetectCallback(const std::vector<ArmorObject> &objs,
                       std::chrono::steady_clock::time_point timestamp,
-                      const cv::Mat &src_img);
+                      const cv::Mat &src_img,
+                      Eigen::Matrix4d T_camera_to_odom);
   void inferResultCallback(std::vector<RuneObject> &rune_objects,
                            std::chrono::steady_clock::time_point timestamp,
                            const cv::Mat &img);
@@ -44,6 +45,7 @@ public:
   void startTimer();
   void stopTimer();
   void transformArmorData(Armors &armors);
+  void transformArmorData(Armors &armors,Eigen::Matrix4d T_camera_to_odom);
   void runeTargetCallback(const Rune rune_target);
   void update();
   void initRune(const std::string &camera_info_path);
@@ -66,8 +68,9 @@ public:
   std::atomic<bool> timer_running_{false};
   std::thread timer_thread_;
   std::unique_ptr<TrackerManager> tracker_manager_;
-  double gimbal2camera_x_, gimbal2camera_y_, gimbal2camera_z_,
-      gimbal2camera_yaw_, gimbal2camera_roll_, gimbal2camera_pitch_;
+  double gimbal2camera_x_, gimbal2camera_y_, gimbal2camera_z_;
+  double gimbal2camera_yaw_, gimbal2camera_roll_, gimbal2camera_pitch_;
+      
 
   serial::Serial serial_;
   std::unique_ptr<Solver> solver_;
@@ -83,6 +86,7 @@ public:
   std::vector<OneTarget> one_armor_targets;
   Armors armors_gobal;
   Rune rune_gobal;
+  std::mutex img_mutex_;
   imgframe imgframe_;
   std::unique_ptr<RuneDetector> rune_detector_;
   std::unique_ptr<RuneSolver> rune_solver_;
@@ -93,6 +97,9 @@ public:
   bool use_auto_labeler;
   bool use_video;
   std::vector<RuneObject> rune_objects_;
+  Eigen::Vector3d t_gimbal_to_camera;
+  Eigen::Matrix4d T_camera_to_odom_;
+  Eigen::Matrix3d R_gimbal_camera;
 
   std::unique_ptr<RealtimeBSplineSegment> spline;
 };

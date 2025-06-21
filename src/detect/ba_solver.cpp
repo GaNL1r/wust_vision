@@ -78,7 +78,8 @@ Eigen::Matrix3d BaSolver::solveBa(const ArmorObject &armor,
   } else {
     initial_armor_yaw = R_imu_armor(1, 1) > 0 ? 0 : CV_PI;
   }
-
+  // std::cout << "armor_detector"
+  //           << "Initial yaw angle: " << initial_armor_yaw/M_PI*180 << std::endl;
   // Get the pitch angle of the armor
   double armor_pitch = armor.number == ArmorNumber::OUTPOST
                            ? -FIFTTEN_DEGREE_RAD

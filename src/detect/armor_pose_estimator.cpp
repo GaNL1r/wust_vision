@@ -41,6 +41,7 @@ ArmorPoseEstimator::ArmorPoseEstimator(const std::string &camera_info_path) {
   // R_gimbal_camera_ << 0, 1, 0, 0, 0, -1, -1, 0, 0;
   // R_gimbal_camera_ << 0, 0, -1, 1, 0, 0, 0, -1, 0;
   R_gimbal_camera_ << 0, 0, 1, -1, 0, 0, 0, -1, 0;
+
 }
 
 std::vector<Armor>
@@ -204,6 +205,7 @@ void ArmorPoseEstimator::sortPnPResult(const ArmorObject &armor,
   // double bb=rpy2[2]/M_PI*180;
 
   // std::cout<<aa<<""<<bb<<std::endl;
+  // std::cout<<angle<<std::endl;
 
   // 根据倾斜角度选择解
   // 如果装甲板左倾（angle > 0），选择Yaw为负的解

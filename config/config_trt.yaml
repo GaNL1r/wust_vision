@@ -9,13 +9,13 @@ camera:
   pixel_format: BayerRG8
   recorder: false
   video_player:
-    use: false
-    path: /home/hy/wust_vision/video/2022-05-05-09-05-05.avi
+    use: true
+    path: /home/hy/wust_data/video/1749800971.avi
     loop: true
-    fps : 30
+    fps : 90
     start_frame: 0
 classify_label_path: /home/hy/wust_vision/model/label.txt
-classify_model_path: /home/hy/wust_vision/model/lenet.onnx
+classify_model_path: /home/hy/wust_vision/model/mlp.onnx
 control:
   alpha_pitch: 0.9
   alpha_yaw: 0.9
@@ -145,4 +145,5 @@ tracker:
   tracking_thres: 5
   one_lost_time_thres: 0.1
   v_yaw_update_thres: 1.5
+  v_yaw_to_one_thres: 1.0
 use_calculation: false

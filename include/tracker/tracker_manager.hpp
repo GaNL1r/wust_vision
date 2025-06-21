@@ -6,6 +6,7 @@
 #include "tracker/one_ca_tracker.hpp"
 #include "type/type.hpp"
 #include "yaml-cpp/yaml.h"
+#include "common/angles.h"
 class TrackerManager {
 public:
   explicit TrackerManager(const YAML::Node &config);
@@ -39,6 +40,8 @@ public:
   double one_lost_time_thres_;
   std::chrono::steady_clock::time_point last_time_;
   double v_yaw_update_thres_;
-
+  double v_yaw_to_one_thres_;
+  
   std::vector<OneTarget> one_targets;
+  
 };

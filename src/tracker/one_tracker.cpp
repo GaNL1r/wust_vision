@@ -172,9 +172,9 @@ void OneTracker::update(const Armor &armor_msg) noexcept {
   bool matched = false;
   target_state = ekf_prediction;
   std::vector<Armor> another_armors;
-  double dis = std::sqrt(armor_msg.pos.x * armor_msg.pos.x +
-                         armor_msg.pos.y * armor_msg.pos.y +
-                         armor_msg.pos.z * armor_msg.pos.z);
+  double dis = std::sqrt(armor_msg.target_pos.x * armor_msg.target_pos.x +
+                         armor_msg.target_pos.y * armor_msg.target_pos.y +
+                         armor_msg.target_pos.z * armor_msg.target_pos.z);
   if (dis > 0.1) {
     tracked_armor = armor_msg;
     tracked_armor.timestamp = armor_msg.timestamp;
