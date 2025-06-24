@@ -1,7 +1,7 @@
 
 only_nav_enable: false
 use_auto_labeler: false
-init_attack_mode: 1
+init_attack_mode: 0
 camera:
   acquisition_frame_rate: 120
   adc_bit_depth: Bits_8
@@ -12,7 +12,7 @@ camera:
   recorder: false
   video_player:
     use: true
-    path: /home/hy/6.11/output.mp4
+    path: /home/hy/wust_data/video/1749800971.avi
     loop: true
     fps : 90
     start_frame: 0

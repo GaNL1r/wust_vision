@@ -1,104 +1,23 @@
-cmake_minimum_required(VERSION 3.8)
-project(wust_vision)
+cmake_minimum_required(VERSION 3.14)
+project(wust_vision LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# === 构建选项 ===
+option(BUILD_WITH_TRT "Build TensorRT version" ON)
+option(BUILD_WITH_OPENVINO "Build OpenVINO version" ON)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake_modules)
+set(EXTERNAL_INCLUDE_DIRS ${G2O_INCLUDE_DIR})
+set(EXTERNAL_LIBS ${G2O_LIBRARIES})
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_BUILD_TYPE "Release")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w")
-
-add_executable(${PROJECT_NAME}_openvino
-
-  src/wust_vision_openvino.cpp
-
-  src/common/tools.cpp
-  src/detect/mono_measure_tool.cpp
-  src/detect/armor_detector_openvino.cpp
-  src/detect/light_corner_corrector.cpp
-  src/tracker/tracker.cpp
-  src/tracker/extended_kalman_filter.cpp
-  src/driver/serial.cpp
-  src/common/gobal.cpp
-  src/driver/crc8_crc16.cpp
-  src/control/trajectory_compensator.cpp
-  src/control/armor_solver.cpp
-  src/control/manual_compensator.cpp
-  src/common/calculation.cpp
-  src/detect/pnp_solver.cpp
-  src/detect/graph_optimizer.cpp
-  src/detect/armor_pose_estimator.cpp
-  src/detect/ba_solver.cpp
-  src/driver/image_capturer.cpp
-  src/common/matplottools.cpp
-  src/driver/hik.cpp
-  src/common/toolsgobal.cpp
-  src/control/rune_solver.cpp
-  src/tracker/curve_fitter.cpp
-  src/detect/rune_detector_openvino.cpp
-  src/driver/recorder.cpp
-  src/driver/labeler.cpp
-  src/driver/video_player.cpp
-  src/tracker/one_tracker.cpp
-  src/tracker/ypd_tracker.cpp
-  src/tracker/one_ypd_tracker.cpp
-  src/tracker/tracker_manager.cpp
-  src/tracker/one_ca_tracker.cpp
-)
-add_executable(${PROJECT_NAME}_trt
-
-  src/wust_vision_trt.cpp
-  src/detect/armor_detector_trt.cpp
-  src/common/tools.cpp
-  src/detect/mono_measure_tool.cpp
-
-  src/detect/light_corner_corrector.cpp
-  src/tracker/tracker.cpp
-  src/tracker/extended_kalman_filter.cpp
-  src/driver/serial.cpp
-  src/common/gobal.cpp
-  src/driver/crc8_crc16.cpp
-  src/control/trajectory_compensator.cpp
-  src/control/armor_solver.cpp
-  src/control/manual_compensator.cpp
-  src/common/calculation.cpp
-  src/detect/pnp_solver.cpp
-  src/detect/graph_optimizer.cpp
-  src/detect/armor_pose_estimator.cpp
-  src/detect/ba_solver.cpp
-  src/driver/image_capturer.cpp
-  src/driver/hik.cpp
-  src/common/matplottools.cpp
-  src/common/toolsgobal.cpp
-  src/driver/recorder.cpp
-  src/driver/labeler.cpp
-  src/driver/video_player.cpp
-  src/tracker/one_tracker.cpp
-  src/tracker/ypd_tracker.cpp
-  src/tracker/one_ypd_tracker.cpp
-  src/tracker/tracker_manager.cpp
-  src/tracker/one_ca_tracker.cpp
-  src/detect/rune_detector_trt.cpp
-  src/control/rune_solver.cpp
-  src/tracker/curve_fitter.cpp
-
-)
-include_directories(
-  /home/hy/TensorRT-8.5.2.2/include
-  /home/hy/wust_vision/thirdparty/matplotlibcpp
-  /usr/local/cuda-11.8/include
-)
-
-link_directories(
-  /home/hy/TensorRT-8.5.2.2/lib
-  /usr/local/cuda-11.8/lib64
-)
-
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake_modules)
-set(EXTERNAL_INCLUDE_DIRS ${G2O_INCLUDE_DIR})
-set(EXTERNAL_LIBS ${G2O_LIBRARIES})
-
-# 查找依赖
-find_package(OpenCV  REQUIRED)
+# === 公共依赖 ===
+find_package(OpenCV REQUIRED)
 find_package(OpenVINO REQUIRED COMPONENTS Runtime ONNX)
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -109,114 +28,144 @@ find_package(G2O REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(Ceres REQUIRED)
 
-# 包含路径
-target_include_directories(${PROJECT_NAME}_openvino PUBLIC
-  ${OpenCV_INCLUDE_DIRS}
-  ${OpenVINO_INCLUDE_DIRS}
-  ${EIGEN3_INCLUDE_DIRS}
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
-  ${CMAKE_CURRENT_SOURCE_DIR}/hikSDK/include
-  ${G2O_INCLUDE_DIRS}
-  ${Python3_INCLUDE_DIRS}
-  ${CERES_INCLUDE_DIRS}
-
-
-
-)
-target_include_directories(${PROJECT_NAME}_trt PUBLIC
-
-  ${OpenCV_INCLUDE_DIRS}
-  ${OpenVINO_INCLUDE_DIRS}
-  ${EIGEN3_INCLUDE_DIRS}
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
-  ${CMAKE_CURRENT_SOURCE_DIR}/hikSDK/include
-  ${G2O_INCLUDE_DIRS}
-  ${Python3_INCLUDE_DIRS}
-  ${CERES_INCLUDE_DIRS}
-
-  
-
-
-)
+# === TensorRT 库路径（手动指定）===
+set(TENSORRT_INCLUDE_DIR /home/hy/TensorRT-8.5.2.2/include)
+set(TENSORRT_LIB_DIR /home/hy/TensorRT-8.5.2.2/lib)
 set(TENSORRT_LIBS
-  /home/hy/TensorRT-8.5.2.2/lib/libnvinfer.so
-  /home/hy/TensorRT-8.5.2.2/lib/libnvinfer_plugin.so
-  /home/hy/TensorRT-8.5.2.2/lib/libnvonnxparser.so
-  /home/hy/TensorRT-8.5.2.2/lib/libnvparsers.so
+  ${TENSORRT_LIB_DIR}/libnvinfer.so
+  ${TENSORRT_LIB_DIR}/libnvinfer_plugin.so
+  ${TENSORRT_LIB_DIR}/libnvonnxparser.so
+  ${TENSORRT_LIB_DIR}/libnvparsers.so
 )
 
-# 链接路径
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
-  target_link_directories(${PROJECT_NAME}_openvino PUBLIC hikSDK/lib/amd64)
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
-  target_link_directories(${PROJECT_NAME}_openvino PUBLIC hikSDK/lib/arm64)
-else()
-  message(FATAL_ERROR "Unsupported host system architecture: ${CMAKE_HOST_SYSTEM_PROCESSOR}!")
-endif()
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
-  target_link_directories(${PROJECT_NAME}_trt PUBLIC hikSDK/lib/amd64)
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
-  target_link_directories(${PROJECT_NAME}_trt PUBLIC hikSDK/lib/arm64)
-else()
-  message(FATAL_ERROR "Unsupported host system architecture: ${CMAKE_HOST_SYSTEM_PROCESSOR}!")
-endif()
-# 链接库
-target_link_libraries(${PROJECT_NAME}_openvino
-  FormatConversion
-  MediaProcess
-  MvCameraControl
-  MVRender
-  MvUsb3vTL
-  ${OpenCV_LIBS}
-  openvino::frontend::onnx
-  openvino::runtime
-  ${OpenVINO_LIBRARIES}
-  ${OpenVINO_RUNTIME_LIBRARIES}
-  ${OpenVINO_ONNX_LIBRARIES}
-  ${TENSORRT_LIBS}
-  /usr/local/cuda-11.8/lib64/libcudart.so
-  fmt::fmt
-  yaml-cpp
-  ${Python3_LIBRARIES}
-  g2o_core
-  g2o_stuff
-  g2o_solver_csparse
-  g2o_types_sba
-  g2o_types_slam3d
-  g2o_solver_dense
-  ${OPENGL_gl_LIBRARY}
-  ${CERES_LIBRARIES}
+# === 公共源文件 ===
+set(COMMON_SOURCES
+  src/common/tools.cpp
+  src/common/gobal.cpp
+  src/common/toolsgobal.cpp
+  src/common/matplottools.cpp
+  src/common/calculation.cpp
+  src/control/armor_solver.cpp
+  src/control/manual_compensator.cpp
+  src/control/trajectory_compensator.cpp
+  src/control/rune_solver.cpp
+  src/detect/armor_pose_estimator.cpp
+  src/detect/ba_solver.cpp
+  src/detect/graph_optimizer.cpp
+  src/detect/light_corner_corrector.cpp
+  src/detect/mono_measure_tool.cpp
+  src/detect/pnp_solver.cpp
+  src/driver/crc8_crc16.cpp
+  src/driver/hik.cpp
+  src/driver/image_capturer.cpp
+  src/driver/labeler.cpp
+  src/driver/recorder.cpp
+  src/driver/serial.cpp
+  src/driver/video_player.cpp
+  src/tracker/curve_fitter.cpp
+  src/tracker/extended_kalman_filter.cpp
+  src/tracker/one_ca_tracker.cpp
+  src/tracker/one_tracker.cpp
+  src/tracker/one_ypd_tracker.cpp
+  src/tracker/tracker.cpp
+  src/tracker/tracker_manager.cpp
+  src/tracker/ypd_tracker.cpp
+)
 
+# === include 路径 ===
+include_directories(
+  ${PROJECT_SOURCE_DIR}/include
+  ${PROJECT_SOURCE_DIR}/hikSDK/include
+  ${OpenCV_INCLUDE_DIRS}
+  ${OpenVINO_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIRS}
+  ${Python3_INCLUDE_DIRS}
+  ${G2O_INCLUDE_DIRS}
+  ${CERES_INCLUDE_DIRS}
+  /home/hy/TensorRT-8.5.2.2/include
+  /home/hy/wust_vision/thirdparty/matplotlibcpp
+  /usr/local/cuda-11.8/include
   
-
-
- 
 )
-target_link_libraries(${PROJECT_NAME}_trt
-  FormatConversion
-  MediaProcess
-  MvCameraControl
-  MVRender
-  MvUsb3vTL
-  ${OpenCV_LIBS}
-  openvino::frontend::onnx
-  openvino::runtime
-  ${OpenVINO_LIBRARIES}
-  ${OpenVINO_RUNTIME_LIBRARIES}
-  ${OpenVINO_ONNX_LIBRARIES}
-  ${TENSORRT_LIBS}
-  /usr/local/cuda-11.8/lib64/libcudart.so
-  fmt::fmt
-  yaml-cpp
-  ${Python3_LIBRARIES}
-  g2o_core
-  g2o_stuff
-  g2o_solver_csparse
-  g2o_types_sba
-  g2o_types_slam3d
-  g2o_solver_dense
-  ${OPENGL_gl_LIBRARY}
-  ${CERES_LIBRARIES}
 
- 
+# === link 路径 ===
+link_directories(
+  ${TENSORRT_LIB_DIR}
+  /usr/local/cuda-11.8/lib64
 )
+
+# === OpenVINO 版本 ===
+if(BUILD_WITH_OPENVINO)
+  add_executable(${PROJECT_NAME}_openvino
+    src/wust_vision.cpp
+    src/detect/armor_detector_openvino.cpp
+    src/detect/armor_detector_openvino_wrapper.cpp
+    src/detect/rune_detector_openvino.cpp
+    src/detect/rune_detector_openvino_wrapper.cpp
+    ${COMMON_SOURCES}
+  )
+  target_compile_definitions(${PROJECT_NAME}_openvino PRIVATE USE_OPENVINO)
+
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
+    target_link_directories(${PROJECT_NAME}_openvino PUBLIC hikSDK/lib/amd64)
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+    target_link_directories(${PROJECT_NAME}_openvino PUBLIC hikSDK/lib/arm64)
+  endif()
+
+  target_link_libraries(${PROJECT_NAME}_openvino
+    ${OpenCV_LIBS}
+    openvino::runtime
+    openvino::frontend::onnx
+    ${OpenVINO_LIBRARIES}
+    ${OpenVINO_RUNTIME_LIBRARIES}
+    ${OpenVINO_ONNX_LIBRARIES}
+    ${TENSORRT_LIBS}  # 若某些模块间仍有依赖
+    /usr/local/cuda-11.8/lib64/libcudart.so
+    fmt::fmt
+    yaml-cpp
+    ${Python3_LIBRARIES}
+    g2o_core g2o_stuff g2o_solver_csparse g2o_types_sba g2o_types_slam3d g2o_solver_dense
+    ${OPENGL_gl_LIBRARY}
+    ${CERES_LIBRARIES}
+    FormatConversion MediaProcess MvCameraControl MVRender MvUsb3vTL
+    GL
+  )
+endif()
+
+# === TensorRT 版本 ===
+if(BUILD_WITH_TRT)
+  add_executable(${PROJECT_NAME}_trt
+    src/wust_vision.cpp
+    src/detect/armor_detector_trt.cpp
+    src/detect/armor_detector_trt_wrapper.cpp
+    src/detect/rune_detector_trt.cpp
+    src/detect/rune_detector_trt_wrapper.cpp
+    ${COMMON_SOURCES}
+  )
+  target_compile_definitions(${PROJECT_NAME}_trt PRIVATE USE_TRT)
+
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
+    target_link_directories(${PROJECT_NAME}_trt PUBLIC hikSDK/lib/amd64)
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+    target_link_directories(${PROJECT_NAME}_trt PUBLIC hikSDK/lib/arm64)
+  endif()
+
+  target_link_libraries(${PROJECT_NAME}_trt
+    ${OpenCV_LIBS}
+    openvino::runtime
+    openvino::frontend::onnx
+    ${OpenVINO_LIBRARIES}
+    ${OpenVINO_RUNTIME_LIBRARIES}
+    ${OpenVINO_ONNX_LIBRARIES}
+    ${TENSORRT_LIBS}
+    /usr/local/cuda-11.8/lib64/libcudart.so
+    fmt::fmt
+    yaml-cpp
+    ${Python3_LIBRARIES}
+    g2o_core g2o_stuff g2o_solver_csparse g2o_types_sba g2o_types_slam3d g2o_solver_dense
+    ${OPENGL_gl_LIBRARY}
+    ${CERES_LIBRARIES}
+    FormatConversion MediaProcess MvCameraControl MVRender MvUsb3vTL
+    GL
+  )
+endif()

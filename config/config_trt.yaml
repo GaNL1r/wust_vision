@@ -54,7 +54,7 @@ model:
   num_classes: 8
   num_colors: 4
   top_k: 128
-model_path: /home/hy/wust_vision/model/opt-1208-001.onnx
+  model_path: /home/hy/wust_vision/model/opt-1208-001.onnx
 solver:
   bullet_speed: 25
   compenstator_type: ideal

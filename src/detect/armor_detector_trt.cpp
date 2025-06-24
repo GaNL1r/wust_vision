@@ -152,7 +152,7 @@ static void nms_merge_sorted_bboxes(std::vector<ArmorObject> &faceobjects,
     }
   }
 }
-// bool AdaptedTRTModule::extractImage(const cv::Mat &src, ArmorObject &armor) {
+// bool ArmorDetectTrt::extractImage(const cv::Mat &src, ArmorObject &armor) {
 //   // Constants
 //   static const int light_length = 12;
 //   static const int warp_height = 28;
@@ -289,7 +289,7 @@ static void nms_merge_sorted_bboxes(std::vector<ArmorObject> &faceobjects,
 
 //   return true;
 // }
-bool AdaptedTRTModule::extractImage(const cv::Mat &src, ArmorObject &armor) {
+bool ArmorDetectTrt::extractImage(const cv::Mat &src, ArmorObject &armor) {
   // 光条长度和装甲板尺寸参数
   const int light_length = 12;
   const int warp_height = 28;
@@ -430,7 +430,7 @@ bool AdaptedTRTModule::extractImage(const cv::Mat &src, ArmorObject &armor) {
   return true;
 }
 
-std::vector<Light> AdaptedTRTModule::findLights(const cv::Mat &rgb_img,
+std::vector<Light> ArmorDetectTrt::findLights(const cv::Mat &rgb_img,
                                                 const cv::Mat &binary_img,
                                                 ArmorObject &armor) noexcept {
   using std::vector;
@@ -464,7 +464,7 @@ std::vector<Light> AdaptedTRTModule::findLights(const cv::Mat &rgb_img,
   return all_lights;
 }
 
-bool AdaptedTRTModule::isLight(const Light &light) noexcept {
+bool ArmorDetectTrt::isLight(const Light &light) noexcept {
   // The ratio of light (short side / long side)
   float ratio = light.width / light.length;
   bool ratio_ok =
@@ -476,14 +476,14 @@ bool AdaptedTRTModule::isLight(const Light &light) noexcept {
 
   return is_light;
 }
-void AdaptedTRTModule::detect(ArmorObject &armor) {
+void ArmorDetectTrt::detect(ArmorObject &armor) {
   findLights(armor.whole_rgb_img, armor.whole_binary_img, armor);
 
   LightCornerCorrector corner_corrector;
   corner_corrector.correctCorners(armor);
 }
 // 构造函数：初始化参数并构建引擎
-AdaptedTRTModule::AdaptedTRTModule(const std::string &onnx_path,
+ArmorDetectTrt::ArmorDetectTrt(const std::string &onnx_path,
                                    const Params &params, double expand_ratio_w,
                                    double expand_ratio_h, int binary_thres,
                                    LightParams light_params,
@@ -515,7 +515,7 @@ AdaptedTRTModule::AdaptedTRTModule(const std::string &onnx_path,
       std::make_unique<ThreadPool>(std::thread::hardware_concurrency(), 100);
 }
 
-AdaptedTRTModule::~AdaptedTRTModule() {
+ArmorDetectTrt::~ArmorDetectTrt() {
   delete[] output_buffer_;
   cudaStreamDestroy(stream_);
   cudaFree(device_buffers_[output_idx_]);
@@ -532,7 +532,7 @@ AdaptedTRTModule::~AdaptedTRTModule() {
   }
 }
 
-void AdaptedTRTModule::buildEngine(const std::string &onnx_path) {
+void ArmorDetectTrt::buildEngine(const std::string &onnx_path) {
   std::string engine_path =
       onnx_path.substr(0, onnx_path.find_last_of('.')) + ".engine";
   std::ifstream engine_file(engine_path, std::ios::binary);
@@ -591,12 +591,12 @@ void AdaptedTRTModule::buildEngine(const std::string &onnx_path) {
   WUST_INFO("TRT") << "Build engine from " << onnx_path << " successfully.";
 }
 
-void AdaptedTRTModule::setCallback(DetectorCallback callback) {
+void ArmorDetectTrt::setCallback(DetectorCallback callback) {
   infer_callback_ = callback;
 }
 
 // 推理函数
-bool AdaptedTRTModule::processCallback(
+bool ArmorDetectTrt::processCallback(
     const cv::Mat resized_img, Eigen::Matrix3f transform_matrix,
     std::chrono::steady_clock::time_point timestamp, const cv::Mat &src_img,
     Eigen::Matrix4d T_camera_to_odom) {
@@ -664,7 +664,7 @@ bool AdaptedTRTModule::processCallback(
 
   return true;
 }
-void AdaptedTRTModule::initNumberClassifier() {
+void ArmorDetectTrt::initNumberClassifier() {
   // 加载数字识别模型
   const std::string model_path = classify_model_path_;
   number_net_ = cv::dnn::readNetFromONNX(model_path);
@@ -701,7 +701,7 @@ void AdaptedTRTModule::initNumberClassifier() {
               << " labels from " << label_path << std::endl;
   }
 }
-// bool AdaptedTRTModule::classifyNumber(ArmorObject &armor) {
+// bool ArmorDetectTrt::classifyNumber(ArmorObject &armor) {
 //   // Normalize
 
 //   static thread_local std::unique_ptr<cv::dnn::Net> thread_net;
@@ -751,7 +751,7 @@ void AdaptedTRTModule::initNumberClassifier() {
 //     return false;
 //   }
 // }
-bool AdaptedTRTModule::classifyNumber(ArmorObject &armor) {
+bool ArmorDetectTrt::classifyNumber(ArmorObject &armor) {
   static thread_local std::unique_ptr<cv::dnn::Net> thread_net;
 
   if (!thread_net) {
@@ -805,7 +805,7 @@ bool AdaptedTRTModule::classifyNumber(ArmorObject &armor) {
 }
 
 // 后处理函数
-std::vector<ArmorObject> AdaptedTRTModule::postprocess(
+std::vector<ArmorObject> ArmorDetectTrt::postprocess(
     std::vector<ArmorObject> &output_objs, std::vector<float> &scores,
     std::vector<cv::Rect> &rects, const float *output, int num_detections,
     const Eigen::Matrix<float, 3, 3> &transform_matrix) {
@@ -910,7 +910,7 @@ std::vector<ArmorObject> AdaptedTRTModule::postprocess(
   return objs_result;
 }
 
-void AdaptedTRTModule::pushInput(
+void ArmorDetectTrt::pushInput(
     const cv::Mat &rgb_img, std::chrono::steady_clock::time_point timestamp,
     Eigen::Matrix4d T_camera_to_odom) {
   if (rgb_img.empty()) {

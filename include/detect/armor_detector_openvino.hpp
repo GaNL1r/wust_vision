@@ -1,3 +1,5 @@
+#pragma once
+
 #include "common/ThreadPool.h"
 #include "common/logger.hpp"
 #include "detect/light_corner_corrector.hpp"
@@ -10,13 +12,13 @@
 #include "openvino/openvino.hpp"
 #include <filesystem>
 
-class OpenVino {
+class ArmorDetectOpenVino {
 public:
   using DetectorCallback = std::function<void(
       const std::vector<ArmorObject> &, std::chrono::steady_clock::time_point,
       const cv::Mat &, Eigen::Matrix4d)>;
-  // OpenVino();
-  explicit OpenVino(const std::filesystem::path &model_path,
+
+  explicit ArmorDetectOpenVino(const std::filesystem::path &model_path,
                     const std::string &classify_model_path,
                     const std::string &classify_label_path,
                     const std::string &device_name, const LightParams &l,
@@ -25,8 +27,8 @@ public:
                     float expand_ratio_h = 1.1f, int binary_thres_ = 85,
                     bool auto_init = true);
 
-  ~OpenVino();
-  //~OpenVino();
+  ~ArmorDetectOpenVino();
+
   void init();
   bool processCallback(const cv::Mat resized_img,
                        Eigen::Matrix3f transform_matrix,
@@ -78,5 +80,4 @@ public:
 
   std::vector<Light> lights_;
   bool isinited_ = false;
-  int detect_color_;
 };

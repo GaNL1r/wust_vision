@@ -32,7 +32,7 @@
 #include "opencv2/opencv.hpp"
 
 // 定义检测框结构体，与 OpenVINO 模型输出对齐
-class AdaptedTRTModule {
+class ArmorDetectTrt {
 public:
   // 初始化参数结构体
   using DetectorCallback = std::function<void(
@@ -49,14 +49,14 @@ public:
   };
 
   // 构造函数：加载 ONNX 模型并构建 TensorRT 引擎
-  explicit AdaptedTRTModule(const std::string &onnx_path, const Params &params,
+  explicit ArmorDetectTrt(const std::string &onnx_path, const Params &params,
                             double expand_ratio_w, double expand_ratio_h,
                             int binary_thres, LightParams light_params,
                             std::string classify_model_path,
                             std::string classify_label_path);
 
   // 析构函数：释放资源
-  ~AdaptedTRTModule();
+  ~ArmorDetectTrt();
 
   // 推理接口：输入图像，返回检测框列表
   // std::vector<ArmorObject> detect(const cv::Mat & image);

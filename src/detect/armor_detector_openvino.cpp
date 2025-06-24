@@ -14,6 +14,7 @@
 // limitations under the License.
 
 #include "detect/armor_detector_openvino.hpp"
+#include "common/gobal.hpp"
 #include "common/logger.hpp"
 #include <functional>
 #include <opencv2/highgui.hpp>
@@ -211,7 +212,7 @@ static void nms_merge_sorted_bboxes(std::vector<ArmorObject> &faceobjects,
     }
   }
 }
-OpenVino::OpenVino(const std::filesystem::path &model_path,
+ArmorDetectOpenVino::ArmorDetectOpenVino(const std::filesystem::path &model_path,
                    const std::string &classify_model_path,
                    const std::string &classify_label_path,
                    const std::string &device_name, const LightParams &l,
@@ -231,7 +232,7 @@ OpenVino::OpenVino(const std::filesystem::path &model_path,
     init();
   }
 }
-void OpenVino::initNumberClassifier() {
+void ArmorDetectOpenVino::initNumberClassifier() {
   // 加载数字识别模型
   const std::string model_path = classify_model_path_;
   number_net_ = cv::dnn::readNetFromONNX(model_path);
@@ -269,7 +270,7 @@ void OpenVino::initNumberClassifier() {
   }
 }
 
-void OpenVino::init() {
+void ArmorDetectOpenVino::init() {
   if (ov_core_ == nullptr) {
     ov_core_ = std::make_unique<ov::Core>();
   }
@@ -292,13 +293,13 @@ void OpenVino::init() {
   thread_pool_ =
       std::make_unique<ThreadPool>(std::thread::hardware_concurrency(), 100);
 }
-OpenVino::~OpenVino() {
+ArmorDetectOpenVino::~ArmorDetectOpenVino() {
   thread_pool_.reset();
   if (thread_pool_) {
     thread_pool_->waitUntilEmpty();
   }
 }
-void OpenVino::extractNumberImage(const cv::Mat &src, ArmorObject &armor) {
+void ArmorDetectOpenVino::extractNumberImage(const cv::Mat &src, ArmorObject &armor) {
   // 光条长度和装甲板尺寸参数
   const int light_length = 12;
   const int warp_height = 28;
@@ -380,7 +381,7 @@ void OpenVino::extractNumberImage(const cv::Mat &src, ArmorObject &armor) {
   armor.whole_binary_img = litroi;
   armor.whole_rgb_img = litroi_color;
 }
-// void OpenVino::extractNumberImage(const cv::Mat &src, ArmorObject &armor) {
+// void ArmorDetectOpenVino::extractNumberImage(const cv::Mat &src, ArmorObject &armor) {
 //   // Light length in image
 //   static const int light_length = 12;
 //   // Image size after warp
@@ -461,7 +462,7 @@ void OpenVino::extractNumberImage(const cv::Mat &src, ArmorObject &armor) {
 //   // cv::waitKey(1);
 //   return;
 // }
-std::vector<Light> OpenVino::findLights(const cv::Mat &rgb_img,
+std::vector<Light> ArmorDetectOpenVino::findLights(const cv::Mat &rgb_img,
                                         const cv::Mat &binary_img,
                                         ArmorObject &armor) noexcept {
   using std::vector;
@@ -495,7 +496,7 @@ std::vector<Light> OpenVino::findLights(const cv::Mat &rgb_img,
   return all_lights;
 }
 
-bool OpenVino::isLight(const Light &light) noexcept {
+bool ArmorDetectOpenVino::isLight(const Light &light) noexcept {
   // The ratio of light (short side / long side)
   float ratio = light.width / light.length;
   bool ratio_ok =
@@ -507,13 +508,13 @@ bool OpenVino::isLight(const Light &light) noexcept {
 
   return is_light;
 }
-void OpenVino::detect(ArmorObject &armor) {
+void ArmorDetectOpenVino::detect(ArmorObject &armor) {
   lights_ = findLights(armor.whole_rgb_img, armor.whole_binary_img, armor);
 
   LightCornerCorrector corner_corrector;
   corner_corrector.correctCorners(armor);
 }
-bool OpenVino::classifyNumber(ArmorObject &armor) {
+bool ArmorDetectOpenVino::classifyNumber(ArmorObject &armor) {
   static thread_local std::unique_ptr<cv::dnn::Net> thread_net;
 
   if (!thread_net) {
@@ -565,7 +566,7 @@ bool OpenVino::classifyNumber(ArmorObject &armor) {
     return false;
   }
 }
-// bool OpenVino::classifyNumber(ArmorObject &armor) {
+// bool ArmorDetectOpenVino::classifyNumber(ArmorObject &armor) {
 //   // Normalize
 
 //   static thread_local std::unique_ptr<cv::dnn::Net> thread_net;
@@ -615,10 +616,10 @@ bool OpenVino::classifyNumber(ArmorObject &armor) {
 //     return false;
 //   }
 // }
-void OpenVino::setCallback(DetectorCallback callback) {
+void ArmorDetectOpenVino::setCallback(DetectorCallback callback) {
   infer_callback_ = callback;
 }
-bool OpenVino::processCallback(const cv::Mat resized_img,
+bool ArmorDetectOpenVino::processCallback(const cv::Mat resized_img,
                                Eigen::Matrix3f transform_matrix,
                                std::chrono::steady_clock::time_point timestamp,
                                const cv::Mat &src_img,
@@ -723,7 +724,7 @@ bool OpenVino::processCallback(const cv::Mat resized_img,
 
   return false;
 }
-void OpenVino::pushInput(const cv::Mat &rgb_img,
+void ArmorDetectOpenVino::pushInput(const cv::Mat &rgb_img,
                          std::chrono::steady_clock::time_point timestamp,
                          Eigen::Matrix4d T_camera_to_odom) {
   Eigen::Matrix3f transform_matrix;

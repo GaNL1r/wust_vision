@@ -1,10 +1,11 @@
+#pragma once
+
 #include "common/gobal.hpp"
 #include "control/armor_solver.hpp"
 #include "control/bspline.hpp"
 #include "control/rune_solver.hpp"
-#include "detect/armor_detector_openvino.hpp"
 #include "detect/armor_pose_estimator.hpp"
-#include "detect/rune_detector_openvino.hpp"
+#include "detect/detector_factory.hpp"
 #include "driver/hik.hpp"
 #include "driver/image_capturer.hpp"
 #include "driver/labeler.hpp"
@@ -15,7 +16,6 @@
 #include "type/type.hpp"
 #include "yaml-cpp/yaml.h"
 #include <opencv2/core/mat.hpp>
-
 class WustVision {
 public:
   WustVision();
@@ -40,7 +40,6 @@ public:
   void initTF();
   void initSerial();
   void initTracker(const YAML::Node &config);
-  std::unique_ptr<RuneDetectorOpenvino> initRuneDetectorOpenvino();
   void timerCallback();
   void startTimer();
   void stopTimer();
@@ -56,14 +55,20 @@ public:
 
   std::thread image_thread_;
   std::unique_ptr<ThreadPool> thread_pool_;
-  std::unique_ptr<OpenVino> detector_;
+
   std::unique_ptr<HikCamera> camera_;
   std::unique_ptr<VideoPlayer> video_player_;
   int max_infer_running_;
   std::mutex callback_mutex_;
   std::atomic<int> infer_running_count_{0};
 
+#ifdef USE_OPENVINO
   std::string vision_logger = "openvino_vision";
+#elif defined(USE_TRT)
+  std::string vision_logger = "trt_vision";
+#else
+  static_assert(false, "No backend defined: USE_OPENVINO or USE_TRT");
+#endif
   std::atomic<bool> run_loop_{false};
   std::string target_frame_;
   std::atomic<bool> timer_running_{false};
@@ -82,13 +87,12 @@ public:
   std::unique_ptr<std::thread> capture_thread_;
   std::atomic<bool> capture_running_;
   Target armor_target;
-  // OneTarget one_armor_target;
   std::vector<OneTarget> one_armor_targets;
   Armors armors_gobal;
   Rune rune_gobal;
   std::mutex img_mutex_;
   imgframe imgframe_;
-  std::unique_ptr<RuneDetectorOpenvino> rune_detector_;
+
   std::unique_ptr<RuneSolver> rune_solver_;
   bool detect_r_tag_;
   int rune_binary_thresh_;
@@ -103,4 +107,7 @@ public:
   int timer_count;
 
   std::unique_ptr<RealtimeBSplineSegment> spline;
+
+  std::unique_ptr<ArmorDetectorBase> armor_detector_;
+  std::unique_ptr<RuneDetectorBase> rune_detector_;
 };

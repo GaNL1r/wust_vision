@@ -240,6 +240,7 @@ inline void initLogger(const std::string &level_str,
 #define WUST_WARN(node) LoggerStream(LogLevel::WARN, node, __FILE__, __LINE__)
 #define WUST_ERROR(node) LoggerStream(LogLevel::ERROR, node, __FILE__, __LINE__)
 
+#ifdef USE_TRT
 #include "NvInfer.h"
 
 class TRTLogger : public nvinfer1::ILogger {
@@ -255,3 +256,4 @@ public:
   }
   nvinfer1::ILogger::Severity severity_;
 };
+#endif
