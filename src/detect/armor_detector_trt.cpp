@@ -431,8 +431,8 @@ bool ArmorDetectTrt::extractImage(const cv::Mat &src, ArmorObject &armor) {
 }
 
 std::vector<Light> ArmorDetectTrt::findLights(const cv::Mat &rgb_img,
-                                                const cv::Mat &binary_img,
-                                                ArmorObject &armor) noexcept {
+                                              const cv::Mat &binary_img,
+                                              ArmorObject &armor) noexcept {
   using std::vector;
   vector<vector<cv::Point>> contours;
   vector<cv::Vec4i> hierarchy;
@@ -484,11 +484,11 @@ void ArmorDetectTrt::detect(ArmorObject &armor) {
 }
 // 构造函数：初始化参数并构建引擎
 ArmorDetectTrt::ArmorDetectTrt(const std::string &onnx_path,
-                                   const Params &params, double expand_ratio_w,
-                                   double expand_ratio_h, int binary_thres,
-                                   LightParams light_params,
-                                   std::string classify_model_path,
-                                   std::string classify_label_path)
+                               const Params &params, double expand_ratio_w,
+                               double expand_ratio_h, int binary_thres,
+                               LightParams light_params,
+                               std::string classify_model_path,
+                               std::string classify_label_path)
     : params_(params), engine_(nullptr), context_(nullptr),
       output_buffer_(nullptr), runtime_(nullptr),
       expand_ratio_h_(expand_ratio_h), expand_ratio_w_(expand_ratio_w),
@@ -671,11 +671,12 @@ void ArmorDetectTrt::initNumberClassifier() {
 
   // 检查模型是否成功加载
   if (number_net_.empty()) {
-    WUST_ERROR("number_classifier") << "Failed to load number classifier model from " << model_path;
+    WUST_ERROR("number_classifier")
+        << "Failed to load number classifier model from " << model_path;
     std::exit(EXIT_FAILURE); // 模型加载失败，退出程序
   } else {
-    WUST_INFO("number_classifier") << "Successfully loaded number classifier model from "
-              << model_path ;
+    WUST_INFO("number_classifier")
+        << "Successfully loaded number classifier model from " << model_path;
   }
 
   // 加载标签
@@ -693,11 +694,13 @@ void ArmorDetectTrt::initNumberClassifier() {
 
   // 检查标签是否成功加载
   if (class_names_.empty()) {
-    WUST_ERROR("number_classifier") << "Failed to load labels from " << label_path ;
+    WUST_ERROR("number_classifier")
+        << "Failed to load labels from " << label_path;
     std::exit(EXIT_FAILURE); // 标签加载失败，退出程序
   } else {
-    WUST_INFO("number_classifier") << "Successfully loaded " << class_names_.size()
-              << " labels from " << label_path ;
+    WUST_INFO("number_classifier")
+        << "Successfully loaded " << class_names_.size() << " labels from "
+        << label_path;
   }
 }
 // bool ArmorDetectTrt::classifyNumber(ArmorObject &armor) {
@@ -909,9 +912,9 @@ std::vector<ArmorObject> ArmorDetectTrt::postprocess(
   return objs_result;
 }
 
-void ArmorDetectTrt::pushInput(
-    const cv::Mat &rgb_img, std::chrono::steady_clock::time_point timestamp,
-    Eigen::Matrix4d T_camera_to_odom) {
+void ArmorDetectTrt::pushInput(const cv::Mat &rgb_img,
+                               std::chrono::steady_clock::time_point timestamp,
+                               Eigen::Matrix4d T_camera_to_odom) {
   if (rgb_img.empty()) {
     return;
   }

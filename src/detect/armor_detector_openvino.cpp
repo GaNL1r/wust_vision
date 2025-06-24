@@ -212,13 +212,13 @@ static void nms_merge_sorted_bboxes(std::vector<ArmorObject> &faceobjects,
     }
   }
 }
-ArmorDetectOpenVino::ArmorDetectOpenVino(const std::filesystem::path &model_path,
-                   const std::string &classify_model_path,
-                   const std::string &classify_label_path,
-                   const std::string &device_name, const LightParams &l,
-                   float conf_threshold, int top_k, float nms_threshold,
-                   float expand_ratio_w, float expand_ratio_h,
-                   int binary_thres_, bool auto_init)
+ArmorDetectOpenVino::ArmorDetectOpenVino(
+    const std::filesystem::path &model_path,
+    const std::string &classify_model_path,
+    const std::string &classify_label_path, const std::string &device_name,
+    const LightParams &l, float conf_threshold, int top_k, float nms_threshold,
+    float expand_ratio_w, float expand_ratio_h, int binary_thres_,
+    bool auto_init)
     : light_params_(l), model_path_(model_path),
       classify_model_path_(classify_model_path),
       classify_label_path_(classify_label_path), device_name_(device_name),
@@ -239,11 +239,12 @@ void ArmorDetectOpenVino::initNumberClassifier() {
 
   // 检查模型是否成功加载
   if (number_net_.empty()) {
-    WUST_ERROR("number_classifier") << "Failed to load number classifier model from " << model_path;
+    WUST_ERROR("number_classifier")
+        << "Failed to load number classifier model from " << model_path;
     std::exit(EXIT_FAILURE); // 模型加载失败，退出程序
   } else {
-    WUST_INFO("number_classifier") << "Successfully loaded number classifier model from "
-              << model_path ;
+    WUST_INFO("number_classifier")
+        << "Successfully loaded number classifier model from " << model_path;
   }
 
   // 加载标签
@@ -261,11 +262,13 @@ void ArmorDetectOpenVino::initNumberClassifier() {
 
   // 检查标签是否成功加载
   if (class_names_.empty()) {
-    WUST_ERROR("number_classifier") << "Failed to load labels from " << label_path ;
+    WUST_ERROR("number_classifier")
+        << "Failed to load labels from " << label_path;
     std::exit(EXIT_FAILURE); // 标签加载失败，退出程序
   } else {
-    WUST_INFO("number_classifier") << "Successfully loaded " << class_names_.size()
-              << " labels from " << label_path ;
+    WUST_INFO("number_classifier")
+        << "Successfully loaded " << class_names_.size() << " labels from "
+        << label_path;
   }
 }
 
@@ -298,7 +301,8 @@ ArmorDetectOpenVino::~ArmorDetectOpenVino() {
     thread_pool_->waitUntilEmpty();
   }
 }
-void ArmorDetectOpenVino::extractNumberImage(const cv::Mat &src, ArmorObject &armor) {
+void ArmorDetectOpenVino::extractNumberImage(const cv::Mat &src,
+                                             ArmorObject &armor) {
   // 光条长度和装甲板尺寸参数
   const int light_length = 12;
   const int warp_height = 28;
@@ -380,7 +384,8 @@ void ArmorDetectOpenVino::extractNumberImage(const cv::Mat &src, ArmorObject &ar
   armor.whole_binary_img = litroi;
   armor.whole_rgb_img = litroi_color;
 }
-// void ArmorDetectOpenVino::extractNumberImage(const cv::Mat &src, ArmorObject &armor) {
+// void ArmorDetectOpenVino::extractNumberImage(const cv::Mat &src, ArmorObject
+// &armor) {
 //   // Light length in image
 //   static const int light_length = 12;
 //   // Image size after warp
@@ -461,9 +466,10 @@ void ArmorDetectOpenVino::extractNumberImage(const cv::Mat &src, ArmorObject &ar
 //   // cv::waitKey(1);
 //   return;
 // }
-std::vector<Light> ArmorDetectOpenVino::findLights(const cv::Mat &rgb_img,
-                                        const cv::Mat &binary_img,
-                                        ArmorObject &armor) noexcept {
+std::vector<Light>
+ArmorDetectOpenVino::findLights(const cv::Mat &rgb_img,
+                                const cv::Mat &binary_img,
+                                ArmorObject &armor) noexcept {
   using std::vector;
   vector<vector<cv::Point>> contours;
   vector<cv::Vec4i> hierarchy;
@@ -618,11 +624,10 @@ bool ArmorDetectOpenVino::classifyNumber(ArmorObject &armor) {
 void ArmorDetectOpenVino::setCallback(DetectorCallback callback) {
   infer_callback_ = callback;
 }
-bool ArmorDetectOpenVino::processCallback(const cv::Mat resized_img,
-                               Eigen::Matrix3f transform_matrix,
-                               std::chrono::steady_clock::time_point timestamp,
-                               const cv::Mat &src_img,
-                               Eigen::Matrix4d T_camera_to_odom) {
+bool ArmorDetectOpenVino::processCallback(
+    const cv::Mat resized_img, Eigen::Matrix3f transform_matrix,
+    std::chrono::steady_clock::time_point timestamp, const cv::Mat &src_img,
+    Eigen::Matrix4d T_camera_to_odom) {
   // BGR->RGB, u8(0-255)->f32(0.0-1.0), HWC->NCHW
   // note: TUP's model no need to normalize
   cv::Mat blob = cv::dnn::blobFromImage(
@@ -723,9 +728,9 @@ bool ArmorDetectOpenVino::processCallback(const cv::Mat resized_img,
 
   return false;
 }
-void ArmorDetectOpenVino::pushInput(const cv::Mat &rgb_img,
-                         std::chrono::steady_clock::time_point timestamp,
-                         Eigen::Matrix4d T_camera_to_odom) {
+void ArmorDetectOpenVino::pushInput(
+    const cv::Mat &rgb_img, std::chrono::steady_clock::time_point timestamp,
+    Eigen::Matrix4d T_camera_to_odom) {
   Eigen::Matrix3f transform_matrix;
   cv::Mat resized_img = letterbox(rgb_img, transform_matrix); // ✅ 保证先定义
   processCallback(resized_img, transform_matrix, timestamp, rgb_img,

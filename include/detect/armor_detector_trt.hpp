@@ -50,10 +50,10 @@ public:
 
   // 构造函数：加载 ONNX 模型并构建 TensorRT 引擎
   explicit ArmorDetectTrt(const std::string &onnx_path, const Params &params,
-                            double expand_ratio_w, double expand_ratio_h,
-                            int binary_thres, LightParams light_params,
-                            std::string classify_model_path,
-                            std::string classify_label_path);
+                          double expand_ratio_w, double expand_ratio_h,
+                          int binary_thres, LightParams light_params,
+                          std::string classify_model_path,
+                          std::string classify_label_path);
 
   // 析构函数：释放资源
   ~ArmorDetectTrt();

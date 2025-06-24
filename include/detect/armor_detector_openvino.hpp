@@ -19,13 +19,15 @@ public:
       const cv::Mat &, Eigen::Matrix4d)>;
 
   explicit ArmorDetectOpenVino(const std::filesystem::path &model_path,
-                    const std::string &classify_model_path,
-                    const std::string &classify_label_path,
-                    const std::string &device_name, const LightParams &l,
-                    float conf_threshold = 0.25, int top_k = 128,
-                    float nms_threshold = 0.3, float expand_ratio_w = 1.1f,
-                    float expand_ratio_h = 1.1f, int binary_thres_ = 85,
-                    bool auto_init = true);
+                               const std::string &classify_model_path,
+                               const std::string &classify_label_path,
+                               const std::string &device_name,
+                               const LightParams &l,
+                               float conf_threshold = 0.25, int top_k = 128,
+                               float nms_threshold = 0.3,
+                               float expand_ratio_w = 1.1f,
+                               float expand_ratio_h = 1.1f,
+                               int binary_thres_ = 85, bool auto_init = true);
 
   ~ArmorDetectOpenVino();
 

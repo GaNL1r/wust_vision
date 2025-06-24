@@ -18,7 +18,7 @@ ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(const YAML::Node &config) {
   params.conf_threshold = config["model"]["conf_threshold"].as<float>();
   params.nms_threshold = config["model"]["nms_threshold"].as<float>();
   params.top_k = config["model"]["top_k"].as<int>();
-  WUST_INFO("armor_detector")<<"model_path: "<<model_path;
+  WUST_INFO("armor_detector") << "model_path: " << model_path;
   LightParams l_params = {
       .min_ratio = config["light"]["min_ratio"].as<double>(),
       .max_ratio = config["light"]["max_ratio"].as<double>(),

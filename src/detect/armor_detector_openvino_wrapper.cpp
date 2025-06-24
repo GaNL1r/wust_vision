@@ -13,7 +13,8 @@ ArmorDetectorOpenvinoWrapper::ArmorDetectorOpenvinoWrapper(
   float expand_ratio_w = config["light"]["expand_ratio_w"].as<float>();
   float expand_ratio_h = config["light"]["expand_ratio_h"].as<float>();
   int binary_thres = config["light"]["binary_thres"].as<int>();
-  WUST_INFO("armor_detector")<<"model_path: "<<model_path<<"device_type: "<<device_type;
+  WUST_INFO("armor_detector")
+      << "model_path: " << model_path << "device_type: " << device_type;
   LightParams l_params = {
       .min_ratio = config["light"]["min_ratio"].as<double>(),
       .max_ratio = config["light"]["max_ratio"].as<double>(),
