@@ -1,7 +1,7 @@
 
 only_nav_enable: false
 use_auto_labeler: false
-init_attack_mode: 0
+init_attack_mode: 1
 camera:
   acquisition_frame_rate: 120
   adc_bit_depth: Bits_8
@@ -11,8 +11,8 @@ camera:
   pixel_format: BayerRG8
   recorder: false
   video_player:
-    use: false
-    path: /home/hy/wust_data/video/1749800971.avi
+    use: true
+    path: /home/hy/6.11/output.mp4
     loop: true
     fps : 90
     start_frame: 0
@@ -26,7 +26,7 @@ control:
   device_name: /dev/ttyACM0
   max_pitch_change: 50
   max_yaw_change: 10
-  use_serial: true
+  use_serial: false
   use_nav:  false
 debug:
   debug_h: 1080
@@ -42,7 +42,7 @@ light:
   max_ratio: 0.45
   min_ratio: 0.02
 logger:
-  log_level: INFO
+  log_level: DEBUG
   log_path: /home/hy/wust_log
   use_logcli: true
   use_logfile: false
@@ -121,6 +121,15 @@ tracker:
     os2qyaw: 20
     os2qz: 1
 
+    ocar_x: 0.0180952234
+    ocar_y: 0.0180952234
+    ocar_yaw: 0.609218545
+    ocar_z: 0.00180952234
+
+    ocas2qx: 10     
+    ocas2qy: 10    
+    ocas2qyaw: 20     
+    ocas2qz:  1
 
     oyr_y: 0.3042568339
     oyr_p: 0.0010738330

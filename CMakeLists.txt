@@ -34,7 +34,7 @@ add_executable(${PROJECT_NAME}_openvino
   src/common/toolsgobal.cpp
   src/control/rune_solver.cpp
   src/tracker/curve_fitter.cpp
-  src/detect/rune_detector.cpp
+  src/detect/rune_detector_openvino.cpp
   src/driver/recorder.cpp
   src/driver/labeler.cpp
   src/driver/video_player.cpp
@@ -77,6 +77,9 @@ add_executable(${PROJECT_NAME}_trt
   src/tracker/one_ypd_tracker.cpp
   src/tracker/tracker_manager.cpp
   src/tracker/one_ca_tracker.cpp
+  src/detect/rune_detector_trt.cpp
+  src/control/rune_solver.cpp
+  src/tracker/curve_fitter.cpp
 
 )
 include_directories(
@@ -129,6 +132,7 @@ target_include_directories(${PROJECT_NAME}_trt PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/hikSDK/include
   ${G2O_INCLUDE_DIRS}
   ${Python3_INCLUDE_DIRS}
+  ${CERES_INCLUDE_DIRS}
 
   
 
@@ -212,6 +216,7 @@ target_link_libraries(${PROJECT_NAME}_trt
   g2o_types_slam3d
   g2o_solver_dense
   ${OPENGL_gl_LIBRARY}
+  ${CERES_LIBRARIES}
 
  
 )

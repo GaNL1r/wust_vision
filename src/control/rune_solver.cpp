@@ -42,7 +42,7 @@ RuneSolver::RuneSolver(const RuneSolverParams &rsp) : rune_solver_params(rsp) {
   manual_compensator = std::make_unique<ManualCompensator>();
 }
 
-double RuneSolver::init(const Rune received_target) {
+double RuneSolver::init(const Rune received_target,Eigen::Matrix4d T_camera_to_odom) {
   if (received_target.is_lost) {
     return 0;
   }
@@ -51,7 +51,7 @@ double RuneSolver::init(const Rune received_target) {
 
   // Init EKF
   try {
-    Eigen::Matrix4d T_odom_2_rune = solvePose(received_target);
+    Eigen::Matrix4d T_odom_2_rune = solvePose(received_target,T_camera_to_odom);
 
     // Filter out outliers
     Eigen::Vector3d t = T_odom_2_rune.block(0, 3, 3, 1);
@@ -84,7 +84,7 @@ double RuneSolver::init(const Rune received_target) {
   return observed_angle;
 }
 
-double RuneSolver::update(const Rune received_target) {
+double RuneSolver::update(const Rune received_target,Eigen::Matrix4d T_camera_to_odom) {
   std::chrono::steady_clock::time_point timestamp = received_target.timestamp;
   double now_time =
       std::chrono::duration<double>(timestamp.time_since_epoch()).count();
@@ -99,7 +99,7 @@ double RuneSolver::update(const Rune received_target) {
   if (!received_target.is_lost) {
     // Update EKF
     try {
-      Eigen::Matrix4d T_odom_2_rune = solvePose(received_target);
+      Eigen::Matrix4d T_odom_2_rune = solvePose(received_target,T_camera_to_odom);
 
       // Filter out outliers
       Eigen::Vector3d t = T_odom_2_rune.block(0, 3, 3, 1);
@@ -172,7 +172,7 @@ double RuneSolver::predictTarget(Eigen::Vector3d &predicted_position,
   return predict_angle_diff + last_observed_angle_;
 }
 
-Eigen::Matrix4d RuneSolver::solvePose(const Rune &predicted_target) {
+Eigen::Matrix4d RuneSolver::solvePose(const Rune &predicted_target ,Eigen::Matrix4d T_camera_to_odom) {
   Eigen::Matrix4d pose = Eigen::Matrix4d::Identity();
   std::vector<cv::Point2f> image_points(predicted_target.pts.size());
   std::transform(predicted_target.pts.begin(), predicted_target.pts.end(),
@@ -211,9 +211,40 @@ Eigen::Matrix4d RuneSolver::solvePose(const Rune &predicted_target) {
 
       // Transform to odom
 
-      auto pose_in_target_frame =
-          tf_tree_.transform(tf, "camera_optical_frame", "gimbal_odom",
-                             predicted_target.timestamp);
+      // 构造 4x4 位姿矩阵 pose_camera
+      Eigen::Matrix4d pose_camera = Eigen::Matrix4d::Identity();
+
+      // 位置
+      pose_camera(0, 3) = tf.position.x;
+      pose_camera(1, 3) = tf.position.y;
+      pose_camera(2, 3) = tf.position.z;
+
+      // 旋转：四元数 -> 旋转矩阵
+      Eigen::Quaterniond q_cam(tf.orientation.w, tf.orientation.x, tf.orientation.y, tf.orientation.z);
+      pose_camera.block<3, 3>(0, 0) = q_cam.normalized().toRotationMatrix();
+
+      // 从 camera 坐标系变换到 gimbal_odom 坐标系
+      Eigen::Matrix4d pose_odom = T_camera_to_odom * pose_camera;
+
+      // 提取变换结果
+      Transform pose_in_target_frame;
+      pose_in_target_frame.position.x = pose_odom(0, 3);
+      pose_in_target_frame.position.y = pose_odom(1, 3);
+      pose_in_target_frame.position.z = pose_odom(2, 3);
+
+      // 提取旋转部分转为四元数
+      Eigen::Matrix3d R_odom = pose_odom.block<3, 3>(0, 0);
+      Eigen::Quaterniond q_odom(R_odom);
+
+      pose_in_target_frame.orientation.w = q_odom.w();
+      pose_in_target_frame.orientation.x = q_odom.x();
+      pose_in_target_frame.orientation.y = q_odom.y();
+      pose_in_target_frame.orientation.z = q_odom.z();
+
+
+     
+
+
 
       // Fill pose
       pose(0, 3) = pose_in_target_frame.position.x;

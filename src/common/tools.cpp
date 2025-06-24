@@ -16,6 +16,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include "common/toolsgobal.hpp"
 void drawGimbalDirection(cv::Mat &debug_img, const GimbalCmd &gimbal_cmd) {
   // 1. 云台坐标系下的方向向量（右手系：Z 前，X 右，Y 下）
   Eigen::Vector3f dir_gimbal;
@@ -1215,7 +1216,7 @@ void draw_debug_overlaywrite(const imgframe &src_img, const Armors *armors,
     double latency =
         std::chrono::duration<double, std::milli>(now - armors->timestamp)
             .count();
-    std::string latency_str = fmt::format("Latency: {:.2f}ms", latency);
+    std::string latency_str = fmt::format("Latency: {:.2f}ms", latency_ms);
     cv::putText(debug_img, latency_str, cv::Point(10, 30),
                 cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(255, 255, 255), 2);
   }
@@ -1929,7 +1930,7 @@ void drawRune(cv::Mat &src_img, const std::vector<RuneObject> &objs,
 
   double latency =
       std::chrono::duration<double, std::milli>(now - timestamp).count();
-  std::string latency_str = fmt::format("Latency: {:.2f}ms", latency);
+  std::string latency_str = fmt::format("Latency: {:.2f}ms", latency_ms);
   cv::putText(debug_img, latency_str, cv::Point2i(10, 30),
               cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 255, 255), 2);
 
@@ -2122,7 +2123,7 @@ void drawRuneandprewrite(cv::Mat &src_img, const std::vector<RuneObject> &objs,
 
   double latency =
       std::chrono::duration<double, std::milli>(now - timestamp).count();
-  std::string latency_str = fmt::format("Latency: {:.2f}ms", latency);
+  std::string latency_str = fmt::format("Latency: {:.2f}ms", latency_ms);
   cv::putText(debug_img, latency_str, cv::Point2i(10, 30),
               cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(255, 255, 255), 2);
 

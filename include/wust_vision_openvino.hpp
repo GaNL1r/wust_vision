@@ -4,7 +4,7 @@
 #include "control/rune_solver.hpp"
 #include "detect/armor_pose_estimator.hpp"
 #include "detect/openvino.hpp"
-#include "detect/rune_detector.hpp"
+#include "detect/rune_detector_openvino.hpp"
 #include "driver/hik.hpp"
 #include "driver/image_capturer.hpp"
 #include "driver/labeler.hpp"
@@ -34,19 +34,20 @@ public:
                       Eigen::Matrix4d T_camera_to_odom);
   void inferResultCallback(std::vector<RuneObject> &rune_objects,
                            std::chrono::steady_clock::time_point timestamp,
-                           const cv::Mat &img);
+                           const cv::Mat &img,
+                           Eigen::Matrix4d T_camera_to_odom);
   void stop();
   void armorsCallback(Armors armors_, const cv::Mat &src_img);
   void initTF();
   void initSerial();
   void initTracker(const YAML::Node &config);
-  std::unique_ptr<RuneDetector> initRuneDetector();
+  std::unique_ptr<RuneDetectorOpenvino> initRuneDetectorOpenvino();
   void timerCallback();
   void startTimer();
   void stopTimer();
   void transformArmorData(Armors &armors);
   void transformArmorData(Armors &armors,Eigen::Matrix4d T_camera_to_odom);
-  void runeTargetCallback(const Rune rune_target);
+  void runeTargetCallback(const Rune rune_target,Eigen::Matrix4d T_camera_to_odom);
   void update();
   void initRune(const std::string &camera_info_path);
   // Armors visualizeTargetProjection(Target armor_target_);
@@ -88,7 +89,7 @@ public:
   Rune rune_gobal;
   std::mutex img_mutex_;
   imgframe imgframe_;
-  std::unique_ptr<RuneDetector> rune_detector_;
+  std::unique_ptr<RuneDetectorOpenvino> rune_detector_;
   std::unique_ptr<RuneSolver> rune_solver_;
   bool detect_r_tag_;
   int rune_binary_thresh_;
@@ -100,6 +101,7 @@ public:
   Eigen::Vector3d t_gimbal_to_camera;
   Eigen::Matrix4d T_camera_to_odom_;
   Eigen::Matrix3d R_gimbal_camera;
+  int timer_count;
 
   std::unique_ptr<RealtimeBSplineSegment> spline;
 };

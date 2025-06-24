@@ -20,6 +20,8 @@ TrackerManager::TrackerManager(const YAML::Node &config_) {
         max_match_distance, max_match_yaw_diff, max_match_z_diff);
     one_trackers_.push_back(std::move(o_tracker_));
   }
+  one_ca_tracker_ = std::make_unique<OneCaTracker>(
+      max_match_distance, max_match_yaw_diff, max_match_z_diff);
   // for (int i = 0; i < track_one_num; i++) {
   //   auto oy_tracker_ = std::make_unique<OneYpdTracker>(
   //       max_match_distance, max_match_yaw_diff, max_match_z_diff);
@@ -94,6 +96,18 @@ TrackerManager::TrackerManager(const YAML::Node &config_) {
   oyr_p_ = config_["ekf"]["oyr_p"].as<double>(0.05);
   oyr_d_ = config_["ekf"]["oyr_d"].as<double>(0.05);
   oyr_yaw_ = config_["ekf"]["oyr_yaw"].as<double>(0.02);
+
+
+  ocas2qx_ = config_["ekf"]["ocas2qx"].as<double>(20.0);
+  ocas2qy_ = config_["ekf"]["ocas2qy"].as<double>(20.0);
+  ocas2qz_ = config_["ekf"]["ocas2qz"].as<double>(20.0);
+  ocas2qyaw_ = config_["ekf"]["ocas2qyaw"].as<double>(100.0);
+
+  ocar_x_ = config_["ekf"]["ocar_x"].as<double>(0.05);
+  ocar_y_ = config_["ekf"]["ocar_y"].as<double>(0.05);
+  ocar_z_ = config_["ekf"]["ocar_z"].as<double>(0.05);
+  ocar_yaw_ = config_["ekf"]["ocar_yaw"].as<double>(0.02);
+
   // EKF 状态预测函数
   auto f = armor_motion_model::Predict(0.005); // dt 固定为 5ms
   auto yf = ypdarmor_motion_model::Predict(0.005);
@@ -231,36 +245,40 @@ TrackerManager::TrackerManager(const YAML::Node &config_) {
                   onecaarmor_motion_model::X_N>
         q;
     double t = dt_;
-    double x = os2qx_, y = os2qy_, z = os2qz_, yaw = os2qyaw_;
+    double x = ocas2qx_, y = ocas2qy_, z = ocas2qz_, yaw = ocas2qyaw_;
     
     // 按照“加速度是白噪声”的协方差传播公式
     double q_x_x     = pow(t, 4) / 4.0 * x;
     double q_x_vx    = pow(t, 3) / 2.0 * x;
     double q_vx_vx   = pow(t, 2)       * x;
-
+    double q_ax_ax   = 0.0001;  // ax 白噪声强度（可设为 x）
+    
+    // y 方向（匀加速）
     double q_y_y     = pow(t, 4) / 4.0 * y;
     double q_y_vy    = pow(t, 3) / 2.0 * y;
     double q_vy_vy   = pow(t, 2)       * y;
-
-    double q_z_z     = pow(t, 4) / 4.0 * z;
-    double q_z_vz    = pow(t, 3) / 2.0 * z;
-    double q_vz_vz   = pow(t, 2)       * z;
-
-    double q_yaw_yaw     = pow(t, 4) / 4.0 * yaw;
-    double q_yaw_vyaw    = pow(t, 3) / 2.0 * yaw;
-    double q_vyaw_vyaw   = pow(t, 2)       * yaw;
-
+    double q_ay_ay   = 0.0001;  // ay 白噪声强度（可设为 y）
+    
+    // z 方向（匀速）
+    double q_z_z = pow(t, 4) / 4 * z, q_z_vz = pow(t, 3) / 2 * z,
+           q_vz_vz = pow(t, 2) * z;
+    
+    // yaw 方向（匀角速度）
+    double q_yaw_yaw = pow(t, 4) / 4 * yaw, q_yaw_vyaw = pow(t, 3) / 2 * yaw,
+           q_vyaw_vyaw = pow(t, 2) * yaw;
     // clang-format off
-      //    xc      v_xc    yc      v_yc    zc      v_zc    yaw         v_yaw       
-      q <<  q_x_x,  q_x_vx, 0,      0,      0,      0,      0,          0,         
-            q_x_vx, q_vx_vx,0,      0,      0,      0,      0,          0,         
-            0,      0,      q_y_y,  q_y_vy, 0,      0,      0,          0,          
-            0,      0,      q_y_vy, q_vy_vy,0,      0,      0,          0,          
-            0,      0,      0,      0,      q_z_z,  q_z_vz, 0,          0,          
-            0,      0,      0,      0,      q_z_vz, q_vz_vz,0,          0,          
-            0,      0,      0,      0,      0,      0,      q_yaw_yaw,  q_yaw_vyaw, 
-            0,      0,      0,      0,      0,      0,      q_yaw_vyaw, q_vyaw_vyaw;
+    q << q_x_x,     q_x_vx,    0,         0,         0,         0,         0,         0,         0,           0,
+        q_x_vx,    q_vx_vx,   0,         0,         0,         0,         0,         0,         0,           0,
+        0,         0,         q_ax_ax,   0,         0,         0,         0,         0,         0,           0,
+        0,         0,         0,         q_y_y,     q_y_vy,    0,         0,         0,         0,           0,
+        0,         0,         0,         q_y_vy,    q_vy_vy,   0,         0,         0,         0,           0,
+        0,         0,         0,         0,         0,         q_ay_ay,   0,         0,         0,           0,
+        0,         0,         0,         0,         0,         0,         q_z_z,     q_z_vz,    0,           0,
+        0,         0,         0,         0,         0,         0,         q_z_vz,    q_vz_vz,   0,           0,
+        0,         0,         0,         0,         0,         0,         0,         0,         q_yaw_yaw,   q_yaw_vyaw,
+        0,         0,         0,         0,         0,         0,         0,         0,         q_yaw_vyaw,  q_vyaw_vyaw;
     // clang-format on
+
     return q;
   };
 
@@ -357,6 +375,8 @@ r << oyr_y_      * std::abs(z[0]), 0, 0, 0,
     o_tracker->ekf = std::make_unique<onearmor_motion_model::RobotStateEKF>(
         of, oh, ou_q, ou_r, op0);
   }
+  one_ca_tracker_->ekf = std::make_unique<onecaarmor_motion_model::RobotStateEKF>(
+      ocaf, ocah, ocau_q, ocau_r, ocap0);
   // for (auto &oy_tracker : one_ypd_trackers_) {
   //   oy_tracker->ekf = std::make_unique<oneypdarmor_motion_model::RobotStateEKF>(
   //       oyf, oyh, oyu_q, oyu_r, oyp0);
@@ -416,7 +436,64 @@ void TrackerManager::update(Target &target_,
       target_.type = ypd_tracker_->type;
     }
   }
+  // OneTarget one_target;
+  // if (one_ca_tracker_->tracker_state == Tracker::LOST ) {
+  //   one_ca_tracker_->init(armors_);
+  //   one_target.tracking = false;
 
+  // } else {
+  //   dt_ = std::chrono::duration<double>(time - last_time_).count();
+  //   one_ca_tracker_->lost_thres =
+  //       std::abs(static_cast<int>(one_lost_time_thres_ / dt_));
+
+  //     one_ca_tracker_->ekf->setPredictFunc(onecaarmor_motion_model::Predict{
+  //         dt_, onecaarmor_motion_model::MotionModel::CONSTANT_ACCEL_ROT});
+  
+  //   one_ca_tracker_->update(armors_);
+
+
+
+  //   if (one_ca_tracker_->tracker_state == Tracker::DETECTING) {
+  //     one_target.tracking = false;
+  //   } else if (one_ca_tracker_->tracker_state == Tracker::TRACKING ||
+  //     one_ca_tracker_->tracker_state == Tracker::TEMP_LOST) {
+  //       one_target.tracking = true;
+
+  //     const auto &state = one_ca_tracker_->target_state;
+  //     one_target.id = one_ca_tracker_->tracked_id;
+     
+
+  //     one_target.position_.x = state(0);
+  //     one_target.velocity_.x = state(1);
+  //     one_target.acceleration_.x = state(2);
+  //     one_target.position_.y = state(3);
+  //     one_target.velocity_.y = state(4);
+  //     one_target.acceleration_.y = state(5);
+  //     one_target.position_.z = state(6);
+  //     one_target.velocity_.z = state(7);
+  //     one_target.yaw = state(8);
+  //     one_target.v_yaw = state(9);
+  //     bool hasNaN = false;
+  //     for (int i = 0; i < 9; ++i) {
+  //         if (std::isnan(state[i])) {
+  //             hasNaN = true;
+  //             break;
+  //         }
+  //     }
+  //     if (hasNaN) {
+  //         std::cerr << "State vector contains NaN!" << std::endl;
+  //         one_ca_tracker_->tracker_state = OneCaTracker::State::LOST;
+
+
+  //     }
+
+
+  
+  //     one_target.type = one_ca_tracker_->type;
+  //   }
+  // }
+  // std::cout<<one_target.position_<<" "<<one_target.velocity_<<" "<<one_target.acceleration_<<" "<<one_target.yaw<<" "<<one_target.v_yaw<<std::endl;
+  // one_targets_.push_back(one_target);
   if (!target_.tracking || std::abs(target_.v_yaw )<v_yaw_to_one_thres_ ) {
     std::vector<bool> armor_assigned(armors_.armors.size(), false);
 

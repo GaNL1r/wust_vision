@@ -13,6 +13,8 @@
 #include "type/type.hpp"
 #include "yaml-cpp/yaml.h"
 #include <opencv2/core/mat.hpp>
+#include "detect/rune_detector_trt.hpp"
+#include "control/rune_solver.hpp"
 class WustVision {
 public:
   WustVision();
@@ -26,6 +28,10 @@ public:
                       std::chrono::steady_clock::time_point timestamp,
                       const cv::Mat &src_img,
                       Eigen::Matrix4d T_camera_to_odom);
+   void inferResultCallback(std::vector<RuneObject> &rune_objects,
+                           std::chrono::steady_clock::time_point timestamp,
+                           const cv::Mat &img,
+                           Eigen::Matrix4d T_camera_to_odom);
   void stop();
   void armorsCallback(Armors armors_, const cv::Mat &src_img);
   void initTF();
@@ -36,6 +42,9 @@ public:
   void stopTimer();
   void transformArmorData(Armors &armors);
   void transformArmorData(Armors &armors,Eigen::Matrix4d T_camera_to_odom);
+  void initRune(const std::string &camera_info_path);
+  void runeTargetCallback(const Rune rune_target,Eigen::Matrix4d T_camera_to_odom);
+  std::unique_ptr<RuneDetectorTrt> initRuneDetectorTrt();
   Armors visualizeTargetProjection(Target armor_target_,
                                    std::vector<OneTarget> one_armor_targets_);
 
@@ -50,7 +59,13 @@ public:
 
   std::string vision_logger = "tensorrt_vision";
   std::atomic<bool> run_loop_{false};
-
+  std::unique_ptr<RuneDetectorTrt> rune_detector_;
+  std::unique_ptr<RuneSolver> rune_solver_;
+  bool detect_r_tag_;
+  int rune_binary_thresh_;
+  Rune last_rune_target_;
+  Rune rune_gobal;
+  std::vector<RuneObject> rune_objects_;
   std::atomic<bool> timer_running_{false};
   std::thread timer_thread_;
   std::unique_ptr<Tracker> tracker_;
@@ -82,4 +97,5 @@ public:
   std::unique_ptr<Labeler> auto_labeler_;
   bool use_auto_labeler;
   bool use_video;
+  int timer_count;
 };

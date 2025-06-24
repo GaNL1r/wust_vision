@@ -61,17 +61,17 @@ public:
   RuneSolver(const RuneSolverParams &sr_params);
 
   // Return: initial angle
-  double init(const Rune received_target);
+  double init(const Rune received_target,Eigen::Matrix4d T_camera_to_odom);
 
   // Return: normalized angle
-  double update(const Rune receive_target);
+  double update(const Rune receive_target,Eigen::Matrix4d T_camera_to_odom);
 
   // Return: normalized predicted angle
   double predictTarget(Eigen::Vector3d &predicted_position, double timestamp);
 
   // Return: transormation matrix from rune to odom
   // Throws: tf2::TransformException or std::runtime_error
-  Eigen::Matrix4d solvePose(const Rune &target);
+  Eigen::Matrix4d solvePose(const Rune &target,Eigen::Matrix4d T_camera_to_odom);
 
   GimbalCmd solveGimbalCmd(const Eigen::Vector3d &target);
 

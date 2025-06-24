@@ -75,6 +75,7 @@ void WustVision::init() {
   control_rate = config["control"]["control_rate"].as<int>();
   only_nav_enable = config["only_nav_enable"].as<bool>();
   if (!only_nav_enable) {
+    attack_mode = config["init_attack_mode"].as<int>();
     debug_show_dt_ = config["debug"]["debug_show_dt"].as<double>(0.05);
     use_calculation_ = config["use_calculation"].as<bool>();
     // 模型参数
@@ -137,7 +138,7 @@ void WustVision::init() {
     detector_->setCallback(
         std::bind(&WustVision::DetectCallback, this, std::placeholders::_1,
                   std::placeholders::_2, std::placeholders::_3,std::placeholders::_4));
-
+    initRune(camera_info_path);
     thread_pool_ =
         std::make_unique<ThreadPool>(std::thread::hardware_concurrency(), 100);
 
@@ -269,6 +270,98 @@ void WustVision::startTimer() {
       next_time += interval;
     }
   });
+}
+std::unique_ptr<RuneDetectorTrt> WustVision::initRuneDetectorTrt() {
+  rune_binary_thresh_ = config["rune_detector"]["min_lightness"].as<int>(100);
+  detect_r_tag_ = config["rune_detector"]["detect_r_tag"].as<bool>(false);
+  std::string model_path = config["rune_detector"]["model"].as<std::string>();
+
+
+
+  WUST_INFO("rune_detector")
+      << "model : " << model_path ;
+  RuneDetectorTrt::Params params;
+    // params.input_w = config["model"]["input_w"].as<int>();
+    // params.input_h = config["model"]["input_h"].as<int>();
+    // params.num_classes = config["model"]["num_classes"].as<int>();
+    // params.num_colors = config["model"]["num_colors"].as<int>();
+    params.conf_threshold = config["rune_detector"]["confidence_threshold"].as<float>(0.50);
+    params.nms_threshold = config["rune_detector"]["nms_threshold"].as<float>(0.3);
+    params.top_k = config["rune_detector"]["top_k"].as<int>(128);
+  // float conf_threshold =
+  //     config["rune_detector"]["confidence_threshold"].as<float>(0.50);
+  // int top_k = config["rune_detector"]["top_k"].as<int>(128);
+  // float nms_threshold = config["rune_detector"]["nms_threshold"].as<float>(0.3);
+
+  // Create detector
+  auto rune_detector = std::make_unique<RuneDetectorTrt>(
+      model_path, params);
+  // Set detect callback
+  rune_detector->setCallback(
+      std::bind(&WustVision::inferResultCallback, this, std::placeholders::_1,
+                std::placeholders::_2, std::placeholders::_3,std::placeholders::_4));
+  // init detector
+
+  return rune_detector;
+}
+void WustVision::initRune(const std::string &camera_info_path) {
+  rune_detector_ = initRuneDetectorTrt();
+  auto rune_solver_params = RuneSolver::RuneSolverParams{
+      .compensator_type =
+          config["rune_solver"]["compensator_type"].as<std::string>(),
+      .gravity = config["rune_solver"]["gravity"].as<double>(9.8),
+      .bullet_speed = config["rune_solver"]["bullet_speed"].as<double>(25.0),
+      .angle_offset_thres =
+          config["rune_solver"]["angle_offset_thres"].as<double>(0.78),
+      .lost_time_thres =
+          config["rune_solver"]["lost_time_thres"].as<double>(0.5),
+      .auto_type_determined =
+          config["rune_solver"]["auto_type_determined"].as<bool>(true),
+  };
+
+  rune_solver_ = std::make_unique<RuneSolver>(rune_solver_params);
+  rune_solver_->predict_offset_ =
+      config["rune_solver"]["predict_offset"].as<double>(0.0);
+  YAML::Node camera_config = YAML::LoadFile(camera_info_path);
+
+  std::array<double, 9> camera_k =
+      camera_config["camera_matrix"]["data"].as<std::array<double, 9>>();
+  std::vector<double> camera_d =
+      camera_config["distortion_coefficients"]["data"]
+          .as<std::vector<double>>();
+  rune_solver_->pnp_solver = std::make_unique<PnPSolver>(camera_k, camera_d);
+  rune_solver_->pnp_solver->setObjectPoints("rune", RUNE_OBJECT_POINTS);
+  // EKF for filtering the position of R tag
+  // state: x, y, z, yaw
+  // measurement: x, y, z, yaw
+  // f - Process function
+  auto f = rune_motion_model::Predict();
+  // h - Observation function
+  auto h = rune_motion_model::Measure();
+  // update_Q - process noise covariance matrix
+  std::vector<double> q_vec =
+      config["rune_solver"]["ekf"]["q"].as<std::vector<double>>();
+
+  auto u_q = [q_vec]() {
+    Eigen::Matrix<double, rune_motion_model::X_N, rune_motion_model::X_N> q =
+        Eigen::MatrixXd::Zero(4, 4);
+    q.diagonal() << q_vec[0], q_vec[1], q_vec[2], q_vec[3];
+    return q;
+  };
+  // update_R - measurement noise covariance matrix
+  std::vector<double> r_vec =
+      config["rune_solver"]["ekf"]["r"].as<std::vector<double>>();
+  auto u_r = [r_vec](
+                 const Eigen::Matrix<double, rune_motion_model::Z_N, 1> &z) {
+    Eigen::Matrix<double, rune_motion_model::Z_N, rune_motion_model::Z_N> r =
+        Eigen::MatrixXd::Zero(4, 4);
+    r.diagonal() << r_vec[0], r_vec[1], r_vec[2], r_vec[3];
+    return r;
+  };
+  // P - error estimate covariance matrix
+  Eigen::MatrixXd p0 = Eigen::MatrixXd::Identity(4, 4);
+  rune_solver_->ekf =
+      std::make_unique<rune_motion_model::RuneCenterEKF>(f, h, u_q, u_r, p0);
 }
 
 void WustVision::initTF() {
@@ -469,6 +562,129 @@ Armors WustVision::visualizeTargetProjection(
 
   return armor_data;
 }
+void WustVision::runeTargetCallback(const Rune rune_target,Eigen::Matrix4d T_camera_to_odom) {
+  // rune_solver_->pnp_solver is nullptr when camera_info is not received
+  if (rune_solver_->pnp_solver == nullptr) {
+    return;
+  }
+
+  // Keep the last detected target
+  if (!rune_target.is_lost) {
+    last_rune_target_ = rune_target;
+  }
+  double observed_angle = 0;
+  if (rune_solver_->tracker_state == RuneSolver::LOST) {
+    observed_angle = rune_solver_->init(rune_target,T_camera_to_odom);
+  } else {
+    observed_angle = rune_solver_->update(rune_target,T_camera_to_odom);
+  }
+  auto now = std::chrono::steady_clock::now();
+  auto latency_nano = std::chrono::duration_cast<std::chrono::nanoseconds>(
+    now - rune_target.timestamp)
+    .count();
+  latency_ms = static_cast<double>(latency_nano) / 1e6;
+}
+
+void WustVision::inferResultCallback(
+  std::vector<RuneObject> &objs,
+  std::chrono::steady_clock::time_point timestamp, const cv::Mat &src_img,Eigen::Matrix4d T_camera_to_odom) {
+std::lock_guard<std::mutex> lock(callback_mutex_);
+detect_finish_count_++;
+// Used to draw debug info
+cv::Mat debug_img;
+if (debug_mode_) {
+  debug_img = src_img.clone();
+}
+Rune rune_target;
+rune_target.frame_id = "camera_optical_frame";
+rune_target.timestamp = timestamp;
+rune_target.is_big_rune = false;
+
+// Erase all object that not match the color
+objs.erase(std::remove_if(objs.begin(), objs.end(),
+                          [c = static_cast<EnemyColor>(detect_color_)](
+                              const auto &obj) { return obj.color != c; }),
+           objs.end());
+
+if (!objs.empty()) {
+  // Sort by probability
+  std::sort(objs.begin(), objs.end(),
+            [](const RuneObject &a, const RuneObject &b) {
+              return a.prob > b.prob;
+            });
+
+  cv::Point2f r_tag;
+  cv::Mat binary_roi = cv::Mat::zeros(1, 1, CV_8UC3);
+  if (detect_r_tag_&&!src_img.empty()) {
+    auto a=rune_detector_->detectRTag(src_img, rune_binary_thresh_,
+                                      objs.at(0).pts.r_center);
+    // Detect R tag using traditional method
+    std::tie(r_tag, binary_roi) = a;
+  } else {
+    // Use the average center of all objects as the center of the R tag
+    r_tag = std::accumulate(
+        objs.begin(), objs.end(), cv::Point2f(0, 0),
+        [n = static_cast<float>(objs.size())](cv::Point2f p, auto &o) {
+          return p + o.pts.r_center / n;
+        });
+  }
+  // Assign the center of the R tag to all objects
+  std::for_each(objs.begin(), objs.end(),
+                [r = r_tag](RuneObject &obj) { obj.pts.r_center = r; });
+
+  // Draw binary roi
+  if (debug_mode_ && !debug_img.empty()) {
+    
+    cv::Rect roi = cv::Rect(debug_img.cols - binary_roi.cols, 0,
+                            binary_roi.cols, binary_roi.rows);
+    binary_roi.copyTo(debug_img(roi));
+    cv::rectangle(debug_img, roi, cv::Scalar(150, 150, 150), 2);
+  }
+
+  // The final target is the inactivated rune with the highest probability
+  auto result_it = std::find_if(
+      objs.begin(), objs.end(),
+      [c = static_cast<EnemyColor>(detect_color_)](const auto &obj) -> bool {
+        return obj.type == RuneType::INACTIVATED && obj.color == c;
+      });
+
+  if (result_it != objs.end()) {
+    rune_target.is_lost = false;
+    rune_target.pts[0].x = result_it->pts.r_center.x;
+    rune_target.pts[0].y = result_it->pts.r_center.y;
+    rune_target.pts[1].x = result_it->pts.bottom_left.x;
+    rune_target.pts[1].y = result_it->pts.bottom_left.y;
+    rune_target.pts[2].x = result_it->pts.top_left.x;
+    rune_target.pts[2].y = result_it->pts.top_left.y;
+    rune_target.pts[3].x = result_it->pts.top_right.x;
+    rune_target.pts[3].y = result_it->pts.top_right.y;
+    rune_target.pts[4].x = result_it->pts.bottom_right.x;
+    rune_target.pts[4].y = result_it->pts.bottom_right.y;
+  } else {
+    // All runes are activated
+    rune_target.is_lost = true;
+  }
+} else {
+  // All runes are not the target color
+  rune_target.is_lost = true;
+}
+infer_running_count_--;
+runeTargetCallback(rune_target,T_camera_to_odom);
+auto now = std::chrono::steady_clock::now();
+
+auto latency_nano = std::chrono::duration_cast<std::chrono::nanoseconds>(
+  now - rune_target.timestamp)
+  .count();
+latency_ms = static_cast<double>(latency_nano) / 1e6;
+
+if (debug_mode_) {
+  std::lock_guard<std::mutex> target_lock(img_mutex_);
+  imgframe_.img = debug_img.clone();
+  imgframe_.timestamp = rune_target.timestamp;
+  rune_gobal = rune_target;
+  rune_objects_ = objs;
+}
+}
 
 void WustVision::DetectCallback(const std::vector<ArmorObject> &objs,
                                 std::chrono::steady_clock::time_point timestamp,
@@ -615,7 +831,7 @@ void WustVision::timerCallback() {
 
   if (!is_inited_)
     return;
-
+  timer_count++;
   Target target;
 
   target = armor_target;
@@ -623,6 +839,9 @@ void WustVision::timerCallback() {
   std::vector<OneTarget> one_targets;
   one_targets = one_armor_targets;
 
+  Rune rune;
+
+  rune = rune_gobal;
   Tracker::State state;
   bool appear;
   bool one_appear = false;
@@ -640,15 +859,60 @@ void WustVision::timerCallback() {
     state = Tracker::LOST;
   }
   auto now = std::chrono::steady_clock::now();
+  AttackMode mode = toAttackMode(attack_mode);
 
 
   GimbalCmd gimbal_cmd;
 
-  if (target.tracking || one_appear) {
+  if (target.tracking || one_appear ||
+      rune_solver_->tracker_state == Tracker::State::TRACKING) {
     try {
-
+      switch (mode) {
+      case AttackMode::ARMOR: {
+       //static int last_target_count = -1;
       gimbal_cmd = solver_->solve(target, one_targets, now);
+      //   auto cmds=solver_->solveBatch(target,now,10);
+      //   std::vector<Eigen::Vector2d> control_pts;
+      //   if (target.count != last_target_count) {
+      //     // 更新控制点
+      //     std::vector<Eigen::Vector2d> control_pts;
+      //     for (const auto& cmd : cmds) {
+      //         control_pts.emplace_back(cmd.yaw, cmd.pitch);
+      //     }
+      //     spline->setControlPoints(control_pts,true);
+      //     last_target_count = target.count;
+      // }
 
+      // // 每次都评估出新的插值点
+      // if (spline->ready()) {
+
+      //     Eigen::Vector2d pt = spline->evaluateNext();
+
+      //     // 原本的求解器输出
+      //     gimbal_cmd = solver_->solve(target, now);
+
+      //     // 替换为平滑输出
+      //     double original_yaw = gimbal_cmd.yaw;
+      //     // gimbal_cmd.yaw = pt[0];
+      //     // gimbal_cmd.pitch = pt[1];
+
+      //     // 调试输出
+
+      // } else {
+      //     // fallback：样条未就绪时直接使用 solver 的结果
+      //     gimbal_cmd = solver_->solve(target, now);
+      // }
+
+      } break;
+      case AttackMode::SMALL_RUNE: {
+        gimbal_cmd = rune_solver_->solve();
+      } break;
+      case AttackMode::BIG_RUNE: {
+        gimbal_cmd = rune_solver_->solve();
+      }
+      case AttackMode::UNKNOWN:
+        break;
+      }
       last_cmd_ = gimbal_cmd;
       if (gimbal_cmd.fire_advice) {
         fire_count_++;
@@ -669,12 +933,11 @@ void WustVision::timerCallback() {
       src = imgframe_.img.clone();
     }
 
-
     Armors armors;
 
     armors = armors_gobal;
 
-    
+    if (mode == AttackMode::ARMOR) {
 
       Armors armor_data = visualizeTargetProjection(target, one_targets);
 
@@ -726,23 +989,32 @@ void WustVision::timerCallback() {
           continue;
         }
       }
+      
+      
       Target_info target_info;
       target_info.select_id = gimbal_cmd.select_id;
 
       if (!measure_tool_->reprojectArmorsCorners(armor_data, target_info))
         return;
       write_target_log_to_json(target);
-      try{
+      try {
       draw_debug_overlaywrite(imgframe_, &armors, &target_info, &target, state,
-              gimbal_cmd);
+                              gimbal_cmd);
       }catch (const std::exception &e) {
-      std::cerr << "draw_debug_overlaywrite failed: " << e.what() << '\n';
+        std::cerr << "draw_debug_overlaywrite failed: " << e.what() << '\n';
       }
 
+    } else {
+      double predict_angle = rune_solver_->last_pre_angle;
+      try {
+      drawRuneandprewrite(src, rune_objects_, imgframe_.timestamp,
+                          predict_angle);
+       }catch (const std::exception &e) {
+        std::cerr << "drawRuneandprewrite failed: " << e.what() << '\n';
+      }
+    }
 
-   
-
-
+    auto now = std::chrono::steady_clock::now();
     double t = std::chrono::duration<double>(now - start_time_).count();
     {
       std::lock_guard<std::mutex> lock(yaw_log_mutex_);
@@ -791,6 +1063,7 @@ void WustVision::timerCallback() {
  
         armor_dis_log_.push_back(last_distance);
       }
+      
 
       if (time_log_.size() > 1000) {
         time_log_.erase(time_log_.begin());
@@ -801,18 +1074,6 @@ void WustVision::timerCallback() {
     }
   }
 }
-// void WustVision::processImage(const cv::Mat
-// &frame,std::chrono::steady_clock::time_point timestamp) {
-
-//   img_recv_count_++;
-//   if (infer_running_count_.load() >= max_infer_running_) {
-//     return;
-//   }
-
-//   infer_running_count_++;
-//   printStats();
-//   detector_->pushInput(frame, timestamp);
-// }
 void WustVision::processImage(const ImageFrame &frame,Eigen::Matrix3d R_gimbal2odom) {
 
   img_recv_count_++;
@@ -846,11 +1107,23 @@ void WustVision::processImage(const ImageFrame &frame,Eigen::Matrix3d R_gimbal2o
 
   infer_running_count_++;
   printStats();
-
- 
-  detector_->pushInput(img, frame.timestamp,T_camera_to_odom);
- 
+  AttackMode mode = toAttackMode(attack_mode);
+  switch (mode) {
+  case AttackMode::ARMOR: {
+    detector_->pushInput(img, frame.timestamp,T_camera_to_odom);
+  } break;
+  case AttackMode::SMALL_RUNE: {
+    rune_detector_->pushInput(img, frame.timestamp,T_camera_to_odom);
+  } break;
+  case AttackMode::BIG_RUNE: {
+    rune_detector_->pushInput(img, frame.timestamp,T_camera_to_odom);
+  }
+  case AttackMode::UNKNOWN:
+    break;
+  }
 }
+
+
 void WustVision::printStats() {
   using namespace std::chrono;
 
@@ -868,8 +1141,9 @@ void WustVision::printStats() {
         << ", Detected: " << detect_finish_count_
         << ", FPS: " << detect_finish_count_ / elapsed.count()
         << " Latency: " << latency_ms << "ms"
-        << "  Fire: " << fire_count_;
-
+        << "  Fire: " << fire_count_
+        << "  Timer Count: " << timer_count;
+    timer_count = 0;
     img_recv_count_ = 0;
     detect_finish_count_ = 0;
     fire_count_ = 0;

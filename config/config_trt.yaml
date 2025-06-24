@@ -1,5 +1,6 @@
 only_nav_enable: false
 use_auto_labeler: false
+init_attack_mode: 0
 camera:
   acquisition_frame_rate: 200
   adc_bit_depth: Bits_8
@@ -10,7 +11,7 @@ camera:
   recorder: false
   video_player:
     use: true
-    path: /home/hy/wust_data/video/1749800971.avi
+    path: /home/hy/6.11/output.mp4
     loop: true
     fps : 90
     start_frame: 0
@@ -147,3 +148,21 @@ tracker:
   v_yaw_update_thres: 1.5
   v_yaw_to_one_thres: 1.0
 use_calculation: false
+rune_detector:
+  detect_r_tag: true
+  min_lightness: 80
+  model: "/home/hy/wust_vision/model/yolox_rune_3.6m.onnx"
+  confidence_threshold: 0.5
+  top_k: 128
+  nms_threshold: 0.3
+rune_solver:
+  auto_type_determined: true 
+  predict_time: 0.0
+  compensator_type: resistance
+  gravity: 9.8
+  bullet_speet: 28.0
+  lost_time_thres: 0.5
+  predict_offset: 0.1
+  ekf:
+    q: [4e-4, 1e-4, 1e-4, 1e-4]
+    r: [4e-2, 1e-2, 1e-2, 1e-2]

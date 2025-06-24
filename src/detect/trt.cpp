@@ -805,21 +805,7 @@ std::vector<ArmorObject> AdaptedTRTModule::postprocess(
     int grid0 = grid_strides[i].grid0;
     int grid1 = grid_strides[i].grid1;
     int stride = grid_strides[i].stride;
-    // // 第一个点（左上）
-    // box.pts[0].x = (det[0] + grid0) * stride;
-    // box.pts[0].y = (det[1] + grid1) * stride;
 
-    // // 第二个点（右上）
-    // box.pts[1].x = (det[2] + grid0) * stride;
-    // box.pts[1].y = (det[3] + grid1) * stride;
-
-    // // 第三个点（右下）
-    // box.pts[2].x = (det[4] + grid0) * stride;
-    // box.pts[2].y = (det[5] + grid1) * stride;
-
-    // // 第四个点（左下）
-    // box.pts[3].x = (det[6] + grid0) * stride;
-    // box.pts[3].y = (det[7] + grid1) * stride;
     cv::Point color_id, num_id;
 
     float x_1 = (det[0] + grid0) * stride;

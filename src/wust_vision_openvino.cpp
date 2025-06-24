@@ -224,7 +224,7 @@ void WustVision::init() {
   is_inited_ = true;
 }
 void WustVision::initRune(const std::string &camera_info_path) {
-  rune_detector_ = initRuneDetector();
+  rune_detector_ = initRuneDetectorOpenvino();
   auto rune_solver_params = RuneSolver::RuneSolverParams{
       .compensator_type =
           config["rune_solver"]["compensator_type"].as<std::string>(),
@@ -282,7 +282,7 @@ void WustVision::initRune(const std::string &camera_info_path) {
   rune_solver_->ekf =
       std::make_unique<rune_motion_model::RuneCenterEKF>(f, h, u_q, u_r, p0);
 }
-std::unique_ptr<RuneDetector> WustVision::initRuneDetector() {
+std::unique_ptr<RuneDetectorOpenvino> WustVision::initRuneDetectorOpenvino() {
   rune_binary_thresh_ = config["rune_detector"]["min_lightness"].as<int>(100);
   detect_r_tag_ = config["rune_detector"]["detect_r_tag"].as<bool>(false);
   std::string model_path = config["rune_detector"]["model"].as<std::string>();
@@ -299,12 +299,12 @@ std::unique_ptr<RuneDetector> WustVision::initRuneDetector() {
   float nms_threshold = config["rune_detector"]["nms_threshold"].as<float>(0.3);
 
   // Create detector
-  auto rune_detector = std::make_unique<RuneDetector>(
+  auto rune_detector = std::make_unique<RuneDetectorOpenvino>(
       model_path, device_type, conf_threshold, top_k, nms_threshold);
   // Set detect callback
   rune_detector->setCallback(
       std::bind(&WustVision::inferResultCallback, this, std::placeholders::_1,
-                std::placeholders::_2, std::placeholders::_3));
+                std::placeholders::_2, std::placeholders::_3,std::placeholders::_4));
   // init detector
   rune_detector->init();
   return rune_detector;
@@ -434,7 +434,7 @@ void WustVision::initTracker(const YAML::Node &config) {
   tracker_manager_ = std::make_unique<TrackerManager>(config);
 }
 
-void WustVision::runeTargetCallback(const Rune rune_target) {
+void WustVision::runeTargetCallback(const Rune rune_target,Eigen::Matrix4d T_camera_to_odom) {
   // rune_solver_->pnp_solver is nullptr when camera_info is not received
   if (rune_solver_->pnp_solver == nullptr) {
     return;
@@ -446,10 +446,15 @@ void WustVision::runeTargetCallback(const Rune rune_target) {
   }
   double observed_angle = 0;
   if (rune_solver_->tracker_state == RuneSolver::LOST) {
-    observed_angle = rune_solver_->init(rune_target);
+    observed_angle = rune_solver_->init(rune_target,T_camera_to_odom);
   } else {
-    observed_angle = rune_solver_->update(rune_target);
+    observed_angle = rune_solver_->update(rune_target,T_camera_to_odom);
   }
+  auto now = std::chrono::steady_clock::now();
+  auto latency_nano = std::chrono::duration_cast<std::chrono::nanoseconds>(
+    now - rune_target.timestamp)
+    .count();
+  latency_ms = static_cast<double>(latency_nano) / 1e6;
 }
 
 void WustVision::armorsCallback(Armors armors_, const cv::Mat &src_img) {
@@ -656,7 +661,8 @@ void WustVision::DetectCallback(const std::vector<ArmorObject> &objs,
 }
 void WustVision::inferResultCallback(
     std::vector<RuneObject> &objs,
-    std::chrono::steady_clock::time_point timestamp, const cv::Mat &src_img) {
+    std::chrono::steady_clock::time_point timestamp, const cv::Mat &src_img,
+    Eigen::Matrix4d T_camera_to_odom) {
   std::lock_guard<std::mutex> lock(callback_mutex_);
   detect_finish_count_++;
   // Used to draw debug info
@@ -684,7 +690,7 @@ void WustVision::inferResultCallback(
 
     cv::Point2f r_tag;
     cv::Mat binary_roi = cv::Mat::zeros(1, 1, CV_8UC3);
-    if (detect_r_tag_) {
+    if (detect_r_tag_&&!src_img.empty()) {
       // Detect R tag using traditional method
       std::tie(r_tag, binary_roi) = rune_detector_->detectRTag(
           src_img, rune_binary_thresh_, objs.at(0).pts.r_center);
@@ -736,7 +742,7 @@ void WustVision::inferResultCallback(
     rune_target.is_lost = true;
   }
   infer_running_count_--;
-  runeTargetCallback(rune_target);
+  runeTargetCallback(rune_target,T_camera_to_odom);
   auto now = std::chrono::steady_clock::now();
 
   auto latency_nano = std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -746,7 +752,7 @@ void WustVision::inferResultCallback(
 
   if (debug_mode_) {
     std::lock_guard<std::mutex> target_lock(img_mutex_);
-    imgframe_.img = src_img.clone();
+    imgframe_.img = debug_img.clone();
     imgframe_.timestamp = rune_target.timestamp;
     rune_gobal = rune_target;
     rune_objects_ = objs;
@@ -813,10 +819,11 @@ void WustVision::transformArmorData(Armors &armors, Eigen::Matrix4d T_camera_to_
 
 
 void WustVision::timerCallback() {
+  
 
   if (!is_inited_)
     return;
-
+  timer_count++;
   Target target;
 
   target = armor_target;
@@ -1098,10 +1105,10 @@ void WustVision::processImage(const ImageFrame &frame,Eigen::Matrix3d R_gimbal2o
     detector_->pushInput(img, frame.timestamp,T_camera_to_odom);
   } break;
   case AttackMode::SMALL_RUNE: {
-    rune_detector_->pushInput(img, frame.timestamp);
+    rune_detector_->pushInput(img, frame.timestamp,T_camera_to_odom);
   } break;
   case AttackMode::BIG_RUNE: {
-    rune_detector_->pushInput(img, frame.timestamp);
+    rune_detector_->pushInput(img, frame.timestamp,T_camera_to_odom);
   }
   case AttackMode::UNKNOWN:
     break;
@@ -1145,10 +1152,10 @@ void WustVision::processImage(const cv::Mat &frame,
     detector_->pushInput(frame, timestamp,T_camera_to_odom);
   } break;
   case AttackMode::SMALL_RUNE: {
-    rune_detector_->pushInput(frame, timestamp);
+    rune_detector_->pushInput(frame, timestamp,T_camera_to_odom);
   } break;
   case AttackMode::BIG_RUNE: {
-    rune_detector_->pushInput(frame, timestamp);
+    rune_detector_->pushInput(frame, timestamp,T_camera_to_odom);
   }
   case AttackMode::UNKNOWN:
     break;
@@ -1164,7 +1171,7 @@ void WustVision::printStats() {
     last_stat_time_steady_ = now;
     return;
   }
-
+  
   auto elapsed = duration_cast<duration<double>>(now - last_stat_time_steady_);
   if (elapsed.count() >= 1.0) {
     WUST_INFO(vision_logger)
@@ -1172,14 +1179,16 @@ void WustVision::printStats() {
         << ", Detected: " << detect_finish_count_
         << ", FPS: " << detect_finish_count_ / elapsed.count()
         << " Latency: " << latency_ms << "ms"
-        << "  Fire: " << fire_count_;
-
+        << "  Fire: " << fire_count_
+        << "  Timer Count: " << timer_count;
+    timer_count = 0;
     img_recv_count_ = 0;
     detect_finish_count_ = 0;
     fire_count_ = 0;
     last_stat_time_steady_ = now;
   }
 }
+
 
 WustVision *global_vision = nullptr;
 std::mutex mtx;
