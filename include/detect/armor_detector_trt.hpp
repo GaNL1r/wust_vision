@@ -37,8 +37,7 @@ public:
   // 初始化参数结构体
   using DetectorCallback = std::function<void(
       const std::vector<ArmorObject> &, std::chrono::steady_clock::time_point,
-      const cv::Mat &,
-      Eigen::Matrix4d )>;
+      const cv::Mat &, Eigen::Matrix4d)>;
   struct Params {
     int input_w = 416;          // 模型输入宽度
     int input_h = 416;          // 模型输入高度

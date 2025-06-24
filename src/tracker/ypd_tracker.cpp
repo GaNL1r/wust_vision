@@ -118,7 +118,6 @@ void YpdTracker::update(const Armors &armors_msg) noexcept {
       double ypd_d = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
       measurement = Eigen::Vector4d(ypd_y, ypd_p, ypd_d, measured_yaw);
       target_state = ekf->update(measurement);
-     
 
     } else if (same_id_armors_count == 1 && yaw_diff > max_match_yaw_diff_ &&
                min_z_diff < max_match_z_diff_) {
@@ -170,13 +169,12 @@ void YpdTracker::update(const Armors &armors_msg) noexcept {
     }
   }
 }
-void YpdTracker::updatev_yaw(double v_yaw) noexcept { 
+void YpdTracker::updatev_yaw(double v_yaw) noexcept {
 
   target_state(7) = v_yaw;
   ekf->setState(target_state);
-  WUST_INFO(tracker_logger)<<"update v_yaw"<<v_yaw;
+  WUST_INFO(tracker_logger) << "update v_yaw" << v_yaw;
 }
-
 
 void YpdTracker::initEKF(const Armor &a) noexcept {
   double xa = a.target_pos.x;

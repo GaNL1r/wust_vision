@@ -2,8 +2,8 @@
 #include "control/armor_solver.hpp"
 #include "control/bspline.hpp"
 #include "control/rune_solver.hpp"
+#include "detect/armor_detector_openvino.hpp"
 #include "detect/armor_pose_estimator.hpp"
-#include "detect/openvino.hpp"
 #include "detect/rune_detector_openvino.hpp"
 #include "driver/hik.hpp"
 #include "driver/image_capturer.hpp"
@@ -22,7 +22,7 @@ public:
   ~WustVision();
 
   void init();
-  void processImage(const ImageFrame &frame,Eigen::Matrix3d R_gimbal2odom);
+  void processImage(const ImageFrame &frame, Eigen::Matrix3d R_gimbal2odom);
   void processImage(const cv::Mat &frame,
                     std::chrono::steady_clock::time_point timestamp);
   void captureLoop();
@@ -30,8 +30,7 @@ public:
   void printStats();
   void DetectCallback(const std::vector<ArmorObject> &objs,
                       std::chrono::steady_clock::time_point timestamp,
-                      const cv::Mat &src_img,
-                      Eigen::Matrix4d T_camera_to_odom);
+                      const cv::Mat &src_img, Eigen::Matrix4d T_camera_to_odom);
   void inferResultCallback(std::vector<RuneObject> &rune_objects,
                            std::chrono::steady_clock::time_point timestamp,
                            const cv::Mat &img,
@@ -46,8 +45,9 @@ public:
   void startTimer();
   void stopTimer();
   void transformArmorData(Armors &armors);
-  void transformArmorData(Armors &armors,Eigen::Matrix4d T_camera_to_odom);
-  void runeTargetCallback(const Rune rune_target,Eigen::Matrix4d T_camera_to_odom);
+  void transformArmorData(Armors &armors, Eigen::Matrix4d T_camera_to_odom);
+  void runeTargetCallback(const Rune rune_target,
+                          Eigen::Matrix4d T_camera_to_odom);
   void update();
   void initRune(const std::string &camera_info_path);
   // Armors visualizeTargetProjection(Target armor_target_);
@@ -71,7 +71,6 @@ public:
   std::unique_ptr<TrackerManager> tracker_manager_;
   double gimbal2camera_x_, gimbal2camera_y_, gimbal2camera_z_;
   double gimbal2camera_yaw_, gimbal2camera_roll_, gimbal2camera_pitch_;
-      
 
   serial::Serial serial_;
   std::unique_ptr<Solver> solver_;

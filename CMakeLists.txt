@@ -13,7 +13,7 @@ add_executable(${PROJECT_NAME}_openvino
 
   src/common/tools.cpp
   src/detect/mono_measure_tool.cpp
-  src/detect/openvino.cpp
+  src/detect/armor_detector_openvino.cpp
   src/detect/light_corner_corrector.cpp
   src/tracker/tracker.cpp
   src/tracker/extended_kalman_filter.cpp
@@ -47,7 +47,7 @@ add_executable(${PROJECT_NAME}_openvino
 add_executable(${PROJECT_NAME}_trt
 
   src/wust_vision_trt.cpp
-  src/detect/trt.cpp
+  src/detect/armor_detector_trt.cpp
   src/common/tools.cpp
   src/detect/mono_measure_tool.cpp
 

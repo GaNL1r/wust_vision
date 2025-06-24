@@ -1,6 +1,7 @@
 // Created by Labor 2023.8.25
 // Maintained by Chengfu Zou, Labor
 // Copyright (C) FYT Vision Group. All rights reserved.
+// Copyright 2025 Xiaojian Wu
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -79,7 +80,8 @@ Eigen::Matrix3d BaSolver::solveBa(const ArmorObject &armor,
     initial_armor_yaw = R_imu_armor(1, 1) > 0 ? 0 : CV_PI;
   }
   // std::cout << "armor_detector"
-  //           << "Initial yaw angle: " << initial_armor_yaw/M_PI*180 << std::endl;
+  //           << "Initial yaw angle: " << initial_armor_yaw/M_PI*180 <<
+  //           std::endl;
   // Get the pitch angle of the armor
   double armor_pitch = armor.number == ArmorNumber::OUTPOST
                            ? -FIFTTEN_DEGREE_RAD

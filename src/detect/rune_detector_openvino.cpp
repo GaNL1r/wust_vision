@@ -3,6 +3,7 @@
 // Additional modifications and features by Chengfu Zou, 2024.
 //
 // Copyright (C) FYT Vision Group. All rights reserved.
+// Copyright 2025 Xiaojian Wu
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -230,9 +231,9 @@ static void nmsMergeSortedBboxes(std::vector<RuneObject> &faceobjects,
   }
 }
 
-RuneDetectorOpenvino::RuneDetectorOpenvino(const std::filesystem::path &model_path,
-                           const std::string &device_name, float conf_threshold,
-                           int top_k, float nms_threshold, bool auto_init)
+RuneDetectorOpenvino::RuneDetectorOpenvino(
+    const std::filesystem::path &model_path, const std::string &device_name,
+    float conf_threshold, int top_k, float nms_threshold, bool auto_init)
     : model_path_(model_path), device_name_(device_name),
       conf_threshold_(conf_threshold), top_k_(top_k),
       nms_threshold_(nms_threshold) {
@@ -269,8 +270,9 @@ void RuneDetectorOpenvino::init() {
       std::make_unique<ThreadPool>(std::thread::hardware_concurrency(), 100);
 }
 
-void RuneDetectorOpenvino::pushInput(const cv::Mat &rgb_img,
-                             std::chrono::steady_clock::time_point timestamp,Eigen::Matrix4d T_camera_to_odom) {
+void RuneDetectorOpenvino::pushInput(
+    const cv::Mat &rgb_img, std::chrono::steady_clock::time_point timestamp,
+    Eigen::Matrix4d T_camera_to_odom) {
 
   // Reprocess
   Eigen::Matrix3f
@@ -278,8 +280,9 @@ void RuneDetectorOpenvino::pushInput(const cv::Mat &rgb_img,
   cv::Mat resized_img = letterbox(rgb_img, transform_matrix);
   // processCallback(resized_img, transform_matrix, timestamp, rgb_img);
   thread_pool_->enqueue([this, resized_img, transform_matrix, timestamp,
-                         rgb_img,T_camera_to_odom]() {
-    this->processCallback(resized_img, transform_matrix, timestamp, rgb_img,T_camera_to_odom);
+                         rgb_img, T_camera_to_odom]() {
+    this->processCallback(resized_img, transform_matrix, timestamp, rgb_img,
+                          T_camera_to_odom);
   });
 }
 
@@ -289,7 +292,8 @@ void RuneDetectorOpenvino::setCallback(CallbackType callback) {
 
 bool RuneDetectorOpenvino::processCallback(
     const cv::Mat resized_img, Eigen::Matrix3f transform_matrix,
-    std::chrono::steady_clock::time_point timestamp, const cv::Mat &src_img,Eigen::Matrix4d T_camera_to_odom) {
+    std::chrono::steady_clock::time_point timestamp, const cv::Mat &src_img,
+    Eigen::Matrix4d T_camera_to_odom) {
   // BGR->RGB, u8(0-255)->f32(0.0-1.0), HWC->NCHW
   // note: TUP's model no need to normalize
   cv::Mat blob = cv::dnn::blobFromImage(
@@ -360,7 +364,7 @@ bool RuneDetectorOpenvino::processCallback(
 
   // Call callback function
   if (this->infer_callback_) {
-    this->infer_callback_(objs_result, timestamp, src_img,T_camera_to_odom);
+    this->infer_callback_(objs_result, timestamp, src_img, T_camera_to_odom);
     return true;
   }
 
@@ -369,34 +373,33 @@ bool RuneDetectorOpenvino::processCallback(
 
 std::tuple<cv::Point2f, cv::Mat>
 RuneDetectorOpenvino::detectRTag(const cv::Mat &img, int binary_thresh,
-                         const cv::Point2f &prior) {
+                                 const cv::Point2f &prior) {
   if (!img.data || img.cols <= 0 || img.rows <= 0) {
     std::cerr << "[detectRTag] Invalid input image." << std::endl;
     return {};
-}
+  }
 
-if (prior.x < 0 || prior.x >= img.cols || prior.y < 0 || prior.y >= img.rows) {
-  std::cerr << "[detectRTag] Prior out of bounds: " << prior << " for image size: "
-            << img.cols << "x" << img.rows << std::endl;
-  return {prior, cv::Mat::zeros(cv::Size(200, 200), CV_8UC3)};
-}
-int px = static_cast<int>(std::floor(prior.x));
-int py = static_cast<int>(std::floor(prior.y));
-if (px < 0 || px >= img.cols || py < 0 || py >= img.rows) {
+  if (prior.x < 0 || prior.x >= img.cols || prior.y < 0 ||
+      prior.y >= img.rows) {
+    std::cerr << "[detectRTag] Prior out of bounds: " << prior
+              << " for image size: " << img.cols << "x" << img.rows
+              << std::endl;
     return {prior, cv::Mat::zeros(cv::Size(200, 200), CV_8UC3)};
-}
+  }
+  int px = static_cast<int>(std::floor(prior.x));
+  int py = static_cast<int>(std::floor(prior.y));
+  if (px < 0 || px >= img.cols || py < 0 || py >= img.rows) {
+    return {prior, cv::Mat::zeros(cv::Size(200, 200), CV_8UC3)};
+  }
 
+  // ROI calculation
+  cv::Rect roi = cv::Rect(prior.x - 100, prior.y - 100, 200, 200) &
+                 cv::Rect(0, 0, img.cols, img.rows);
 
-
-
-// ROI calculation
-cv::Rect roi = cv::Rect(prior.x - 100, prior.y - 100, 200, 200) &
-               cv::Rect(0, 0, img.cols, img.rows);
-
-if (roi.width == 0 || roi.height == 0) {
+  if (roi.width == 0 || roi.height == 0) {
     std::cerr << "[detectRTag] ROI is zero-sized: " << roi << std::endl;
     return {prior, cv::Mat::zeros(200, 200, CV_8UC3)};
-}
+  }
 
   const cv::Point2f prior_in_roi = prior - cv::Point2f(roi.tl());
 

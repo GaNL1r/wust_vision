@@ -1,4 +1,5 @@
 // Copyright (C) FYT Vision Group. All rights reserved.
+// Copyright 2025 Xiaojian Wu
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,7 +42,6 @@ ArmorPoseEstimator::ArmorPoseEstimator(const std::string &camera_info_path) {
   // R_gimbal_camera_ << 0, 1, 0, 0, 0, -1, -1, 0, 0;
   // R_gimbal_camera_ << 0, 0, -1, 1, 0, 0, 0, -1, 0;
   R_gimbal_camera_ << 0, 0, 1, -1, 0, 0, 0, -1, 0;
-
 }
 
 std::vector<Armor>

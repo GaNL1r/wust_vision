@@ -1,9 +1,4 @@
-// Copyright Chen Jun 2023. Licensed under the MIT License.
-//
-// Additional modifications and features by Chengfu Zou, Labor. Licensed under
-// Apache License 2.0.
-//
-// Copyright (C) FYT Vision Group. All rights reserved.
+// Copyright 2025 Xiaojian Wu
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,7 +38,7 @@ inline double onormalizeAnglem(double angle) {
 class OneCaTracker {
 public:
   OneCaTracker(double max_match_distance, double max_match_yaw,
-             double max_match_z_diff_);
+               double max_match_z_diff_);
 
   void init(const Armors &armors_msg) noexcept;
   void update(const Armors &armors_msg) noexcept;

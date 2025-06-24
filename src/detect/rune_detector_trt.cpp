@@ -1,8 +1,4 @@
-// Copyright 2023 Yunlong Feng
-//
-// Additional modifications and features by Chengfu Zou, 2024.
-//
-// Copyright (C) FYT Vision Group. All rights reserved.
+// Copyright 2025 Xiaojian Wu
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,11 +21,11 @@
 // third party
 #include <opencv2/imgproc.hpp>
 // project
-#include "common/common.hpp"
-#include "type/type.hpp"
-#include "common/logger.hpp"
 #include "NvOnnxParser.h"
+#include "common/common.hpp"
+#include "common/logger.hpp"
 #include "fmt/core.h"
+#include "type/type.hpp"
 
 #define TRT_ASSERT(expr)                                                       \
   do {                                                                         \
@@ -38,7 +34,6 @@
       exit(-1);                                                                \
     }                                                                          \
   } while (0)
-
 
 static constexpr int INPUT_W = 480;   // Width of input
 static constexpr int INPUT_H = 480;   // Height of input
@@ -197,12 +192,12 @@ static void generateProposals(
   }
 }
 static bool hasNanInApexDst(const Eigen::Matrix<float, 3, 5> &mat) {
-    for (int col = 0; col < 5; ++col) {
-        if (std::isnan(mat(0, col)) || std::isnan(mat(1, col))) {
-            return true;
-        }
+  for (int col = 0; col < 5; ++col) {
+    if (std::isnan(mat(0, col)) || std::isnan(mat(1, col))) {
+      return true;
     }
-    return false;
+  }
+  return false;
 }
 
 // Calculate intersection area between Object a and Object b.
@@ -252,108 +247,109 @@ static void nmsMergeSortedBboxes(std::vector<RuneObject> &faceobjects,
 }
 
 RuneDetectorTrt::RuneDetectorTrt(const std::filesystem::path &model_path,
-    const Params &params
-                           )
+                                 const Params &params)
     : model_path_(model_path) {
-        buildEngine(model_path);
-        TRT_ASSERT(context_ = engine_->createExecutionContext());
-        TRT_ASSERT((input_idx_ = engine_->getBindingIndex("images")) == 0);
-        TRT_ASSERT((output_idx_ = engine_->getBindingIndex("output")) == 1);
-      
-        auto input_dims = engine_->getBindingDimensions(input_idx_);
-        auto output_dims = engine_->getBindingDimensions(output_idx_);
-        input_sz_ = input_dims.d[1] * input_dims.d[2] * input_dims.d[3];
-        output_sz_ = output_dims.d[1] * output_dims.d[2];
-        TRT_ASSERT(
-            cudaMalloc(&device_buffers_[input_idx_], input_sz_ * sizeof(float)) == 0);
-        TRT_ASSERT(cudaMalloc(&device_buffers_[output_idx_],
-                              output_sz_ * sizeof(float)) == 0);
-        output_buffer_ = new float[output_sz_];
-        TRT_ASSERT(cudaStreamCreate(&stream_) == 0);
-        strides_ = {8, 16, 32};
-        generateGridsAndStride(INPUT_W, INPUT_H, strides_, grid_strides_);
-        thread_pool_ =
+  buildEngine(model_path);
+  TRT_ASSERT(context_ = engine_->createExecutionContext());
+  TRT_ASSERT((input_idx_ = engine_->getBindingIndex("images")) == 0);
+  TRT_ASSERT((output_idx_ = engine_->getBindingIndex("output")) == 1);
+
+  auto input_dims = engine_->getBindingDimensions(input_idx_);
+  auto output_dims = engine_->getBindingDimensions(output_idx_);
+  input_sz_ = input_dims.d[1] * input_dims.d[2] * input_dims.d[3];
+  output_sz_ = output_dims.d[1] * output_dims.d[2];
+  TRT_ASSERT(
+      cudaMalloc(&device_buffers_[input_idx_], input_sz_ * sizeof(float)) == 0);
+  TRT_ASSERT(cudaMalloc(&device_buffers_[output_idx_],
+                        output_sz_ * sizeof(float)) == 0);
+  output_buffer_ = new float[output_sz_];
+  TRT_ASSERT(cudaStreamCreate(&stream_) == 0);
+  strides_ = {8, 16, 32};
+  generateGridsAndStride(INPUT_W, INPUT_H, strides_, grid_strides_);
+  thread_pool_ =
       std::make_unique<ThreadPool>(std::thread::hardware_concurrency(), 100);
 }
 void RuneDetectorTrt::buildEngine(const std::string &onnx_path) {
-    std::string engine_path =
-        onnx_path.substr(0, onnx_path.find_last_of('.')) + ".engine";
-    std::ifstream engine_file(engine_path, std::ios::binary);
-    if (engine_file.good()) {
-      engine_file.seekg(0, std::ios::end);
-      size_t size = engine_file.tellg();
-      engine_file.seekg(0, std::ios::beg);
-      std::vector<char> engine_data(size);
-      engine_file.read(engine_data.data(), size);
-      engine_file.close();
-  
-      runtime_ = nvinfer1::createInferRuntime(g_logger_); // ✅ 作为成员变量保存
-      engine_ = runtime_->deserializeCudaEngine(engine_data.data(), size);
-      if (engine_ != nullptr) {
-        WUST_INFO("TRT") << "Load engine from " << engine_path
-                         << " successfully.";
-        return;
-      }
+  std::string engine_path =
+      onnx_path.substr(0, onnx_path.find_last_of('.')) + ".engine";
+  std::ifstream engine_file(engine_path, std::ios::binary);
+  if (engine_file.good()) {
+    engine_file.seekg(0, std::ios::end);
+    size_t size = engine_file.tellg();
+    engine_file.seekg(0, std::ios::beg);
+    std::vector<char> engine_data(size);
+    engine_file.read(engine_data.data(), size);
+    engine_file.close();
+
+    runtime_ = nvinfer1::createInferRuntime(g_logger_); // ✅ 作为成员变量保存
+    engine_ = runtime_->deserializeCudaEngine(engine_data.data(), size);
+    if (engine_ != nullptr) {
+      WUST_INFO("TRT") << "Load engine from " << engine_path
+                       << " successfully.";
+      return;
     }
-  
-    // 构建新引擎
-    auto builder = nvinfer1::createInferBuilder(g_logger_);
-    const auto explicit_batch =
-        1U << static_cast<uint32_t>(
-            nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
-    auto network = builder->createNetworkV2(explicit_batch);
-    auto parser = nvonnxparser::createParser(*network, g_logger_);
-    parser->parseFromFile(onnx_path.c_str(),
-                          static_cast<int>(nvinfer1::ILogger::Severity::kINFO));
-  
-    auto config = builder->createBuilderConfig();
-    if (builder->platformHasFastFp16()) {
-      config->setFlag(nvinfer1::BuilderFlag::kFP16);
-    }
-    engine_ = builder->buildEngineWithConfig(*network, *config);
-  
-    // 保存引擎
-    auto serialized_engine = engine_->serialize();
-    std::ofstream out_file(engine_path, std::ios::binary);
-    out_file.write(reinterpret_cast<const char *>(serialized_engine->data()),
-                   serialized_engine->size());
-    out_file.close();
-    serialized_engine->destroy();
-  
-    // 反序列化仍然需要 runtime_
-    if (!runtime_) {
-      runtime_ = nvinfer1::createInferRuntime(g_logger_);
-    }
-  
-    // 清理
-    parser->destroy();
-    network->destroy();
-    config->destroy();
-    builder->destroy();
-  
-    WUST_INFO("TRT") << "Build engine from " << onnx_path << " successfully.";
   }
 
-  RuneDetectorTrt::~RuneDetectorTrt() {
-    delete[] output_buffer_;
-    cudaStreamDestroy(stream_);
-    cudaFree(device_buffers_[output_idx_]);
-    cudaFree(device_buffers_[input_idx_]);
-    if (context_)
-      context_->destroy();
-    if (engine_)
-      engine_->destroy();
-    if (runtime_)
-      runtime_->destroy();
-    thread_pool_.reset();
-    if (thread_pool_) {
-      thread_pool_->waitUntilEmpty();
-    }
+  // 构建新引擎
+  auto builder = nvinfer1::createInferBuilder(g_logger_);
+  const auto explicit_batch =
+      1U << static_cast<uint32_t>(
+          nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
+  auto network = builder->createNetworkV2(explicit_batch);
+  auto parser = nvonnxparser::createParser(*network, g_logger_);
+  parser->parseFromFile(onnx_path.c_str(),
+                        static_cast<int>(nvinfer1::ILogger::Severity::kINFO));
+
+  auto config = builder->createBuilderConfig();
+  if (builder->platformHasFastFp16()) {
+    config->setFlag(nvinfer1::BuilderFlag::kFP16);
   }
+  engine_ = builder->buildEngineWithConfig(*network, *config);
+
+  // 保存引擎
+  auto serialized_engine = engine_->serialize();
+  std::ofstream out_file(engine_path, std::ios::binary);
+  out_file.write(reinterpret_cast<const char *>(serialized_engine->data()),
+                 serialized_engine->size());
+  out_file.close();
+  serialized_engine->destroy();
+
+  // 反序列化仍然需要 runtime_
+  if (!runtime_) {
+    runtime_ = nvinfer1::createInferRuntime(g_logger_);
+  }
+
+  // 清理
+  parser->destroy();
+  network->destroy();
+  config->destroy();
+  builder->destroy();
+
+  WUST_INFO("TRT") << "Build engine from " << onnx_path << " successfully.";
+}
+
+RuneDetectorTrt::~RuneDetectorTrt() {
+  delete[] output_buffer_;
+  cudaStreamDestroy(stream_);
+  cudaFree(device_buffers_[output_idx_]);
+  cudaFree(device_buffers_[input_idx_]);
+  if (context_)
+    context_->destroy();
+  if (engine_)
+    engine_->destroy();
+  if (runtime_)
+    runtime_->destroy();
+  thread_pool_.reset();
+  if (thread_pool_) {
+    thread_pool_->waitUntilEmpty();
+  }
+}
 void RuneDetectorTrt::pushInput(const cv::Mat &rgb_img,
-                             std::chrono::steady_clock::time_point timestamp,Eigen::Matrix4d T_camera_to_odom) {
+                                std::chrono::steady_clock::time_point timestamp,
+                                Eigen::Matrix4d T_camera_to_odom) {
   if (rgb_img.empty()) {
-    std::cerr << "[RuneDetectorTrt::pushInput] Warning: input rgb_img is empty!" << std::endl;
+    std::cerr << "[RuneDetectorTrt::pushInput] Warning: input rgb_img is empty!"
+              << std::endl;
     return;
   }
 
@@ -361,12 +357,15 @@ void RuneDetectorTrt::pushInput(const cv::Mat &rgb_img,
   cv::Mat resized_img = letterbox(rgb_img, transform_matrix);
 
   if (resized_img.empty()) {
-    std::cerr << "[RuneDetectorTrt::pushInput] Warning: resized_img is empty!" << std::endl;
+    std::cerr << "[RuneDetectorTrt::pushInput] Warning: resized_img is empty!"
+              << std::endl;
     return;
   }
 
-  thread_pool_->enqueue([this, resized_img, transform_matrix, timestamp, rgb_img,T_camera_to_odom]() {
-    this->processCallback(resized_img, transform_matrix, timestamp, rgb_img,T_camera_to_odom);
+  thread_pool_->enqueue([this, resized_img, transform_matrix, timestamp,
+                         rgb_img, T_camera_to_odom]() {
+    this->processCallback(resized_img, transform_matrix, timestamp, rgb_img,
+                          T_camera_to_odom);
   });
 }
 
@@ -376,63 +375,65 @@ void RuneDetectorTrt::setCallback(CallbackType callback) {
 
 bool RuneDetectorTrt::processCallback(
     const cv::Mat resized_img, Eigen::Matrix3f transform_matrix,
-    std::chrono::steady_clock::time_point timestamp, const cv::Mat &src_img,Eigen::Matrix4d T_camera_to_odom) {
+    std::chrono::steady_clock::time_point timestamp, const cv::Mat &src_img,
+    Eigen::Matrix4d T_camera_to_odom) {
   // BGR->RGB, u8(0-255)->f32(0.0-1.0), HWC->NCHW
   // note: TUP's model no need to normalize
   cv::Mat blob = cv::dnn::blobFromImage(
       resized_img, 1., cv::Size(INPUT_W, INPUT_H), cv::Scalar(0, 0, 0), true);
 
-cudaMemcpyAsync(device_buffers_[input_idx_], blob.ptr<float>(),
-      input_sz_ * sizeof(float), cudaMemcpyHostToDevice, stream_);
-context_->enqueueV2(device_buffers_, stream_, nullptr);
-cudaMemcpyAsync(output_buffer_, device_buffers_[output_idx_],
-      output_sz_ * sizeof(float), cudaMemcpyDeviceToHost, stream_);
-cudaStreamSynchronize(stream_);
+  cudaMemcpyAsync(device_buffers_[input_idx_], blob.ptr<float>(),
+                  input_sz_ * sizeof(float), cudaMemcpyHostToDevice, stream_);
+  context_->enqueueV2(device_buffers_, stream_, nullptr);
+  cudaMemcpyAsync(output_buffer_, device_buffers_[output_idx_],
+                  output_sz_ * sizeof(float), cudaMemcpyDeviceToHost, stream_);
+  cudaStreamSynchronize(stream_);
 
-std::vector<RuneObject> objs_tmp, objs_result;
-std::vector<cv::Rect> rects;
-std::vector<float> scores;
-
+  std::vector<RuneObject> objs_tmp, objs_result;
+  std::vector<cv::Rect> rects;
+  std::vector<float> scores;
 
   // Parse YOLO output
-//   generateProposals(objs_tmp, scores, rects, output_buffer, transform_matrix,
-//                     this->conf_threshold_, this->grid_strides_);
-    objs_result = postprocess(objs_tmp, scores, rects, output_buffer_,
+  //   generateProposals(objs_tmp, scores, rects, output_buffer,
+  //   transform_matrix,
+  //                     this->conf_threshold_, this->grid_strides_);
+  objs_result = postprocess(objs_tmp, scores, rects, output_buffer_,
                             output_sz_ / 15, transform_matrix);
   // TopK
-//   std::sort(
-//       objs_tmp.begin(), objs_tmp.end(),
-//       [](const RuneObject &a, const RuneObject &b) { return a.prob > b.prob; });
-//   if (objs_tmp.size() > static_cast<size_t>(this->top_k_)) {
-//     objs_tmp.resize(this->top_k_);
-//   }
+  //   std::sort(
+  //       objs_tmp.begin(), objs_tmp.end(),
+  //       [](const RuneObject &a, const RuneObject &b) { return a.prob >
+  //       b.prob; });
+  //   if (objs_tmp.size() > static_cast<size_t>(this->top_k_)) {
+  //     objs_tmp.resize(this->top_k_);
+  //   }
 
-//   nmsMergeSortedBboxes(objs_tmp, indices, this->nms_threshold_);
+  //   nmsMergeSortedBboxes(objs_tmp, indices, this->nms_threshold_);
 
-//   for (size_t i = 0; i < indices.size(); i++) {
-//     objs_result.push_back(std::move(objs_tmp[indices[i]]));
+  //   for (size_t i = 0; i < indices.size(); i++) {
+  //     objs_result.push_back(std::move(objs_tmp[indices[i]]));
 
-//     if (objs_result[i].pts.children.size() > 0) {
-//       const float N =
-//           static_cast<float>(objs_result[i].pts.children.size() + 1);
-//       FeaturePoints pts_final = std::accumulate(
-//           objs_result[i].pts.children.begin(),
-//           objs_result[i].pts.children.end(), objs_result[i].pts);
-//       objs_result[i].pts = pts_final / N;
-//     }
-//   }
+  //     if (objs_result[i].pts.children.size() > 0) {
+  //       const float N =
+  //           static_cast<float>(objs_result[i].pts.children.size() + 1);
+  //       FeaturePoints pts_final = std::accumulate(
+  //           objs_result[i].pts.children.begin(),
+  //           objs_result[i].pts.children.end(), objs_result[i].pts);
+  //       objs_result[i].pts = pts_final / N;
+  //     }
+  //   }
 
   // NMS & TopK
-//   cv::dnn::NMSBoxes(
-//     rects, scores, this->conf_threshold_, this->nms_threshold_, indices, 1.0,
-//     this->top_k_);
-//   for (size_t i = 0; i < indices.size(); ++i) {
-//     objs_result.push_back(std::move(objs_tmp[i]));
-//   }
+  //   cv::dnn::NMSBoxes(
+  //     rects, scores, this->conf_threshold_, this->nms_threshold_,
+  //     indices, 1.0, this->top_k_);
+  //   for (size_t i = 0; i < indices.size(); ++i) {
+  //     objs_result.push_back(std::move(objs_tmp[i]));
+  //   }
 
   // Call callback function
   if (this->infer_callback_) {
-    this->infer_callback_(objs_result, timestamp, src_img,T_camera_to_odom);
+    this->infer_callback_(objs_result, timestamp, src_img, T_camera_to_odom);
     return true;
   }
 
@@ -443,18 +444,17 @@ std::vector<RuneObject> RuneDetectorTrt::postprocess(
     std::vector<cv::Rect> &rects, const float *output, int num_detections,
     const Eigen::Matrix<float, 3, 3> &transform_matrix) {
 
-
   for (int anchor_idx = 0; anchor_idx < num_detections; anchor_idx++) {
-    //float confidence = output_buffer.at<float>(anchor_idx, NUM_POINTS_2);
+    // float confidence = output_buffer.at<float>(anchor_idx, NUM_POINTS_2);
     const float *det = output + anchor_idx * 15;
     float confidence = det[NUM_POINTS_2];
 
     if (confidence < params_.conf_threshold) {
-    
+
       continue;
     }
-    
-   // std::cout<<"confidence: "<<confidence<<std::endl;
+
+    // std::cout<<"confidence: "<<confidence<<std::endl;
     const int grid0 = grid_strides_[anchor_idx].grid0;
     const int grid1 = grid_strides_[anchor_idx].grid1;
     const int stride = grid_strides_[anchor_idx].stride;
@@ -463,14 +463,13 @@ std::vector<RuneObject> RuneDetectorTrt::postprocess(
     cv::Point color_id, class_id;
     cv::Mat color_scores(1, NUM_COLORS, CV_32F);
     for (int i = 0; i < NUM_COLORS; ++i) {
-        color_scores.at<float>(0, i) = det[NUM_POINTS_2 + 1 + i];
+      color_scores.at<float>(0, i) = det[NUM_POINTS_2 + 1 + i];
     }
 
     cv::Mat num_scores(1, NUM_CLASSES, CV_32F);
     for (int i = 0; i < NUM_CLASSES; ++i) {
-        num_scores.at<float>(0, i) = det[NUM_POINTS_2 + 1 + NUM_COLORS + i];
+      num_scores.at<float>(0, i) = det[NUM_POINTS_2 + 1 + NUM_COLORS + i];
     }
-
 
     // Argmax
     cv::minMaxLoc(color_scores, NULL, &color_score, NULL, &color_id);
@@ -488,14 +487,15 @@ std::vector<RuneObject> RuneDetectorTrt::postprocess(
     float y_5 = (det[9] + grid1) * stride;
 
     auto has_nan = [](const std::initializer_list<float> &vals) {
-        for (auto v : vals) {
-            if (std::isnan(v)) return true;
-        }
-        return false;
+      for (auto v : vals) {
+        if (std::isnan(v))
+          return true;
+      }
+      return false;
     };
 
     if (has_nan({x_1, y_1, x_2, y_2, x_3, y_3, x_4, y_4, x_5, y_5})) {
-        continue;
+      continue;
     }
 
     Eigen::Matrix<float, 3, 5> apex_norm;
@@ -511,8 +511,8 @@ std::vector<RuneObject> RuneDetectorTrt::postprocess(
 
     apex_dst = transform_matrix * apex_norm;
     if (hasNanInApexDst(apex_dst)) {
-        // 发现 NaN，跳过当前检测
-        continue;
+      // 发现 NaN，跳过当前检测
+      continue;
     }
 
     RuneObject obj;
@@ -522,8 +522,6 @@ std::vector<RuneObject> RuneDetectorTrt::postprocess(
     obj.pts.top_left = cv::Point2f(apex_dst(0, 2), apex_dst(1, 2));
     obj.pts.top_right = cv::Point2f(apex_dst(0, 3), apex_dst(1, 3));
     obj.pts.bottom_right = cv::Point2f(apex_dst(0, 4), apex_dst(1, 4));
-
-
 
     auto rect = cv::boundingRect(obj.pts.toVector2f());
 
@@ -537,7 +535,7 @@ std::vector<RuneObject> RuneDetectorTrt::postprocess(
     output_objs.push_back(std::move(obj));
   }
   std::sort(
-    output_objs.begin(), output_objs.end(),
+      output_objs.begin(), output_objs.end(),
       [](const RuneObject &a, const RuneObject &b) { return a.prob > b.prob; });
   if (output_objs.size() > static_cast<size_t>(this->top_k_)) {
     output_objs.resize(this->top_k_);
@@ -559,48 +557,48 @@ std::vector<RuneObject> RuneDetectorTrt::postprocess(
       objs_result[i].pts = pts_final / N;
     }
   }
-//     cv::dnn::NMSBoxes(
-//     rects, scores, this->conf_threshold_, this->nms_threshold_, indices, 1.0,
-//     this->top_k_);
-//   for (size_t i = 0; i < indices.size(); ++i) {
-//     objs_result.push_back(std::move(output_objs[i]));
-//   }
+  //     cv::dnn::NMSBoxes(
+  //     rects, scores, this->conf_threshold_, this->nms_threshold_,
+  //     indices, 1.0, this->top_k_);
+  //   for (size_t i = 0; i < indices.size(); ++i) {
+  //     objs_result.push_back(std::move(output_objs[i]));
+  //   }
 
   return objs_result;
 }
 
 std::tuple<cv::Point2f, cv::Mat>
 RuneDetectorTrt::detectRTag(const cv::Mat &img, int binary_thresh,
-                         const cv::Point2f &prior) {
- if (!img.data || img.cols <= 0 || img.rows <= 0) {
+                            const cv::Point2f &prior) {
+  if (!img.data || img.cols <= 0 || img.rows <= 0) {
     std::cerr << "[detectRTag] Invalid input image." << std::endl;
     return {};
-}
+  }
 
-if (prior.x < 0 || prior.x >= img.cols || prior.y < 0 || prior.y >= img.rows) {
-  std::cerr << "[detectRTag] Prior out of bounds: " << prior << " for image size: "
-            << img.cols << "x" << img.rows << std::endl;
-  return {prior, cv::Mat::zeros(cv::Size(200, 200), CV_8UC3)};
-}
-int px = static_cast<int>(std::floor(prior.x));
-int py = static_cast<int>(std::floor(prior.y));
-if (px < 0 || px >= img.cols || py < 0 || py >= img.rows) {
-    std::cerr << "[detectRTag] Prior out of bounds: " << prior << " for image size: "
-              << img.cols << "x" << img.rows << std::endl;
+  if (prior.x < 0 || prior.x >= img.cols || prior.y < 0 ||
+      prior.y >= img.rows) {
+    std::cerr << "[detectRTag] Prior out of bounds: " << prior
+              << " for image size: " << img.cols << "x" << img.rows
+              << std::endl;
     return {prior, cv::Mat::zeros(cv::Size(200, 200), CV_8UC3)};
-}
+  }
+  int px = static_cast<int>(std::floor(prior.x));
+  int py = static_cast<int>(std::floor(prior.y));
+  if (px < 0 || px >= img.cols || py < 0 || py >= img.rows) {
+    std::cerr << "[detectRTag] Prior out of bounds: " << prior
+              << " for image size: " << img.cols << "x" << img.rows
+              << std::endl;
+    return {prior, cv::Mat::zeros(cv::Size(200, 200), CV_8UC3)};
+  }
 
+  // ROI calculation
+  cv::Rect roi = cv::Rect(prior.x - 100, prior.y - 100, 200, 200) &
+                 cv::Rect(0, 0, img.cols, img.rows);
 
-
-
-// ROI calculation
-cv::Rect roi = cv::Rect(prior.x - 100, prior.y - 100, 200, 200) &
-               cv::Rect(0, 0, img.cols, img.rows);
-
-if (roi.width == 0 || roi.height == 0) {
+  if (roi.width == 0 || roi.height == 0) {
     std::cerr << "[detectRTag] ROI is zero-sized: " << roi << std::endl;
     return {prior, cv::Mat::zeros(200, 200, CV_8UC3)};
-}
+  }
 
   // Create ROI
 

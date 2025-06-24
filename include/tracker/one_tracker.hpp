@@ -1,9 +1,4 @@
-// Copyright Chen Jun 2023. Licensed under the MIT License.
-//
-// Additional modifications and features by Chengfu Zou, Labor. Licensed under
-// Apache License 2.0.
-//
-// Copyright (C) FYT Vision Group. All rights reserved.
+// Copyright 2025 Xiaojian Wu
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #pragma once
 
 // std
@@ -93,8 +87,6 @@ public:
 private:
   void initEKF(const Armor &a) noexcept;
   void handleArmorJump(const Armor &a) noexcept;
-
-  
 
   void updateBestYawdiff(const Armor &armor1, const Armor &armor2);
   void updateYawStateConsistency(double measured_yaw);

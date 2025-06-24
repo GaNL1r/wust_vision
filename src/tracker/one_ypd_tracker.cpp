@@ -59,7 +59,6 @@ void OneYpdTracker::init(const Armor &armor_msg) noexcept {
   tracker_state = DETECTING;
 }
 
-
 void OneYpdTracker::update(const Armors &armors_msg) noexcept {
   Eigen::VectorXd ekf_prediction = ekf->predict();
   bool matched = false;

@@ -282,13 +282,12 @@ struct Position {
     return Position(x * scalar, y * scalar, z * scalar);
   }
 
-  
   Eigen::Vector3d toEigen() const { return {x, y, z}; }
   static Position fromEigen(const Eigen::Vector3d &v) {
     return {v.x(), v.y(), v.z()};
   }
 };
-inline std::ostream& operator<<(std::ostream& os, const Position& p) {
+inline std::ostream &operator<<(std::ostream &os, const Position &p) {
   os << "(" << p.x << ", " << p.y << ", " << p.z << ")";
   return os;
 }

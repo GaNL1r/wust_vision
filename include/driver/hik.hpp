@@ -22,7 +22,8 @@ class HikCamera {
 public:
   HikCamera();
   ~HikCamera();
-  void setFrameCallback(std::function<void(const ImageFrame &,Eigen::Matrix3d)> cb) {
+  void setFrameCallback(
+      std::function<void(const ImageFrame &, Eigen::Matrix3d)> cb) {
     on_frame_callback_ = std::move(cb);
   }
 
@@ -51,7 +52,7 @@ private:
   int video_fps_;
   int expected_width_ = 0;
   int expected_height_ = 0;
-  std::function<void(const ImageFrame &,Eigen::Matrix3d)> on_frame_callback_;
+  std::function<void(const ImageFrame &, Eigen::Matrix3d)> on_frame_callback_;
   std::unique_ptr<Recorder> recorder_;
 };
 

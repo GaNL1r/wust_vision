@@ -16,17 +16,16 @@
 #include <opencv2/opencv.hpp>
 #include <openvino/openvino.hpp>
 // project
-#include "common/ThreadPool.h"
-#include "type/type.hpp"
 #include "NvInfer.h"
 #include "NvInferRuntime.h"
+#include "common/ThreadPool.h"
+#include "type/type.hpp"
 
 class RuneDetectorTrt {
 public:
-  using CallbackType = std::function<void(std::vector<RuneObject> &,
-                                          std::chrono::steady_clock::time_point,
-                                          const cv::Mat &,
-                                          Eigen::Matrix4d T_camera_to_odom)>;
+  using CallbackType = std::function<void(
+      std::vector<RuneObject> &, std::chrono::steady_clock::time_point,
+      const cv::Mat &, Eigen::Matrix4d T_camera_to_odom)>;
   struct Params {
     int input_w = 416;          // 模型输入宽度
     int input_h = 416;          // 模型输入高度
@@ -36,12 +35,13 @@ public:
     float nms_threshold = 0.5;  // NMS阈值
     int top_k = 128;            // 最大检测框数
   };
+
 public:
   // Construct a new OpenVINO Detector object
   explicit RuneDetectorTrt(const std::filesystem::path &model_path,
-    const Params &params);
-   ~RuneDetectorTrt();
- 
+                           const Params &params);
+  ~RuneDetectorTrt();
+
   // Push an inference request to the detector
   void pushInput(const cv::Mat &rgb_img,
                  std::chrono::steady_clock::time_point timestamp,
@@ -67,6 +67,7 @@ private:
               std::vector<cv::Rect> &rects, const float *output,
               int num_detections,
               const Eigen::Matrix<float, 3, 3> &transform_matrix);
+
 private:
   std::string model_path_;
   std::string device_name_;
@@ -80,7 +81,6 @@ private:
   CallbackType infer_callback_;
   std::unique_ptr<ThreadPool> thread_pool_;
 
-
   Params params_;
   nvinfer1::ICudaEngine *engine_;
   nvinfer1::IExecutionContext *context_;
@@ -92,9 +92,7 @@ private:
   // Eigen::Matrix3f transform_matrix; // 变换矩阵
   TRTLogger g_logger_;
 
-
   nvinfer1::IRuntime *runtime_ = nullptr;
-
 };
 
 #endif // RUNE_DETECTOR_RUNE_DETECTOR_HPP_

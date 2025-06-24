@@ -38,15 +38,15 @@ class RuneDetectorOpenvino {
 public:
   using CallbackType = std::function<void(std::vector<RuneObject> &,
                                           std::chrono::steady_clock::time_point,
-                                          const cv::Mat &,
-                                          Eigen::Matrix4d )>;
+                                          const cv::Mat &, Eigen::Matrix4d)>;
 
 public:
   // Construct a new OpenVINO Detector object
   explicit RuneDetectorOpenvino(const std::filesystem::path &model_path,
-                        const std::string &device_name,
-                        float conf_threshold = 0.25, int top_k = 128,
-                        float nms_threshold = 0.3, bool auto_init = false);
+                                const std::string &device_name,
+                                float conf_threshold = 0.25, int top_k = 128,
+                                float nms_threshold = 0.3,
+                                bool auto_init = false);
 
   void init();
 

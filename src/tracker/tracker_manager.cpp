@@ -6,7 +6,8 @@ TrackerManager::TrackerManager(const YAML::Node &config_) {
   double max_match_distance = config_["max_match_distance"].as<double>(0.2);
   double max_match_yaw_diff = config_["max_match_yaw_diff"].as<double>(1.0);
   double max_match_z_diff = config_["max_match_z_diff"].as<double>(0.1);
-  // tracker_ = std::make_unique<Tracker>(max_match_distance, max_match_yaw_diff,
+  // tracker_ = std::make_unique<Tracker>(max_match_distance,
+  // max_match_yaw_diff,
   //                                      max_match_z_diff);
   ypd_tracker_ = std::make_unique<YpdTracker>(
       max_match_distance, max_match_yaw_diff, max_match_z_diff);
@@ -40,15 +41,14 @@ TrackerManager::TrackerManager(const YAML::Node &config_) {
       config_["rotation_inconsistent_cooldown_limit"].as<int>(5);
   one_tracker_->jump_thresh = config_["jump_thresh"].as<double>(0.4);
 
-
-  v_yaw_update_thres_= config_["v_yaw_update_thres"].as<float>(0.01);
+  v_yaw_update_thres_ = config_["v_yaw_update_thres"].as<float>(0.01);
   v_yaw_to_one_thres_ = config_["v_yaw_to_one_thres"].as<float>(0.01);
 
   // 跟踪判定参数
-  //tracker_->tracking_thres = config_["tracking_thres"].as<int>(5);
+  // tracker_->tracking_thres = config_["tracking_thres"].as<int>(5);
   one_tracker_->tracking_thres = config_["tracking_thres"].as<int>(5);
   ypd_tracker_->tracking_thres = config_["tracking_thres"].as<int>(5);
-  //one_ypd_tracker_->tracking_thres = config_["tracking_thres"].as<int>(5);
+  // one_ypd_tracker_->tracking_thres = config_["tracking_thres"].as<int>(5);
   lost_time_thres_ = config_["lost_time_thres"].as<double>(0.3);
   one_lost_time_thres_ = config_["one_lost_time_thres"].as<double>(0.1);
 
@@ -96,7 +96,6 @@ TrackerManager::TrackerManager(const YAML::Node &config_) {
   oyr_p_ = config_["ekf"]["oyr_p"].as<double>(0.05);
   oyr_d_ = config_["ekf"]["oyr_d"].as<double>(0.05);
   oyr_yaw_ = config_["ekf"]["oyr_yaw"].as<double>(0.02);
-
 
   ocas2qx_ = config_["ekf"]["ocas2qx"].as<double>(20.0);
   ocas2qy_ = config_["ekf"]["ocas2qy"].as<double>(20.0);
@@ -246,23 +245,23 @@ TrackerManager::TrackerManager(const YAML::Node &config_) {
         q;
     double t = dt_;
     double x = ocas2qx_, y = ocas2qy_, z = ocas2qz_, yaw = ocas2qyaw_;
-    
+
     // 按照“加速度是白噪声”的协方差传播公式
-    double q_x_x     = pow(t, 4) / 4.0 * x;
-    double q_x_vx    = pow(t, 3) / 2.0 * x;
-    double q_vx_vx   = pow(t, 2)       * x;
-    double q_ax_ax   = 0.0001;  // ax 白噪声强度（可设为 x）
-    
+    double q_x_x = pow(t, 4) / 4.0 * x;
+    double q_x_vx = pow(t, 3) / 2.0 * x;
+    double q_vx_vx = pow(t, 2) * x;
+    double q_ax_ax = 0.0001; // ax 白噪声强度（可设为 x）
+
     // y 方向（匀加速）
-    double q_y_y     = pow(t, 4) / 4.0 * y;
-    double q_y_vy    = pow(t, 3) / 2.0 * y;
-    double q_vy_vy   = pow(t, 2)       * y;
-    double q_ay_ay   = 0.0001;  // ay 白噪声强度（可设为 y）
-    
+    double q_y_y = pow(t, 4) / 4.0 * y;
+    double q_y_vy = pow(t, 3) / 2.0 * y;
+    double q_vy_vy = pow(t, 2) * y;
+    double q_ay_ay = 0.0001; // ay 白噪声强度（可设为 y）
+
     // z 方向（匀速）
     double q_z_z = pow(t, 4) / 4 * z, q_z_vz = pow(t, 3) / 2 * z,
            q_vz_vz = pow(t, 2) * z;
-    
+
     // yaw 方向（匀角速度）
     double q_yaw_yaw = pow(t, 4) / 4 * yaw, q_yaw_vyaw = pow(t, 3) / 2 * yaw,
            q_vyaw_vyaw = pow(t, 2) * yaw;
@@ -281,7 +280,6 @@ TrackerManager::TrackerManager(const YAML::Node &config_) {
 
     return q;
   };
-
 
   // EKF 观测噪声协方差 R（基于测量值调整）
   auto u_r = [this](
@@ -336,7 +334,7 @@ r << oyr_y_      * std::abs(z[0]), 0, 0, 0,
         // clang-format on
         return r;
       };
-      auto ocau_r =
+  auto ocau_r =
       [this](const Eigen::Matrix<double, onecaarmor_motion_model::Z_N, 1> &z) {
         Eigen::Matrix<double, onecaarmor_motion_model::Z_N,
                       onecaarmor_motion_model::Z_N>
@@ -363,35 +361,37 @@ r << oyr_y_      * std::abs(z[0]), 0, 0, 0,
 
   // 初始化 EKF 滤波器
   // tracker_->ekf =
-  //     std::make_unique<armor_motion_model::RobotStateEKF>(f, h, u_q, u_r, p0);
+  //     std::make_unique<armor_motion_model::RobotStateEKF>(f, h, u_q, u_r,
+  //     p0);
   ypd_tracker_->ekf = std::make_unique<ypdarmor_motion_model::RobotStateEKF>(
       yf, yh, yu_q, yu_r, yp0);
   one_tracker_->ekf = std::make_unique<onearmor_motion_model::RobotStateEKF>(
       of, oh, ou_q, ou_r, op0);
   // one_ypd_tracker_->ekf =
-  //     std::make_unique<oneypdarmor_motion_model::RobotStateEKF>(oyf, oyh, oyu_q,
+  //     std::make_unique<oneypdarmor_motion_model::RobotStateEKF>(oyf, oyh,
+  //     oyu_q,
   //                                                               oyu_r, oyp0);
   for (auto &o_tracker : one_trackers_) {
     o_tracker->ekf = std::make_unique<onearmor_motion_model::RobotStateEKF>(
         of, oh, ou_q, ou_r, op0);
   }
-  one_ca_tracker_->ekf = std::make_unique<onecaarmor_motion_model::RobotStateEKF>(
-      ocaf, ocah, ocau_q, ocau_r, ocap0);
+  one_ca_tracker_->ekf =
+      std::make_unique<onecaarmor_motion_model::RobotStateEKF>(
+          ocaf, ocah, ocau_q, ocau_r, ocap0);
   // for (auto &oy_tracker : one_ypd_trackers_) {
-  //   oy_tracker->ekf = std::make_unique<oneypdarmor_motion_model::RobotStateEKF>(
+  //   oy_tracker->ekf =
+  //   std::make_unique<oneypdarmor_motion_model::RobotStateEKF>(
   //       oyf, oyh, oyu_q, oyu_r, oyp0);
   // }
-  
-  
 }
 
 void TrackerManager::update(Target &target_,
                             std::vector<OneTarget> &one_targets_,
                             Armors armors_,
                             std::chrono::steady_clock::time_point time) {
-    static int init_count_ = -1;  
+  static int init_count_ = -1;
 
-   if (ypd_tracker_->tracker_state == Tracker::LOST || init_count_ == 500) {
+  if (ypd_tracker_->tracker_state == Tracker::LOST || init_count_ == 500) {
     ypd_tracker_->init(armors_);
     target_.tracking = false;
 
@@ -409,7 +409,7 @@ void TrackerManager::update(Target &target_,
     ypd_tracker_->update(armors_);
 
     if (init_count_ >= 0)
-      ++init_count_;  
+      ++init_count_;
 
     if (ypd_tracker_->tracker_state == Tracker::DETECTING) {
       target_.tracking = false;
@@ -448,10 +448,8 @@ void TrackerManager::update(Target &target_,
 
   //     one_ca_tracker_->ekf->setPredictFunc(onecaarmor_motion_model::Predict{
   //         dt_, onecaarmor_motion_model::MotionModel::CONSTANT_ACCEL_ROT});
-  
+
   //   one_ca_tracker_->update(armors_);
-
-
 
   //   if (one_ca_tracker_->tracker_state == Tracker::DETECTING) {
   //     one_target.tracking = false;
@@ -461,7 +459,6 @@ void TrackerManager::update(Target &target_,
 
   //     const auto &state = one_ca_tracker_->target_state;
   //     one_target.id = one_ca_tracker_->tracked_id;
-     
 
   //     one_target.position_.x = state(0);
   //     one_target.velocity_.x = state(1);
@@ -484,17 +481,15 @@ void TrackerManager::update(Target &target_,
   //         std::cerr << "State vector contains NaN!" << std::endl;
   //         one_ca_tracker_->tracker_state = OneCaTracker::State::LOST;
 
-
   //     }
 
-
-  
   //     one_target.type = one_ca_tracker_->type;
   //   }
   // }
-  // std::cout<<one_target.position_<<" "<<one_target.velocity_<<" "<<one_target.acceleration_<<" "<<one_target.yaw<<" "<<one_target.v_yaw<<std::endl;
-  // one_targets_.push_back(one_target);
-  if (!target_.tracking || std::abs(target_.v_yaw )<v_yaw_to_one_thres_ ) {
+  // std::cout<<one_target.position_<<" "<<one_target.velocity_<<"
+  // "<<one_target.acceleration_<<" "<<one_target.yaw<<"
+  // "<<one_target.v_yaw<<std::endl; one_targets_.push_back(one_target);
+  if (!target_.tracking || std::abs(target_.v_yaw) < v_yaw_to_one_thres_) {
     std::vector<bool> armor_assigned(armors_.armors.size(), false);
 
     for (auto &otracker : one_trackers_) {
@@ -555,7 +550,7 @@ void TrackerManager::update(Target &target_,
         const auto &armor = armors_.armors[i];
         Eigen::Vector3d obs_pos(armor.target_pos.x, armor.target_pos.y,
                                 armor.target_pos.z);
-        double obs_yaw =otracker->orientationToYaw(armor.target_ori) ;
+        double obs_yaw = otracker->orientationToYaw(armor.target_ori);
 
         // 计算各项误差
         double pos_dist = (obs_pos - predicted_position).norm();
@@ -611,7 +606,6 @@ void TrackerManager::update(Target &target_,
       one_targets_.push_back(target);
     }
   }
-
 
   // if (!target_.tracking || target_.v_yaw < 1.0 && target_.v_yaw > -1.0) {
   //   std::vector<bool> armor_assigned(armors_.armors.size(), false);
@@ -775,7 +769,6 @@ void TrackerManager::update(Target &target_,
   //   ypd_tracker_->updatev_yaw(one_target_.v_yaw);
   // }
 
-  
   // if (one_ypd_tracker_->tracker_state == Tracker::LOST) {
   //   one_ypd_tracker_->init(armors_);
   //   one_target_.tracking = false;
@@ -817,7 +810,6 @@ void TrackerManager::update(Target &target_,
   // {
   //   ypd_tracker_->updatev_yaw(one_target_.v_yaw);
   // }
-
 
   last_time_ = time;
 }

@@ -94,11 +94,9 @@ private:
   void handleArmorJump(const Armor &a) noexcept;
 
   double orientationToYaw(const tf2::Quaternion &q) noexcept;
-  
+
   void updateBestYawdiff(const Armor &armor1, const Armor &armor2);
   void updateYawStateConsistency(double measured_yaw);
-
-  
 
   int detect_count_;
   int lost_count_;

@@ -2,6 +2,7 @@
 #include "common/gobal.hpp"
 #include "common/matplotlibcpp.h"
 #include "common/tf.hpp"
+#include "common/toolsgobal.hpp"
 #include "detect/mono_measure_tool.hpp"
 #include "fmt/format.h"
 #include "tracker/tracker.hpp"
@@ -16,7 +17,6 @@
 #include <optional>
 #include <string>
 #include <vector>
-#include "common/toolsgobal.hpp"
 void drawGimbalDirection(cv::Mat &debug_img, const GimbalCmd &gimbal_cmd) {
   // 1. 云台坐标系下的方向向量（右手系：Z 前，X 右，Y 下）
   Eigen::Vector3f dir_gimbal;

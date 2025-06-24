@@ -25,5 +25,3 @@ extern YAML::Node config;
 extern bool use_calculation_;
 extern bool use_serial;
 extern int attack_mode;
-
-

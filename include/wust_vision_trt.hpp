@@ -1,8 +1,10 @@
 #include "common/gobal.hpp"
 #include "common/tf.hpp"
 #include "control/armor_solver.hpp"
+#include "control/rune_solver.hpp"
+#include "detect/armor_detector_trt.hpp"
 #include "detect/armor_pose_estimator.hpp"
-#include "detect/trt.hpp"
+#include "detect/rune_detector_trt.hpp"
 #include "driver/hik.hpp"
 #include "driver/image_capturer.hpp"
 #include "driver/labeler.hpp"
@@ -13,22 +15,19 @@
 #include "type/type.hpp"
 #include "yaml-cpp/yaml.h"
 #include <opencv2/core/mat.hpp>
-#include "detect/rune_detector_trt.hpp"
-#include "control/rune_solver.hpp"
 class WustVision {
 public:
   WustVision();
   ~WustVision();
   void init();
-  void processImage(const ImageFrame &frame,Eigen::Matrix3d R_gimbal2odom);
+  void processImage(const ImageFrame &frame, Eigen::Matrix3d R_gimbal2odom);
   // void processImage(const cv::Mat &frame,
   // std::chrono::steady_clock::time_point timestamp); void captureLoop();
   void printStats();
   void DetectCallback(const std::vector<ArmorObject> &objs,
                       std::chrono::steady_clock::time_point timestamp,
-                      const cv::Mat &src_img,
-                      Eigen::Matrix4d T_camera_to_odom);
-   void inferResultCallback(std::vector<RuneObject> &rune_objects,
+                      const cv::Mat &src_img, Eigen::Matrix4d T_camera_to_odom);
+  void inferResultCallback(std::vector<RuneObject> &rune_objects,
                            std::chrono::steady_clock::time_point timestamp,
                            const cv::Mat &img,
                            Eigen::Matrix4d T_camera_to_odom);
@@ -41,9 +40,10 @@ public:
   void startTimer();
   void stopTimer();
   void transformArmorData(Armors &armors);
-  void transformArmorData(Armors &armors,Eigen::Matrix4d T_camera_to_odom);
+  void transformArmorData(Armors &armors, Eigen::Matrix4d T_camera_to_odom);
   void initRune(const std::string &camera_info_path);
-  void runeTargetCallback(const Rune rune_target,Eigen::Matrix4d T_camera_to_odom);
+  void runeTargetCallback(const Rune rune_target,
+                          Eigen::Matrix4d T_camera_to_odom);
   std::unique_ptr<RuneDetectorTrt> initRuneDetectorTrt();
   Armors visualizeTargetProjection(Target armor_target_,
                                    std::vector<OneTarget> one_armor_targets_);
@@ -89,7 +89,6 @@ public:
   Eigen::Vector3d t_gimbal_to_camera;
   Eigen::Matrix4d T_camera_to_odom_;
   Eigen::Matrix3d R_gimbal_camera;
-
 
   // std::unique_ptr<hikcamera::ImageCapturer> capturer_;
   // std::unique_ptr<std::thread> capture_thread_;

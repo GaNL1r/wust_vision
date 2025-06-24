@@ -214,15 +214,14 @@ GimbalCmd Solver::solve(const Target &target,
   OneTarget best_target;
   if (one_idx >= 0) {
     best_target = one_targets_[one_idx];
- 
   }
   bool use_single = (!target.tracking || std::abs(target.v_yaw) < 1.0) &&
                     best_target.tracking;
   //  2. 预测目标位置与朝向
-  
+
   if (!use_single) {
     Eigen::Vector3d pos(target.position_.x, target.position_.y,
-      target.position_.z);
+                        target.position_.z);
     double yaw = target.yaw;
 
     using namespace std::chrono;
@@ -233,8 +232,8 @@ GimbalCmd Solver::solve(const Target &target,
     auto total_dt = (current_time - target.timestamp) + dt;
     double dt_seconds_double = duration<double>(total_dt).count();
     pos += dt_seconds_double * Eigen::Vector3d(target.velocity_.x,
-                                target.velocity_.y,
-                                target.velocity_.z);
+                                               target.velocity_.y,
+                                               target.velocity_.z);
     yaw += dt_seconds_double * target.v_yaw;
     // 3. 选装甲板并计算原始 yaw/pitch
     auto armors =
@@ -351,7 +350,7 @@ GimbalCmd Solver::solve(const Target &target,
     return cmd;
   } else {
     Eigen::Vector3d pos(best_target.position_.x, best_target.position_.y,
-      best_target.position_.z);
+                        best_target.position_.z);
     double yaw = best_target.yaw;
 
     using namespace std::chrono;
@@ -362,8 +361,8 @@ GimbalCmd Solver::solve(const Target &target,
     auto total_dt = (current_time - target.timestamp) + dt;
     double dt_seconds_double = duration<double>(total_dt).count();
     pos += dt_seconds_double * Eigen::Vector3d(target.velocity_.x,
-                                target.velocity_.y,
-                                target.velocity_.z);
+                                               target.velocity_.y,
+                                               target.velocity_.z);
     yaw += dt_seconds_double * target.v_yaw;
     double raw_yaw, raw_pitch;
     calcYawAndPitch(pos, rpy, raw_yaw, raw_pitch);
@@ -543,29 +542,31 @@ int Solver::selectBestArmor(const std::vector<Eigen::Vector3d> &armor_positions,
   int selected_id = static_cast<int>(temp_angle / (2 * M_PI / armors_num));
   return selected_id;
 }
-int Solver::selectBestTarget(const std::vector<OneTarget> &targets)const noexcept {
+int Solver::selectBestTarget(
+    const std::vector<OneTarget> &targets) const noexcept {
   int best_idx = -1;
   double min_angle_diff = std::numeric_limits<double>::max();
 
   for (int i = 0; i < targets.size(); ++i) {
     const auto &tgt = targets[i];
-    if (!tgt.tracking) continue;
+    if (!tgt.tracking)
+      continue;
 
     // α: 从原点指向目标中心的方向
-    double alpha = std::atan2(tgt.position_.y, tgt.position_.x);  
-    double beta = tgt.yaw;                           
+    double alpha = std::atan2(tgt.position_.y, tgt.position_.x);
+    double beta = tgt.yaw;
     // 构造二维旋转矩阵
     Eigen::Matrix2d R_odom2target, R_odom2armor;
-    R_odom2target << std::cos(alpha), std::sin(alpha),
-                     -std::sin(alpha), std::cos(alpha);
-    R_odom2armor << std::cos(beta), std::sin(beta),
-                    -std::sin(beta), std::cos(beta);
+    R_odom2target << std::cos(alpha), std::sin(alpha), -std::sin(alpha),
+        std::cos(alpha);
+    R_odom2armor << std::cos(beta), std::sin(beta), -std::sin(beta),
+        std::cos(beta);
 
     // 转换到目标中心参考系下看其朝向
     Eigen::Matrix2d R_target2armor = R_odom2target.transpose() * R_odom2armor;
 
     // 装甲板的朝向与“面对自己”的角度差
-    double decision_angle = -std::asin(R_target2armor(0, 1));  // ≈ beta - alpha
+    double decision_angle = -std::asin(R_target2armor(0, 1)); // ≈ beta - alpha
 
     // 越朝你（即 decision_angle 越接近 0）越优
     if (std::abs(decision_angle) < min_angle_diff) {
@@ -574,5 +575,5 @@ int Solver::selectBestTarget(const std::vector<OneTarget> &targets)const noexcep
     }
   }
 
-  return best_idx;  // -1 表示没有合法目标
+  return best_idx; // -1 表示没有合法目标
 }

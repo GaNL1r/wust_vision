@@ -15,7 +15,7 @@
 #include <string>
 
 OneCaTracker::OneCaTracker(double max_match_distance, double max_match_yaw_diff,
-                       double max_match_z_diff)
+                           double max_match_z_diff)
     : tracker_state(LOST), tracked_id(ArmorNumber::UNKNOWN),
       measurement(Eigen::VectorXd::Zero(4)),
       target_state(Eigen::VectorXd::Zero(10)),
@@ -114,11 +114,10 @@ void OneCaTracker::update(const Armors &armors_msg) noexcept {
       measurement = Eigen::Vector4d(p.x, p.y, p.z, measured_yaw);
       target_state = ekf->update(measurement);
 
-
     } else if (same_id_armors_count == 1 && yaw_diff > max_match_yaw_diff_ &&
                min_z_diff < max_match_z_diff_) {
-      //handleArmorJump(same_id_armor);
-      
+      // handleArmorJump(same_id_armor);
+
       if_have_last_track_ = false;
       matched = true;
       auto p = tracked_armor.target_pos;
@@ -221,7 +220,7 @@ void OneCaTracker::initEKF(const Armor &a) noexcept {
   double yaw = orientationToYaw(a.target_ori);
 
   target_state = Eigen::VectorXd::Zero(onecaarmor_motion_model::X_N);
-  target_state << xa, 0,0, ya,0, 0, za, 0, yaw, 0;
+  target_state << xa, 0, 0, ya, 0, 0, za, 0, yaw, 0;
   ekf->setState(target_state);
 }
 
@@ -255,7 +254,6 @@ void OneCaTracker::handleArmorJump(const Armor &current_armor) noexcept {
     target_state(5) = 0;
     target_state(6) = current_armor.target_pos.z;
     target_state(7) = 0;
-   
   }
 
   ekf->setState(target_state);
@@ -271,9 +269,8 @@ double OneCaTracker::orientationToYaw(const tf2::Quaternion &q) noexcept {
 
 Eigen::Vector3d
 OneCaTracker::getArmorPositionFromState(const Eigen::VectorXd &x) noexcept {
-    double xa = x(0), ya = x(3), za = x(6);
-    return Eigen::Vector3d(xa, ya, za);
-
+  double xa = x(0), ya = x(3), za = x(6);
+  return Eigen::Vector3d(xa, ya, za);
 }
 void OneCaTracker::updateYawStateConsistency(double measured_yaw) {
   track_update_count_++;
