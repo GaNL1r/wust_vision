@@ -12,7 +12,7 @@ RuneDetectorTrtWrapper::RuneDetectorTrtWrapper(const YAML::Node &config) {
   params.nms_threshold =
       config["rune_detector"]["nms_threshold"].as<float>(0.3);
   params.top_k = config["rune_detector"]["top_k"].as<int>(128);
-
+  WUST_INFO("rune_detector")<<"model_path : "<<model_path;
   rune_detector_ = std::make_unique<RuneDetectorTrt>(model_path, params);
 }
 

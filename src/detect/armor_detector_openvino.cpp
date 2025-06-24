@@ -239,12 +239,11 @@ void ArmorDetectOpenVino::initNumberClassifier() {
 
   // 检查模型是否成功加载
   if (number_net_.empty()) {
-    std::cerr << "Failed to load number classifier model from " << model_path
-              << std::endl;
+    WUST_ERROR("number_classifier") << "Failed to load number classifier model from " << model_path;
     std::exit(EXIT_FAILURE); // 模型加载失败，退出程序
   } else {
-    std::cout << "Successfully loaded number classifier model from "
-              << model_path << std::endl;
+    WUST_INFO("number_classifier") << "Successfully loaded number classifier model from "
+              << model_path ;
   }
 
   // 加载标签
@@ -262,11 +261,11 @@ void ArmorDetectOpenVino::initNumberClassifier() {
 
   // 检查标签是否成功加载
   if (class_names_.empty()) {
-    std::cerr << "Failed to load labels from " << label_path << std::endl;
+    WUST_ERROR("number_classifier") << "Failed to load labels from " << label_path ;
     std::exit(EXIT_FAILURE); // 标签加载失败，退出程序
   } else {
-    std::cout << "Successfully loaded " << class_names_.size()
-              << " labels from " << label_path << std::endl;
+    WUST_INFO("number_classifier") << "Successfully loaded " << class_names_.size()
+              << " labels from " << label_path ;
   }
 }
 

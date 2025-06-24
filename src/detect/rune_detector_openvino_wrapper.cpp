@@ -14,7 +14,7 @@ RuneDetectorOpenvinoWrapper::RuneDetectorOpenvinoWrapper(
       config["rune_detector"]["confidence_threshold"].as<float>(0.50);
   int top_k = config["rune_detector"]["top_k"].as<int>(128);
   float nms_threshold = config["rune_detector"]["nms_threshold"].as<float>(0.3);
-
+  WUST_INFO("rune_detector")<<"model_path: "<<model_path<<"device_type: "<<device_type;
   rune_detector_ = std::make_unique<RuneDetectorOpenvino>(
       model_path, device_type, conf_threshold, top_k, nms_threshold);
   rune_detector_->init();
