@@ -20,7 +20,7 @@ struct rpy {
   double pitch;
   double yaw;
 };
-namespace tf2 {
+namespace tf {
 
 class Quaternion {
 public:
@@ -255,16 +255,6 @@ struct Vector3 {
 
 inline Vector3 operator*(const Matrix3x3 &m, const Vector3 &v) { return v * m; }
 
-} // namespace tf2
-template <> struct fmt::formatter<tf2::Quaternion> {
-  constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
-
-  template <typename FormatContext>
-  auto format(const tf2::Quaternion &q, FormatContext &ctx) {
-    return fmt::format_to(ctx.out(), "{:.3f}, {:.3f}, {:.3f}, {:.3f}", q.w, q.x,
-                          q.y, q.z);
-  }
-};
 struct Position {
   double x, y, z;
   Position() : x(0.0f), y(0.0f), z(0.0f) {}
@@ -292,50 +282,22 @@ inline std::ostream &operator<<(std::ostream &os, const Position &p) {
   return os;
 }
 
-template <> struct fmt::formatter<Position> {
-  constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
-
-  template <typename FormatContext>
-  auto format(const Position &p, FormatContext &ctx) {
-    return fmt::format_to(ctx.out(), "{:.3f}, {:.3f}, {:.3f}", p.x, p.y, p.z);
-  }
-};
-
-template <>
-struct fmt::formatter<std::vector<tf2::Quaternion>>
-    : fmt::formatter<std::string_view> {
-  template <typename FormatContext>
-  auto format(const std::vector<tf2::Quaternion> &quats, FormatContext &ctx)
-      -> decltype(ctx.out()) {
-    std::string result = "[";
-    for (size_t i = 0; i < quats.size(); ++i) {
-      if (i > 0)
-        result += ", ";
-      result += fmt::format("{{{:.3f}, {:.3f}, {:.3f}, {:.3f}}}", quats[i].w,
-                            quats[i].x, quats[i].y, quats[i].z);
-    }
-    result += "]";
-    return fmt::format_to(ctx.out(), "{}", result);
-  }
-};
-
 struct Transform {
   Position position;
-  tf2::Quaternion orientation;
+  Quaternion orientation;
   std::chrono::steady_clock::time_point timestamp;
 
   Transform() : position(), orientation(), timestamp() {}
-  Transform(Position p, tf2::Quaternion q,
-            std::chrono::steady_clock::time_point ts)
+  Transform(Position p, Quaternion q, std::chrono::steady_clock::time_point ts)
       : position(p), orientation(q), timestamp(ts) {}
-  Transform(Position p, const tf2::Quaternion &q) {
+  Transform(Position p, const Quaternion &q) {
     position = p;
     orientation = q;
     timestamp = std::chrono::steady_clock::now();
   }
 
   cv::Matx44d toMatrix() const {
-    tf2::Matrix3x3 R(orientation);
+    Matrix3x3 R(orientation);
     cv::Matx44d T = cv::Matx44d::eye();
     for (int i = 0; i < 3; ++i)
       for (int j = 0; j < 3; ++j)
@@ -348,9 +310,9 @@ struct Transform {
 
   static Transform fromMatrix(const cv::Matx44d &T) {
     Position pos(T(0, 3), T(1, 3), T(2, 3));
-    tf2::Matrix3x3 R(T(0, 0), T(0, 1), T(0, 2), T(1, 0), T(1, 1), T(1, 2),
-                     T(2, 0), T(2, 1), T(2, 2));
-    tf2::Quaternion q;
+    Matrix3x3 R(T(0, 0), T(0, 1), T(0, 2), T(1, 0), T(1, 1), T(1, 2), T(2, 0),
+                T(2, 1), T(2, 2));
+    Quaternion q;
     R.getRotation(q);
     return {pos, q};
   }
@@ -374,8 +336,7 @@ struct Transform {
   static Transform fromEigen(const Eigen::Isometry3d &iso) {
     Eigen::Vector3d pos = iso.translation();
     Eigen::Quaterniond q(iso.rotation());
-    return {Position::fromEigen(pos),
-            tf2::Quaternion(q.x(), q.y(), q.z(), q.w()),
+    return {Position::fromEigen(pos), Quaternion(q.x(), q.y(), q.z(), q.w()),
             std::chrono::steady_clock::now()};
   }
 
@@ -397,19 +358,17 @@ struct Transform {
     Eigen::Vector3d pos = iso.translation();
     Eigen::Quaterniond q(iso.rotation());
     return {{pos.x(), pos.y(), pos.z()},
-            tf2::Quaternion(q.x(), q.y(), q.z(), q.w()),
+            Quaternion(q.x(), q.y(), q.z(), q.w()),
             stamp};
   }
 };
 
-inline Transform createTf(double x, double y, double z,
-                          const tf2::Quaternion &q) {
+inline Transform createTf(double x, double y, double z, const Quaternion &q) {
   return Transform(Position(x, y, z), q);
 }
 
-inline tf2::Quaternion eulerToQuaternion(double roll, double pitch,
-                                         double yaw) {
-  tf2::Quaternion q;
+inline Quaternion eulerToQuaternion(double roll, double pitch, double yaw) {
+  Quaternion q;
   q.setRPY(roll, pitch, yaw);
   return q;
 }
@@ -694,7 +653,7 @@ private:
           base_q.normalize();
 
           base.orientation =
-              tf2::Quaternion(base_q.x(), base_q.y(), base_q.z(), base_q.w());
+              Quaternion(base_q.x(), base_q.y(), base_q.z(), base_q.w());
         }
       }
     }
@@ -723,8 +682,7 @@ private:
             std::chrono::duration<double>((b.timestamp - a.timestamp) * alpha));
 
     return Transform(Position::fromEigen(pos),
-                     tf2::Quaternion(q.x(), q.y(), q.z(), q.w()),
-                     interpolated_time);
+                     Quaternion(q.x(), q.y(), q.z(), q.w()), interpolated_time);
   }
 
   // 变换求逆（使用Eigen）
@@ -734,7 +692,7 @@ private:
   }
 };
 
-inline void quatPosToRTvec(const tf2::Quaternion &q, const Position &pos,
+inline void quatPosToRTvec(const Quaternion &q, const Position &pos,
                            cv::Mat &rvec, cv::Mat &tvec) {
   // 1. 得到旋转矩阵 (cv::Matx33d)
   cv::Matx33d R = q.toRotationMatrix();
@@ -754,4 +712,43 @@ inline void quatPosToRTvec(const tf2::Quaternion &q, const Position &pos,
   tvec.at<double>(1, 0) = pos.y;
   tvec.at<double>(2, 0) = pos.z;
 }
-#endif // TF2_HPP
+} // namespace tf
+
+template <> struct fmt::formatter<tf::Position> {
+  constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
+
+  template <typename FormatContext>
+  auto format(const tf::Position &p, FormatContext &ctx) {
+    return fmt::format_to(ctx.out(), "{:.3f}, {:.3f}, {:.3f}", p.x, p.y, p.z);
+  }
+};
+
+template <>
+struct fmt::formatter<std::vector<tf::Quaternion>>
+    : fmt::formatter<std::string_view> {
+  template <typename FormatContext>
+  auto format(const std::vector<tf::Quaternion> &quats, FormatContext &ctx)
+      -> decltype(ctx.out()) {
+    std::string result = "[";
+    for (size_t i = 0; i < quats.size(); ++i) {
+      if (i > 0)
+        result += ", ";
+      result += fmt::format("{{{:.3f}, {:.3f}, {:.3f}, {:.3f}}}", quats[i].w,
+                            quats[i].x, quats[i].y, quats[i].z);
+    }
+    result += "]";
+    return fmt::format_to(ctx.out(), "{}", result);
+  }
+};
+
+template <> struct fmt::formatter<tf::Quaternion> {
+  constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
+
+  template <typename FormatContext>
+  auto format(const tf::Quaternion &q, FormatContext &ctx) {
+    return fmt::format_to(ctx.out(), "{:.3f}, {:.3f}, {:.3f}, {:.3f}", q.w, q.x,
+                          q.y, q.z);
+  }
+};
+
+#endif // TF_HPP

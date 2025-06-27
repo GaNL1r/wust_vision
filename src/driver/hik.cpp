@@ -245,12 +245,13 @@ void HikCamera::hikCaptureLoop() {
 
         if (on_frame_callback_) {
           Eigen::Matrix3d R_gimbal2odom;
-          R_gimbal2odom = Eigen::AngleAxisd(last_yaw + gimbal2camera_yaw,
-                                            Eigen::Vector3d::UnitZ()) *
-                          Eigen::AngleAxisd(-last_pitch - gimbal2camera_pitch,
-                                            Eigen::Vector3d::UnitY()) *
-                          Eigen::AngleAxisd(last_roll + gimbal2camera_roll,
-                                            Eigen::Vector3d::UnitX());
+          R_gimbal2odom =
+              Eigen::AngleAxisd(gobal::last_yaw + gobal::gimbal2camera_yaw,
+                                Eigen::Vector3d::UnitZ()) *
+              Eigen::AngleAxisd(-gobal::last_pitch - gobal::gimbal2camera_pitch,
+                                Eigen::Vector3d::UnitY()) *
+              Eigen::AngleAxisd(gobal::last_roll + gobal::gimbal2camera_roll,
+                                Eigen::Vector3d::UnitX());
           on_frame_callback_(frame, R_gimbal2odom);
         }
         if (recorder_ != nullptr) {

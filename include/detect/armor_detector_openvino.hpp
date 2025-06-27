@@ -22,7 +22,7 @@ public:
                                const std::string &classify_model_path,
                                const std::string &classify_label_path,
                                const std::string &device_name,
-                               const LightParams &l,
+                               const LightParams &l, const ArmorParams &a,
                                float conf_threshold = 0.25, int top_k = 128,
                                float nms_threshold = 0.3,
                                float expand_ratio_w = 1.1f,
@@ -52,12 +52,14 @@ public:
                                 ArmorObject &armor) noexcept;
 
   bool isLight(const Light &possible_light) noexcept;
+  bool isArmor(const Light &light_1, const Light &light_2) noexcept;
 
   void detect(ArmorObject &armor);
   void extractNumberImage(const cv::Mat &src, ArmorObject &armor);
 
   LightParams light_params_;
-
+  ArmorParams armor_params_;
+  std::unique_ptr<LightCornerCorrector> corner_corrector;
   std::thread image_thread_;
   std::string model_path_;
   std::string classify_model_path_;

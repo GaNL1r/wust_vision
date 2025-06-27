@@ -45,7 +45,7 @@ inline double normalizeAngle(double angle) {
 class Tracker {
 public:
   Tracker(double max_match_distance, double max_match_yaw,
-          double max_match_z_diff_);
+          double max_match_z_diff, double max_match_x_diff);
 
   void init(const Armors &armors_msg) noexcept;
   void update(const Armors &armors_msg) noexcept;
@@ -75,39 +75,21 @@ public:
   double d_zc;
   float yaw_diff_;
   float position_diff_;
-  int buffer_size_ = 5;
-  float obs_yaw_stationary_thresh = 0.8;
-  float pred_yaw_stationary_thresh = 0.5;
-  float min_valid_velocity = 0.01;
-  int max_inconsistent_count_ = 3;
-  int rotation_inconsistent_cooldown_limit_ = 5;
+
   double jump_thresh = 0.4;
-
-  // Eigen::Vector2f last_obs_position_;
-  // std::chrono::steady_clock::time_point last_obs_time_;
-
-  // int xy_track_update_count_ = 0;
-  // std::deque<float> xy_velocity_diff_buffer_;
-  // int xy_inconsistent_count_ = 0;
-  // int xy_inconsistent_cooldown_ = 0;
-
-  // int max_xy_inconsistent_count_ = 3;
-  // int xy_inconsistent_cooldown_limit_ = 30;
-  // float max_xy_velocity_diff_thresh_ = 1.0f;  // m/s
 
 private:
   void initEKF(const Armor &a) noexcept;
   void handleArmorJump(const Armor &a) noexcept;
 
-  double orientationToYaw(const tf2::Quaternion &q) noexcept;
+  double orientationToYaw(const tf::Quaternion &q) noexcept;
   static Eigen::Vector3d
   getArmorPositionFromState(const Eigen::VectorXd &x) noexcept;
-  void updateBestYawdiff(const Armor &armor1, const Armor &armor2);
-  void updateYawStateConsistency(double measured_yaw);
 
   double max_match_distance_;
   double max_match_yaw_diff_;
   double max_match_z_diff_;
+  double max_match_x_diff_;
 
   int detect_count_;
   int lost_count_;

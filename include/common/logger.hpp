@@ -13,16 +13,13 @@
 namespace fs = std::filesystem;
 
 // 日志等级定义
-enum class LogLevel {
-  DEBUG = 0,
-  INFO,
-  WARN,
-  ERROR,
-};
+enum class LogLevel { DEBUG = 0, INFO, WARN, ERROR, MAIN };
 
 // 日志等级转字符串
 inline const char *levelToString(LogLevel level) {
   switch (level) {
+  case LogLevel::MAIN:
+    return "MAIN";
   case LogLevel::DEBUG:
     return "DEBUG";
   case LogLevel::INFO:
@@ -39,6 +36,8 @@ inline const char *levelToString(LogLevel level) {
 // 日志颜色
 inline const char *colorForLevel(LogLevel level) {
   switch (level) {
+  case LogLevel::MAIN:
+    return "\033[37m"; // 白色
   case LogLevel::DEBUG:
     return "\033[36m"; // Cyan
   case LogLevel::INFO:
@@ -57,6 +56,8 @@ inline const char *colorReset() { return "\033[0m"; }
 inline LogLevel logLevelFromString(const std::string &level_str) {
   std::string l = level_str;
   std::transform(l.begin(), l.end(), l.begin(), ::toupper);
+  if (l == "MAIN")
+    return LogLevel::MAIN;
   if (l == "DEBUG")
     return LogLevel::DEBUG;
   if (l == "INFO")
@@ -144,23 +145,23 @@ public:
       : level_(level), node_name_(node), file_(file), line_(line) {}
 
   ~LoggerStream() {
-    // 构造输出内容
     std::ostringstream full_msg;
-    if (Logger::getInstance().isSimplifiedOutputEnabled()) {
-      // 简化格式： [LEVEL][node] message
-      full_msg << "[" << levelToString(level_) << "]"
-               << "[" << node_name_ << "] " << buffer_.str();
-    } else {
-      // 完整格式： [时间][LEVEL][node][文件:行号] message
+    if (level_ == LogLevel::MAIN ||
+        !Logger::getInstance().isSimplifiedOutputEnabled()) {
+      // 始终使用完整格式
       full_msg << "[" << getTimeStr() << "]"
                << "[" << levelToString(level_) << "]"
                << "[" << node_name_ << "]"
                << "[" << file_ << ":" << line_ << "] " << buffer_.str();
+    } else {
+      // 简化格式
+      full_msg << "[" << levelToString(level_) << "]"
+               << "[" << node_name_ << "] " << buffer_.str();
     }
 
     std::lock_guard<std::mutex> lock(Logger::getInstance().getMutex());
 
-    // 控制台只打印等级满足的
+    // 控制台输出（受日志等级影响）
     if (Logger::getInstance().shouldLog(level_)) {
       if (Logger::getInstance().isColorOutputEnabled()) {
         std::cout << colorForLevel(level_) << full_msg.str() << colorReset()
@@ -170,7 +171,7 @@ public:
       }
     }
 
-    // 文件日志写入全部，不受等级限制
+    // 文件输出（不受等级限制）
     if (Logger::getInstance().isFileOutputEnabled()) {
       Logger::getInstance().fileStream() << full_msg.str() << std::endl;
     }
@@ -189,52 +190,37 @@ private:
   int line_;
 };
 
-// 初始化 Logger
+// ========== 初始化接口 ==========
 inline void initLogger(const std::string &level_str,
                        const std::string &log_dir = "./logs",
                        bool use_logcli = true, bool use_logfile = true,
                        bool simplified_output = false) {
   Logger &logger = Logger::getInstance();
-
-  // 设置日志等级
   logger.setLevel(logLevelFromString(level_str));
-
-  // 设置简化日志输出选项
   logger.enableSimplifiedOutput(simplified_output);
 
-  // 控制是否启用控制台输出（控制台输出由 shouldLog() + use_logcli 控制）
-  // 这里我们通过改写 LoggerStream
-  // 的打印条件或者加一个新的标志更复杂，简化处理：
-  // 如果不启用控制台输出，则设置等级为 ERROR+，不打印普通信息即可。
   if (!use_logcli) {
-    // 直接设为最高等级，避免打印
     logger.setLevel(LogLevel::ERROR);
   }
 
-  // 处理日志目录为绝对路径
   fs::path dir_path(log_dir);
   if (!dir_path.is_absolute()) {
     dir_path = fs::absolute(dir_path);
   }
 
-  // 获取当前时间作为文件名
-  std::string timestamp = getTimeStr(); // 2025-05-24 13:30:45.123
+  std::string timestamp = getTimeStr();
   std::replace(timestamp.begin(), timestamp.end(), ':', '-');
   std::replace(timestamp.begin(), timestamp.end(), ' ', '_');
-
-  // 拼接绝对路径文件名
   fs::path filename = dir_path / ("log_" + timestamp + ".txt");
-
-  // 创建目录（C++17）
   fs::create_directories(dir_path);
 
-  // 启用文件日志
   if (use_logfile) {
     logger.enableFileOutput(filename.string());
   }
 }
 
-// 宏定义
+// ========== 宏定义 ==========
+#define WUST_MAIN(node) LoggerStream(LogLevel::MAIN, node, __FILE__, __LINE__)
 #define WUST_DEBUG(node) LoggerStream(LogLevel::DEBUG, node, __FILE__, __LINE__)
 #define WUST_INFO(node) LoggerStream(LogLevel::INFO, node, __FILE__, __LINE__)
 #define WUST_WARN(node) LoggerStream(LogLevel::WARN, node, __FILE__, __LINE__)

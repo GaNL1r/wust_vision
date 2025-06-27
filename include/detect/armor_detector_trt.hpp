@@ -52,6 +52,7 @@ public:
   explicit ArmorDetectTrt(const std::string &onnx_path, const Params &params,
                           double expand_ratio_w, double expand_ratio_h,
                           int binary_thres, LightParams light_params,
+                          ArmorParams armor_params,
                           std::string classify_model_path,
                           std::string classify_label_path);
 
@@ -79,6 +80,8 @@ public:
 
   bool isLight(const Light &possible_light) noexcept;
 
+  bool isArmor(const Light &light_1, const Light &light_2) noexcept;
+
   void detect(ArmorObject &armor);
 
 private:
@@ -93,6 +96,8 @@ private:
               const Eigen::Matrix<float, 3, 3> &transform_matrix);
 
   // 成员变量
+  ArmorParams armor_params_;
+  std::unique_ptr<LightCornerCorrector> corner_corrector;
   Params params_;
   nvinfer1::ICudaEngine *engine_;
   nvinfer1::IExecutionContext *context_;

@@ -64,6 +64,16 @@ struct LightParams {
   // vertical angle
   double max_angle;
 };
+struct ArmorParams {
+  double min_light_ratio;
+  // light pairs distance
+  double min_small_center_distance;
+  double max_small_center_distance;
+  double min_large_center_distance;
+  double max_large_center_distance;
+  // horizontal angle
+  double max_angle;
+};
 struct GridAndStride {
   int grid0;
   int grid1;
@@ -239,10 +249,10 @@ struct Armor {
   ArmorNumber number;
   std::string type;
 
-  Position pos;
-  tf2::Quaternion ori;
-  Position target_pos;
-  tf2::Quaternion target_ori;
+  tf::Position pos;
+  tf::Quaternion ori;
+  tf::Position target_pos;
+  tf::Quaternion target_ori;
   float distance_to_image_center;
   float yaw;
   std::chrono::steady_clock::time_point timestamp;
@@ -261,8 +271,8 @@ struct Target {
   ArmorNumber id = ArmorNumber::UNKNOWN;
   int armors_num = 0;
 
-  Position position_ = Position();
-  Position velocity_ = Position();
+  tf::Position position_ = tf::Position();
+  tf::Position velocity_ = tf::Position();
   float yaw = 0;
   float v_yaw = 0;
   float radius_1 = 0.24;
@@ -278,8 +288,8 @@ struct Target {
     tracking = false;
     armors_num = 0;
     type = "";
-    position_ = Position();
-    velocity_ = Position();
+    position_ = tf::Position();
+    velocity_ = tf::Position();
     yaw = 0.0;
     v_yaw = 0.0;
     radius_1 = 0.0;
@@ -297,9 +307,9 @@ struct OneTarget {
   bool tracking = false;
   ArmorNumber id = ArmorNumber::UNKNOWN;
 
-  Position position_ = Position();
-  Position velocity_ = Position();
-  Position acceleration_ = Position();
+  tf::Position position_ = tf::Position();
+  tf::Position velocity_ = tf::Position();
+  tf::Position acceleration_ = tf::Position();
   float yaw = 0;
   float v_yaw = 0;
   float distance_to_image_center = 0;
@@ -312,8 +322,8 @@ struct OneTarget {
     tracking = false;
 
     type = "";
-    position_ = Position();
-    velocity_ = Position();
+    position_ = tf::Position();
+    velocity_ = tf::Position();
     yaw = 0.0;
     v_yaw = 0.0;
     yaw_diff = 0.0;

@@ -46,7 +46,6 @@
             vertical-align: top;
         }
 
-        /* JSON 显示区域样式 */
         .json-container {
             margin-top: 20px;
             background-color: #fff;
@@ -85,7 +84,6 @@
             border-radius: 4px;
         }
 
-        /* 容器行内排版 */
         #json-row {
             margin-top: 20px;
             width: 100%;
@@ -95,7 +93,6 @@
             flex-wrap: wrap;
         }
 
-        /* 树形视图样式 */
         .json-tree {
             list-style-type: none;
             padding-left: 10px;
@@ -114,9 +111,6 @@
             border-left: 1px dashed #ccc;
         }
 
-        /* ---- 以下为参数配置页布局优化 ---- */
-
-        /* 让配置表单整体居中，并限制最大宽度 */
         #config-form {
             display: block;
             max-width: 800px;
@@ -124,7 +118,6 @@
             text-align: left;
         }
 
-        /* 配置区块竖向排列 */
         #config-tab fieldset {
             display: block;
             width: 100%;
@@ -132,7 +125,6 @@
             margin-bottom: 16px;
         }
 
-        /* 保存按钮居中 */
         #config-tab button {
             display: block;
             margin: 16px auto 0;
@@ -144,7 +136,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <!-- 顶部 Logo 和标题 -->
+    <!-- 顶部 logo 和标题 -->
     <div style="display: flex; align-items: center; position: absolute; top: 10px; left: 10px; z-index: 999;">
         <img src="/static/logo.JPG" alt="Logo" style="width: 100px; height: auto; margin-right: 20px;">
         <div style="display: flex; flex-direction: column;">
@@ -153,7 +145,7 @@
         </div>
     </div>
 
-    <!-- 页面切换按钮 -->
+    <!-- 切换按钮 -->
     <div style="margin-top: 140px;">
         <button onclick="showTab('video')">视频调试</button>
         <button onclick="showTab('config')">参数配置</button>
@@ -173,7 +165,19 @@
             <canvas id="armorChart" width="640" height="300"></canvas>
         </div>
 
-        <!-- Aim 和 Target JSON 显示区域 -->
+        <!-- 新增：图表范围设置 -->
+        <div class="chart-container">
+            <fieldset style="text-align: left; width: 600px; margin: auto;">
+                <legend>图表设置 - Armor Distance 范围</legend>
+                <label style="width: 150px;">最小距离 (min):</label>
+                <input type="number" id="armorChartMin" value="2.0" step="0.1"><br>
+                <label style="width: 150px;">最大距离 (max):</label>
+                <input type="number" id="armorChartMax" value="3.0" step="0.1"><br>
+                <button type="button" onclick="updateArmorChartRange()">更新图表范围</button>
+            </fieldset>
+        </div>
+
+        <!-- Aim/Target JSON 显示 -->
         <div id="json-row">
             <div class="json-container" id="json-aim-container">
                 <h3>Aim_info</h3>
@@ -194,7 +198,6 @@
     </div>
 
     <script>
-        // 初始化图表
         const yawPitchCtx = document.getElementById('waveformChart').getContext('2d');
         const armorCtx = document.getElementById('armorChart').getContext('2d');
 
@@ -228,14 +231,26 @@
                 responsive: false,
                 scales: {
                     x: { title: { display: true, text: 'Time (s)' } },
-                    y: { title: { display: true, text: 'Distance (m)' } }
+                    y: {
+                        title: { display: true, text: 'Distance (m)' },
+                        min: 2.0,
+                        max: 3.0
+                    }
                 }
             }
         });
 
-        // 数据缓存用于差异比较
-        let lastAimData = null;
-        let lastTargetData = null;
+        function updateArmorChartRange() {
+            const minVal = parseFloat(document.getElementById('armorChartMin').value);
+            const maxVal = parseFloat(document.getElementById('armorChartMax').value);
+            if (!isNaN(minVal) && !isNaN(maxVal)) {
+                armorChart.options.scales.y.min = minVal;
+                armorChart.options.scales.y.max = maxVal;
+                armorChart.update();
+            } else {
+                alert("请输入有效的最小/最大值");
+            }
+        }
 
         async function fetchDataAndUpdateCharts() {
             try {
@@ -257,11 +272,9 @@
         }
 
         function jsonToHtml(data, container) {
-            // 清除容器内容但保留标题
             const title = container.querySelector('h3');
             container.innerHTML = '';
             if (title) container.appendChild(title);
-
             const contentDiv = document.createElement('div');
             contentDiv.id = container.id + '-content';
             container.appendChild(contentDiv);
@@ -271,38 +284,29 @@
                     parentElement.textContent = String(data);
                     return;
                 }
-
                 const ul = document.createElement('ul');
                 ul.className = 'json-tree';
-
                 const entries = Array.isArray(data) ?
                     data.map((item, idx) => [idx, item]) :
                     Object.entries(data);
-
                 entries.forEach(([key, value]) => {
                     const li = document.createElement('li');
-
                     if (typeof value === 'object' && value !== null) {
                         const details = document.createElement('details');
                         details.open = true;
-
                         const summary = document.createElement('summary');
                         summary.textContent = key;
                         details.appendChild(summary);
-
                         const childUl = document.createElement('ul');
                         childUl.className = 'json-tree';
                         buildTree(value, childUl);
-
                         details.appendChild(childUl);
                         li.appendChild(details);
                     } else {
                         li.textContent = `${key}: ${value}`;
                     }
-
                     ul.appendChild(li);
                 });
-
                 parentElement.appendChild(ul);
             }
 
@@ -312,25 +316,16 @@
         async function fetchAndDisplayJsonWithTree(id, url) {
             const container = document.getElementById(id);
             const containerParent = document.getElementById(id + '-container');
-
             try {
                 containerParent.classList.add('json-updating');
                 const res = await fetch(url);
-
                 if (res.ok) {
                     const newData = await res.json();
-
-                    // 只在数据变化时更新
                     const lastData = id === 'json-aim' ? lastAimData : lastTargetData;
                     if (JSON.stringify(newData) !== JSON.stringify(lastData)) {
                         jsonToHtml(newData, container);
-
-                        // 更新缓存
-                        if (id === 'json-aim') {
-                            lastAimData = newData;
-                        } else {
-                            lastTargetData = newData;
-                        }
+                        if (id === 'json-aim') lastAimData = newData;
+                        else lastTargetData = newData;
                     }
                 }
             } catch (err) {
@@ -347,6 +342,8 @@
             if (tab === 'config') loadConfig();
         }
 
+        let lastAimData = null;
+        let lastTargetData = null;
         let configData = {};
 
         async function loadConfig() {
@@ -364,90 +361,19 @@
             for (let key in obj) {
                 const value = obj[key];
                 const path = prefix ? `${prefix}.${key}` : key;
-
-                if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object') {
-                    const fieldset = document.createElement('fieldset');
-                    const legend = document.createElement('legend');
-                    legend.innerText = path;
-                    fieldset.appendChild(legend);
-
-                    value.forEach((item, index) => {
-                        const subfieldset = document.createElement('fieldset');
-                        const sublegend = document.createElement('legend');
-                        sublegend.innerText = `${key}[${index}]`;
-                        subfieldset.appendChild(sublegend);
-
-                        for (let subkey in item) {
-                            const label = document.createElement('label');
-                            label.innerText = `${key}[${index}].${subkey}`;
-
-                            const input = document.createElement('input');
-                            input.value = item[subkey];
-                            input.onchange = () => updateValue(`${path}[${index}].${subkey}`, input.value);
-
-                            subfieldset.appendChild(label);
-                            subfieldset.appendChild(input);
-                            subfieldset.appendChild(document.createElement('br'));
-                        }
-
-                        const deleteBtn = document.createElement('button');
-                        deleteBtn.innerText = '删除该项';
-                        deleteBtn.type = 'button';
-                        deleteBtn.onclick = () => {
-                            value.splice(index, 1);
-                            renderForm(configData, container);
-                        };
-                        subfieldset.appendChild(deleteBtn);
-
-                        fieldset.appendChild(subfieldset);
-                    });
-
-                    const addBtn = document.createElement('button');
-                    addBtn.innerText = '新增一项';
-                    addBtn.type = 'button';
-                    addBtn.onclick = () => {
-                        const template = Object.assign({}, value[0]);
-                        for (let k in template) template[k] = 0; // 初始化为 0
-                        value.push(template);
-                        renderForm(configData, container);
-                    };
-                    fieldset.appendChild(addBtn);
-
-                    container.appendChild(fieldset);
-
-                } else if (typeof value === 'object' && value !== null) {
+                if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
                     const fieldset = document.createElement('fieldset');
                     const legend = document.createElement('legend');
                     legend.innerText = path;
                     fieldset.appendChild(legend);
                     renderForm(value, fieldset, path);
                     container.appendChild(fieldset);
-
                 } else {
                     const label = document.createElement('label');
                     label.innerText = path;
-
-                    let input;
-                    if (typeof value === 'boolean') {
-                        input = document.createElement('input');
-                        input.type = 'checkbox';
-                        input.checked = value;
-                        input.onchange = () => updateValue(path, input.checked);
-                    } else {
-                        input = document.createElement('input');
-                        input.value = value;
-                        input.onchange = () => {
-                            const v = input.value;
-                            if (v === "true" || v === "false") {
-                                updateValue(path, v === "true");
-                            } else if (!isNaN(v) && v.trim() !== "") {
-                                updateValue(path, parseFloat(v));
-                            } else {
-                                updateValue(path, v);
-                            }
-                        };
-                    }
-
+                    const input = document.createElement('input');
+                    input.value = value;
+                    input.onchange = () => updateValue(path, parseFloat(input.value));
                     container.appendChild(label);
                     container.appendChild(input);
                     container.appendChild(document.createElement('br'));
@@ -471,11 +397,8 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(configData)
                 });
-                if (res.ok) {
-                    alert('参数保存成功！');
-                } else {
-                    alert('保存失败: ' + res.status);
-                }
+                if (res.ok) alert('参数保存成功！');
+                else alert('保存失败: ' + res.status);
             } catch (err) {
                 alert('保存异常: ' + err);
             }
@@ -489,6 +412,8 @@
                 fetchAndDisplayJsonWithTree('json-aim', '/aim_log');
                 fetchAndDisplayJsonWithTree('json-target', '/target_log');
             }, 200);
+
+            updateArmorChartRange(); // 初始化图表范围
         });
     </script>
 </body>

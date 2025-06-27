@@ -20,7 +20,6 @@ public:
   void startThread(bool if_use_serial, bool if_use_nav);
   void stopThread();
   void receiveData();
-  void imu_cbk(ReceiveImuData &imu_data);
   void aim_cbk(ReceiveAimINFO &aim_data);
   bool usbOk() const { return is_usb_ok_; }
   void sendData();

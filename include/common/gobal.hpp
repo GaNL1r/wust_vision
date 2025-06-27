@@ -3,13 +3,12 @@
 #include "common/tf.hpp"
 #include "detect/mono_measure_tool.hpp"
 #include "yaml-cpp/yaml.h"
-
-extern TfTree tf_tree_;
+namespace gobal {
+extern tf::TfTree tf_tree_;
 extern std::unique_ptr<MonoMeasureTool> measure_tool_;
 extern int detect_color_;
 extern bool debug_mode_;
-extern int debug_w;
-extern int debug_h;
+
 extern double controller_delay;
 extern double velocity;
 extern bool if_manual_reset;
@@ -20,8 +19,8 @@ extern double last_yaw;
 extern double gimbal2camera_yaw, gimbal2camera_roll, gimbal2camera_pitch;
 extern double odom2gimbal_yaw, odom2gimbal_roll, odom2gimbal_pitch;
 extern bool is_inited_;
-extern std::atomic<bool> exit_flag;
 extern YAML::Node config;
 extern bool use_calculation_;
 extern bool use_serial;
 extern int attack_mode;
+} // namespace gobal

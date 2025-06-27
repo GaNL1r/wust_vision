@@ -25,8 +25,8 @@
 #include "type/type.hpp"
 struct Target_info {
   std::vector<std::vector<cv::Point2f>> pts;
-  std::vector<Position> pos;
-  std::vector<tf2::Quaternion> ori;
+  std::vector<tf::Position> pos;
+  std::vector<tf::Quaternion> ori;
   int select_id;
   std::vector<bool> is_ok;
 };

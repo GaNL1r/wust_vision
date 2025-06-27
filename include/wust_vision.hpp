@@ -2,7 +2,6 @@
 
 #include "common/gobal.hpp"
 #include "control/armor_solver.hpp"
-#include "control/bspline.hpp"
 #include "control/rune_solver.hpp"
 #include "detect/armor_pose_estimator.hpp"
 #include "detect/detector_factory.hpp"
@@ -22,6 +21,7 @@ public:
   ~WustVision();
 
   void init();
+  void run();
   void processImage(const ImageFrame &frame, Eigen::Matrix3d R_gimbal2odom);
   void processImage(const cv::Mat &frame,
                     std::chrono::steady_clock::time_point timestamp);
@@ -43,6 +43,7 @@ public:
   void timerCallback();
   void startTimer();
   void stopTimer();
+  void restartTimerThread();
   void transformArmorData(Armors &armors);
   void transformArmorData(Armors &armors, Eigen::Matrix4d T_camera_to_odom);
   void runeTargetCallback(const Rune rune_target,
@@ -73,12 +74,13 @@ public:
   std::string target_frame_;
   std::atomic<bool> timer_running_{false};
   std::thread timer_thread_;
+
   std::unique_ptr<TrackerManager> tracker_manager_;
   double gimbal2camera_x_, gimbal2camera_y_, gimbal2camera_z_;
   double gimbal2camera_yaw_, gimbal2camera_roll_, gimbal2camera_pitch_;
 
-  serial::Serial serial_;
-  std::unique_ptr<Solver> solver_;
+  std::unique_ptr<serial::Serial> serial_;
+  std::unique_ptr<ArmorSolver> armor_solver_;
 
   std::unique_ptr<ArmorPoseEstimator> armor_pose_estimator_;
   Eigen::Matrix3d imu_to_camera_;
@@ -104,9 +106,18 @@ public:
   Eigen::Vector3d t_gimbal_to_camera;
   Eigen::Matrix4d T_camera_to_odom_;
   Eigen::Matrix3d R_gimbal_camera;
-  int timer_count;
 
-  std::unique_ptr<RealtimeBSplineSegment> spline;
+  int timer_count_ = 0;
+  std::mutex timer_mtx_;
+  std::condition_variable timer_cv_;
+
+  size_t img_recv_count_ = 0;
+  size_t detect_finish_count_ = 0;
+  size_t fire_count_ = 0;
+  std::chrono::steady_clock::time_point last_stat_time_steady_;
+  double debug_show_dt_;
+  GimbalCmd last_cmd_;
+  double last_distance;
 
   std::unique_ptr<ArmorDetectorBase> armor_detector_;
   std::unique_ptr<RuneDetectorBase> rune_detector_;

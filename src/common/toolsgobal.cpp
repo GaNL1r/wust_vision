@@ -1,5 +1,5 @@
 #include "common/toolsgobal.hpp"
-
+namespace toolsgobal {
 std::vector<std::pair<double, double>> target_yaw_log_;
 std::mutex yaw_log_mutex_;
 std::chrono::steady_clock::time_point start_time_ =
@@ -11,11 +11,9 @@ std::vector<double> time_log_;
 std::vector<double> cmd_yaw_log_;
 std::vector<double> cmd_pitch_log_;
 std::vector<double> armor_dis_log_;
-size_t img_recv_count_ = 0;
-size_t detect_finish_count_ = 0;
-size_t fire_count_ = 0;
-std::chrono::steady_clock::time_point last_stat_time_steady_;
+
 double latency_ms;
-double debug_show_dt_;
-GimbalCmd last_cmd_;
-double last_distance;
+int debug_w;
+int debug_h;
+
+} // namespace toolsgobal

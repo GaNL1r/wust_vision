@@ -289,7 +289,7 @@ bool MonoMeasureTool::reprojectArmorCorners(
   }
 
   // 四元数 -> 旋转矩阵
-  tf2::Matrix3x3 tf_rot(armor.target_ori);
+  tf::Matrix3x3 tf_rot(armor.target_ori);
   cv::Mat rot_mat = (cv::Mat_<double>(3, 3) << tf_rot[0][0], tf_rot[0][1],
                      tf_rot[0][2], tf_rot[1][0], tf_rot[1][1], tf_rot[1][2],
                      tf_rot[2][0], tf_rot[2][1], tf_rot[2][2]);
@@ -327,7 +327,7 @@ bool MonoMeasureTool::reprojectArmorCorners_raw(
   }
 
   // 四元数 -> 旋转矩阵
-  tf2::Matrix3x3 tf_rot(armor.ori);
+  tf::Matrix3x3 tf_rot(armor.ori);
   cv::Mat rot_mat = (cv::Mat_<double>(3, 3) << tf_rot[0][0], tf_rot[0][1],
                      tf_rot[0][2], tf_rot[1][0], tf_rot[1][1], tf_rot[1][2],
                      tf_rot[2][0], tf_rot[2][1], tf_rot[2][2]);
@@ -404,14 +404,14 @@ void MonoMeasureTool::processDetectedArmors(
       cv::Mat rot_mat;
       cv::Rodrigues(target_rvec, rot_mat);
 
-      // 再转换为 tf2::Quaternion
-      tf2::Matrix3x3 tf_rot_mat(
+      // 再转换为 tf::Quaternion
+      tf::Matrix3x3 tf_rot_mat(
           rot_mat.at<double>(0, 0), rot_mat.at<double>(0, 1),
           rot_mat.at<double>(0, 2), rot_mat.at<double>(1, 0),
           rot_mat.at<double>(1, 1), rot_mat.at<double>(1, 2),
           rot_mat.at<double>(2, 0), rot_mat.at<double>(2, 1),
           rot_mat.at<double>(2, 2));
-      tf2::Quaternion tf_quaternion;
+      tf::Quaternion tf_quaternion;
       tf_rot_mat.getRotation(tf_quaternion);
 
       if (!std::isfinite(tf_quaternion.x) || !std::isfinite(tf_quaternion.y) ||

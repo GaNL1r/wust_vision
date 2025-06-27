@@ -70,7 +70,7 @@ public:
   double predictTarget(Eigen::Vector3d &predicted_position, double timestamp);
 
   // Return: transormation matrix from rune to odom
-  // Throws: tf2::TransformException or std::runtime_error
+  // Throws: tf::TransformException or std::runtime_error
   Eigen::Matrix4d solvePose(const Rune &target,
                             Eigen::Matrix4d T_camera_to_odom);
 

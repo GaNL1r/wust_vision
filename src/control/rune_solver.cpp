@@ -36,7 +36,7 @@ RuneSolver::RuneSolver(const RuneSolverParams &rsp) : rune_solver_params(rsp) {
   trajectory_compensator =
       CompensatorFactory::createCompensator(rsp.compensator_type);
   trajectory_compensator->gravity = rsp.gravity;
-  velocity = rsp.bullet_speed;
+  gobal::velocity = rsp.bullet_speed;
   trajectory_compensator->resistance = 0.01;
   ekf_state_ = Eigen::Vector4d::Zero();
   manual_compensator = std::make_unique<ManualCompensator>();
@@ -201,7 +201,7 @@ Eigen::Matrix4d RuneSolver::solvePose(const Rune &predicted_target,
 
       // Init pose msg
       // geometry_msgs::msg::PoseStamped tf;
-      Transform tf;
+      tf::Transform tf;
       // tf.header.frame_id = "camera_optical_frame";
       // tf.header.stamp = predicted_target.header.stamp;
 
@@ -233,7 +233,7 @@ Eigen::Matrix4d RuneSolver::solvePose(const Rune &predicted_target,
       Eigen::Matrix4d pose_odom = T_camera_to_odom * pose_camera;
 
       // 提取变换结果
-      Transform pose_in_target_frame;
+      tf::Transform pose_in_target_frame;
       pose_in_target_frame.position.x = pose_odom(0, 3);
       pose_in_target_frame.position.y = pose_odom(1, 3);
       pose_in_target_frame.position.z = pose_odom(2, 3);
@@ -274,28 +274,16 @@ Eigen::Matrix4d RuneSolver::solvePose(const Rune &predicted_target,
 GimbalCmd RuneSolver::solveGimbalCmd(const Eigen::Vector3d &target) {
   // Get current yaw and pitch of gimbal
   double current_yaw = 0.0, current_pitch = 0.0;
-  // try {
-  //   auto gimbal_tf = tf2_buffer_->lookupTransform("odom", "gimbal_link",
-  //   tf2::TimePointZero); auto msg_q = gimbal_tf.transform.rotation;
 
-  //   tf2::Quaternion tf_q;
-  //   tf2::fromMsg(msg_q, tf_q);
-  //   double roll;
-  //   tf2::Matrix3x3(tf_q).getRPY(roll, current_pitch, current_yaw);
-  //   current_pitch = -current_pitch;
-  // } catch (tf2::TransformException &ex) {
-  //   WUST_ERROR("rune_solver", "{}", ex.what());
-  //   throw ex;
-  // }
-  current_yaw = last_yaw;
-  current_pitch = last_pitch;
+  current_yaw = gobal::last_yaw;
+  current_pitch = gobal::last_pitch;
 
   // Calculate yaw and pitch
   double yaw = atan2(target.y(), target.x());
   double pitch = atan2(target.z(), target.head(2).norm());
 
   // Set parameters of compensator
-  velocity = rune_solver_params.bullet_speed;
+
   trajectory_compensator->gravity = rune_solver_params.gravity;
   trajectory_compensator->iteration_times = 30;
 
@@ -407,10 +395,10 @@ RuneSolver::getStateFromTransform(const Eigen::Matrix4d &transform) const {
   // Get yaw
   Eigen::Matrix3d R_odom_2_rune = transform.block(0, 0, 3, 3);
   Eigen::Quaterniond q_eigen = Eigen::Quaterniond(R_odom_2_rune);
-  tf2::Quaternion q_tf =
-      tf2::Quaternion(q_eigen.x(), q_eigen.y(), q_eigen.z(), q_eigen.w());
+  tf::Quaternion q_tf =
+      tf::Quaternion(q_eigen.x(), q_eigen.y(), q_eigen.z(), q_eigen.w());
   double roll, pitch, yaw;
-  tf2::Matrix3x3(q_tf).getRPY(roll, pitch, yaw);
+  tf::Matrix3x3(q_tf).getRPY(roll, pitch, yaw);
   yaw = angles::normalize_angle(yaw);
 
   // Make yaw continuos

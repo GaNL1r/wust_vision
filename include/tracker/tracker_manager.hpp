@@ -34,6 +34,7 @@ public:
     TEMP_LOST,
   } tracker_state;
 
+  bool use_ypd_tracker_ = false;
   double dt_;
   std::unique_ptr<Tracker> tracker_;
   std::unique_ptr<OneTracker> one_tracker_;

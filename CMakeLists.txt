@@ -7,15 +7,21 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # === 构建选项 ===
 option(BUILD_WITH_TRT "Build TensorRT version" ON)
 option(BUILD_WITH_OPENVINO "Build OpenVINO version" ON)
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake_modules)
-set(EXTERNAL_INCLUDE_DIRS ${G2O_INCLUDE_DIR})
-set(EXTERNAL_LIBS ${G2O_LIBRARIES})
-
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_BUILD_TYPE "Release")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w")
+message(STATUS "BUILD_WITH_TRT: ${BUILD_WITH_TRT}")
+message(STATUS "BUILD_WITH_OPENVINO: ${BUILD_WITH_OPENVINO}")
+
+
+
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake_modules)
+set(EXTERNAL_INCLUDE_DIRS ${G2O_INCLUDE_DIR})
+set(EXTERNAL_LIBS ${G2O_LIBRARIES})
+
 # === 公共依赖 ===
 find_package(OpenCV REQUIRED)
 find_package(OpenVINO REQUIRED COMPONENTS Runtime ONNX)
@@ -97,6 +103,7 @@ link_directories(
 # === OpenVINO 版本 ===
 if(BUILD_WITH_OPENVINO)
   add_executable(${PROJECT_NAME}_openvino
+    src/main.cpp
     src/wust_vision.cpp
     src/detect/armor_detector_openvino.cpp
     src/detect/armor_detector_openvino_wrapper.cpp
@@ -135,6 +142,7 @@ endif()
 # === TensorRT 版本 ===
 if(BUILD_WITH_TRT)
   add_executable(${PROJECT_NAME}_trt
+    src/main.cpp
     src/wust_vision.cpp
     src/detect/armor_detector_trt.cpp
     src/detect/armor_detector_trt_wrapper.cpp

@@ -216,10 +216,10 @@ ArmorDetectOpenVino::ArmorDetectOpenVino(
     const std::filesystem::path &model_path,
     const std::string &classify_model_path,
     const std::string &classify_label_path, const std::string &device_name,
-    const LightParams &l, float conf_threshold, int top_k, float nms_threshold,
-    float expand_ratio_w, float expand_ratio_h, int binary_thres_,
-    bool auto_init)
-    : light_params_(l), model_path_(model_path),
+    const LightParams &l, const ArmorParams &a, float conf_threshold, int top_k,
+    float nms_threshold, float expand_ratio_w, float expand_ratio_h,
+    int binary_thres_, bool auto_init)
+    : light_params_(l), armor_params_(a), model_path_(model_path),
       classify_model_path_(classify_model_path),
       classify_label_path_(classify_label_path), device_name_(device_name),
       conf_threshold_(conf_threshold), top_k_(top_k),
@@ -292,6 +292,7 @@ void ArmorDetectOpenVino::init() {
 
   strides_ = {8, 16, 32};
   generate_grids_and_stride(INPUT_W, INPUT_H, strides_, grid_strides_);
+  corner_corrector = std::make_unique<LightCornerCorrector>();
   thread_pool_ =
       std::make_unique<ThreadPool>(std::thread::hardware_concurrency(), 100);
 }
@@ -513,11 +514,39 @@ bool ArmorDetectOpenVino::isLight(const Light &light) noexcept {
 
   return is_light;
 }
+bool ArmorDetectOpenVino::isArmor(const Light &light_1,
+                                  const Light &light_2) noexcept {
+  // Ratio of the length of 2 lights (short side / long side)
+  float light_length_ratio = light_1.length < light_2.length
+                                 ? light_1.length / light_2.length
+                                 : light_2.length / light_1.length;
+  bool light_ratio_ok = light_length_ratio > armor_params_.min_light_ratio;
+
+  // Distance between the center of 2 lights (unit : light length)
+  float avg_light_length = (light_1.length + light_2.length) / 2;
+  float center_distance =
+      cv::norm(light_1.center - light_2.center) / avg_light_length;
+  bool center_distance_ok =
+      (armor_params_.min_small_center_distance <= center_distance &&
+       center_distance < armor_params_.max_small_center_distance) ||
+      (armor_params_.min_large_center_distance <= center_distance &&
+       center_distance < armor_params_.max_large_center_distance);
+
+  // Angle of light center connection
+  cv::Point2f diff = light_1.center - light_2.center;
+  float angle = std::abs(std::atan(diff.y / diff.x)) / CV_PI * 180;
+  bool angle_ok = angle < armor_params_.max_angle;
+
+  bool is_armor = light_ratio_ok && center_distance_ok && angle_ok;
+
+  return is_armor;
+}
 void ArmorDetectOpenVino::detect(ArmorObject &armor) {
   lights_ = findLights(armor.whole_rgb_img, armor.whole_binary_img, armor);
+  if (isArmor(armor.lights[0], armor.lights[1])) {
 
-  LightCornerCorrector corner_corrector;
-  corner_corrector.correctCorners(armor);
+    corner_corrector->correctCorners(armor);
+  }
 }
 bool ArmorDetectOpenVino::classifyNumber(ArmorObject &armor) {
   static thread_local std::unique_ptr<cv::dnn::Net> thread_net;
@@ -699,9 +728,9 @@ bool ArmorDetectOpenVino::processCallback(
     if (armor.color == ArmorColor::NONE || armor.color == ArmorColor::PURPLE) {
       continue;
     }
-    if (detect_color_ == 0 && armor.color != ArmorColor::RED) {
+    if (gobal::detect_color_ == 0 && armor.color != ArmorColor::RED) {
       continue;
-    } else if (detect_color_ == 1 && armor.color != ArmorColor::BLUE) {
+    } else if (gobal::detect_color_ == 1 && armor.color != ArmorColor::BLUE) {
       continue;
     }
 

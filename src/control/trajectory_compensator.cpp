@@ -65,8 +65,8 @@ TrajectoryCompensator::getTrajectory(double distance,
 double
 IdealCompensator::calculateTrajectory(const double x,
                                       const double angle) const noexcept {
-  double t = x / (velocity * cos(angle));
-  double y = velocity * sin(angle) * t - 0.5 * gravity * t * t;
+  double t = x / (gobal::velocity * cos(angle));
+  double y = gobal::velocity * sin(angle) * t - 0.5 * gravity * t * t;
   return y;
 }
 
@@ -75,7 +75,7 @@ double IdealCompensator::getFlyingTime(
   double distance = sqrt(target_position(0) * target_position(0) +
                          target_position(1) * target_position(1));
   double angle = atan2(target_position(2), distance);
-  double t = distance / (velocity * cos(angle));
+  double t = distance / (gobal::velocity * cos(angle));
 
   return t;
 }
@@ -84,8 +84,8 @@ double
 ResistanceCompensator::calculateTrajectory(const double x,
                                            const double angle) const noexcept {
   double r = resistance < 1e-4 ? 1e-4 : resistance;
-  double t = (exp(r * x) - 1) / (r * velocity * cos(angle));
-  double y = velocity * sin(angle) * t - 0.5 * gravity * t * t;
+  double t = (exp(r * x) - 1) / (r * gobal::velocity * cos(angle));
+  double y = gobal::velocity * sin(angle) * t - 0.5 * gravity * t * t;
   return y;
 }
 
@@ -95,7 +95,7 @@ double ResistanceCompensator::getFlyingTime(
   double distance = sqrt(target_position(0) * target_position(0) +
                          target_position(1) * target_position(1));
   double angle = atan2(target_position(2), distance);
-  double t = (exp(r * distance) - 1) / (r * velocity * cos(angle));
+  double t = (exp(r * distance) - 1) / (r * gobal::velocity * cos(angle));
 
   return t;
 }

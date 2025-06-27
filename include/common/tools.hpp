@@ -20,11 +20,8 @@ void drawreprojec(const imgframe &src_img, const Target_info target_info,
 void drawreprojec(const imgframe &src_img, const Target_info target_info,
                   const Target target, const Tracker::State state,
                   GimbalCmd gimbal_cmd);
-// cv::Mat drawreprojec(const imgframe &src_img, const Target_info
-// target_info,const Target target,const Tracker::State state);
 void dumpTargetToFile(const Target &target,
                       const std::string &path = "/tmp/target_status.txt");
-void drawGimbalDirection(cv::Mat &debug_img, const GimbalCmd &gimbal_cmd);
 void updatePlot(const std::vector<Armor> &armors);
 void dumpImuToFile(const ReceiveImuData &imu,
                    const std::string &path = "/tmp/imu_status.txt");

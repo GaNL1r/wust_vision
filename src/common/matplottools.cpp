@@ -4,7 +4,7 @@
 #include <nlohmann/json.hpp>
 #include <vector>
 void plotYawThread() {
-  while (!is_inited_) {
+  while (!gobal::is_inited_) {
     usleep(10000);
   }
   try {
@@ -17,11 +17,11 @@ void plotYawThread() {
 
   bool figureClosed = false;
 
-  while (is_inited_) {
+  while (gobal::is_inited_) {
     std::vector<double> time_list, yaw_list;
     {
-      std::lock_guard<std::mutex> lock(yaw_log_mutex_);
-      for (const auto &[t, yaw] : target_yaw_log_) {
+      std::lock_guard<std::mutex> lock(toolsgobal::yaw_log_mutex_);
+      for (const auto &[t, yaw] : toolsgobal::target_yaw_log_) {
         time_list.push_back(t);
         yaw_list.push_back(yaw);
       }
@@ -72,11 +72,11 @@ void plotYawThread() {
 void write_cmd_log_to_json() {
   nlohmann::json j;
   {
-    std::lock_guard<std::mutex> lock(robot_cmd_mutex_);
-    j["time"] = time_log_;
-    j["yaw"] = cmd_yaw_log_;
-    j["pitch"] = cmd_pitch_log_;
-    j["armor_dis"] = armor_dis_log_;
+    std::lock_guard<std::mutex> lock(toolsgobal::robot_cmd_mutex_);
+    j["time"] = toolsgobal::time_log_;
+    j["yaw"] = toolsgobal::cmd_yaw_log_;
+    j["pitch"] = toolsgobal::cmd_pitch_log_;
+    j["armor_dis"] = toolsgobal::armor_dis_log_;
   }
 
   std::ofstream file("/dev/shm/cmd_log.json");
@@ -85,30 +85,30 @@ void write_cmd_log_to_json() {
   }
 }
 void robotCmdLoggerThread() {
-  while (!is_inited_) {
+  while (!gobal::is_inited_) {
     usleep(10000);
   }
-  while (is_inited_) {
+  while (gobal::is_inited_) {
     write_cmd_log_to_json();
     std::this_thread::sleep_for(std::chrono::milliseconds(50)); // 20Hz
   }
 }
 void plotRobotCmdThread() {
-  while (!is_inited_) {
+  while (!gobal::is_inited_) {
     usleep(10000);
   }
 
   matplotlibcpp::ion();
   bool figureClosed = false;
 
-  while (is_inited_) {
+  while (gobal::is_inited_) {
     std::vector<double> time_list, yaw_list, pitch_list;
     {
-      std::lock_guard<std::mutex> lock(robot_cmd_mutex_);
-      for (size_t i = 0; i < time_log_.size(); ++i) {
-        time_list.push_back(time_log_[i]);
-        yaw_list.push_back(cmd_yaw_log_[i]);
-        pitch_list.push_back(cmd_pitch_log_[i]);
+      std::lock_guard<std::mutex> lock(toolsgobal::robot_cmd_mutex_);
+      for (size_t i = 0; i < toolsgobal::time_log_.size(); ++i) {
+        time_list.push_back(toolsgobal::time_log_[i]);
+        yaw_list.push_back(toolsgobal::cmd_yaw_log_[i]);
+        pitch_list.push_back(toolsgobal::cmd_pitch_log_[i]);
       }
     }
 
@@ -166,7 +166,7 @@ void plotRobotCmdThread() {
 }
 
 void plotAllThread() {
-  while (!is_inited_) {
+  while (!gobal::is_inited_) {
     usleep(10000);
   }
   try {
@@ -179,23 +179,23 @@ void plotAllThread() {
 
   bool figureClosed = false;
 
-  while (is_inited_) {
+  while (gobal::is_inited_) {
     std::vector<double> time_list_target, target_yaw_list;
     std::vector<double> time_list_cmd, cmd_yaw_list, cmd_pitch_list;
 
     {
-      std::lock_guard<std::mutex> lock(yaw_log_mutex_);
-      for (const auto &[t, yaw] : target_yaw_log_) {
+      std::lock_guard<std::mutex> lock(toolsgobal::yaw_log_mutex_);
+      for (const auto &[t, yaw] : toolsgobal::target_yaw_log_) {
         time_list_target.push_back(t);
         target_yaw_list.push_back(yaw * 180.0 / M_PI); // 转为角度显示
       }
     }
 
     {
-      std::lock_guard<std::mutex> lock(robot_cmd_mutex_);
-      time_list_cmd = time_log_;
-      cmd_yaw_list = cmd_yaw_log_;
-      cmd_pitch_list = cmd_pitch_log_;
+      std::lock_guard<std::mutex> lock(toolsgobal::robot_cmd_mutex_);
+      time_list_cmd = toolsgobal::time_log_;
+      cmd_yaw_list = toolsgobal::cmd_yaw_log_;
+      cmd_pitch_list = toolsgobal::cmd_pitch_log_;
     }
 
     matplotlibcpp::clf();

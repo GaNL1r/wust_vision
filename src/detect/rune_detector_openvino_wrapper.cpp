@@ -7,9 +7,6 @@ RuneDetectorOpenvinoWrapper::RuneDetectorOpenvinoWrapper(
   std::string device_type =
       config["rune_detector"]["device_type"].as<std::string>("CPU");
 
-  WUST_INFO("rune_detector")
-      << "model : " << model_path << " device_type : " << device_type;
-
   float conf_threshold =
       config["rune_detector"]["confidence_threshold"].as<float>(0.50);
   int top_k = config["rune_detector"]["top_k"].as<int>(128);

@@ -28,12 +28,12 @@ inline double normalize_angle(double a) noexcept {
   return a;
 }
 
-class Solver {
+class ArmorSolver {
 public:
-  Solver() = default;
-  Solver(const YAML::Node &config);
+  ArmorSolver() = default;
+  ArmorSolver(const YAML::Node &config);
 
-  ~Solver() = default;
+  ~ArmorSolver() = default;
 
   // Solve a new gimbal command; timestamp in seconds
   GimbalCmd solve(const Target &target,

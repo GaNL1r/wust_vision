@@ -38,7 +38,7 @@ inline double onormalizeAnglem(double angle) {
 class OneCaTracker {
 public:
   OneCaTracker(double max_match_distance, double max_match_yaw,
-               double max_match_z_diff_);
+               double max_match_z_diff_, double max_match_x_diff);
 
   void init(const Armors &armors_msg) noexcept;
   void update(const Armors &armors_msg) noexcept;
@@ -73,25 +73,17 @@ public:
   double d_zc;
   float yaw_diff_;
   float position_diff_;
-  int buffer_size_ = 5;
-  float obs_yaw_stationary_thresh = 0.8;
-  float pred_yaw_stationary_thresh = 0.5;
-  float min_valid_velocity = 0.01;
-  int max_inconsistent_count_ = 3;
-  int rotation_inconsistent_cooldown_limit_ = 5;
   double jump_thresh = 0.4;
   double max_match_distance_;
   double max_match_yaw_diff_;
   double max_match_z_diff_;
+  double max_match_x_diff_;
 
 private:
   void initEKF(const Armor &a) noexcept;
   void handleArmorJump(const Armor &a) noexcept;
 
-  double orientationToYaw(const tf2::Quaternion &q) noexcept;
-
-  void updateBestYawdiff(const Armor &armor1, const Armor &armor2);
-  void updateYawStateConsistency(double measured_yaw);
+  double orientationToYaw(const tf::Quaternion &q) noexcept;
 
   int detect_count_;
   int lost_count_;

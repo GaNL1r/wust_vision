@@ -17,46 +17,6 @@
 #include <optional>
 #include <string>
 #include <vector>
-void drawGimbalDirection(cv::Mat &debug_img, const GimbalCmd &gimbal_cmd) {
-  // 1. 云台坐标系下的方向向量（右手系：Z 前，X 右，Y 下）
-  Eigen::Vector3f dir_gimbal;
-  dir_gimbal << std::cos(gimbal_cmd.pitch) * std::sin(gimbal_cmd.yaw), // X
-      -std::sin(gimbal_cmd.pitch),                                     // Y
-      std::cos(gimbal_cmd.pitch) * std::cos(gimbal_cmd.yaw);           // Z
-
-  // 2. 云台坐标系 → 相机坐标系变换矩阵
-  // 例：Z前Y下X右 (gimbal) → 相机 (X右Y下Z前)，可能需要根据具体坐标系调整
-  Eigen::Matrix3f R;
-  R << 0, 0, 1, // gimbal Z → camera X
-      -1, 0, 0, // gimbal X → camera Y
-      0, -1, 0; // gimbal Y → camera Z
-
-  Eigen::Vector3f dir_cam = R * dir_gimbal;
-
-  // 3. 投影到图像平面
-  if (dir_cam.z() <= 0.01f)
-    return; // 防止除零或背向相机
-
-  float fx =
-      static_cast<float>(measure_tool_->camera_intrinsic_.at<double>(0, 0));
-  float fy =
-      static_cast<float>(measure_tool_->camera_intrinsic_.at<double>(1, 1));
-  float cx =
-      static_cast<float>(measure_tool_->camera_intrinsic_.at<double>(0, 2));
-  float cy =
-      static_cast<float>(measure_tool_->camera_intrinsic_.at<double>(1, 2));
-
-  float u = fx * (dir_cam.x() / dir_cam.z()) + cx;
-  float v = fy * (dir_cam.y() / dir_cam.z()) + cy;
-
-  // 4. 绘制圆点（限制在图像边界内）
-  if (u >= 0 && u < debug_img.cols && v >= 0 && v < debug_img.rows) {
-    cv::Point2f pt(u, v);
-    cv::circle(debug_img, pt, 8, cv::Scalar(0, 255, 0), -1);
-    cv::putText(debug_img, "Gimbal", pt + cv::Point2f(10, -10),
-                cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
-  }
-}
 
 void drawresult(const cv::Mat &src_img, const std::vector<ArmorObject> &objs,
                 int64_t timestamp_nanosec) {
@@ -68,7 +28,7 @@ void drawresult(const cv::Mat &src_img, const std::vector<ArmorObject> &objs,
   }
   if (!window_initialized) {
     cv::namedWindow("debug_armorA", cv::WINDOW_NORMAL);
-    cv::resizeWindow("debug_armorA", debug_w, debug_h);
+    cv::resizeWindow("debug_armorA", toolsgobal::debug_w, toolsgobal::debug_h);
     cv::createTrackbar("Brightness", "debug_armorA", &brightness_slider, 400);
     window_initialized = true;
   }
@@ -156,7 +116,7 @@ void drawresult(const imgframe &src_img, const Armors &armors) {
 
   if (!window_initialized) {
     cv::namedWindow("debug_armor", cv::WINDOW_NORMAL);
-    cv::resizeWindow("debug_armor", debug_w, debug_h);
+    cv::resizeWindow("debug_armor", toolsgobal::debug_w, toolsgobal::debug_h);
     cv::createTrackbar("Brightness", "debug_armor", &brightness_slider, 400);
     window_initialized = true;
   }
@@ -184,7 +144,7 @@ void drawresult(const imgframe &src_img, const Armors &armors) {
     // std::cout<<"cc\n";
     std::vector<cv::Point2f> pts;
 
-    if (!measure_tool_->reprojectArmorCorners_raw(armor, pts))
+    if (!gobal::measure_tool_->reprojectArmorCorners_raw(armor, pts))
       continue;
     for (size_t i = 0; i < 4; ++i) {
       cv::line(debug_img, pts[i], pts[(i + 1) % 4], cv::Scalar(255, 100, 0), 2);
@@ -275,7 +235,7 @@ void drawreprojec(const cv::Mat &src_img,
 
   if (!window_initialized) {
     cv::namedWindow("debug_target", cv::WINDOW_NORMAL);
-    cv::resizeWindow("debug_target", debug_w, debug_h);
+    cv::resizeWindow("debug_target", toolsgobal::debug_w, toolsgobal::debug_h);
     cv::createTrackbar("Brightness", "debug_target", &brightness_slider, 400);
     window_initialized = true;
   }
@@ -366,7 +326,7 @@ void drawreprojec(const cv::Mat &src_img, const Target_info target_info,
 
   if (!window_initialized) {
     cv::namedWindow("debug_target", cv::WINDOW_NORMAL);
-    cv::resizeWindow("debug_target", debug_w, debug_h);
+    cv::resizeWindow("debug_target", toolsgobal::debug_w, toolsgobal::debug_h);
     cv::createTrackbar("Brightness", "debug_target", &brightness_slider, 400);
     window_initialized = true;
   }
@@ -513,7 +473,7 @@ void drawreprojec(const imgframe &src_img, const Target_info target_info,
 
   if (!window_initialized) {
     cv::namedWindow("debug_target", cv::WINDOW_NORMAL);
-    cv::resizeWindow("debug_target", debug_w, debug_h);
+    cv::resizeWindow("debug_target", toolsgobal::debug_w, toolsgobal::debug_h);
     cv::createTrackbar("Brightness", "debug_target", &brightness_slider, 400);
     window_initialized = true;
   }
@@ -673,7 +633,7 @@ void drawreprojec(const imgframe &src_img, const Target_info target_info,
 
   if (!window_initialized) {
     cv::namedWindow("debug_target", cv::WINDOW_NORMAL);
-    cv::resizeWindow("debug_target", debug_w, debug_h);
+    cv::resizeWindow("debug_target", toolsgobal::debug_w, toolsgobal::debug_h);
     cv::createTrackbar("Brightness", "debug_target", &brightness_slider, 400);
     window_initialized = true;
   }
@@ -859,7 +819,7 @@ void draw_debug_overlay(const imgframe &src_img, const Armors *armors,
 
   if (!window_initialized) {
     cv::namedWindow("debug_overlay", cv::WINDOW_NORMAL);
-    cv::resizeWindow("debug_overlay", debug_w, debug_h);
+    cv::resizeWindow("debug_overlay", toolsgobal::debug_w, toolsgobal::debug_h);
     cv::createTrackbar("Brightness", "debug_overlay", &brightness_slider, 400);
     window_initialized = true;
   }
@@ -885,7 +845,7 @@ void draw_debug_overlay(const imgframe &src_img, const Armors *armors,
 
     for (const auto &armor : armors->armors) {
       std::vector<cv::Point2f> pts;
-      if (!measure_tool_->reprojectArmorCorners_raw(armor, pts))
+      if (!gobal::measure_tool_->reprojectArmorCorners_raw(armor, pts))
         continue;
 
       for (size_t i = 0; i < 4; ++i)
@@ -1144,7 +1104,7 @@ void draw_debug_overlaywrite(const imgframe &src_img, const Armors *armors,
 
     for (const auto &armor : armors->armors) {
       std::vector<cv::Point2f> pts;
-      if (!measure_tool_->reprojectArmorCorners_raw(armor, pts))
+      if (!gobal::measure_tool_->reprojectArmorCorners_raw(armor, pts))
         continue;
 
       for (size_t i = 0; i < 4; ++i) {
@@ -1216,7 +1176,8 @@ void draw_debug_overlaywrite(const imgframe &src_img, const Armors *armors,
     double latency =
         std::chrono::duration<double, std::milli>(now - armors->timestamp)
             .count();
-    std::string latency_str = fmt::format("Latency: {:.2f}ms", latency_ms);
+    std::string latency_str =
+        fmt::format("Latency: {:.2f}ms", toolsgobal::latency_ms);
     cv::putText(debug_img, latency_str, cv::Point(10, 30),
                 cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(255, 255, 255), 2);
   }
@@ -1422,7 +1383,7 @@ cv::Mat draw_debug_overlayMat(const imgframe &src_img, const Armors *armors,
 
     for (const auto &armor : armors->armors) {
       std::vector<cv::Point2f> pts;
-      if (!measure_tool_->reprojectArmorCorners_raw(armor, pts))
+      if (!gobal::measure_tool_->reprojectArmorCorners_raw(armor, pts))
         continue;
 
       for (size_t i = 0; i < 4; ++i)
@@ -1812,10 +1773,7 @@ void write_aim_log_to_json(const ReceiveAimINFO &aim) {
   j["pitch_vel"] = aim.pitch_vel;
   j["roll_vel"] = aim.roll_vel;
 
-  j["yaw_deg"] = aim.yaw * 180.0 / M_PI;
-  j["pitch_deg"] = aim.pitch * 180.0 / M_PI;
-  j["roll_deg"] = aim.roll * 180.0 / M_PI;
-
+  j["manual_reset_count"] = aim.manual_reset_count;
   j["bullet_speed"] = aim.bullet_speed;
   j["controller_delay"] = aim.controller_delay;
   j["detect_color"] = (aim.detect_color == 0 ? "Red" : "Blue");
@@ -1897,7 +1855,7 @@ void drawRune(cv::Mat &src_img, const std::vector<RuneObject> &objs,
 
   if (!window_initialized) {
     cv::namedWindow("debug_rune", cv::WINDOW_NORMAL);
-    cv::resizeWindow("debug_rune", debug_w, debug_h);
+    cv::resizeWindow("debug_rune", toolsgobal::debug_w, toolsgobal::debug_h);
 
     window_initialized = true;
   }
@@ -1930,7 +1888,8 @@ void drawRune(cv::Mat &src_img, const std::vector<RuneObject> &objs,
 
   double latency =
       std::chrono::duration<double, std::milli>(now - timestamp).count();
-  std::string latency_str = fmt::format("Latency: {:.2f}ms", latency_ms);
+  std::string latency_str =
+      fmt::format("Latency: {:.2f}ms", toolsgobal::latency_ms);
   cv::putText(debug_img, latency_str, cv::Point2i(10, 30),
               cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 255, 255), 2);
 
@@ -1958,7 +1917,7 @@ void drawRuneandpre(cv::Mat &src_img, const std::vector<RuneObject> &objs,
 
   if (!window_initialized) {
     cv::namedWindow("debug_rune", cv::WINDOW_NORMAL);
-    cv::resizeWindow("debug_rune", debug_w, debug_h);
+    cv::resizeWindow("debug_rune", toolsgobal::debug_w, toolsgobal::debug_h);
 
     window_initialized = true;
   }
@@ -2121,9 +2080,8 @@ void drawRuneandprewrite(cv::Mat &src_img, const std::vector<RuneObject> &objs,
                 cv::FONT_HERSHEY_SIMPLEX, 0.8, line_color, 2);
   }
 
-  double latency =
-      std::chrono::duration<double, std::milli>(now - timestamp).count();
-  std::string latency_str = fmt::format("Latency: {:.2f}ms", latency_ms);
+  std::string latency_str =
+      fmt::format("Latency: {:.2f}ms", toolsgobal::latency_ms);
   cv::putText(debug_img, latency_str, cv::Point2i(10, 30),
               cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(255, 255, 255), 2);
 

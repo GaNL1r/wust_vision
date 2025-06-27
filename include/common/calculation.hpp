@@ -2,7 +2,7 @@
 #include "type/type.hpp"
 #include <vector>
 
-double orientationToYaw(const tf2::Quaternion &orientation);
+double orientationToYaw(const tf::Quaternion &orientation);
 void command_callback(Armors &armors);
 void ex(double &a, double &min, double &max);
 void command_callbackypd(const Armors &armors);

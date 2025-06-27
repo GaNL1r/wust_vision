@@ -53,9 +53,9 @@ ArmorPoseEstimator::extractArmorPoses(const std::vector<ArmorObject> &armors,
     if (!armor.is_ok) {
       continue;
     }
-    if (detect_color_ == 0 && armor.color != ArmorColor::RED) {
+    if (gobal::detect_color_ == 0 && armor.color != ArmorColor::RED) {
       continue;
-    } else if (detect_color_ == 1 && armor.color != ArmorColor::BLUE) {
+    } else if (gobal::detect_color_ == 1 && armor.color != ArmorColor::BLUE) {
       continue;
     }
     std::vector<cv::Mat> rvecs, tvecs;
@@ -92,7 +92,9 @@ ArmorPoseEstimator::extractArmorPoses(const std::vector<ArmorObject> &armors,
 
         // Use BA alogorithm to optimize the pose from PnP
         // solveBa() will modify the rotation_matrix
+        Eigen::Matrix3d tmp_R = R;
         R = ba_solver_->solveBa(armor, t, R, R_imu_camera, temp_number);
+        t = ba_solver_->solveBa_t(armor, t, tmp_R, R_imu_camera, temp_number);
       }
       Eigen::Quaterniond q(R);
       // 定义绕 X 轴的额外旋转（90 度）
@@ -148,9 +150,9 @@ ArmorPoseEstimator::rotationMatrixToRPY(const Eigen::Matrix3d &R) {
   // Transform to camera frame
   Eigen::Quaterniond q(R);
   // Get armor yaw
-  tf2::Quaternion tf_q(q.x(), q.y(), q.z(), q.w());
+  tf::Quaternion tf_q(q.x(), q.y(), q.z(), q.w());
   Eigen::Vector3d rpy;
-  tf2::Matrix3x3(tf_q).getRPY(rpy[0], rpy[1], rpy[2]);
+  tf::Matrix3x3(tf_q).getRPY(rpy[0], rpy[1], rpy[2]);
   return rpy;
 }
 

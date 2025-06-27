@@ -7,21 +7,21 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
-Solver::Solver(const YAML::Node &config) { init(config); }
-void Solver::init(const YAML::Node &config) {
+ArmorSolver::ArmorSolver(const YAML::Node &config) { init(config); }
+void ArmorSolver::init(const YAML::Node &config) {
   // 1. 加载 YAML
 
-  if (!config["solver"]) {
+  if (!config["armor_solver"]) {
     throw std::runtime_error("Missing 'solver' node in config");
   }
-  auto s = config["solver"];
+  auto s = config["armor_solver"];
 
   // 2. 基本标量参数
   shooting_range_w = s["shooting_range_w"].as<double>(0.12);
   shooting_range_h = s["shooting_range_h"].as<double>(0.12);
   max_tracking_v_yaw = s["max_tracking_v_yaw"].as<double>(60.0);
   prediction_delay = s["prediction_delay"].as<double>(0.0);
-  controller_delay = s["controller_delay"].as<double>(0.0);
+  gobal::controller_delay = s["controller_delay"].as<double>(0.0);
   side_angle = s["side_angle"].as<double>(20.0);
   min_switching_v_yaw = s["min_switching_v_yaw"].as<double>(1.0);
 
@@ -35,7 +35,7 @@ void Solver::init(const YAML::Node &config) {
   // 3. 初始化弹道补偿器
   trajectory_compensator_ = CompensatorFactory::createCompensator(comp_type);
   trajectory_compensator_->iteration_times = iteration_times;
-  velocity = bullet_speed;
+  gobal::velocity = bullet_speed;
   trajectory_compensator_->gravity = gravity;
   trajectory_compensator_->resistance = resistance;
 
@@ -43,8 +43,8 @@ void Solver::init(const YAML::Node &config) {
   manual_compensator_ = std::make_unique<ManualCompensator>();
   std::vector<OffsetEntry> entries;
 
-  if (s["pitch_offset"]) {
-    for (const auto &node : s["pitch_offset"]) {
+  if (s["trajectory_offset"]) {
+    for (const auto &node : s["trajectory_offset"]) {
       OffsetEntry e;
       e.d_min = node["d_min"].as<double>();
       e.d_max = node["d_max"].as<double>();
@@ -63,14 +63,15 @@ void Solver::init(const YAML::Node &config) {
   transfer_thresh = 5;
 }
 
-GimbalCmd Solver::solve(const Target &target,
-                        std::chrono::steady_clock::time_point current_time) {
+GimbalCmd
+ArmorSolver::solve(const Target &target,
+                   std::chrono::steady_clock::time_point current_time) {
   // 1. 获取最新的云台 RPY
   std::array<double, 3> rpy{};
 
-  rpy[0] = last_roll;
-  rpy[1] = last_pitch + gimbal2camera_pitch;
-  rpy[2] = last_yaw;
+  rpy[0] = gobal::last_roll + gobal::gimbal2camera_roll;
+  rpy[1] = gobal::last_pitch + gobal::gimbal2camera_pitch;
+  rpy[2] = gobal::last_yaw + gobal::gimbal2camera_yaw;
 
   //  2. 预测目标位置与朝向
   Eigen::Vector3d pos(target.position_.x, target.position_.y,
@@ -120,11 +121,11 @@ GimbalCmd Solver::solve(const Target &target,
       state_ = TRACKING_CENTER;
     }
     // 如果一直没对上，也加 controller_delay 预测
-    if (controller_delay != 0.0) {
-      pos += controller_delay * Eigen::Vector3d(target.velocity_.x,
-                                                target.velocity_.y,
-                                                target.velocity_.z);
-      yaw += controller_delay * target.v_yaw;
+    if (gobal::controller_delay != 0.0) {
+      pos += gobal::controller_delay * Eigen::Vector3d(target.velocity_.x,
+                                                       target.velocity_.y,
+                                                       target.velocity_.z);
+      yaw += gobal::controller_delay * target.v_yaw;
       auto tmp = getArmorPositions(pos, yaw, target.radius_1, target.radius_2,
                                    target.d_zc, target.d_za, target.armors_num)
                      .at(idx);
@@ -155,11 +156,11 @@ GimbalCmd Solver::solve(const Target &target,
     }
 
     calcYawAndPitch(chosen, rpy, raw_yaw_, raw_pitch);
-    if (controller_delay != 0.0) {
-      pos += controller_delay * Eigen::Vector3d(target.velocity_.x,
-                                                target.velocity_.y,
-                                                target.velocity_.z);
-      yaw += controller_delay * target.v_yaw;
+    if (gobal::controller_delay != 0.0) {
+      pos += gobal::controller_delay * Eigen::Vector3d(target.velocity_.x,
+                                                       target.velocity_.y,
+                                                       target.velocity_.z);
+      yaw += gobal::controller_delay * target.v_yaw;
       auto tmp = getArmorPositions(pos, yaw, target.radius_1, target.radius_2,
                                    target.d_zc, target.d_za, target.armors_num)
                      .at(idx);
@@ -199,15 +200,15 @@ GimbalCmd Solver::solve(const Target &target,
   cmd.select_id = idx;
   return cmd;
 }
-GimbalCmd Solver::solve(const Target &target,
-                        std::vector<OneTarget> one_targets_,
-                        std::chrono::steady_clock::time_point current_time) {
+GimbalCmd
+ArmorSolver::solve(const Target &target, std::vector<OneTarget> one_targets_,
+                   std::chrono::steady_clock::time_point current_time) {
   // 1. 获取最新的云台 RPY
   std::array<double, 3> rpy{};
 
-  rpy[0] = last_roll;
-  rpy[1] = last_pitch + gimbal2camera_pitch;
-  rpy[2] = last_yaw;
+  rpy[0] = gobal::last_roll + gobal::gimbal2camera_roll;
+  rpy[1] = gobal::last_pitch + gobal::gimbal2camera_pitch;
+  rpy[2] = gobal::last_yaw + gobal::gimbal2camera_yaw;
   int one_idx = selectBestTarget(one_targets_);
   int target_armor_num = target.armors_num;
   // 2. 选择最佳单目标
@@ -268,11 +269,11 @@ GimbalCmd Solver::solve(const Target &target,
         state_ = TRACKING_CENTER;
       }
       // 如果一直没对上，也加 controller_delay 预测
-      if (controller_delay != 0.0) {
-        pos += controller_delay * Eigen::Vector3d(target.velocity_.x,
-                                                  target.velocity_.y,
-                                                  target.velocity_.z);
-        yaw += controller_delay * target.v_yaw;
+      if (gobal::controller_delay != 0.0) {
+        pos += gobal::controller_delay * Eigen::Vector3d(target.velocity_.x,
+                                                         target.velocity_.y,
+                                                         target.velocity_.z);
+        yaw += gobal::controller_delay * target.v_yaw;
         auto tmp =
             getArmorPositions(pos, yaw, target.radius_1, target.radius_2,
                               target.d_zc, target.d_za, target.armors_num)
@@ -304,11 +305,11 @@ GimbalCmd Solver::solve(const Target &target,
       }
 
       calcYawAndPitch(chosen, rpy, raw_yaw_, raw_pitch);
-      if (controller_delay != 0.0) {
-        pos += controller_delay * Eigen::Vector3d(target.velocity_.x,
-                                                  target.velocity_.y,
-                                                  target.velocity_.z);
-        yaw += controller_delay * target.v_yaw;
+      if (gobal::controller_delay != 0.0) {
+        pos += gobal::controller_delay * Eigen::Vector3d(target.velocity_.x,
+                                                         target.velocity_.y,
+                                                         target.velocity_.z);
+        yaw += gobal::controller_delay * target.v_yaw;
         auto tmp =
             getArmorPositions(pos, yaw, target.radius_1, target.radius_2,
                               target.d_zc, target.d_za, target.armors_num)
@@ -374,11 +375,11 @@ GimbalCmd Solver::solve(const Target &target,
     double fire_pitch;
     double raw_yaw_, raw_pitch_;
     bool fire_advice = false;
-    if (controller_delay != 0.0) {
-      pos += controller_delay * Eigen::Vector3d(target.velocity_.x,
-                                                target.velocity_.y,
-                                                target.velocity_.z);
-      yaw += controller_delay * target.v_yaw;
+    if (gobal::controller_delay != 0.0) {
+      pos += gobal::controller_delay * Eigen::Vector3d(target.velocity_.x,
+                                                       target.velocity_.y,
+                                                       target.velocity_.z);
+      yaw += gobal::controller_delay * target.v_yaw;
 
       if (pos.norm() < 0.1) {
         throw std::runtime_error("No valid armor after controller delay");
@@ -410,8 +411,9 @@ GimbalCmd Solver::solve(const Target &target,
 }
 
 std::vector<GimbalCmd>
-Solver::solveBatch(const Target &target,
-                   std::chrono::steady_clock::time_point base_time, int count) {
+ArmorSolver::solveBatch(const Target &target,
+                        std::chrono::steady_clock::time_point base_time,
+                        int count) {
   std::vector<GimbalCmd> cmds;
   cmds.reserve(count);
 
@@ -437,7 +439,8 @@ Solver::solveBatch(const Target &target,
   return cmds;
 }
 
-std::vector<std::pair<double, double>> Solver::getTrajectory() const noexcept {
+std::vector<std::pair<double, double>>
+ArmorSolver::getTrajectory() const noexcept {
   auto traj = trajectory_compensator_->getTrajectory(15, rpy_[1]);
   for (auto &p : traj) {
     double x = p.first, y = p.second;
@@ -447,9 +450,9 @@ std::vector<std::pair<double, double>> Solver::getTrajectory() const noexcept {
   return traj;
 }
 
-bool Solver::isOnTarget(const double cur_yaw, const double cur_pitch,
-                        const double target_yaw, const double target_pitch,
-                        const double distance) const noexcept {
+bool ArmorSolver::isOnTarget(const double cur_yaw, const double cur_pitch,
+                             const double target_yaw, const double target_pitch,
+                             const double distance) const noexcept {
   // Judge whether to shoot
   double shooting_range_yaw = std::abs(atan2(shooting_range_w / 2, distance));
   double shooting_range_pitch = std::abs(atan2(shooting_range_h / 2, distance));
@@ -464,11 +467,10 @@ bool Solver::isOnTarget(const double cur_yaw, const double cur_pitch,
 
   return false;
 }
-std::vector<Eigen::Vector3d>
-Solver::getArmorPositions(const Eigen::Vector3d &target_center,
-                          const double target_yaw, const double r1,
-                          const double r2, const double d_zc, const double d_za,
-                          const size_t armors_num) const noexcept {
+std::vector<Eigen::Vector3d> ArmorSolver::getArmorPositions(
+    const Eigen::Vector3d &target_center, const double target_yaw,
+    const double r1, const double r2, const double d_zc, const double d_za,
+    const size_t armors_num) const noexcept {
   auto armor_positions =
       std::vector<Eigen::Vector3d>(armors_num, Eigen::Vector3d::Zero());
   // Calculate the position of each armor
@@ -490,9 +492,9 @@ Solver::getArmorPositions(const Eigen::Vector3d &target_center,
   }
   return armor_positions;
 }
-void Solver::calcYawAndPitch(const Eigen::Vector3d &p,
-                             const std::array<double, 3> &rpy, double &yaw,
-                             double &pitch) const noexcept {
+void ArmorSolver::calcYawAndPitch(const Eigen::Vector3d &p,
+                                  const std::array<double, 3> &rpy, double &yaw,
+                                  double &pitch) const noexcept {
   // Calculate yaw and pitch
   yaw = atan2(p.y(), p.x());
   pitch = atan2(p.z(), p.head(2).norm());
@@ -503,10 +505,10 @@ void Solver::calcYawAndPitch(const Eigen::Vector3d &p,
   }
   // std::cout << "yaw: " << yaw << " pitch: " << pitch << std::endl;
 }
-int Solver::selectBestArmor(const std::vector<Eigen::Vector3d> &armor_positions,
-                            const Eigen::Vector3d &target_center,
-                            const double target_yaw, const double target_v_yaw,
-                            const size_t armors_num) const noexcept {
+int ArmorSolver::selectBestArmor(
+    const std::vector<Eigen::Vector3d> &armor_positions,
+    const Eigen::Vector3d &target_center, const double target_yaw,
+    const double target_v_yaw, const size_t armors_num) const noexcept {
   // Angle between the car's center and the X-axis
   double alpha = std::atan2(target_center.y(), target_center.x());
   // Angle between the front of observed armor and the X-axis
@@ -542,7 +544,7 @@ int Solver::selectBestArmor(const std::vector<Eigen::Vector3d> &armor_positions,
   int selected_id = static_cast<int>(temp_angle / (2 * M_PI / armors_num));
   return selected_id;
 }
-int Solver::selectBestTarget(
+int ArmorSolver::selectBestTarget(
     const std::vector<OneTarget> &targets) const noexcept {
   int best_idx = -1;
   double min_angle_diff = std::numeric_limits<double>::max();
