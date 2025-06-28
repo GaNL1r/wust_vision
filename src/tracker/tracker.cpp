@@ -14,16 +14,14 @@
 #include <string>
 
 Tracker::Tracker(double max_match_distance, double max_match_yaw_diff,
-                 double max_match_z_diff, double max_match_x_diff,
-                 double jump_thresh)
+                 double max_match_z_diff, double jump_thresh)
     : tracker_state(LOST), tracked_id(ArmorNumber::UNKNOWN),
       measurement(Eigen::VectorXd::Zero(4)),
       target_state(Eigen::VectorXd::Zero(9)),
       max_match_distance_(max_match_distance),
       max_match_yaw_diff_(max_match_yaw_diff),
-      max_match_z_diff_(max_match_z_diff), max_match_x_diff_(max_match_x_diff),
-      jump_thresh(jump_thresh), detect_count_(0), lost_count_(0), last_yaw_(0) {
-}
+      max_match_z_diff_(max_match_z_diff), jump_thresh(jump_thresh),
+      detect_count_(0), lost_count_(0), last_yaw_(0) {}
 
 void Tracker::init(const Armors &armors_msg) noexcept {
   if (armors_msg.armors.empty())
@@ -70,7 +68,7 @@ void Tracker::update(const Armors &armors_msg) noexcept {
     auto predicted_position = getArmorPositionFromState(ekf_prediction);
     double min_position_diff = DBL_MAX;
     double min_z_diff = DBL_MAX;
-    double min_x_diff = DBL_MAX;
+
     double yaw_diff = DBL_MAX;
 
     for (auto &armor : armors_msg.armors) {
@@ -94,7 +92,7 @@ void Tracker::update(const Armors &armors_msg) noexcept {
         if (position_diff < min_position_diff) {
           min_position_diff = position_diff;
           min_z_diff = z_diff;
-          min_x_diff = x_diff;
+
           yaw_diff =
               std::abs(orientationToYaw(armor.target_ori) - ekf_prediction(6));
           tracked_armor = armor;
@@ -114,8 +112,7 @@ void Tracker::update(const Armors &armors_msg) noexcept {
     }
 
     if (min_position_diff < max_match_distance_ &&
-        yaw_diff < max_match_yaw_diff_ && min_z_diff < max_match_z_diff_ &&
-        min_x_diff < max_match_x_diff_) {
+        yaw_diff < max_match_yaw_diff_ && min_z_diff < max_match_z_diff_) {
       matched = true;
       auto p = tracked_armor.target_pos;
       double measured_yaw = orientationToYaw(tracked_armor.target_ori);

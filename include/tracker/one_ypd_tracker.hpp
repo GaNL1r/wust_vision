@@ -43,8 +43,7 @@ inline double onormalizeAnglep(double angle) {
 class OneYpdTracker {
 public:
   OneYpdTracker(double max_match_distance, double max_match_yaw,
-                double max_match_z_diff_, double max_match_x_diff,
-                double jump_thresh);
+                double max_match_z_diff_, double jump_thresh);
 
   void init(const Armors &armors_msg) noexcept;
   void update(const Armors &armors_msg) noexcept;
@@ -77,7 +76,6 @@ public:
   double max_match_distance_;
   double max_match_yaw_diff_;
   double max_match_z_diff_;
-  double max_match_x_diff_;
 
   double d_za, another_r;
   double d_zc;

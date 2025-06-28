@@ -28,7 +28,7 @@ void LightCornerCorrector::correctCorners(ArmorObject &armor) noexcept {
   if (armor.whole_gray_img.empty()) {
     return;
   }
-  // auto start=std::chrono::steady_clock::now();
+
   double zero_x = armor.new_x;
   double zero_y = armor.new_y;
 
@@ -69,82 +69,11 @@ void LightCornerCorrector::correctCorners(ArmorObject &armor) noexcept {
   armor.pts_binary.clear();
   cv::Point2f armor_center =
       (armor.pts[0] + armor.pts[1] + armor.pts[2] + armor.pts[3]) * 0.25;
-
-  // Step 2: 计算每个灯条中心与装甲板中心的距离
-  std::vector<std::pair<const Light *, double>> light_distances;
-  for (const auto &light : armor.lights) {
-    double dist = cv::norm(light.center - armor_center);
-    light_distances.emplace_back(&light, dist);
-  }
-
-  // Step 3: 按距离排序，选择最近两个灯条
-  std::sort(light_distances.begin(), light_distances.end(),
-            [](const auto &a, const auto &b) { return a.second < b.second; });
-  if (light_distances.size() >= 2) {
-    const Light *l1 = light_distances[0].first;
-    const Light *l2 = light_distances[1].first;
-  }
-
-  if (light_distances.size() >= 2) {
-    const Light *l1 = light_distances[0].first;
-    const Light *l2 = light_distances[1].first;
-
-    // 判断哪个灯条在左侧，哪个在右侧
-    if (l1->center.x < l2->center.x) {
-      armor.lights[0] = *l1; // 解引用指针，赋值对象
-      armor.lights[1] = *l2;
-    } else {
-      armor.lights[0] = *l2;
-      armor.lights[1] = *l1;
-    }
-  }
-
-  // Step 4: 构建 candidates，只保留两个灯条的 top/bottom
-  std::vector<cv::Point2f> candidates;
-  for (int i = 0; i < std::min(2, (int)light_distances.size()); ++i) {
-    const auto *light = light_distances[i].first;
-    candidates.push_back(light->top);
-    candidates.push_back(light->bottom);
-  }
-
-  double w = cv::norm(armor.pts[0] - armor.pts[1]);
-  double h = cv::norm(armor.pts[0] - armor.pts[3]);
-  double size_scale = w + h;
-
-  std::vector<cv::Point2f> selected_pts(4, cv::Point2f(-1, -1));
-  std::vector<int> selected_indices(4, -1);
-
-  for (int i = 0; i < 4; ++i) {
-    double min_dist = DBL_MAX;
-    int best_match = -1;
-
-    double test_result = cv::pointPolygonTest(armor.pts, armor.pts[i], false);
-    double dist_threshold =
-        (test_result >= 0) ? (0.15 * size_scale) : (0.25 * size_scale);
-
-    for (size_t j = 0; j < candidates.size(); ++j) {
-      double dist = cv::norm(armor.pts[i] - candidates[j]);
-      if (dist < min_dist) {
-        min_dist = dist;
-        best_match = static_cast<int>(j);
-      }
-    }
-
-    if (best_match != -1 && min_dist < dist_threshold) {
-      selected_pts[i] = candidates[best_match];
-      selected_indices[i] = best_match;
-    }
-  }
-
-  for (const auto &pt : selected_pts) {
-    if (pt.x >= 0 && pt.y >= 0) {
-      auto it = std::find(candidates.begin(), candidates.end(), pt);
-      if (it != candidates.end())
-        candidates.erase(it);
-    }
-    armor.pts_binary.push_back(pt);
-  }
-
+  armor.pts_binary.resize(4);
+  armor.pts_binary[0] = armor.lights[0].top;
+  armor.pts_binary[1] = armor.lights[0].bottom;
+  armor.pts_binary[2] = armor.lights[1].bottom;
+  armor.pts_binary[3] = armor.lights[1].top;
   armor.is_ok = true;
   for (const auto &pt : armor.pts_binary) {
     if (pt.x < 0 || pt.y < 0) {
@@ -167,11 +96,6 @@ void LightCornerCorrector::correctCorners(ArmorObject &armor) noexcept {
   } else {
     armor.center = armor_center;
   }
-  // auto end=std::chrono::steady_clock::now();
-  // WUST_INFO("LightCornerCorrector") << "Time taken by function: "
-  //                                  <<
-  //                                  std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count()
-  //                                  << " milliseconds" ;
 }
 void LightCornerCorrector::correctCorners_nonmatch(
     ArmorObject &armor) noexcept {

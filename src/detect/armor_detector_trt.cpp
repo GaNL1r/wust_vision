@@ -433,6 +433,10 @@ bool ArmorDetectTrt::extractImage(const cv::Mat &src, ArmorObject &armor) {
 }
 bool ArmorDetectTrt::isArmor(const Light &light_1,
                              const Light &light_2) noexcept {
+
+  if (!std::isfinite(light_1.length) || !std::isfinite(light_2.length))
+    return false;
+
   // Ratio of the length of 2 lights (short side / long side)
   float light_length_ratio = light_1.length < light_2.length
                                  ? light_1.length / light_2.length
@@ -492,6 +496,36 @@ std::vector<Light> ArmorDetectTrt::findLights(const cv::Mat &rgb_img,
 
   return all_lights;
 }
+bool ArmorDetectTrt::refineLightsFromArmorPts(ArmorObject &armor) const {
+
+  cv::Point2f armor_center =
+      (armor.pts[0] + armor.pts[1] + armor.pts[2] + armor.pts[3]) * 0.25;
+
+  std::vector<std::pair<int, double>> light_distances;
+  for (int i = 0; i < static_cast<int>(armor.lights.size()); ++i) {
+    double dist = cv::norm(armor.lights[i].center - armor_center);
+    light_distances.emplace_back(i, dist);
+  }
+
+  std::sort(light_distances.begin(), light_distances.end(),
+            [](const auto &a, const auto &b) { return a.second < b.second; });
+
+  if (light_distances.size() >= 2) {
+    const Light &l1 = armor.lights[light_distances[0].first];
+    const Light &l2 = armor.lights[light_distances[1].first];
+
+    if (l1.center.x < l2.center.x) {
+      armor.lights[0] = l1;
+      armor.lights[1] = l2;
+    } else {
+      armor.lights[0] = l2;
+      armor.lights[1] = l1;
+    }
+    return true;
+  } else {
+    return false;
+  }
+}
 
 bool ArmorDetectTrt::isLight(const Light &light) noexcept {
   // The ratio of light (short side / long side)
@@ -507,8 +541,10 @@ bool ArmorDetectTrt::isLight(const Light &light) noexcept {
 }
 void ArmorDetectTrt::detect(ArmorObject &armor) {
   findLights(armor.whole_rgb_img, armor.whole_binary_img, armor);
-  if (isArmor(armor.lights[0], armor.lights[1])) {
-    corner_corrector->correctCorners(armor);
+  if (refineLightsFromArmorPts(armor)) {
+    if (isArmor(armor.lights[0], armor.lights[1])) {
+      corner_corrector->correctCorners(armor);
+    }
   }
 }
 // 构造函数：初始化参数并构建引擎
@@ -583,7 +619,7 @@ void ArmorDetectTrt::buildEngine(const std::string &onnx_path) {
       return;
     }
   }
-
+  WUST_INFO("TRT") << "building new engine...";
   // 构建新引擎
   auto builder = nvinfer1::createInferBuilder(g_logger_);
   const auto explicit_batch =

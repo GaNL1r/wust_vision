@@ -6,39 +6,33 @@ TrackerManager::TrackerManager(const YAML::Node &config_) {
   double max_match_distance = config_["max_match_distance"].as<double>(0.2);
   double max_match_yaw_diff = config_["max_match_yaw_diff"].as<double>(1.0);
   double max_match_z_diff = config_["max_match_z_diff"].as<double>(0.1);
-  double max_match_x_diff = config_["max_match_x_diff"].as<double>(0.5);
   double jump_thresh = config_["jump_thresh"].as<double>(0.4);
   use_ypd_tracker_ = config_["use_ypd_tracker"].as<bool>(false);
   if (use_ypd_tracker_) {
     ypd_tracker_ = std::make_unique<YpdTracker>(
-        max_match_distance, max_match_yaw_diff, max_match_z_diff,
-        max_match_x_diff, jump_thresh);
+        max_match_distance, max_match_yaw_diff, max_match_z_diff, jump_thresh);
   } else {
     tracker_ = std::make_unique<Tracker>(max_match_distance, max_match_yaw_diff,
-                                         max_match_z_diff, max_match_x_diff,
-                                         jump_thresh);
+                                         max_match_z_diff, jump_thresh);
   }
 
   one_tracker_ = std::make_unique<OneTracker>(
-      max_match_distance, max_match_yaw_diff, max_match_z_diff,
-      max_match_x_diff, jump_thresh);
+      max_match_distance, max_match_yaw_diff, max_match_z_diff, jump_thresh);
   // one_ypd_tracker_ = std::make_unique<OneYpdTracker>(
   //     max_match_distance, max_match_yaw_diff,
-  //     max_match_z_diff,max_match_x_diff,jump_thresh);
+  //     max_match_z_diff,jump_thresh);
 
   for (int i = 0; i < track_one_num; i++) {
     auto o_tracker_ = std::make_unique<OneTracker>(
-        max_match_distance, max_match_yaw_diff, max_match_z_diff,
-        max_match_x_diff, jump_thresh);
+        max_match_distance, max_match_yaw_diff, max_match_z_diff, jump_thresh);
     one_trackers_.push_back(std::move(o_tracker_));
   }
   one_ca_tracker_ = std::make_unique<OneCaTracker>(
-      max_match_distance, max_match_yaw_diff, max_match_z_diff,
-      max_match_x_diff, jump_thresh);
+      max_match_distance, max_match_yaw_diff, max_match_z_diff, jump_thresh);
   // for (int i = 0; i < track_one_num; i++) {
   //   auto oy_tracker_ = std::make_unique<OneYpdTracker>(
   //       max_match_distance, max_match_yaw_diff,
-  //       max_match_z_diff,max_match_x_diff,jump_thresh);
+  //       max_match_z_diff,jump_thresh);
   //   one_ypd_trackers_.push_back(std::move(oy_tracker_));
   // }
 

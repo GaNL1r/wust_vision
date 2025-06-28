@@ -92,7 +92,6 @@ armor_tracker:
   jump_thresh: 0.4
   lost_time_thres: 0.5
   max_match_distance: 0.5
-  max_match_x_diff: 0.2
   max_match_yaw_diff: 0.5
   max_match_z_diff: 0.2
   one_lost_time_thres: 0.1

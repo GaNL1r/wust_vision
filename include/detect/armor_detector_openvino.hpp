@@ -57,6 +57,7 @@ public:
 
   void detect(ArmorObject &armor);
   void extractNumberImage(const cv::Mat &src, ArmorObject &armor);
+  bool refineLightsFromArmorPts(ArmorObject &armor) const;
 
   LightParams light_params_;
   ArmorParams armor_params_;
@@ -83,6 +84,5 @@ public:
   float expand_ratio_w_;
   float expand_ratio_h_;
 
-  std::vector<Light> lights_;
   bool isinited_ = false;
 };

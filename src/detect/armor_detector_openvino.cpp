@@ -467,6 +467,36 @@ void ArmorDetectOpenVino::extractNumberImage(const cv::Mat &src,
 //   // cv::waitKey(1);
 //   return;
 // }
+bool ArmorDetectOpenVino::refineLightsFromArmorPts(ArmorObject &armor) const {
+
+  cv::Point2f armor_center =
+      (armor.pts[0] + armor.pts[1] + armor.pts[2] + armor.pts[3]) * 0.25;
+
+  std::vector<std::pair<int, double>> light_distances;
+  for (int i = 0; i < static_cast<int>(armor.lights.size()); ++i) {
+    double dist = cv::norm(armor.lights[i].center - armor_center);
+    light_distances.emplace_back(i, dist);
+  }
+
+  std::sort(light_distances.begin(), light_distances.end(),
+            [](const auto &a, const auto &b) { return a.second < b.second; });
+
+  if (light_distances.size() >= 2) {
+    const Light &l1 = armor.lights[light_distances[0].first];
+    const Light &l2 = armor.lights[light_distances[1].first];
+
+    if (l1.center.x < l2.center.x) {
+      armor.lights[0] = l1;
+      armor.lights[1] = l2;
+    } else {
+      armor.lights[0] = l2;
+      armor.lights[1] = l1;
+    }
+    return true;
+  } else {
+    return false;
+  }
+}
 std::vector<Light>
 ArmorDetectOpenVino::findLights(const cv::Mat &rgb_img,
                                 const cv::Mat &binary_img,
@@ -516,6 +546,10 @@ bool ArmorDetectOpenVino::isLight(const Light &light) noexcept {
 }
 bool ArmorDetectOpenVino::isArmor(const Light &light_1,
                                   const Light &light_2) noexcept {
+
+  if (light_1.length <= 1e-3f || light_2.length <= 1e-3f) {
+    return false;
+  }
   // Ratio of the length of 2 lights (short side / long side)
   float light_length_ratio = light_1.length < light_2.length
                                  ? light_1.length / light_2.length
@@ -542,10 +576,11 @@ bool ArmorDetectOpenVino::isArmor(const Light &light_1,
   return is_armor;
 }
 void ArmorDetectOpenVino::detect(ArmorObject &armor) {
-  lights_ = findLights(armor.whole_rgb_img, armor.whole_binary_img, armor);
-  if (isArmor(armor.lights[0], armor.lights[1])) {
-
-    corner_corrector->correctCorners(armor);
+  findLights(armor.whole_rgb_img, armor.whole_binary_img, armor);
+  if (refineLightsFromArmorPts(armor)) {
+    if (isArmor(armor.lights[0], armor.lights[1])) {
+      corner_corrector->correctCorners(armor);
+    }
   }
 }
 bool ArmorDetectOpenVino::classifyNumber(ArmorObject &armor) {

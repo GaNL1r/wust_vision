@@ -87,7 +87,7 @@ public:
 private:
   // TensorRT 引擎初始化
   void buildEngine(const std::string &onnx_path);
-
+  bool refineLightsFromArmorPts(ArmorObject &armor) const;
   // 后处理：解析输出张量，生成检测框
   std::vector<ArmorObject>
   postprocess(std::vector<ArmorObject> &output_objs, std::vector<float> &scores,

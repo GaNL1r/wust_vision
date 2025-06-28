@@ -38,8 +38,7 @@ inline double normalizeAnglec(double angle) {
 class YpdTracker {
 public:
   YpdTracker(double max_match_distance, double max_match_yaw,
-             double max_match_z_diff_, double max_match_x_diff_,
-             double jump_thresh);
+             double max_match_z_diff_, double jump_thresh);
 
   void init(const Armors &armors_msg) noexcept;
   void update(const Armors &armors_msg) noexcept;
@@ -96,7 +95,6 @@ private:
   double max_match_distance_;
   double max_match_yaw_diff_;
   double max_match_z_diff_;
-  double max_match_x_diff_;
 
   int detect_count_;
   int lost_count_;

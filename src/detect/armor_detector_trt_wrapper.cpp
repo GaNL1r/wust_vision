@@ -44,7 +44,7 @@ ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(const YAML::Node &config) {
       .max_large_center_distance =
           config["armor_detect"]["armor"]["max_large_center_distance"]
               .as<double>(),
-      .max_angle = config["armor"]["max_angle"].as<double>()};
+      .max_angle = config["armor_detect"]["armor"]["max_angle"].as<double>()};
 
   detector_ = std::make_unique<ArmorDetectTrt>(
       model_path, params, expand_ratio_h, expand_ratio_w, binary_thres,

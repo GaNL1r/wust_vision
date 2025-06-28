@@ -68,8 +68,6 @@ public:
 
   std::unique_ptr<LightCornerCorrector> corner_corrector;
 
-
- 
   double classifier_threshold_ = 0.5;
 
 private:

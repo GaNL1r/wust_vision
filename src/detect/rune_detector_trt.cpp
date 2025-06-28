@@ -289,6 +289,7 @@ void RuneDetectorTrt::buildEngine(const std::string &onnx_path) {
       return;
     }
   }
+  WUST_INFO("TRT") << "building new engine...";
 
   // 构建新引擎
   auto builder = nvinfer1::createInferBuilder(g_logger_);
