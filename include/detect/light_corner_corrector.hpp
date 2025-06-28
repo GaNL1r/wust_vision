@@ -38,6 +38,7 @@ public:
 
   // Correct the corners of the armor's lights
   void correctCorners(ArmorObject &armor) noexcept;
+  void correctCorners_nonmatch(ArmorObject &armor) noexcept;
 
 private:
   // Find the symmetry axis of the light

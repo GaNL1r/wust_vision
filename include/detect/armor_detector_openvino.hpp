@@ -47,6 +47,7 @@ public:
   void initNumberClassifier();
   void setCallback(DetectorCallback callback);
   bool classifyNumber(ArmorObject &armor);
+
   std::vector<Light> findLights(const cv::Mat &rbg_img,
                                 const cv::Mat &binary_img,
                                 ArmorObject &armor) noexcept;

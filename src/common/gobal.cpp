@@ -17,7 +17,6 @@ double gimbal2camera_yaw, gimbal2camera_roll, gimbal2camera_pitch;
 double odom2gimbal_yaw, odom2gimbal_roll, odom2gimbal_pitch;
 bool is_inited_ = false;
 YAML::Node config;
-
 bool use_calculation_ = false;
 bool use_serial = false;
 int attack_mode = 0;

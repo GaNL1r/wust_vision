@@ -53,6 +53,7 @@ ArmorPoseEstimator::extractArmorPoses(const std::vector<ArmorObject> &armors,
     if (!armor.is_ok) {
       continue;
     }
+
     if (gobal::detect_color_ == 0 && armor.color != ArmorColor::RED) {
       continue;
     } else if (gobal::detect_color_ == 1 && armor.color != ArmorColor::BLUE) {

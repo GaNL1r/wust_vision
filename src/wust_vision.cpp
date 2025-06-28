@@ -126,15 +126,33 @@ void WustVision::init() {
     initTracker(gobal::config["armor_tracker"]);
     gobal::detect_color_ = gobal::config["detect_color"].as<int>(0);
     max_infer_running_ = gobal::config["max_infer_running"].as<int>(4);
+    bool use_armor_detect_opencv =
+        gobal::config["use_armor_detect_opencv"].as<bool>(false);
+
 #ifdef USE_OPENVINO
-    armor_detector_ =
-        DetectorFactory::createArmorDetector("openvino", gobal::config);
+    if (use_armor_detect_opencv) {
+      auto opencv_config = YAML::LoadFile(
+          "/home/hy/wust_vision/config/armor_detect_opencv.yaml");
+      armor_detector_ =
+          DetectorFactory::createArmorDetector("opencv", opencv_config);
+    } else {
+      armor_detector_ =
+          DetectorFactory::createArmorDetector("openvino", gobal::config);
+    }
+
     rune_detector_ =
         DetectorFactory::createRuneDetector("openvino", gobal::config);
     WUST_INFO(vision_logger) << "Using OpenVINO";
 #elif defined(USE_TRT)
-    armor_detector_ =
-        DetectorFactory::createArmorDetector("tensorrt", gobal::config);
+    if (use_armor_detect_opencv) {
+      auto opencv_config = YAML::LoadFile(
+          "/home/hy/wust_vision/config/armor_detect_opencv.yaml");
+      armor_detector_ =
+          DetectorFactory::createArmorDetector("opencv", opencv_config);
+    } else {
+      armor_detector_ =
+          DetectorFactory::createArmorDetector("tensorrt", gobal::config);
+    }
     rune_detector_ =
         DetectorFactory::createRuneDetector("tensorrt", gobal::config);
     WUST_INFO(vision_logger) << "Using TensorRT";

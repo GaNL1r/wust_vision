@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 # 配置路径和视频帧共享路径
 shared_frame_path = '/dev/shm/debug_frame.jpg'
-CONFIG_PATH = '/home/hy/wust_vision/config/config_openvino.yaml'
+CONFIG_PATH = '/home/hy/wust_vision/config/config_trt.yaml'
 
 # 视频流生成器（MJPEG）
 def mjpeg_stream():

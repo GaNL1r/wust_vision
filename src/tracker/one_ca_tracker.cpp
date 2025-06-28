@@ -15,14 +15,16 @@
 #include <string>
 
 OneCaTracker::OneCaTracker(double max_match_distance, double max_match_yaw_diff,
-                           double max_match_z_diff, double max_match_x_diff)
+                           double max_match_z_diff, double max_match_x_diff,
+                           double jump_thresh)
     : tracker_state(LOST), tracked_id(ArmorNumber::UNKNOWN),
       measurement(Eigen::VectorXd::Zero(4)),
       target_state(Eigen::VectorXd::Zero(10)),
       max_match_distance_(max_match_distance),
       max_match_yaw_diff_(max_match_yaw_diff),
       max_match_z_diff_(max_match_z_diff), max_match_x_diff_(max_match_x_diff),
-      detect_count_(0), lost_count_(0), last_yaw_(0) {}
+      jump_thresh(jump_thresh), detect_count_(0), lost_count_(0), last_yaw_(0) {
+}
 
 void OneCaTracker::init(const Armors &armors_msg) noexcept {
   if (armors_msg.armors.empty())

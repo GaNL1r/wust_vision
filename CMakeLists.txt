@@ -76,6 +76,8 @@ set(COMMON_SOURCES
   src/tracker/tracker.cpp
   src/tracker/tracker_manager.cpp
   src/tracker/ypd_tracker.cpp
+  src/detect/armor_detector_opencv.cpp
+  src/detect/armor_detector_opencv_wrapper.cpp
 )
 
 # === include 路径 ===
@@ -136,6 +138,7 @@ if(BUILD_WITH_OPENVINO)
     ${CERES_LIBRARIES}
     FormatConversion MediaProcess MvCameraControl MVRender MvUsb3vTL
     GL
+    tbb
   )
 endif()
 
@@ -175,5 +178,6 @@ if(BUILD_WITH_TRT)
     ${CERES_LIBRARIES}
     FormatConversion MediaProcess MvCameraControl MVRender MvUsb3vTL
     GL
+    tbb
   )
 endif()

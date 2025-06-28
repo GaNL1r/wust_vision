@@ -52,6 +52,7 @@ struct Light : public cv::RotatedRect {
   }
 
   cv::Point2f top, bottom, center;
+  int color;
   cv::Point2f axis;
   double length;
   double width;
@@ -63,6 +64,8 @@ struct LightParams {
   double max_ratio;
   // vertical angle
   double max_angle;
+  // judge color
+  int color_diff_thresh;
 };
 struct ArmorParams {
   double min_light_ratio;
@@ -167,8 +170,13 @@ inline int retypetotracker(ArmorNumber a) {
     return 1;
   case ArmorNumber::UNKNOWN:
     return -1;
+  default:
+    std::cerr << "[retypetotracker] Invalid ArmorNumber: "
+              << static_cast<int>(a) << std::endl;
+    return -1;
   }
 }
+
 template <> struct fmt::formatter<ArmorNumber> {
   constexpr auto parse(fmt::format_parse_context &ctx)
       -> decltype(ctx.begin()) {
@@ -208,8 +216,8 @@ typedef struct ArmorObject {
   std::vector<Light> lights;
 
   cv::Point2f center;
-  double new_x;
-  double new_y;
+  double new_x = 0;
+  double new_y = 0;
   bool is_ok = false;
   bool is_ok_yaw = false;
   static constexpr const int N_LANDMARKS = 6;
@@ -238,7 +246,38 @@ typedef struct ArmorObject {
               lights[1].top,    lights[1].center, lights[1].bottom};
     }
   }
+  ArmorObject(const Light &l1, const Light &l2) {
 
+    pts.resize(4);
+    pts_binary.resize(4);
+    if (l1.center.x < l2.center.x) {
+      lights.push_back(l1);
+      lights.push_back(l2);
+      pts[0] = l1.top;
+      pts[1] = l1.bottom;
+      pts[2] = l2.bottom;
+      pts[3] = l2.top;
+      pts_binary[0] = l1.top;
+      pts_binary[1] = l1.bottom;
+      pts_binary[2] = l2.bottom;
+      pts_binary[3] = l2.top;
+    } else {
+      lights.push_back(l2);
+      lights.push_back(l1);
+      pts[0] = l2.top;
+      pts[1] = l2.bottom;
+      pts[2] = l1.bottom;
+      pts[3] = l1.top;
+      pts_binary[0] = l2.top;
+      pts_binary[1] = l2.bottom;
+      pts_binary[2] = l1.bottom;
+      pts_binary[3] = l1.top;
+    }
+    is_ok = true;
+  }
+  ArmorObject()
+      : box(), center(), color(), confidence(), is_ok(), is_ok_yaw(), number(),
+        new_x(), new_y(), prob(), pts() {}
 } ArmorObject;
 
 constexpr const char *K_ARMOR_NAMES[] = {"sentry", "1", "2",       "3",
@@ -455,3 +494,15 @@ const std::vector<cv::Point3f> RUNE_OBJECT_POINTS = {
 #define SMALL_RUNE_CURVE(x, a, b, c, sign) (((a) * ((x) + (b)) + (c)) * (sign))
 
 enum class ArmorsNum { NORMAL_4 = 4, OUTPOST_3 = 3 };
+
+enum class ArmorType { SMALL, LARGE, INVALID };
+inline std::string armorTypeToString(const ArmorType &type) {
+  switch (type) {
+  case ArmorType::SMALL:
+    return "small";
+  case ArmorType::LARGE:
+    return "large";
+  default:
+    return "invalid";
+  }
+}

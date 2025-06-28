@@ -13,7 +13,7 @@
 #include "detect/armor_detector_trt_wrapper.hpp"
 #include "detect/rune_detector_trt_wrapper.hpp"
 #endif
-
+#include "detect/armor_detector_opencv_wrapper.hpp"
 class DetectorFactory {
 public:
   static std::unique_ptr<ArmorDetectorBase>
@@ -22,10 +22,16 @@ public:
     if (backend == "openvino") {
       return std::make_unique<ArmorDetectorOpenvinoWrapper>(config);
     }
+    if (backend == "opencv") {
+      return std::make_unique<ArmorDetectorOpencvWrapper>(config);
+    }
 #endif
 #if defined(USE_TRT)
     if (backend == "tensorrt") {
       return std::make_unique<ArmorDetectorTrtWrapper>(config);
+    }
+    if (backend == "opencv") {
+      return std::make_unique<ArmorDetectorOpencvWrapper>(config);
     }
 #endif
     throw std::runtime_error(
