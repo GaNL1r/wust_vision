@@ -86,7 +86,8 @@ void drawRuneandprewrite(
     cv::Mat& src_img,
     const std::vector<RuneObject>& objs,
     std::chrono::steady_clock::time_point timestamp,
-    double predict_angle
+    double predict_angle,
+    GimbalCmd gimbal_cmd
 );
 std::string GetUniqueVideoFilename(const std::string& folder, const std::string& prefix = "output");
 cv::Point2f normalize(const cv::Point2f& v);

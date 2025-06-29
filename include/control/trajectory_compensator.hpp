@@ -75,5 +75,3 @@ private:
     CompensatorFactory() = delete;
     ~CompensatorFactory() = delete;
 };
-
-

@@ -35,4 +35,3 @@ extern void append_CRC16_check_sum(uint8_t* pchMessage, uint32_t dwLength);
 
 extern bool verify_CRC16_check_sum(std::vector<uint8_t>& pchMessage);
 } // namespace crc16
-

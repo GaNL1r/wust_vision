@@ -17,7 +17,8 @@ public:
     void setCallback(CallbackType cb) override;
 
     std::tuple<cv::Point2f, cv::Mat>
-    detectRTag(const cv::Mat& img, int binary_thresh, const cv::Point2f& prior) override;
+    detectRTag(const cv::Mat& img, int binary_thresh, const cv::Point2f& prior, bool precise)
+        override;
 
 private:
     std::unique_ptr<RuneDetectorOpenvino> rune_detector_;

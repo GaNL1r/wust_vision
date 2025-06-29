@@ -71,4 +71,3 @@ inline cv::Mat convertToMatbgr(const ImageFrame& frame) {
 //     // 可在返回前加上一句： return bgr.clone();
 //     return rgb.clone();
 // }
-

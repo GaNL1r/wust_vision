@@ -63,5 +63,3 @@ inline std::string visionModeToString(VisionMode mode) {
             return "UNKNOWN";
     }
 }
-
-

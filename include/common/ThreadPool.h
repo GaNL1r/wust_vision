@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -175,4 +174,3 @@ inline void SetRealtimePriority(int priority = 90) {
         WUST_INFO("ThreadPool") << "Real-time priority set successfully to " << priority;
     }
 }
-

@@ -17,7 +17,7 @@ extern double last_roll;
 extern double last_pitch;
 extern double last_yaw;
 extern double gimbal2camera_yaw, gimbal2camera_roll, gimbal2camera_pitch;
-extern double odom2gimbal_yaw, odom2gimbal_roll, odom2gimbal_pitch;
+
 extern bool is_inited_;
 extern YAML::Node config;
 extern bool use_calculation_;

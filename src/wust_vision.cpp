@@ -99,9 +99,6 @@ void WustVision::init() {
         gimbal2camera_roll_ = gobal::config["tf"]["gimbal2camera_roll"].as<double>(0.0);
         gimbal2camera_pitch_ = gobal::config["tf"]["gimbal2camera_pitch"].as<double>(0.0);
         gimbal2camera_yaw_ = gobal::config["tf"]["gimbal2camera_yaw"].as<double>(0.0);
-        gobal::odom2gimbal_pitch = gobal::config["tf"]["odom2gimbal_pitch"].as<double>();
-        gobal::odom2gimbal_roll = gobal::config["tf"]["odom2gimbal_roll"].as<double>();
-        gobal::odom2gimbal_yaw = gobal::config["tf"]["odom2gimbal_yaw"].as<double>();
 
         use_auto_labeler = gobal::config["use_auto_labeler"].as<bool>(false);
         if (use_auto_labeler) {
@@ -144,7 +141,7 @@ void WustVision::init() {
 #endif
 
         armor_detector_->setCallback(std::bind(
-            &WustVision::DetectCallback,
+            &WustVision::ArmorDetectCallback,
             this,
             std::placeholders::_1,
             std::placeholders::_2,
@@ -152,7 +149,7 @@ void WustVision::init() {
             std::placeholders::_4
         ));
         rune_detector_->setCallback(std::bind(
-            &WustVision::inferResultCallback,
+            &WustVision::RuneDetectCallback,
             this,
             std::placeholders::_1,
             std::placeholders::_2,
@@ -269,6 +266,7 @@ void WustVision::run() {
 
 void WustVision::initRune(const std::string& camera_info_path) {
     detect_r_tag_ = gobal::config["rune_detector"]["detect_r_tag"].as<bool>();
+    use_manual_r = gobal::config["rune_detector"]["use_manual_r"].as<bool>();
     rune_binary_thresh_ = gobal::config["rune_detector"]["min_lightness"].as<int>();
     auto rune_solver_params = RuneSolver::RuneSolverParams {
         .compensator_type = gobal::config["rune_solver"]["compensator_type"].as<std::string>(),
@@ -388,14 +386,13 @@ void WustVision::initTF() {
     // camera 相对于 odom，设置 odom -> camera 的变换
     gobal::tf_tree_
         .setTransform("odom", "gimbal_odom", createTf(0, 0, 0, tf::Quaternion(0, 0, 0, 1)), true);
-    double odom2gimbal_roll_ = gobal::odom2gimbal_roll * M_PI / 180;
-    double odom2gimbal_pitch_ = gobal::odom2gimbal_pitch * M_PI / 180;
-    double odom2gimbal_yaw_ = gobal::odom2gimbal_yaw * M_PI / 180;
-    tf::Quaternion oriodom2gimbal;
-    oriodom2gimbal.setRPY(odom2gimbal_roll_, odom2gimbal_pitch_, odom2gimbal_yaw_);
 
-    gobal::tf_tree_
-        .setTransform("gimbal_odom", "gimbal_link", createTf(0, 0, 0, oriodom2gimbal), false);
+    gobal::tf_tree_.setTransform(
+        "gimbal_odom",
+        "gimbal_link",
+        createTf(0, 0, 0, tf::Quaternion(0, 0, 0, 1)),
+        false
+    );
     gobal::gimbal2camera_roll = gimbal2camera_roll_ * M_PI / 180;
     gobal::gimbal2camera_pitch = gimbal2camera_pitch_ * M_PI / 180;
     gobal::gimbal2camera_yaw = gimbal2camera_yaw_ * M_PI / 180;
@@ -439,10 +436,8 @@ void WustVision::initSerial() {
     serial_->alpha_yaw = gobal::config["control"]["alpha_yaw"].as<double>();
     serial_->alpha_pitch = gobal::config["control"]["alpha_pitch"].as<double>();
     serial_->max_yaw_change = gobal::config["control"]["max_yaw_change"].as<double>();
-    serial_->max_pitch_change = 5; // config["control"]["max_pitch_change"].as<double>();
-    // bool if_use_nav = config["control"]["use_nav"].as<bool>(false);
-    // use_serial = config["control"]["use_serial"].as<bool>();
-    // serial_.startThread(use_serial, if_use_nav);
+    serial_->max_pitch_change = gobal::config["control"]["max_pitch_change"].as<double>();
+
 }
 
 void WustVision::initTracker(const YAML::Node& config) {
@@ -588,7 +583,7 @@ Armors WustVision::visualizeTargetProjection(
 
     return armor_data;
 }
-void WustVision::DetectCallback(
+void WustVision::ArmorDetectCallback(
     const std::vector<ArmorObject>& objs,
     std::chrono::steady_clock::time_point timestamp,
     const cv::Mat& src_img,
@@ -669,7 +664,7 @@ void WustVision::DetectCallback(
     transformArmorData(armors, T_camera_to_odom);
     armorsCallback(armors, src_img);
 }
-void WustVision::inferResultCallback(
+void WustVision::RuneDetectCallback(
     std::vector<RuneObject>& objs,
     std::chrono::steady_clock::time_point timestamp,
     const cv::Mat& src_img,
@@ -687,18 +682,6 @@ void WustVision::inferResultCallback(
     rune_target.timestamp = timestamp;
     rune_target.is_big_rune = false;
 
-    // Erase all object that not match the color
-    objs.erase(
-        std::remove_if(
-            objs.begin(),
-            objs.end(),
-            [c = static_cast<EnemyColor>(gobal::detect_color_)](const auto& obj) {
-                return obj.color != c;
-            }
-        ),
-        objs.end()
-    );
-
     if (!objs.empty()) {
         // Sort by probability
         std::sort(objs.begin(), objs.end(), [](const RuneObject& a, const RuneObject& b) {
@@ -707,21 +690,33 @@ void WustVision::inferResultCallback(
 
         cv::Point2f r_tag;
         cv::Mat binary_roi = cv::Mat::zeros(1, 1, CV_8UC3);
-        if (detect_r_tag_ && !src_img.empty()) {
-            // Detect R tag using traditional method
-            std::tie(r_tag, binary_roi) =
-                rune_detector_->detectRTag(src_img, rune_binary_thresh_, objs.at(0).pts.r_center);
+        if (use_manual_r && manual_r_init) {
+            gobal::measure_tool_->projectRTargetToImage(T_r, T_camera_to_odom, manual_r_box);
+            manual_r_center = computeCenter(manual_r_box);
+            r_tag = manual_r_center;
+            if (detect_r_tag_ && !src_img.empty()) {
+                std::tie(r_tag, binary_roi) =
+                    rune_detector_->detectRTag(src_img, rune_binary_thresh_, manual_r_center, true);
+            }
         } else {
-            // Use the average center of all objects as the center of the R tag
-            r_tag = std::accumulate(
-                objs.begin(),
-                objs.end(),
-                cv::Point2f(0, 0),
-                [n = static_cast<float>(objs.size())](cv::Point2f p, auto& o) {
-                    return p + o.pts.r_center / n;
-                }
-            );
+            if (detect_r_tag_ && !src_img.empty()) {
+                // Detect R tag using traditional method
+                std::tie(r_tag, binary_roi) =
+                    rune_detector_
+                        ->detectRTag(src_img, rune_binary_thresh_, objs.at(0).pts.r_center, false);
+            } else {
+                // Use the average center of all objects as the center of the R tag
+                r_tag = std::accumulate(
+                    objs.begin(),
+                    objs.end(),
+                    cv::Point2f(0, 0),
+                    [n = static_cast<float>(objs.size())](cv::Point2f p, auto& o) {
+                        return p + o.pts.r_center / n;
+                    }
+                );
+            }
         }
+
         // Assign the center of the R tag to all objects
         std::for_each(objs.begin(), objs.end(), [r = r_tag](RuneObject& obj) {
             obj.pts.r_center = r;
@@ -780,6 +775,98 @@ void WustVision::inferResultCallback(
         rune_objects_ = objs;
     }
 }
+void WustVision::calculation_manual_r(const cv::Mat& src_img) {
+    manual_r_runing = true;
+    clicked_points_.clear();
+    cv::Mat img_show = src_img.clone();
+    cv::cvtColor(img_show, img_show, cv::COLOR_BGR2RGB);
+
+    cv::namedWindow("Manual R Box", cv::WINDOW_NORMAL);
+    cv::resizeWindow("Manual R Box", 1280, 960);
+    cv::setMouseCallback("Manual R Box", onMouse, nullptr);
+
+    const int half_size = 5;
+
+    while (true) {
+        cv::Mat temp = img_show.clone();
+
+        if (!clicked_points_.empty()) {
+            manual_r_center = clicked_points_.front();
+
+            float x = std::clamp(
+                manual_r_center.x,
+                float(half_size),
+                float(src_img.cols - half_size - 1)
+            );
+            float y = std::clamp(
+                manual_r_center.y,
+                float(half_size),
+                float(src_img.rows - half_size - 1)
+            );
+            manual_r_center = { x, y };
+
+            manual_r_box = { {
+                { x - half_size, y - half_size }, // 左上 → 对应点0
+                { x - half_size, y + half_size }, // 左下 → 对应点1
+                { x + half_size, y + half_size }, // 右下 → 对应点2
+                { x + half_size, y - half_size } // 右上 → 对应点3
+            } };
+
+            cv::circle(temp, manual_r_center, 3, cv::Scalar(0, 255, 0), -1);
+            for (int i = 0; i < 4; ++i)
+                cv::line(
+                    temp,
+                    manual_r_box[i],
+                    manual_r_box[(i + 1) % 4],
+                    cv::Scalar(255, 0, 0),
+                    1
+                );
+        }
+
+        cv::imshow("Manual R Box", temp);
+        int key = cv::waitKey(30);
+
+        if (key == 27) { // ESC 退出，不提交
+            WUST_INFO("Manual R") << "Manual box canceled.";
+            manual_r_init = false;
+            break;
+        }
+
+        if (key == 13 || key == 10) { // 回车提交
+            if (!clicked_points_.empty()) {
+                manual_r_init = true;
+                WUST_INFO("Manual R")
+                    << "Manual center: (" << manual_r_center.x << ", " << manual_r_center.y << ")";
+                WUST_INFO("Manual R") << "Manual R Box Points Saved.";
+            } else {
+                WUST_ERROR("Manual R") << "No point to submit.";
+                manual_r_init = false;
+            }
+            break;
+        }
+
+        if (key == 'b' || key == 8) {
+            clicked_points_.clear();
+            WUST_INFO("Manual R") << "Manual point cleared.";
+        }
+    }
+
+    gobal::measure_tool_->calcRTarget(manual_r_box, T_r, T_camera_to_odom_);
+    cv::destroyWindow("Manual R Box");
+    cv::destroyWindow("Manual R Box");
+    cv::destroyWindow("Manual R Box");
+    manual_r_runing = false;
+}
+
+std::vector<cv::Point2f> WustVision::clicked_points_;
+void WustVision::onMouse(int event, int x, int y, int, void*) {
+    if (event == cv::EVENT_LBUTTONDOWN) {
+        clicked_points_.clear(); // 总是只保留一个点
+        clicked_points_.emplace_back(x, y);
+        WUST_INFO("Manual R") << "Clicked Point: (" << x << ", " << y << ")";
+    }
+}
+
 void WustVision::transformArmorData(Armors& armors) {
     for (auto& armor: armors.armors) {
         try {
@@ -801,7 +888,6 @@ void WustVision::transformArmorData(Armors& armors) {
     }
 }
 void WustVision::transformArmorData(Armors& armors, Eigen::Matrix4d T_camera_to_odom) {
-    T_camera_to_odom_ = T_camera_to_odom;
     for (auto& armor: armors.armors) {
         try {
             // Step 1: Transform position from camera to odom
@@ -980,16 +1066,17 @@ void WustVision::timerCallback() {
                     &target_info,
                     &target,
                     state,
-                    gimbal_cmd
+                    last_cmd_
                 );
             } catch (const std::exception& e) {
                 std::cerr << "draw_debug_overlaywrite failed: " << e.what() << '\n';
             }
 
         } else {
-            double predict_angle = rune_solver_->last_pre_angle;
+            double predict_angle =
+                rune_solver_->last_pre_angle - rune_solver_->last_observed_angle_;
             try {
-                drawRuneandprewrite(src, rune_objects_, imgframe_.timestamp, predict_angle);
+                drawRuneandprewrite(src, rune_objects_, imgframe_.timestamp, predict_angle, last_cmd_ );
             } catch (const std::exception& e) {
                 std::cerr << "drawRuneandprewrite failed: " << e.what() << '\n';
             }
@@ -1080,15 +1167,23 @@ void WustVision::processImage(const ImageFrame& frame, Eigen::Matrix3d R_gimbal2
 
     // Step 3: camera → odom
     Eigen::Matrix4d T_camera_to_odom = T_gimbal_to_odom * T_camera_to_gimbal;
+    T_camera_to_odom_ = T_camera_to_odom;
 
     infer_running_count_++;
     printStats();
+
     AttackMode mode = toAttackMode(gobal::attack_mode);
     switch (mode) {
         case AttackMode::ARMOR: {
             armor_detector_->pushInput(img, frame.timestamp, T_camera_to_odom);
         } break;
         case AttackMode::SMALL_RUNE: {
+            if (use_manual_r && !manual_r_init && !manual_r_runing) {
+                calculation_manual_r(img);
+                detect_finish_count_++;
+                infer_running_count_--;
+                return;
+            }
             rune_detector_->pushInput(img, frame.timestamp, T_camera_to_odom);
         } break;
         case AttackMode::BIG_RUNE: {
@@ -1125,15 +1220,23 @@ void WustVision::processImage(
 
     // Step 3: camera → odom
     Eigen::Matrix4d T_camera_to_odom = T_gimbal_to_odom * T_camera_to_gimbal;
+    T_camera_to_odom_ = T_camera_to_odom;
 
     infer_running_count_++;
     printStats();
+
     AttackMode mode = toAttackMode(gobal::attack_mode);
     switch (mode) {
         case AttackMode::ARMOR: {
             armor_detector_->pushInput(frame, timestamp, T_camera_to_odom);
         } break;
         case AttackMode::SMALL_RUNE: {
+            if (use_manual_r && !manual_r_init && !manual_r_runing) {
+                calculation_manual_r(frame);
+                detect_finish_count_++;
+                infer_running_count_--;
+                return;
+            }
             rune_detector_->pushInput(frame, timestamp, T_camera_to_odom);
         } break;
         case AttackMode::BIG_RUNE: {

@@ -106,7 +106,13 @@ void drawresult(
             2
         );
     }
-    cv::circle(debug_img, cv::Point2i(1440 / 2., 1080 / 2.), 5, cv::Scalar(0, 0, 255), 1);
+    cv::circle(
+        debug_img,
+        cv::Point2i(debug_img.cols / 2, debug_img.rows / 2),
+        5,
+        cv::Scalar(255, 255, 255),
+        2
+    );
 
     auto timestamp_tp =
         std::chrono::steady_clock::time_point() + std::chrono::nanoseconds(timestamp_nanosec);
@@ -248,7 +254,13 @@ void drawresult(const imgframe& src_img, const Armors& armors) {
         cv::Scalar(40, 255, 40),
         2
     );
-    cv::circle(debug_img, cv::Point2i(1440 / 2., 1080 / 2.), 5, cv::Scalar(0, 0, 255), 1);
+    cv::circle(
+        debug_img,
+        cv::Point2i(debug_img.cols / 2, debug_img.rows / 2),
+        5,
+        cv::Scalar(255, 255, 255),
+        2
+    );
 
     auto latency_nano =
         std::chrono::duration_cast<std::chrono::nanoseconds>(now - armors.timestamp).count();
@@ -312,7 +324,13 @@ void drawreprojec(
         }
         all_corners.insert(all_corners.end(), pts.begin(), pts.end());
     }
-    cv::circle(debug_img, cv::Point2i(1440 / 2., 1080 / 2.), 5, cv::Scalar(255, 255, 255), 2);
+    cv::circle(
+        debug_img,
+        cv::Point2i(debug_img.cols / 2, debug_img.rows / 2),
+        5,
+        cv::Scalar(255, 255, 255),
+        2
+    );
 
     if (!all_corners.empty()) {
         cv::Point2f center(0.f, 0.f);
@@ -442,7 +460,13 @@ void drawreprojec(
     }
 
     // 绘制全局图像中心
-    cv::circle(debug_img, cv::Point2i(1440 / 2., 1080 / 2.), 5, cv::Scalar(255, 255, 255), 2);
+    cv::circle(
+        debug_img,
+        cv::Point2i(debug_img.cols / 2, debug_img.rows / 2),
+        5,
+        cv::Scalar(255, 255, 255),
+        2
+    );
 
     // 绘制 target 角点中心
     if (!all_corners.empty()) {
@@ -621,7 +645,13 @@ void drawreprojec(
             cv::circle(debug_img, pt, 10, cv::Scalar(0, 0, 255), 2);
         }
     }
-    cv::circle(debug_img, cv::Point2i(1440 / 2., 1080 / 2.), 5, cv::Scalar(255, 255, 255), 2);
+    cv::circle(
+        debug_img,
+        cv::Point2i(debug_img.cols / 2, debug_img.rows / 2),
+        5,
+        cv::Scalar(255, 255, 255),
+        2
+    );
 
     if (!all_corners.empty()) {
         cv::Point2f center(0.f, 0.f);
@@ -819,7 +849,13 @@ void drawreprojec(
             cv::circle(debug_img, pt, 20, cv::Scalar(0, 0, 255), 5);
         }
     }
-    cv::circle(debug_img, cv::Point2i(1440 / 2., 1080 / 2.), 5, cv::Scalar(255, 255, 255), 2);
+    cv::circle(
+        debug_img,
+        cv::Point2i(debug_img.cols / 2, debug_img.rows / 2),
+        5,
+        cv::Scalar(255, 255, 255),
+        2
+    );
 
     if (!all_corners.empty()) {
         cv::Point2f center(0.f, 0.f);
@@ -1302,7 +1338,14 @@ void draw_debug_overlay(
         );
     }
 
-    cv::circle(debug_img, cv::Point2i(1440 / 2, 1080 / 2), 5, cv::Scalar(255, 255, 255), 2);
+    cv::circle(
+        debug_img,
+        cv::Point2i(debug_img.cols / 2, debug_img.rows / 2),
+        5,
+        cv::Scalar(255, 255, 255),
+        2
+    );
+
     cv::imshow("debug_overlay", debug_img);
     cv::waitKey(1);
 }
@@ -1637,7 +1680,13 @@ void draw_debug_overlaywrite(
         );
     }
 
-    cv::circle(debug_img, cv::Point2i(1440 / 2, 1080 / 2), 5, cv::Scalar(255, 255, 255), 2);
+    cv::circle(
+        debug_img,
+        cv::Point2i(debug_img.cols / 2, debug_img.rows / 2),
+        5,
+        cv::Scalar(255, 255, 255),
+        2
+    );
     std::vector<uchar> buf;
     cv::imencode(".jpg", debug_img, buf);
     std::ofstream ofs("/dev/shm/debug_frame.jpg.tmp", std::ios::binary);
@@ -1964,7 +2013,13 @@ cv::Mat draw_debug_overlayMat(
         );
     }
 
-    cv::circle(debug_img, cv::Point2i(1440 / 2, 1080 / 2), 5, cv::Scalar(255, 255, 255), 2);
+    cv::circle(
+        debug_img,
+        cv::Point2i(debug_img.cols / 2, debug_img.rows / 2),
+        5,
+        cv::Scalar(255, 255, 255),
+        2
+    );
     return debug_img;
     // cv::imshow("debug_overlay", debug_img);
     // cv::waitKey(1);
@@ -2274,7 +2329,13 @@ void drawRune(
         cv::Scalar(0, 255, 255),
         2
     );
-
+    cv::circle(
+        debug_img,
+        cv::Point2i(debug_img.cols / 2, debug_img.rows / 2),
+        5,
+        cv::Scalar(255, 255, 255),
+        2
+    );
     cv::imshow("debug_rune", debug_img);
     cv::waitKey(1);
 }
@@ -2312,47 +2373,51 @@ void drawRuneandpre(
         if (obj.type == RuneType::INACTIVATED) {
             const auto pts = obj.pts.toVector2f();
             if (pts.size() < 3)
-                break; // 至少需要3个点才能计算夹角
+                break;
 
             int sharpest_idx = 0;
-            float min_angle = std::numeric_limits<float>::max();
 
-            // 遍历每个点，计算与前后点的夹角
+            const cv::Point2f& tip = pts[sharpest_idx];
+            cv::Point2f aim_point =
+                std::accumulate(pts.begin(), pts.end(), cv::Point2f(0, 0)) - tip;
+            aim_point *= (1.f / (pts.size() - 1));
+
+            cv::Point2f vec_to_aim = normalize(aim_point - tip);
+            float base_angle = std::atan2(vec_to_aim.y, vec_to_aim.x);
+            float angle_rad = base_angle - predict_angle;
+            std::vector<cv::Point2f> pts_exclude_tip;
             for (size_t i = 0; i < pts.size(); ++i) {
-                const cv::Point2f& prev = pts[(i + pts.size() - 1) % pts.size()];
-                const cv::Point2f& curr = pts[i];
-                const cv::Point2f& next = pts[(i + 1) % pts.size()];
-
-                cv::Point2f v1 = normalize(prev - curr);
-                cv::Point2f v2 = normalize(next - curr);
-
-                float dot = v1.dot(v2);
-                float angle = std::acos(std::clamp(dot, -1.0f, 1.0f)); // 弧度
-
-                if (angle < min_angle) {
-                    min_angle = angle;
-                    sharpest_idx = i;
-                }
+                if (i != sharpest_idx)
+                    pts_exclude_tip.push_back(pts[i]);
             }
+            float area = std::fabs(cv::contourArea(pts_exclude_tip));
 
-            const cv::Point2f& center = pts[sharpest_idx];
+            float radius = std::sqrt(area / static_cast<float>(CV_PI));
 
-            // 使用预测角度画线
-            float angle_rad = -predict_angle;
-            float length = 1000.0f;
-            cv::Point2f end_point =
-                center + cv::Point2f(std::cos(angle_rad), std::sin(angle_rad)) * length;
+            float length = cv::norm(aim_point - tip);
+            cv::Point2f end_point_line =
+                tip + cv::Point2f(std::cos(angle_rad), std::sin(angle_rad)) * (length - radius);
+            cv::Point2f end_point_circle =
+                tip + cv::Point2f(std::cos(angle_rad), std::sin(angle_rad)) * length;
 
-            cv::arrowedLine(debug_img, center, end_point, cv::Scalar(0, 255, 0), 2);
+            cv::line(debug_img, tip, end_point_line, cv::Scalar(255, 255, 255), 4);
 
-            break; // 只绘制第一个 INACTIVATED 的 obj
+            cv::circle(
+                debug_img,
+                end_point_circle,
+                static_cast<int>(radius),
+                cv::Scalar(255, 255, 255),
+                5
+            );
+            cv::circle(debug_img, end_point_circle, 5, cv::Scalar(255, 255, 255), -1);
+
+            break;
         }
     }
 
     for (const auto& obj: objs) {
         auto pts = obj.pts.toVector2f();
-        // 计算中心点，这里你原代码是从 pts.begin()+1 到 pts.end()
-        // 累加后除以4，感觉更合理的是平均所有点或明确写个除数
+
         cv::Point2f aim_point =
             std::accumulate(pts.begin() + 1, pts.end(), cv::Point2f(0, 0)) / 4.0f;
 
@@ -2395,7 +2460,13 @@ void drawRuneandpre(
         cv::Scalar(255, 255, 255),
         2
     );
-
+    cv::circle(
+        debug_img,
+        cv::Point2i(debug_img.cols / 2, debug_img.rows / 2),
+        5,
+        cv::Scalar(255, 255, 255),
+        2
+    );
     cv::imshow("debug_rune", debug_img);
     cv::waitKey(1);
 }
@@ -2403,7 +2474,7 @@ void drawRuneandprewrite(
     cv::Mat& src_img,
     const std::vector<RuneObject>& objs,
     std::chrono::steady_clock::time_point timestamp,
-    double predict_angle
+    double predict_angle, GimbalCmd gimbal_cmd
 ) {
     static auto last_show_time = std::chrono::steady_clock::now();
     if (src_img.empty()) {
@@ -2429,33 +2500,40 @@ void drawRuneandprewrite(
                 break;
 
             int sharpest_idx = 0;
-            float min_angle = std::numeric_limits<float>::max();
 
+            const cv::Point2f& tip = pts[sharpest_idx];
+            cv::Point2f aim_point =
+                std::accumulate(pts.begin(), pts.end(), cv::Point2f(0, 0)) - tip;
+            aim_point *= (1.f / (pts.size() - 1));
+
+            cv::Point2f vec_to_aim = normalize(aim_point - tip);
+            float base_angle = std::atan2(vec_to_aim.y, vec_to_aim.x);
+            float angle_rad = base_angle - predict_angle;
+            std::vector<cv::Point2f> pts_exclude_tip;
             for (size_t i = 0; i < pts.size(); ++i) {
-                const cv::Point2f& prev = pts[(i + pts.size() - 1) % pts.size()];
-                const cv::Point2f& curr = pts[i];
-                const cv::Point2f& next = pts[(i + 1) % pts.size()];
-
-                cv::Point2f v1 = normalize(prev - curr);
-                cv::Point2f v2 = normalize(next - curr);
-
-                float dot = v1.dot(v2);
-                float angle = std::acos(std::clamp(dot, -1.0f, 1.0f)); // 弧度
-
-                if (angle < min_angle) {
-                    min_angle = angle;
-                    sharpest_idx = i;
-                }
+                if (i != sharpest_idx)
+                    pts_exclude_tip.push_back(pts[i]);
             }
+            float area = std::fabs(cv::contourArea(pts_exclude_tip));
 
-            const cv::Point2f& center = pts[sharpest_idx];
+            float radius = std::sqrt(area / static_cast<float>(CV_PI));
 
-            float angle_rad = -predict_angle;
-            float length = 1000.0f;
-            cv::Point2f end_point =
-                center + cv::Point2f(std::cos(angle_rad), std::sin(angle_rad)) * length;
+            float length = cv::norm(aim_point - tip);
+            cv::Point2f end_point_line =
+                tip + cv::Point2f(std::cos(angle_rad), std::sin(angle_rad)) * (length - radius);
+            cv::Point2f end_point_circle =
+                tip + cv::Point2f(std::cos(angle_rad), std::sin(angle_rad)) * length;
 
-            cv::arrowedLine(debug_img, center, end_point, cv::Scalar(0, 255, 0), 2);
+            cv::line(debug_img, tip, end_point_line, cv::Scalar(255, 255, 255), 4);
+
+            cv::circle(
+                debug_img,
+                end_point_circle,
+                static_cast<int>(radius),
+                cv::Scalar(255, 255, 255),
+                5
+            );
+            cv::circle(debug_img, end_point_circle, 5, cv::Scalar(255, 255, 255), -1);
 
             break;
         }
@@ -2492,6 +2570,18 @@ void drawRuneandprewrite(
             line_color,
             2
         );
+        for (int i = 0; i < pts.size(); i++) {
+            std::string str = std::to_string(i);
+            cv::putText(
+                debug_img,
+                str,
+                pts[i],
+                cv::FONT_HERSHEY_SIMPLEX,
+                0.8,
+                cv::Scalar(0, 50, 255),
+                2
+            );
+        }
     }
 
     std::string latency_str = fmt::format("Latency: {:.2f}ms", toolsgobal::latency_ms);
@@ -2504,7 +2594,47 @@ void drawRuneandprewrite(
         cv::Scalar(255, 255, 255),
         2
     );
+    cv::circle(
+        debug_img,
+        cv::Point2i(debug_img.cols / 2, debug_img.rows / 2),
+        5,
+        cv::Scalar(255, 255, 255),
+        2
+    );
+    int baseline =0;
+    std::string fire_str = gimbal_cmd.fire_advice ? "Fire!" : "";
+    cv::Size fire_size = cv::getTextSize(fire_str, cv::FONT_HERSHEY_SIMPLEX, 1.2, 2, &baseline);
+    int fire_x = 1440 / 2 - fire_size.width - 10;
+    int fire_y = 200;
 
+    cv::putText(
+        debug_img,
+        fire_str,
+        { fire_x, fire_y },
+        cv::FONT_HERSHEY_SIMPLEX,
+        2.85,
+        cv::Scalar(0, 0, 255),
+        2
+    );
+
+   
+        std::string gimbal_str = fmt::format(
+            "Pitch: {:.2f}, Yaw: {:.2f}, Pitch_diff: {:.2f}, Yaw_diff: {:.2f}",
+            gimbal_cmd.pitch,
+            gimbal_cmd.yaw,
+            gimbal_cmd.pitch_diff,
+            gimbal_cmd.yaw_diff
+        );
+        cv::putText(
+            debug_img,
+            gimbal_str,
+            { 10, debug_img.rows - 30 },
+            cv::FONT_HERSHEY_SIMPLEX,
+            0.8,
+            cv::Scalar(255, 255, 0),
+            2
+        );
+    
     std::vector<uchar> buf;
     cv::imencode(".jpg", debug_img, buf);
     std::ofstream ofs("/dev/shm/debug_frame.jpg.tmp", std::ios::binary);

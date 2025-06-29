@@ -30,7 +30,8 @@ void RuneDetectorTrtWrapper::setCallback(CallbackType cb) {
 std::tuple<cv::Point2f, cv::Mat> RuneDetectorTrtWrapper::detectRTag(
     const cv::Mat& img,
     int binary_thresh,
-    const cv::Point2f& prior
+    const cv::Point2f& prior,
+    bool precise
 ) {
-    return rune_detector_->detectRTag(img, binary_thresh, prior);
+    return rune_detector_->detectRTag(img, binary_thresh, prior, precise);
 }

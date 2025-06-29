@@ -23,6 +23,7 @@
 // project
 #include "NvOnnxParser.h"
 #include "common/common.hpp"
+#include "common/gobal.hpp"
 #include "common/logger.hpp"
 #include "fmt/core.h"
 #include "type/type.hpp"
@@ -296,7 +297,7 @@ void RuneDetectorTrt::buildEngine(const std::string& onnx_path) {
         engine_file.read(engine_data.data(), size);
         engine_file.close();
 
-        runtime_ = nvinfer1::createInferRuntime(g_logger_); // ✅ 作为成员变量保存
+        runtime_ = nvinfer1::createInferRuntime(g_logger_);
         engine_ = runtime_->deserializeCudaEngine(engine_data.data(), size);
         if (engine_ != nullptr) {
             WUST_INFO("TRT") << "Load engine from " << engine_path << " successfully.";
@@ -466,7 +467,24 @@ bool RuneDetectorTrt::processCallback(
     //   for (size_t i = 0; i < indices.size(); ++i) {
     //     objs_result.push_back(std::move(objs_tmp[i]));
     //   }
-
+    objs_result.erase(
+        std::remove_if(
+            objs_result.begin(),
+            objs_result.end(),
+            [c = static_cast<EnemyColor>(gobal::detect_color_)](const auto& objs_result) {
+                return objs_result.color != c;
+            }
+        ),
+        objs_result.end()
+    );
+    for (auto& obj: objs_result) {
+        if (obj.type == RuneType::INACTIVATED) {
+            // if(extractImage(src_img, obj))
+            // {
+            //     detectTarget(obj);
+            // }
+        }
+    }
     // Call callback function
     if (this->infer_callback_) {
         this->infer_callback_(objs_result, timestamp, src_img, T_camera_to_odom);
@@ -475,6 +493,128 @@ bool RuneDetectorTrt::processCallback(
 
     return false;
 }
+void RuneDetectorTrt::detectTarget(RuneObject& rune) {
+    cv::Mat gray_img_;
+    cv::cvtColor(rune.target_img, gray_img_, cv::COLOR_RGB2GRAY);
+
+    cv::Mat binary_img;
+    cv::threshold(gray_img_, binary_img, 100, 255, cv::THRESH_BINARY);
+
+    // 形态学操作
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
+    cv::morphologyEx(binary_img, binary_img, cv::MORPH_CLOSE, kernel);
+
+    // 查找轮廓
+    std::vector<std::vector<cv::Point>> contours;
+    std::vector<cv::Vec4i> hierarchy;
+    cv::findContours(
+        binary_img.clone(),
+        contours,
+        hierarchy,
+        cv::RETR_EXTERNAL,
+        cv::CHAIN_APPROX_SIMPLE
+    );
+
+    // 寻找圆度最大者
+    int best_idx = -1;
+    double max_area = 0.0;
+    for (size_t i = 0; i < contours.size(); ++i) {
+        double area = cv::contourArea(contours[i]);
+        double perimeter = cv::arcLength(contours[i], true);
+        if (perimeter == 0)
+            continue;
+
+        //double circularity = 4 * CV_PI * area / (perimeter * perimeter);
+        if (area > max_area) {
+            max_area = area;
+            best_idx = static_cast<int>(i);
+        }
+    }
+
+    // 可视化
+    cv::Mat vis_img;
+    cv::cvtColor(binary_img, vis_img, cv::COLOR_GRAY2BGR);
+
+    if (best_idx != -1) {
+        cv::drawContours(vis_img, contours, best_idx, cv::Scalar(0, 255, 255), 2);
+        // 可选：在中心标记一下
+        cv::Moments mu = cv::moments(contours[best_idx]);
+        if (mu.m00 != 0) {
+            cv::Point2f center(mu.m10 / mu.m00, mu.m01 / mu.m00);
+            cv::circle(vis_img, center, 3, cv::Scalar(255, 0, 255), -1);
+            cv::putText(
+                vis_img,
+                "max circularity",
+                center + cv::Point2f(5, -5),
+                cv::FONT_HERSHEY_SIMPLEX,
+                0.4,
+                cv::Scalar(255, 255, 255),
+                1
+            );
+        }
+    }
+
+    cv::imshow("Max Circularity Contour", vis_img);
+    cv::waitKey(1);
+}
+
+bool RuneDetectorTrt::extractImage(const cv::Mat& src, RuneObject& rune) {
+    const auto& br = rune.pts.bottom_right;
+    const auto& tr = rune.pts.top_right;
+    const auto& tl = rune.pts.top_left;
+    const auto& bl = rune.pts.bottom_left;
+
+    if (!src.data || src.empty()) {
+        std::cerr << "[extractImage] Invalid input image." << std::endl;
+        return false;
+    }
+
+    std::vector<cv::Point2f> src_pts = { tl, tr, br, bl };
+
+    float width = std::max(cv::norm(tr - tl), cv::norm(br - bl));
+    float height = std::max(cv::norm(bl - tl), cv::norm(br - tr));
+
+    if (width <= 1 || height <= 1) {
+        std::cerr << "[extractImage] Invalid ROI size." << std::endl;
+        return false;
+    }
+
+    // 固定目标图像大小
+    const int dst_width = 128;
+    const int dst_height = 128;
+
+    std::vector<cv::Point2f> dst_pts = { { 0.0f, 0.0f },
+                                         { float(dst_width - 1), 0.0f },
+                                         { float(dst_width - 1), float(dst_height - 1) },
+                                         { 0.0f, float(dst_height - 1) } };
+
+    // 扩张比例（实际在原图中扩大截取区域）
+    const float scale = 2.0f;
+
+    // 计算中心
+    cv::Point2f center(0, 0);
+    for (const auto& pt: src_pts)
+        center += pt;
+    center *= (1.0f / 4.0f);
+
+    // 扩张源图像中的四边形
+    std::vector<cv::Point2f> scaled_src_pts;
+    for (const auto& pt: src_pts) {
+        cv::Point2f vec = pt - center;
+        scaled_src_pts.push_back(center + vec * scale);
+    }
+
+    // 透视变换：从扩大的 src → 固定大小 dst
+    cv::Mat M = cv::getPerspectiveTransform(scaled_src_pts, dst_pts);
+    rune.M = M;
+
+    cv::Mat roi_img;
+    cv::warpPerspective(src, roi_img, M, cv::Size(dst_width, dst_height));
+
+    rune.target_img = roi_img;
+    return true;
+}
+
 std::vector<RuneObject> RuneDetectorTrt::postprocess(
     std::vector<RuneObject>& output_objs,
     std::vector<float>& scores,
@@ -606,8 +746,12 @@ std::vector<RuneObject> RuneDetectorTrt::postprocess(
     return objs_result;
 }
 
-std::tuple<cv::Point2f, cv::Mat>
-RuneDetectorTrt::detectRTag(const cv::Mat& img, int binary_thresh, const cv::Point2f& prior) {
+std::tuple<cv::Point2f, cv::Mat> RuneDetectorTrt::detectRTag(
+    const cv::Mat& img,
+    int binary_thresh,
+    const cv::Point2f& prior,
+    bool precise
+) {
     if (!img.data || img.cols <= 0 || img.rows <= 0) {
         std::cerr << "[detectRTag] Invalid input image." << std::endl;
         return {};
@@ -627,8 +771,12 @@ RuneDetectorTrt::detectRTag(const cv::Mat& img, int binary_thresh, const cv::Poi
     }
 
     // ROI calculation
-    cv::Rect roi =
-        cv::Rect(prior.x - 100, prior.y - 100, 200, 200) & cv::Rect(0, 0, img.cols, img.rows);
+    cv::Rect roi;
+    if (precise) {
+        roi = cv::Rect(prior.x - 30, prior.y - 30, 60, 60) & cv::Rect(0, 0, img.cols, img.rows);
+    } else {
+        roi = cv::Rect(prior.x - 100, prior.y - 100, 200, 200) & cv::Rect(0, 0, img.cols, img.rows);
+    }
 
     if (roi.width == 0 || roi.height == 0) {
         std::cerr << "[detectRTag] ROI is zero-sized: " << roi << std::endl;

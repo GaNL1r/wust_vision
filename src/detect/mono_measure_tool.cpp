@@ -16,6 +16,7 @@
 
 #include "detect/mono_measure_tool.hpp"
 #include "common/logger.hpp"
+#include "common/utils.hpp"
 #include "type/type.hpp"
 #include <cmath>
 #include <numeric>
@@ -46,6 +47,13 @@ std::vector<cv::Point3f> MonoMeasureTool::BIG_ARMOR_3D_POINTS_NET = {
     { 0, -0.027, -0.1125 },
     { 0, -0.027, 0.1125 },
     { 0, 0.027, 0.1125 },
+};
+
+std::vector<cv::Point3f> MonoMeasureTool::R_BOX_POINTS = {
+    { 0, 0.05, -0.05 },
+    { 0, -0.05, -0.05 },
+    { 0, -0.05, 0.05 },
+    { 0, 0.05, 0.05 },
 };
 
 bool is_big_armor(const ArmorObject& obj) {
@@ -190,6 +198,89 @@ void MonoMeasureTool::calcViewAngle(cv::Point2f p, float& pitch, float& yaw) {
 //  }
 // }
 // }
+bool MonoMeasureTool::calcRTarget(
+    const std::vector<cv::Point2f>& manual_r_box,
+    Eigen::Matrix4d& TRodom,
+    const Eigen::Matrix4d& T_camera_to_odom
+) {
+    if (camera_intrinsic_.empty() || camera_distortion_.empty()) {
+        WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
+        return false;
+    }
+
+    // OpenCV solvePnP
+    cv::Mat rvec, tvec;
+    bool res = cv::solvePnP(
+        R_BOX_POINTS,
+        manual_r_box,
+        camera_intrinsic_,
+        camera_distortion_,
+        rvec,
+        tvec,
+        false,
+        cv::SOLVEPNP_IPPE
+    );
+
+    if (!res || !cv::checkRange(rvec) || !cv::checkRange(tvec)) {
+        return false;
+    }
+
+    // Rodrigues -> rotation matrix
+    cv::Mat R_cv;
+    cv::Rodrigues(rvec, R_cv);
+
+    // 转为 Eigen
+    Eigen::Matrix3d R_eigen;
+    Eigen::Vector3d t_eigen;
+    cv::cv2eigen(R_cv, R_eigen);
+    cv::cv2eigen(tvec, t_eigen);
+
+    // 构造 Target 相对于 Camera 的齐次变换矩阵
+    Eigen::Matrix4d TRc = Eigen::Matrix4d::Identity();
+    TRc.block<3, 3>(0, 0) = R_eigen;
+    TRc.block<3, 1>(0, 3) = t_eigen;
+
+    // 计算 Target 相对于 Odom 的变换
+    TRodom = T_camera_to_odom * TRc;
+
+    return true;
+}
+bool MonoMeasureTool::projectRTargetToImage(
+    const Eigen::Matrix4d& TRodom,
+    const Eigen::Matrix4d& T_camera_to_odom,
+    std::vector<cv::Point2f>& manual_r_box
+) {
+    if (camera_intrinsic_.empty() || camera_distortion_.empty()) {
+        WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
+        return false;
+    }
+
+    // 计算TRc: 目标相对于相机
+    Eigen::Matrix4d TRc = T_camera_to_odom.inverse() * TRodom;
+
+    // 从TRc提取旋转和平移
+    Eigen::Matrix3d R_eigen = TRc.block<3, 3>(0, 0);
+    Eigen::Vector3d t_eigen = TRc.block<3, 1>(0, 3);
+
+    cv::Mat rvec, tvec;
+    cv::Mat R_cv;
+    cv::eigen2cv(R_eigen, R_cv);
+    cv::Rodrigues(R_cv, rvec); // 将旋转矩阵转为旋转向量
+    cv::eigen2cv(t_eigen, tvec);
+
+    // R_BOX_POINTS：目标3D点，cv::Point3f格式的vector
+    cv::projectPoints(
+        R_BOX_POINTS,
+        rvec,
+        tvec,
+        camera_intrinsic_,
+        camera_distortion_,
+        manual_r_box
+    );
+
+    return true;
+}
+
 bool MonoMeasureTool::calcArmorTarget(
     const ArmorObject& obj,
     cv::Point3f& position,

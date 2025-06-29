@@ -51,5 +51,3 @@ private:
         std::string order
     );
 };
-
-

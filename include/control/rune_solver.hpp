@@ -95,6 +95,10 @@ public:
     RuneSolverParams rune_solver_params;
     double predict_offset_;
     double last_pre_angle;
+    // last_observed_angle_ is continuously increasing (or decreasing)
+    // from the first detection (call init()) of the target without
+    // any abrupt change in between.
+    double last_observed_angle_;
 
 private:
     double getNormalAngle(const Rune received_target);
@@ -108,11 +112,6 @@ private:
     Eigen::Vector4d getStateFromTransform(const Eigen::Matrix4d& transform) const;
 
     // Observation data
-
-    // last_observed_angle_ is continuously increasing (or decreasing)
-    // from the first detection (call init()) of the target without
-    // any abrupt change in between.
-    double last_observed_angle_;
 
     // last_angle_ would change (N * DEG_72) when the target jumps
     double last_angle_;

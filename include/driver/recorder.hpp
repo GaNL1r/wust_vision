@@ -51,5 +51,3 @@ private:
     std::condition_variable cv_;
     std::thread recorder_thread_;
 };
-
-

@@ -67,7 +67,7 @@ public:
     // Detect R tag using traditional method
     // Return the center of the R tag and binary roi image (for debug)
     std::tuple<cv::Point2f, cv::Mat>
-    detectRTag(const cv::Mat& img, int binary_thresh, const cv::Point2f& prior);
+    detectRTag(const cv::Mat& img, int binary_thresh, const cv::Point2f& prior, bool precise);
 
 private:
     // Do inference and call the infer_callback_ after inference
@@ -95,5 +95,3 @@ private:
     std::unique_ptr<ov::Core> ov_core_;
     std::unique_ptr<ov::CompiledModel> compiled_model_;
 };
-
-

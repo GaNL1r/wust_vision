@@ -234,4 +234,3 @@ private:
     Eigen::Vector3d P1_, P2_;
     Eigen::Matrix3d K_;
 };
-

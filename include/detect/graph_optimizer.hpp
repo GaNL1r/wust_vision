@@ -82,4 +82,3 @@ private:
     Eigen::Vector3d t_;
     Eigen::Matrix3d K_;
 };
-

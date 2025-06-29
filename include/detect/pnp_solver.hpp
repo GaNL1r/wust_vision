@@ -126,5 +126,3 @@ private:
     cv::Mat distortion_coefficients_;
     cv::SolvePnPMethod method_;
 };
-
-

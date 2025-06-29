@@ -824,4 +824,3 @@ struct fmt::formatter<tf::Quaternion> {
         return fmt::format_to(ctx.out(), "{:.3f}, {:.3f}, {:.3f}, {:.3f}", q.w, q.x, q.y, q.z);
     }
 };
-

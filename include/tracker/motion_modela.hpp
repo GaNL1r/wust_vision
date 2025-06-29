@@ -78,4 +78,3 @@ struct Measure {
 
 using RobotStateEKF = ExtendedKalmanFilter<X_N, Z_N, Predict, Measure>;
 } // namespace armor_motion_model
-

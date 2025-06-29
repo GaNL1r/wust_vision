@@ -37,7 +37,7 @@ public:
     };
 
 public:
-    // Construct a new OpenVINO Detector object
+    // Construct a new Trt Detector object
     explicit RuneDetectorTrt(const std::filesystem::path& model_path, const Params& params);
     ~RuneDetectorTrt();
 
@@ -53,7 +53,7 @@ public:
     // Detect R tag using traditional method
     // Return the center of the R tag and binary roi image (for debug)
     std::tuple<cv::Point2f, cv::Mat>
-    detectRTag(const cv::Mat& img, int binary_thresh, const cv::Point2f& prior);
+    detectRTag(const cv::Mat& img, int binary_thresh, const cv::Point2f& prior, bool precise);
 
 private:
     // Do inference and call the infer_callback_ after inference
@@ -73,6 +73,8 @@ private:
         int num_detections,
         const Eigen::Matrix<float, 3, 3>& transform_matrix
     );
+    bool extractImage(const cv::Mat& src, RuneObject& rune);
+    void detectTarget(RuneObject& rune);
 
 private:
     std::string model_path_;
@@ -100,5 +102,3 @@ private:
 
     nvinfer1::IRuntime* runtime_ = nullptr;
 };
-
-

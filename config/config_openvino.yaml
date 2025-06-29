@@ -116,7 +116,7 @@ control:
   alpha_yaw: 0.9
   control_rate: 1000
   device_name: /dev/ttyACM0
-  max_pitch_change: 50
+  max_pitch_change: 5
   max_yaw_change: 10
   use_nav: false
   use_serial: false
@@ -138,8 +138,9 @@ only_nav_enable: false
 rune_detector:
   confidence_threshold: 0.5
   detect_r_tag: true
+  use_manual_r: false
   device_type: GPU
-  min_lightness: 80
+  min_lightness: 100
   model: /home/hy/wust_vision/model/yolox_rune_3.6m.onnx
   nms_threshold: 0.3
   top_k: 128

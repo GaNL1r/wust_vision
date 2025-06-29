@@ -122,4 +122,3 @@ private:
 
     std::vector<DistMapNode> angle_offset_map_;
 };
-

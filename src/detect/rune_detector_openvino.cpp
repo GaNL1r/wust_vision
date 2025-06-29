@@ -417,8 +417,12 @@ bool RuneDetectorOpenvino::processCallback(
     return false;
 }
 
-std::tuple<cv::Point2f, cv::Mat>
-RuneDetectorOpenvino::detectRTag(const cv::Mat& img, int binary_thresh, const cv::Point2f& prior) {
+std::tuple<cv::Point2f, cv::Mat> RuneDetectorOpenvino::detectRTag(
+    const cv::Mat& img,
+    int binary_thresh,
+    const cv::Point2f& prior,
+    bool precise
+) {
     if (!img.data || img.cols <= 0 || img.rows <= 0) {
         std::cerr << "[detectRTag] Invalid input image." << std::endl;
         return {};
@@ -432,17 +436,25 @@ RuneDetectorOpenvino::detectRTag(const cv::Mat& img, int binary_thresh, const cv
     int px = static_cast<int>(std::floor(prior.x));
     int py = static_cast<int>(std::floor(prior.y));
     if (px < 0 || px >= img.cols || py < 0 || py >= img.rows) {
+        std::cerr << "[detectRTag] Prior out of bounds: " << prior
+                  << " for image size: " << img.cols << "x" << img.rows << std::endl;
         return { prior, cv::Mat::zeros(cv::Size(200, 200), CV_8UC3) };
     }
 
     // ROI calculation
-    cv::Rect roi =
-        cv::Rect(prior.x - 100, prior.y - 100, 200, 200) & cv::Rect(0, 0, img.cols, img.rows);
+    cv::Rect roi;
+    if (precise) {
+        roi = cv::Rect(prior.x - 30, prior.y - 30, 60, 60) & cv::Rect(0, 0, img.cols, img.rows);
+    } else {
+        roi = cv::Rect(prior.x - 100, prior.y - 100, 200, 200) & cv::Rect(0, 0, img.cols, img.rows);
+    }
 
     if (roi.width == 0 || roi.height == 0) {
         std::cerr << "[detectRTag] ROI is zero-sized: " << roi << std::endl;
         return { prior, cv::Mat::zeros(200, 200, CV_8UC3) };
     }
+
+    // Create ROI
 
     const cv::Point2f prior_in_roi = prior - cv::Point2f(roi.tl());
 

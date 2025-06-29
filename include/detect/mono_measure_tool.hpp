@@ -98,6 +98,16 @@ public:
         cv::Mat& rvec,
         std::string& armor_type
     );
+    bool projectRTargetToImage(
+        const Eigen::Matrix4d& TRodom,
+        const Eigen::Matrix4d& T_camera_to_odom,
+        std::vector<cv::Point2f>& manual_r_box
+    );
+    bool calcRTarget(
+        const std::vector<cv::Point2f>& manual_r_box,
+        Eigen::Matrix4d& TRodom,
+        const Eigen::Matrix4d& T_camera_to_odom
+    );
 
     float calcDistanceToCenter(const ArmorObject& obj);
 
@@ -115,6 +125,7 @@ public:
     static std::vector<cv::Point3f> BIG_ARMOR_3D_POINTS;
     static std::vector<cv::Point3f> SMALL_ARMOR_3D_POINTS_NET;
     static std::vector<cv::Point3f> BIG_ARMOR_3D_POINTS_NET;
+    static std::vector<cv::Point3f> R_BOX_POINTS;
     cv::Mat camera_intrinsic_; // 相机内参3*3
     cv::Mat camera_distortion_; // 相机畸变参数1*5
 
@@ -127,4 +138,3 @@ private:
 
     double fx_ { 0 }, fy_ { 0 }, u0_ { 0 }, v0_ { 0 };
 };
-

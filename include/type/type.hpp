@@ -443,6 +443,8 @@ struct RuneObject {
     float prob;
     FeaturePoints pts;
     cv::Rect box;
+    cv::Mat M;
+    cv::Mat target_img;
 };
 struct RunePoint {
     float x;
@@ -499,4 +501,17 @@ inline std::string armorTypeToString(const ArmorType& type) {
         default:
             return "invalid";
     }
+}
+inline cv::Point2f computeCenter(const std::vector<cv::Point2f>& points) {
+    if (points.empty()) {
+        return cv::Point2f(0.f, 0.f);
+    }
+
+    float sum_x = 0.f;
+    float sum_y = 0.f;
+    for (const auto& pt: points) {
+        sum_x += pt.x;
+        sum_y += pt.y;
+    }
+    return cv::Point2f(sum_x / points.size(), sum_y / points.size());
 }

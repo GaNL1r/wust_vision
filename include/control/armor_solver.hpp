@@ -114,5 +114,3 @@ private:
     std::array<double, 3> rpy_ { 0, 0, 0 }; // roll, pitch, yaw
     std::string solver_logger = "armor_solver";
 };
-
-

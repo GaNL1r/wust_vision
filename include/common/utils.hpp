@@ -89,5 +89,3 @@ inline Eigen::MatrixXd cvToEigen(const cv::Mat& cv_mat) noexcept {
 }
 
 } // namespace utils
-
-

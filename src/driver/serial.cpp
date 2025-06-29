@@ -112,7 +112,6 @@ void Serial::receiveData() {
     WUST_INFO(serial_logger) << "receiveData started";
 
     std::vector<uint8_t> buffer(sizeof(ReceiveAimINFO));
-    constexpr int RECEIVE_TIMEOUT_MS = 5; // 5ms 超时可调
     int retry_count = 0;
 
     while (this->running_) {
@@ -140,42 +139,6 @@ void Serial::receiveData() {
 
     WUST_INFO(serial_logger) << "receiveData stopped";
 }
-// void Serial::receiveData() {
-//   WUST_INFO(serial_logger) << "receiveData started";
-
-//   std::vector<uint8_t> sof_buf(1);
-//   std::vector<uint8_t> header_buf;
-//   std::vector<uint8_t> data_buf;
-
-//   int sof_count = 0;
-//   int retry_count = 0;
-
-//   while (running_) {
-
-//     if (!is_usb_ok_) {
-//       WUST_WARN(serial_logger)
-//           << "eceive: usb is not ok! Retry count: " << retry_count++;
-//       std::this_thread::sleep_for(
-//           std::chrono::milliseconds(USB_NOT_OK_SLEEP_MS));
-//       continue;
-//     }
-
-//     try {
-
-//       sof_buf.resize(39);
-//       driver_.receive(sof_buf);
-
-//       auto aim = fromVector<ReceiveAimINFO>(sof_buf);
-//       aim_cbk(aim);
-
-//     } catch (const std::exception &ex) {
-//       WUST_ERROR(serial_logger) << "receiveData exception: " << ex.what();
-//       is_usb_ok_ = false; // 触发重连逻辑
-//     }
-//   }
-
-//   WUST_INFO(serial_logger) << "receiveData stopped";
-// }
 
 void Serial::aim_cbk(ReceiveAimINFO& aim_data) {
     static int last_reset_count = -1;
@@ -186,9 +149,9 @@ void Serial::aim_cbk(ReceiveAimINFO& aim_data) {
         return;
     }
 
-    double roll = (aim_data.roll + gobal::odom2gimbal_roll) * M_PI / 180.0;
-    double pitch = (aim_data.pitch + gobal::odom2gimbal_pitch) * M_PI / 180.0;
-    double yaw = (aim_data.yaw + gobal::odom2gimbal_yaw) * M_PI / 180.0;
+    double roll = (aim_data.roll) * M_PI / 180.0;
+    double pitch = (aim_data.pitch) * M_PI / 180.0;
+    double yaw = (aim_data.yaw) * M_PI / 180.0;
 
     gobal::last_pitch = pitch;
     gobal::last_roll = roll;
@@ -252,26 +215,22 @@ void Serial::sendData() {
     }
 }
 void Serial::transformGimbalCmd(GimbalCmd& gimbal_cmd, bool appear) {
-    if (appear) {
-        auto limit = [](double val, double max_change) {
-            return std::clamp(val, -max_change, max_change);
-        };
+    auto limit = [](double val, double max_change) {
+        return std::clamp(val, -max_change, max_change);
+    };
 
-        double delta_yaw = gimbal_cmd.yaw - serial_last_yaw;
-        double delta_pitch = gimbal_cmd.pitch - serial_last_pitch;
+    double delta_yaw = gimbal_cmd.yaw - serial_last_yaw;
+    double delta_pitch = gimbal_cmd.pitch - serial_last_pitch;
 
-        delta_yaw = limit(delta_yaw, max_yaw_change);
-        delta_pitch = limit(delta_pitch, max_pitch_change);
+    delta_yaw = limit(delta_yaw, max_yaw_change);
+    delta_pitch = limit(delta_pitch, max_pitch_change);
 
-        send_robot_cmd_data_.yaw = serial_last_yaw + alpha_yaw * delta_yaw;
-        send_robot_cmd_data_.pitch = serial_last_pitch + alpha_pitch * delta_pitch;
+    send_robot_cmd_data_.yaw = serial_last_yaw + alpha_yaw * delta_yaw;
+    send_robot_cmd_data_.pitch = serial_last_pitch + alpha_pitch * delta_pitch;
 
-        serial_last_yaw = send_robot_cmd_data_.yaw;
-        serial_last_pitch = send_robot_cmd_data_.pitch;
-    } else {
-        send_robot_cmd_data_.yaw = serial_last_yaw;
-        send_robot_cmd_data_.pitch = serial_last_pitch;
-    }
+    serial_last_yaw = send_robot_cmd_data_.yaw;
+    serial_last_pitch = send_robot_cmd_data_.pitch;
+
     // std::cout<<"yaw: "<<send_robot_cmd_data_.yaw<<" pitch:
     // "<<send_robot_cmd_data_.pitch<<std::endl;
     send_robot_cmd_data_.distance = gimbal_cmd.distance;

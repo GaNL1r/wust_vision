@@ -27,13 +27,13 @@ public:
     void captureLoop();
 
     void printStats();
-    void DetectCallback(
+    void ArmorDetectCallback(
         const std::vector<ArmorObject>& objs,
         std::chrono::steady_clock::time_point timestamp,
         const cv::Mat& src_img,
         Eigen::Matrix4d T_camera_to_odom
     );
-    void inferResultCallback(
+    void RuneDetectCallback(
         std::vector<RuneObject>& rune_objects,
         std::chrono::steady_clock::time_point timestamp,
         const cv::Mat& img,
@@ -53,6 +53,8 @@ public:
     void runeTargetCallback(const Rune rune_target, Eigen::Matrix4d T_camera_to_odom);
     void update();
     void initRune(const std::string& camera_info_path);
+    void calculation_manual_r(const cv::Mat& src_img);
+    static void onMouse(int event, int x, int y, int, void* userdata);
     // Armors visualizeTargetProjection(Target armor_target_);
     Armors
     visualizeTargetProjection(Target armor_target_, std::vector<OneTarget> one_armor_targets_);
@@ -124,4 +126,12 @@ public:
 
     std::unique_ptr<ArmorDetectorBase> armor_detector_;
     std::unique_ptr<RuneDetectorBase> rune_detector_;
+
+    static std::vector<cv::Point2f> clicked_points_;
+    bool manual_r_init = false;
+    cv::Point2f manual_r_center;
+    std::vector<cv::Point2f> manual_r_box;
+    bool use_manual_r = false;
+    std::atomic<bool> manual_r_runing = false;
+    Eigen::Matrix4d T_r;
 };

@@ -22,5 +22,5 @@ public:
 
     virtual void setCallback(CallbackType cb) = 0;
     virtual std::tuple<cv::Point2f, cv::Mat>
-    detectRTag(const cv::Mat& img, int binary_thresh, const cv::Point2f& prior) = 0;
+    detectRTag(const cv::Mat& img, int binary_thresh, const cv::Point2f& prior, bool precise) = 0;
 };

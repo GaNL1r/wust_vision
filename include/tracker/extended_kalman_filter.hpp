@@ -150,4 +150,3 @@ private:
     // Posteriori state
     MatrixX1 x_post;
 };
-

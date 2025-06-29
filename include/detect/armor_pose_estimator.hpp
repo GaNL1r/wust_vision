@@ -65,4 +65,3 @@ private:
     std::unique_ptr<BaSolver> ba_solver_;
     std::unique_ptr<PnPSolver> pnp_solver_;
 };
-
