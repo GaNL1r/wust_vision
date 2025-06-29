@@ -13,8 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RUNE_SOLVER_RUNE_SOLVER_HPP_
-#define RUNE_SOLVER_RUNE_SOLVER_HPP_
+#pragma once
 
 // std
 #include <algorithm>
@@ -123,4 +122,4 @@ private:
     Eigen::Vector4d ekf_state_;
 };
 
-#endif // RUNE_SOLVER_SOLVER_HPP_
+#pragma once

@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef STANDARD_ROBOT_PP_ROS2__PACKET_TYPEDEF_HPP_
-#define STANDARD_ROBOT_PP_ROS2__PACKET_TYPEDEF_HPP_
+#pragma once
 
 #include <algorithm>
 #include <cstdint>
@@ -406,5 +405,3 @@ inline std::vector<uint8_t> toVector(const T& data) {
     );
     return packet;
 }
-
-#endif // STANDARD_ROBOT_PP_ROS2__PACKET_TYPEDEF_HPP_

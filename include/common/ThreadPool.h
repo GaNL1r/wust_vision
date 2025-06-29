@@ -1,7 +1,5 @@
-#ifndef ARMOR_DETECTOR_OPENVINO__THREADPOOL_H
-#define ARMOR_DETECTOR_OPENVINO__THREADPOOL_H
-
 #pragma once
+
 
 #include <atomic>
 #include <chrono>
@@ -178,4 +176,3 @@ inline void SetRealtimePriority(int priority = 90) {
     }
 }
 
-#endif // ARMOR_DETECTOR_OPENVINO__THREADPOOL_H

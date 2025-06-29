@@ -11,9 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-#ifndef ARMOR_SOLVER_MOTION_MODEL_HPP_
-#define ARMOR_SOLVER_MOTION_MODEL_HPP_
+#pragma once
 
 // ceres
 #include <ceres/ceres.h>
@@ -81,4 +79,3 @@ struct Measure {
 using RobotStateEKF = ExtendedKalmanFilter<X_N, Z_N, Predict, Measure>;
 } // namespace armor_motion_model
 
-#endif

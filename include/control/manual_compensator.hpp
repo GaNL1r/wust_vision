@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RM_UTILS_MANUAL_COMPENSATOR_HPP_
-#define RM_UTILS_MANUAL_COMPENSATOR_HPP_
+#pragma once
 
 #include <algorithm>
 #include <sstream>
@@ -124,4 +123,3 @@ private:
     std::vector<DistMapNode> angle_offset_map_;
 };
 
-#endif

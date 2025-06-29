@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ARMOR_DETECTOR_TENSORRT__TRT_MODULE_HPP_
-#define ARMOR_DETECTOR_TENSORRT__TRT_MODULE_HPP_
+#pragma once
 
 #include <memory>
 #include <string>
@@ -134,5 +133,3 @@ private:
     std::string classify_label_path_;
     std::vector<std::string> class_names_;
 };
-
-#endif // ARMOR_DETECTOR_TENSORRT__TRT_MODULE_HPP_

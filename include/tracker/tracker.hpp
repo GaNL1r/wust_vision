@@ -18,8 +18,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ARMOR_SOLVER_TRACKER_HPP_
-#define ARMOR_SOLVER_TRACKER_HPP_
+#pragma once
 
 // std
 #include <memory>
@@ -112,5 +111,3 @@ private:
     std::string tracker_logger = "tracker";
     std::deque<std::chrono::steady_clock::time_point> armor_jump_timestamps_;
 };
-
-#endif // ARMOR_SOLVER_TRACKER_HPP_

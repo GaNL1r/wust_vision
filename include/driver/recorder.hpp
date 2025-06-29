@@ -13,9 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RM_CAMERA_DRIVER_RECORDER_HPP_
-#define RM_CAMERA_DRIVER_RECORDER_HPP_
-
+#pragma once
 // std
 #include <atomic>
 #include <condition_variable>
@@ -54,4 +52,4 @@ private:
     std::thread recorder_thread_;
 };
 
-#endif // RM_CAMERA_DRIVER_RECORDER_HPP_
+

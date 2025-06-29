@@ -16,8 +16,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RUNE_DETECTOR_RUNE_DETECTOR_HPP_
-#define RUNE_DETECTOR_RUNE_DETECTOR_HPP_
+#pragma once
 
 // std
 #include <filesystem>
@@ -97,4 +96,4 @@ private:
     std::unique_ptr<ov::CompiledModel> compiled_model_;
 };
 
-#endif // RUNE_DETECTOR_RUNE_DETECTOR_HPP_
+

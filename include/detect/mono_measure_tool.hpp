@@ -13,8 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ARMOR_DETECTOR_TENSORRT__MONO_MEASURE_TOOL_HPP_
-#define ARMOR_DETECTOR_TENSORRT__MONO_MEASURE_TOOL_HPP_
+#pragma once
 
 #include <string>
 #include <vector>
@@ -129,4 +128,3 @@ private:
     double fx_ { 0 }, fy_ { 0 }, u0_ { 0 }, v0_ { 0 };
 };
 
-#endif // ARMOR_DETECTOR_TENSORRT__MONO_MEASURE_TOOL_HPP_

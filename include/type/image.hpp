@@ -1,5 +1,4 @@
-#ifndef IMAGE_HPP_
-#define IMAGE_HPP_
+#pragma once
 #include "MvCameraControl.h"
 #include "opencv2/opencv.hpp"
 
@@ -73,4 +72,3 @@ inline cv::Mat convertToMatbgr(const ImageFrame& frame) {
 //     return rgb.clone();
 // }
 
-#endif

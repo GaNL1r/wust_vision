@@ -1,5 +1,4 @@
-#ifndef TF2_HPP
-#define TF2_HPP
+#pragma once
 
 #include "Eigen/Dense"
 #include "fmt/format.h"
@@ -826,4 +825,3 @@ struct fmt::formatter<tf::Quaternion> {
     }
 };
 
-#endif // TF_HPP

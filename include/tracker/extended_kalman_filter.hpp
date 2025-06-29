@@ -19,8 +19,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RM_UTILS_KALMAN_FILTER_HPP_
-#define RM_UTILS_KALMAN_FILTER_HPP_
+#pragma once
 
 // std
 #include <functional>
@@ -152,4 +151,3 @@ private:
     MatrixX1 x_post;
 };
 
-#endif // RM_UTILS_KALMAN_FILTER_HPP_

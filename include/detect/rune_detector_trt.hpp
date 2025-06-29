@@ -1,7 +1,4 @@
-
-
-#ifndef RUNE_DETECTOR_RUNE_DETECTOR_TRT_HPP_
-#define RUNE_DETECTOR_RUNE_DETECTOR_TRT_HPP_
+#pragma once
 
 // std
 #include <filesystem>
@@ -104,4 +101,4 @@ private:
     nvinfer1::IRuntime* runtime_ = nullptr;
 };
 
-#endif // RUNE_DETECTOR_RUNE_DETECTOR_HPP_
+

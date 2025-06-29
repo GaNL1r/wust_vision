@@ -13,9 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RM_UTILS_TRAJECTORY_COMPENSATOR_HPP_
-#define RM_UTILS_TRAJECTORY_COMPENSATOR_HPP_
-
+#pragma once
 #include <Eigen/Dense>
 #include <memory>
 #include <tuple>
@@ -78,4 +76,4 @@ private:
     ~CompensatorFactory() = delete;
 };
 
-#endif
+

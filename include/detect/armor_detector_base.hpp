@@ -1,4 +1,4 @@
-// detector_base.hpp
+
 #pragma once
 #include "type/type.hpp"
 #include <opencv2/core/mat.hpp>

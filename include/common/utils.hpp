@@ -13,8 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RM_UTILS_UTILS_HPP_
-#define RM_UTILS_UTILS_HPP_
+#pragma once
 
 #include <Eigen/Dense>
 #include <opencv2/calib3d.hpp>
@@ -91,4 +90,4 @@ inline Eigen::MatrixXd cvToEigen(const cv::Mat& cv_mat) noexcept {
 
 } // namespace utils
 
-#endif
+

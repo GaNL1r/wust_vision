@@ -14,8 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ARMOR_DETECTOR_LIGHT_CORNER_CORRECTOR_HPP_
-#define ARMOR_DETECTOR_LIGHT_CORNER_CORRECTOR_HPP_
+#pragma once
 
 // opencv
 #include <opencv2/opencv.hpp>
@@ -53,4 +52,4 @@ private:
     );
 };
 
-#endif // ARMOR_DETECTOR_LIGHT_CORNER_CORRECTOR_HPP_
+

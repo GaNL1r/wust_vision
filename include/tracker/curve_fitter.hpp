@@ -14,8 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RUNE_SOLVER_CURVE_FITTER_HPP_
-#define RUNE_SOLVER_CURVE_FITTER_HPP_
+#pragma once
 
 // std
 #include <future>
@@ -116,5 +115,3 @@ private:
         const double mov_;
     };
 };
-
-#endif // RUNE_SOLVER_CURVE_FITTER_HPP_

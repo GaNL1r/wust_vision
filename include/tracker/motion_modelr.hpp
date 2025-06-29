@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RUNE_SOLVER_EKF_FUNCTIONS_HPP_
-#define RUNE_SOLVER_EKF_FUNCTIONS_HPP_
+#pragma once
 
 #include <ceres/ceres.h>
 
@@ -43,5 +42,3 @@ struct Measure {
 
 using RuneCenterEKF = ExtendedKalmanFilter<X_N, Z_N, Predict, Measure>;
 } // namespace rune_motion_model
-
-#endif

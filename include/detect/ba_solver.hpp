@@ -14,9 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ARMOR_DETECTOR_BA_SOLVER_HPP_
-#define ARMOR_DETECTOR_BA_SOLVER_HPP_
-
+#pragma once
 // std
 #include <array>
 #include <cstddef>
@@ -237,4 +235,3 @@ private:
     Eigen::Matrix3d K_;
 };
 
-#endif // ARMOR_DETECTOR_BAS_SOLVER_HPP_

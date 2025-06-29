@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ARMOR_DETECTOR_ARMOR_POSE_ESTIMATOR_HPP_
-#define ARMOR_DETECTOR_ARMOR_POSE_ESTIMATOR_HPP_
+#pragma once
 
 // std
 #include <array>
@@ -67,4 +66,3 @@ private:
     std::unique_ptr<PnPSolver> pnp_solver_;
 };
 
-#endif // ARMOR_POSE_ESTIMATOR_HPP_

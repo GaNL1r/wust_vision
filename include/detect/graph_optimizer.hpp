@@ -14,9 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ARMOR_DETECTOR_GRAPH_OPTIMIZER_HPP_
-#define ARMOR_DETECTOR_GRAPH_OPTIMIZER_HPP_
-
+#pragma once
 // std
 #include <array>
 // g2o
@@ -85,4 +83,3 @@ private:
     Eigen::Matrix3d K_;
 };
 
-#endif // ARMOR_DETECTOR_GRAPH_OPTIMIZER_HPP_

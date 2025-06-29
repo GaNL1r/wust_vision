@@ -561,7 +561,6 @@ Armors WustVision::visualizeTargetProjection(
                                                    .pos = pos,
                                                    .ori = ori,
                                                    .is_ok = true,
-                                                   //.target_pos = {xc, yc, zc},
                                                    .distance_to_image_center = 0.0f });
         }
     }

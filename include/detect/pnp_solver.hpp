@@ -13,8 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RM_UTILS_PNP_SOLVER_HPP_
-#define RM_UTILS_PNP_SOLVER_HPP_
+#pragma once
 
 #include <Eigen/Dense>
 #include <iostream>
@@ -128,4 +127,4 @@ private:
     cv::SolvePnPMethod method_;
 };
 
-#endif // RM_UTILS_PNP_SOLVER_HPP_
+

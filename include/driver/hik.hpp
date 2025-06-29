@@ -1,5 +1,4 @@
-#ifndef HIK_HPP
-#define HIK_HPP
+#pragma once
 
 #include "MvCameraControl.h"
 #include "common/ThreadPool.h"
@@ -58,5 +57,3 @@ private:
     std::function<void(const ImageFrame&, Eigen::Matrix3d)> on_frame_callback_;
     std::unique_ptr<Recorder> recorder_;
 };
-
-#endif // HIK_HPP

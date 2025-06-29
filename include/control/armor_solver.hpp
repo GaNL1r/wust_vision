@@ -1,5 +1,4 @@
-#ifndef ARMOR_SOLVER_SOLVER_HPP_
-#define ARMOR_SOLVER_SOLVER_HPP_
+#pragma once
 
 // std
 #include <array> // std::array :contentReference[oaicite:1]{index=1}
@@ -116,4 +115,4 @@ private:
     std::string solver_logger = "armor_solver";
 };
 
-#endif // ARMOR_SOLVER_SOLVER_HPP_
+

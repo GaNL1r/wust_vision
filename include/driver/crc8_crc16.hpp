@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef STANDARD_ROBOT_PP_ROS2__CRC8_CRC16_HPP_
-#define STANDARD_ROBOT_PP_ROS2__CRC8_CRC16_HPP_
-
+#pragma once
 #include <cstdint>
 #include <vector>
 
@@ -37,4 +35,4 @@ extern void append_CRC16_check_sum(uint8_t* pchMessage, uint32_t dwLength);
 
 extern bool verify_CRC16_check_sum(std::vector<uint8_t>& pchMessage);
 } // namespace crc16
-#endif // STANDARD_ROBOT_PP_ROS2__CRC8_CRC16_HPP_
+
