@@ -43,86 +43,84 @@
 //   4. cmd = solveGimbalCmd(p), to get the gimbal command
 class RuneSolver {
 public:
-  struct RuneSolverParams {
-    std::string compensator_type;
-    double gravity;
-    double bullet_speed;
-    double angle_offset_thres;
-    double lost_time_thres;
-    bool auto_type_determined;
-  };
+    struct RuneSolverParams {
+        std::string compensator_type;
+        double gravity;
+        double bullet_speed;
+        double angle_offset_thres;
+        double lost_time_thres;
+        bool auto_type_determined;
+    };
 
-  enum State {
-    LOST,
-    DETECTING,
-    TRACKING,
-  } tracker_state;
+    enum State {
+        LOST,
+        DETECTING,
+        TRACKING,
+    } tracker_state;
 
-  RuneSolver(const RuneSolverParams &sr_params);
+    RuneSolver(const RuneSolverParams& sr_params);
 
-  // Return: initial angle
-  double init(const Rune received_target, Eigen::Matrix4d T_camera_to_odom);
+    // Return: initial angle
+    double init(const Rune received_target, Eigen::Matrix4d T_camera_to_odom);
 
-  // Return: normalized angle
-  double update(const Rune receive_target, Eigen::Matrix4d T_camera_to_odom);
+    // Return: normalized angle
+    double update(const Rune receive_target, Eigen::Matrix4d T_camera_to_odom);
 
-  // Return: normalized predicted angle
-  double predictTarget(Eigen::Vector3d &predicted_position, double timestamp);
+    // Return: normalized predicted angle
+    double predictTarget(Eigen::Vector3d& predicted_position, double timestamp);
 
-  // Return: transormation matrix from rune to odom
-  // Throws: tf::TransformException or std::runtime_error
-  Eigen::Matrix4d solvePose(const Rune &target,
-                            Eigen::Matrix4d T_camera_to_odom);
+    // Return: transormation matrix from rune to odom
+    // Throws: tf::TransformException or std::runtime_error
+    Eigen::Matrix4d solvePose(const Rune& target, Eigen::Matrix4d T_camera_to_odom);
 
-  GimbalCmd solveGimbalCmd(const Eigen::Vector3d &target);
+    GimbalCmd solveGimbalCmd(const Eigen::Vector3d& target);
 
-  // Return: 3d position of R tag
-  Eigen::Vector3d getCenterPosition() const;
+    // Return: 3d position of R tag
+    Eigen::Vector3d getCenterPosition() const;
 
-  // Param: angle_diff: how much the angle target should prerotate, 0 for no
-  // prediction Return: 3d position of target to be aimed at
-  Eigen::Vector3d getTargetPosition(double angle_diff) const;
+    // Param: angle_diff: how much the angle target should prerotate, 0 for no
+    // prediction Return: 3d position of target to be aimed at
+    Eigen::Vector3d getTargetPosition(double angle_diff) const;
 
-  double getCurAngle() const;
+    double getCurAngle() const;
 
-  GimbalCmd solve();
+    GimbalCmd solve();
 
-  // Solvers
-  std::unique_ptr<PnPSolver> pnp_solver;
-  std::unique_ptr<TrajectoryCompensator> trajectory_compensator;
-  std::unique_ptr<CurveFitter> curve_fitter;
-  std::unique_ptr<rune_motion_model::RuneCenterEKF> ekf;
-  std::unique_ptr<ManualCompensator> manual_compensator;
+    // Solvers
+    std::unique_ptr<PnPSolver> pnp_solver;
+    std::unique_ptr<TrajectoryCompensator> trajectory_compensator;
+    std::unique_ptr<CurveFitter> curve_fitter;
+    std::unique_ptr<rune_motion_model::RuneCenterEKF> ekf;
+    std::unique_ptr<ManualCompensator> manual_compensator;
 
-  RuneSolverParams rune_solver_params;
-  double predict_offset_;
-  double last_pre_angle;
+    RuneSolverParams rune_solver_params;
+    double predict_offset_;
+    double last_pre_angle;
 
 private:
-  double getNormalAngle(const Rune received_target);
+    double getNormalAngle(const Rune received_target);
 
-  double getObservedAngle(double normal_angle);
+    double getObservedAngle(double normal_angle);
 
-  // Return the centroid of the input armor points
-  cv::Point2f getCenterPoint(
-      const std::array<cv::Point2f, ARMOR_KEYPOINTS_NUM> &armor_points);
+    // Return the centroid of the input armor points
+    cv::Point2f getCenterPoint(const std::array<cv::Point2f, ARMOR_KEYPOINTS_NUM>& armor_points);
 
-  // Return ekf state
-  Eigen::Vector4d getStateFromTransform(const Eigen::Matrix4d &transform) const;
+    // Return ekf state
+    Eigen::Vector4d getStateFromTransform(const Eigen::Matrix4d& transform) const;
 
-  // Observation data
+    // Observation data
 
-  // last_observed_angle_ is continuously increasing (or decreasing)
-  // from the first detection (call init()) of the target without
-  // any abrupt change in between.
-  double last_observed_angle_;
+    // last_observed_angle_ is continuously increasing (or decreasing)
+    // from the first detection (call init()) of the target without
+    // any abrupt change in between.
+    double last_observed_angle_;
 
-  // last_angle_ would change (N * DEG_72) when the target jumps
-  double last_angle_;
-  double start_time_;
-  double last_time_;
+    // last_angle_ would change (N * DEG_72) when the target jumps
+    double last_angle_;
+    double start_time_;
+    double last_time_;
 
-  Eigen::Vector4d ekf_state_;
+    Eigen::Vector4d ekf_state_;
 };
 
 #endif // RUNE_SOLVER_SOLVER_HPP_

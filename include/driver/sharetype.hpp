@@ -7,15 +7,15 @@
 #include <unistd.h>
 
 struct Vector3 {
-  double x;
-  double y;
-  double z;
+    double x;
+    double y;
+    double z;
 };
 
 struct TwistData {
-  pthread_mutex_t mutex;
-  Vector3 linear;
-  Vector3 angular;
+    pthread_mutex_t mutex;
+    Vector3 linear;
+    Vector3 angular;
 };
 // #define SHM_NAME "/twist_shared_memory"
 // #define SHM_SIZE sizeof(TwistData)

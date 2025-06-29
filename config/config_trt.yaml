@@ -93,12 +93,12 @@ armor_tracker:
   lost_time_thres: 0.5
   max_match_distance: 0.5
   max_match_yaw_diff: 0.5
-  max_match_z_diff: 0.2
+  max_match_z_diff: 0.1
   one_lost_time_thres: 0.1
   target_frame: gimbal_odom
   tracking_thres: 5
   use_ypd_tracker: true
-  v_yaw_to_one_thres: 0.1
+  v_yaw_to_one_thres: 0.5
   v_yaw_update_thres: 1.5
 camera:
   acquisition_frame_rate: 200
@@ -181,6 +181,6 @@ tf:
   odom2gimbal_pitch: 0
   odom2gimbal_roll: 0
   odom2gimbal_yaw: 0
-use_armor_detect_opencv: false
+use_armor_detect_opencv: true
 use_auto_labeler: false
 use_calculation: false

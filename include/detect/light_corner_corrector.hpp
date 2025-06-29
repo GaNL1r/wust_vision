@@ -23,9 +23,9 @@
 #include "common/tools.hpp"
 
 struct SymmetryAxis {
-  cv::Point2f centroid;
-  cv::Point2f direction;
-  float mean_val; // Mean brightness
+    cv::Point2f centroid;
+    cv::Point2f direction;
+    float mean_val; // Mean brightness
 };
 
 // This class is used to improve the precision of the corner points of the light
@@ -34,19 +34,23 @@ struct SymmetryAxis {
 // bar based on the gradient of brightness.
 class LightCornerCorrector {
 public:
-  explicit LightCornerCorrector() noexcept {}
+    explicit LightCornerCorrector() noexcept {}
 
-  // Correct the corners of the armor's lights
-  void correctCorners(ArmorObject &armor) noexcept;
-  void correctCorners_nonmatch(ArmorObject &armor) noexcept;
+    // Correct the corners of the armor's lights
+    void correctCorners(ArmorObject& armor) noexcept;
+    void correctCorners_nonmatch(ArmorObject& armor) noexcept;
 
 private:
-  // Find the symmetry axis of the light
-  SymmetryAxis findSymmetryAxis(const cv::Mat &gray_img, const Light &light);
+    // Find the symmetry axis of the light
+    SymmetryAxis findSymmetryAxis(const cv::Mat& gray_img, const Light& light);
 
-  // Find the corner of the light
-  cv::Point2f findCorner(const cv::Mat &gray_img, const Light &light,
-                         const SymmetryAxis &axis, std::string order);
+    // Find the corner of the light
+    cv::Point2f findCorner(
+        const cv::Mat& gray_img,
+        const Light& light,
+        const SymmetryAxis& axis,
+        std::string order
+    );
 };
 
 #endif // ARMOR_DETECTOR_LIGHT_CORNER_CORRECTOR_HPP_

@@ -29,29 +29,29 @@
 
 class Recorder {
 public:
-  using imgFrame = std::vector<unsigned char>;
-  Recorder(const std::filesystem::path &file, int fps, cv::Size size);
-  ~Recorder();
+    using imgFrame = std::vector<unsigned char>;
+    Recorder(const std::filesystem::path& file, int fps, cv::Size size);
+    ~Recorder();
 
-  void addFrame(const imgFrame &frame);
-  void start();
-  void stop();
+    void addFrame(const imgFrame& frame);
+    void start();
+    void stop();
 
-  std::filesystem::path path;
+    std::filesystem::path path;
 
 private:
-  void recorderThread();
+    void recorderThread();
 
-  cv::Size size_;
-  int fps_;
-  cv::VideoWriter writer_;
+    cv::Size size_;
+    int fps_;
+    cv::VideoWriter writer_;
 
-  std::deque<imgFrame> frame_queue_;
+    std::deque<imgFrame> frame_queue_;
 
-  std::mutex mutex_;
-  std::atomic<bool> recoring_;
-  std::condition_variable cv_;
-  std::thread recorder_thread_;
+    std::mutex mutex_;
+    std::atomic<bool> recoring_;
+    std::condition_variable cv_;
+    std::thread recorder_thread_;
 };
 
 #endif // RM_CAMERA_DRIVER_RECORDER_HPP_

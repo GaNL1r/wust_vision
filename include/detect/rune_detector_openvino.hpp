@@ -36,55 +36,65 @@
 #include "type/type.hpp"
 class RuneDetectorOpenvino {
 public:
-  using CallbackType = std::function<void(std::vector<RuneObject> &,
-                                          std::chrono::steady_clock::time_point,
-                                          const cv::Mat &, Eigen::Matrix4d)>;
+    using CallbackType = std::function<void(
+        std::vector<RuneObject>&,
+        std::chrono::steady_clock::time_point,
+        const cv::Mat&,
+        Eigen::Matrix4d
+    )>;
 
 public:
-  // Construct a new OpenVINO Detector object
-  explicit RuneDetectorOpenvino(const std::filesystem::path &model_path,
-                                const std::string &device_name,
-                                float conf_threshold = 0.25, int top_k = 128,
-                                float nms_threshold = 0.3,
-                                bool auto_init = false);
+    // Construct a new OpenVINO Detector object
+    explicit RuneDetectorOpenvino(
+        const std::filesystem::path& model_path,
+        const std::string& device_name,
+        float conf_threshold = 0.25,
+        int top_k = 128,
+        float nms_threshold = 0.3,
+        bool auto_init = false
+    );
 
-  void init();
+    void init();
 
-  // Push an inference request to the detector
-  void pushInput(const cv::Mat &rgb_img,
-                 std::chrono::steady_clock::time_point timestamp,
-                 Eigen::Matrix4d T_camera_to_odom);
+    // Push an inference request to the detector
+    void pushInput(
+        const cv::Mat& rgb_img,
+        std::chrono::steady_clock::time_point timestamp,
+        Eigen::Matrix4d T_camera_to_odom
+    );
 
-  void setCallback(CallbackType callback);
+    void setCallback(CallbackType callback);
 
-  // Detect R tag using traditional method
-  // Return the center of the R tag and binary roi image (for debug)
-  std::tuple<cv::Point2f, cv::Mat>
-  detectRTag(const cv::Mat &img, int binary_thresh, const cv::Point2f &prior);
-
-private:
-  // Do inference and call the infer_callback_ after inference
-  bool processCallback(const cv::Mat resized_img,
-                       Eigen::Matrix3f transform_matrix,
-                       std::chrono::steady_clock::time_point timestamp,
-                       const cv::Mat &src_img,
-                       Eigen::Matrix4d T_camera_to_odom);
+    // Detect R tag using traditional method
+    // Return the center of the R tag and binary roi image (for debug)
+    std::tuple<cv::Point2f, cv::Mat>
+    detectRTag(const cv::Mat& img, int binary_thresh, const cv::Point2f& prior);
 
 private:
-  std::string model_path_;
-  std::string device_name_;
-  float conf_threshold_;
-  int top_k_;
-  float nms_threshold_;
-  std::mutex mtx_;
-  std::vector<int> strides_;
-  std::vector<GridAndStride> grid_strides_;
+    // Do inference and call the infer_callback_ after inference
+    bool processCallback(
+        const cv::Mat resized_img,
+        Eigen::Matrix3f transform_matrix,
+        std::chrono::steady_clock::time_point timestamp,
+        const cv::Mat& src_img,
+        Eigen::Matrix4d T_camera_to_odom
+    );
 
-  CallbackType infer_callback_;
-  std::unique_ptr<ThreadPool> thread_pool_;
+private:
+    std::string model_path_;
+    std::string device_name_;
+    float conf_threshold_;
+    int top_k_;
+    float nms_threshold_;
+    std::mutex mtx_;
+    std::vector<int> strides_;
+    std::vector<GridAndStride> grid_strides_;
 
-  std::unique_ptr<ov::Core> ov_core_;
-  std::unique_ptr<ov::CompiledModel> compiled_model_;
+    CallbackType infer_callback_;
+    std::unique_ptr<ThreadPool> thread_pool_;
+
+    std::unique_ptr<ov::Core> ov_core_;
+    std::unique_ptr<ov::CompiledModel> compiled_model_;
 };
 
 #endif // RUNE_DETECTOR_RUNE_DETECTOR_HPP_

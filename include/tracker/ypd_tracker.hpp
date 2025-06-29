@@ -28,90 +28,93 @@
 #include "type/type.hpp"
 
 inline double normalizeAnglec(double angle) {
-  while (angle > M_PI)
-    angle -= 2 * M_PI;
-  while (angle < -M_PI)
-    angle += 2 * M_PI;
-  return angle;
+    while (angle > M_PI)
+        angle -= 2 * M_PI;
+    while (angle < -M_PI)
+        angle += 2 * M_PI;
+    return angle;
 }
 
 class YpdTracker {
 public:
-  YpdTracker(double max_match_distance, double max_match_yaw,
-             double max_match_z_diff_, double jump_thresh);
+    YpdTracker(
+        double max_match_distance,
+        double max_match_yaw,
+        double max_match_z_diff_,
+        double jump_thresh
+    );
 
-  void init(const Armors &armors_msg) noexcept;
-  void update(const Armors &armors_msg) noexcept;
-  void updatev_yaw(double v_yaw) noexcept;
+    void init(const Armors& armors_msg) noexcept;
+    void update(const Armors& armors_msg) noexcept;
+    void updatev_yaw(double v_yaw) noexcept;
 
-  enum State {
-    LOST,
-    DETECTING,
-    TRACKING,
-    TEMP_LOST,
-  } tracker_state;
+    enum State {
+        LOST,
+        DETECTING,
+        TRACKING,
+        TEMP_LOST,
+    } tracker_state;
 
-  std::unique_ptr<ypdarmor_motion_model::RobotStateEKF> ekf;
+    std::unique_ptr<ypdarmor_motion_model::RobotStateEKF> ekf;
 
-  int tracking_thres;
-  int lost_thres;
+    int tracking_thres;
+    int lost_thres;
 
-  Armor tracked_armor;
+    Armor tracked_armor;
 
-  ArmorNumber tracked_id;
-  ArmorsNum tracked_armors_num;
-  std::string type;
-  int retype;
-  Eigen::VectorXd measurement;
-  Eigen::VectorXd target_state;
+    ArmorNumber tracked_id;
+    ArmorsNum tracked_armors_num;
+    std::string type;
+    int retype;
+    Eigen::VectorXd measurement;
+    Eigen::VectorXd target_state;
 
-  double d_za, another_r;
-  double d_zc;
-  float yaw_diff_;
-  float position_diff_;
+    double d_za, another_r;
+    double d_zc;
+    float yaw_diff_;
+    float position_diff_;
 
-  double jump_thresh = 0.4;
+    double jump_thresh = 0.4;
 
-  // Eigen::Vector2f last_obs_position_;
-  // std::chrono::steady_clock::time_point last_obs_time_;
+    // Eigen::Vector2f last_obs_position_;
+    // std::chrono::steady_clock::time_point last_obs_time_;
 
-  // int xy_track_update_count_ = 0;
-  // std::deque<float> xy_velocity_diff_buffer_;
-  // int xy_inconsistent_count_ = 0;
-  // int xy_inconsistent_cooldown_ = 0;
+    // int xy_track_update_count_ = 0;
+    // std::deque<float> xy_velocity_diff_buffer_;
+    // int xy_inconsistent_count_ = 0;
+    // int xy_inconsistent_cooldown_ = 0;
 
-  // int max_xy_inconsistent_count_ = 3;
-  // int xy_inconsistent_cooldown_limit_ = 30;
-  // float max_xy_velocity_diff_thresh_ = 1.0f;  // m/s
+    // int max_xy_inconsistent_count_ = 3;
+    // int xy_inconsistent_cooldown_limit_ = 30;
+    // float max_xy_velocity_diff_thresh_ = 1.0f;  // m/s
 
 private:
-  void initEKF(const Armor &a) noexcept;
-  void handleArmorJump(const Armor &a) noexcept;
+    void initEKF(const Armor& a) noexcept;
+    void handleArmorJump(const Armor& a) noexcept;
 
-  double orientationToYaw(const tf::Quaternion &q) noexcept;
-  static Eigen::Vector3d
-  getArmorPositionFromState(const Eigen::VectorXd &x) noexcept;
+    double orientationToYaw(const tf::Quaternion& q) noexcept;
+    static Eigen::Vector3d getArmorPositionFromState(const Eigen::VectorXd& x) noexcept;
 
-  double max_match_distance_;
-  double max_match_yaw_diff_;
-  double max_match_z_diff_;
+    double max_match_distance_;
+    double max_match_yaw_diff_;
+    double max_match_z_diff_;
 
-  int detect_count_;
-  int lost_count_;
+    int detect_count_;
+    int lost_count_;
 
-  double last_yaw_;
+    double last_yaw_;
 
-  std::chrono::steady_clock::time_point last_track_time_;
-  std::deque<float> yaw_velocity_buffer_;
+    std::chrono::steady_clock::time_point last_track_time_;
+    std::deque<float> yaw_velocity_buffer_;
 
-  int track_update_count_ = 0;
-  bool if_have_last_track_ = false;
-  double last_track_yaw_;
+    int track_update_count_ = 0;
+    bool if_have_last_track_ = false;
+    double last_track_yaw_;
 
-  int rotation_inconsistent_count_ = 0;
+    int rotation_inconsistent_count_ = 0;
 
-  int rotation_inconsistent_cooldown_ = 0;
+    int rotation_inconsistent_cooldown_ = 0;
 
-  std::string tracker_logger = "ypdtracker";
-  std::deque<std::chrono::steady_clock::time_point> armor_jump_timestamps_;
+    std::string tracker_logger = "ypdtracker";
+    std::deque<std::chrono::steady_clock::time_point> armor_jump_timestamps_;
 };

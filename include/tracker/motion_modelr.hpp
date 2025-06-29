@@ -24,19 +24,21 @@ namespace rune_motion_model {
 constexpr int X_N = 4, Z_N = 4;
 
 struct Predict {
-  template <typename T> void operator()(const T x0[X_N], T x1[X_N]) {
-    for (int i = 0; i < X_N; ++i) {
-      x1[i] = x0[i];
+    template<typename T>
+    void operator()(const T x0[X_N], T x1[X_N]) {
+        for (int i = 0; i < X_N; ++i) {
+            x1[i] = x0[i];
+        }
     }
-  }
 };
 
 struct Measure {
-  template <typename T> void operator()(const T x[Z_N], T z[Z_N]) {
-    for (int i = 0; i < Z_N; ++i) {
-      z[i] = x[i];
+    template<typename T>
+    void operator()(const T x[Z_N], T z[Z_N]) {
+        for (int i = 0; i < Z_N; ++i) {
+            z[i] = x[i];
+        }
     }
-  }
 };
 
 using RuneCenterEKF = ExtendedKalmanFilter<X_N, Z_N, Predict, Measure>;

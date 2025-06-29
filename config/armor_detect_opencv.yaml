@@ -12,7 +12,7 @@ armor_detect_opencv:
     max_small_center_distance: 3.5
     min_large_center_distance: 3.5
     max_large_center_distance: 8.0
-    max_angle: 35.0
+    max_angle: 30.0
   classify_label_path: /home/hy/wust_vision/model/label.txt
   classify_model_path: /home/hy/wust_vision/model/mlp.onnx
   classifier_threshold: 0.5

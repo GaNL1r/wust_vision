@@ -33,54 +33,59 @@
 
 class ArmorDetectOpenCV {
 public:
-  using DetectorCallback = std::function<void(
-      const std::vector<ArmorObject> &, std::chrono::steady_clock::time_point,
-      const cv::Mat &, Eigen::Matrix4d)>;
+    using DetectorCallback = std::function<void(
+        const std::vector<ArmorObject>&,
+        std::chrono::steady_clock::time_point,
+        const cv::Mat&,
+        Eigen::Matrix4d
+    )>;
 
-  ArmorDetectOpenCV(const std::string &classify_model_path,
-                    const std::string &classify_label_path,
-                    const int &bin_thres, const double &classifier_threshold,
-                    const LightParams &l, const ArmorParams &a);
+    ArmorDetectOpenCV(
+        const std::string& classify_model_path,
+        const std::string& classify_label_path,
+        const int& bin_thres,
+        const double& classifier_threshold,
+        const LightParams& l,
+        const ArmorParams& a
+    );
 
-  std::vector<ArmorObject> detect(const cv::Mat &input) noexcept;
-  void pushInput(const cv::Mat &rgb_img,
-                 std::chrono::steady_clock::time_point timestamp,
-                 Eigen::Matrix4d T_camera_to_odom);
+    std::vector<ArmorObject> detect(const cv::Mat& input) noexcept;
+    void pushInput(
+        const cv::Mat& rgb_img,
+        std::chrono::steady_clock::time_point timestamp,
+        Eigen::Matrix4d T_camera_to_odom
+    );
 
-  cv::Mat preprocessImage(const cv::Mat &input, cv::Mat &gray_img_) noexcept;
-  std::vector<Light> findLights(const cv::Mat &rbg_img,
-                                const cv::Mat &binary_img) noexcept;
-  std::vector<ArmorObject>
-  matchLights(const std::vector<Light> &lights) noexcept;
+    cv::Mat preprocessImage(const cv::Mat& input, cv::Mat& gray_img_) noexcept;
+    std::vector<Light> findLights(const cv::Mat& rbg_img, const cv::Mat& binary_img) noexcept;
+    std::vector<ArmorObject> matchLights(const std::vector<Light>& lights) noexcept;
 
-  // For debug usage
+    // For debug usage
 
-  void initNumberClassifier();
-  cv::Mat extractNumber(const cv::Mat &src,
-                        const ArmorObject &armor) const noexcept;
-  bool classifyNumber(ArmorObject &armor);
-  void setCallback(DetectorCallback callback);
-  // Parameters
-  int binary_thres;
+    void initNumberClassifier();
+    cv::Mat extractNumber(const cv::Mat& src, const ArmorObject& armor) const noexcept;
+    bool classifyNumber(ArmorObject& armor);
+    void setCallback(DetectorCallback callback);
+    // Parameters
+    int binary_thres;
 
-  LightParams light_params;
-  ArmorParams armor_params;
+    LightParams light_params;
+    ArmorParams armor_params;
 
-  std::unique_ptr<LightCornerCorrector> corner_corrector;
+    std::unique_ptr<LightCornerCorrector> corner_corrector;
 
-  double classifier_threshold_ = 0.5;
+    double classifier_threshold_ = 0.5;
 
 private:
-  bool isLight(const Light &possible_light) noexcept;
-  bool containLight(const int i, const int j,
-                    const std::vector<Light> &lights) noexcept;
-  ArmorType isArmor(const Light &light_1, const Light &light_2) noexcept;
-  void topts(ArmorObject &armor);
+    bool isLight(const Light& possible_light) noexcept;
+    bool containLight(const int i, const int j, const std::vector<Light>& lights) noexcept;
+    ArmorType isArmor(const Light& light_1, const Light& light_2) noexcept;
+    void topts(ArmorObject& armor);
 
-  // std::vector<ArmorObject> armors_;
-  cv::dnn::Net number_net_;
-  std::vector<std::string> class_names_;
-  std::string classify_model_path_;
-  std::string classify_label_path_;
-  DetectorCallback infer_callback_;
+    // std::vector<ArmorObject> armors_;
+    cv::dnn::Net number_net_;
+    std::vector<std::string> class_names_;
+    std::string classify_model_path_;
+    std::string classify_label_path_;
+    DetectorCallback infer_callback_;
 };

@@ -37,38 +37,52 @@
 #include "type/type.hpp"
 
 // Vertex of graph optimization algorithm for the yaw angle
-class VertexYaw : public g2o::BaseVertex<1, double> {
+class VertexYaw: public g2o::BaseVertex<1, double> {
 public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
-  VertexYaw() = default;
-  virtual void setToOriginImpl() override { _estimate = 0; }
-  virtual void oplusImpl(const double *update) override;
+    VertexYaw() = default;
+    virtual void setToOriginImpl() override {
+        _estimate = 0;
+    }
+    virtual void oplusImpl(const double* update) override;
 
-  virtual bool read(std::istream &in) override { return true; }
-  virtual bool write(std::ostream &out) const override { return true; }
+    virtual bool read(std::istream& in) override {
+        return true;
+    }
+    virtual bool write(std::ostream& out) const override {
+        return true;
+    }
 };
 
 // Edge of graph optimization algorithm for reporjection error calculation using
 // yaw angle and observation
-class EdgeProjection : public g2o::BaseBinaryEdge<2, Eigen::Vector2d, VertexYaw,
-                                                  g2o::VertexPointXYZ> {
+class EdgeProjection:
+    public g2o::BaseBinaryEdge<2, Eigen::Vector2d, VertexYaw, g2o::VertexPointXYZ> {
 public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
-  using InfoMatrixType = Eigen::Matrix<double, 2, 2>;
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+    using InfoMatrixType = Eigen::Matrix<double, 2, 2>;
 
-  EdgeProjection(const Sophus::SO3d &R_camera_imu, const Sophus::SO3d &R_pitch,
-                 const Eigen::Vector3d &t, const Eigen::Matrix3d &K);
-  virtual void computeError() override;
+    EdgeProjection(
+        const Sophus::SO3d& R_camera_imu,
+        const Sophus::SO3d& R_pitch,
+        const Eigen::Vector3d& t,
+        const Eigen::Matrix3d& K
+    );
+    virtual void computeError() override;
 
-  virtual bool read(std::istream &in) override { return true; }
-  virtual bool write(std::ostream &out) const override { return true; }
+    virtual bool read(std::istream& in) override {
+        return true;
+    }
+    virtual bool write(std::ostream& out) const override {
+        return true;
+    }
 
 private:
-  Sophus::SO3d R_camera_imu_;
-  Sophus::SO3d R_pitch_;
-  Eigen::Vector3d t_;
-  Eigen::Matrix3d K_;
+    Sophus::SO3d R_camera_imu_;
+    Sophus::SO3d R_pitch_;
+    Eigen::Vector3d t_;
+    Eigen::Matrix3d K_;
 };
 
 #endif // ARMOR_DETECTOR_GRAPH_OPTIMIZER_HPP_

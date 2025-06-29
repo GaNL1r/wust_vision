@@ -3,17 +3,19 @@
 #include "detect/armor_detector_opencv.hpp"
 #include <yaml-cpp/yaml.h>
 
-class ArmorDetectorOpencvWrapper : public ArmorDetectorBase {
+class ArmorDetectorOpencvWrapper: public ArmorDetectorBase {
 public:
-  ArmorDetectorOpencvWrapper(const YAML::Node &config);
-  ~ArmorDetectorOpencvWrapper() override;
+    ArmorDetectorOpencvWrapper(const YAML::Node& config);
+    ~ArmorDetectorOpencvWrapper() override;
 
-  void pushInput(const cv::Mat &rgb_img,
-                 std::chrono::steady_clock::time_point timestamp,
-                 Eigen::Matrix4d T_camera_to_odom) override;
+    void pushInput(
+        const cv::Mat& rgb_img,
+        std::chrono::steady_clock::time_point timestamp,
+        Eigen::Matrix4d T_camera_to_odom
+    ) override;
 
-  void setCallback(DetectorCallback cb) override;
+    void setCallback(DetectorCallback cb) override;
 
 private:
-  std::unique_ptr<ArmorDetectOpenCV> detector_;
+    std::unique_ptr<ArmorDetectOpenCV> detector_;
 };
