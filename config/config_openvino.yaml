@@ -27,18 +27,18 @@ armor_solver:
   controller_delay: 0
   gravity: 9.8
   iteration_times: 20
-  max_tracking_v_yaw: 181
+  max_tracking_v_yaw: 180
   prediction_delay: 0.05
   resistance: 0.092
   shooting_range_h: 0.12
   shooting_range_w: 0.12
   side_angle: 20
   trajectory_offset:
-  - d_max: 0
-    d_min: 7
+  - d_max: 6
+    d_min: 5
     h_max: 0.4
     h_min: -1
-    pitch_off: -1.5
+    pitch_off: 0.1
     yaw_off: 0
 armor_tracker:
   ekf:
@@ -66,7 +66,7 @@ armor_tracker:
     oys2qy: 10
     oys2qyaw: 20
     oys2qz: 1
-    r_x: 0.180952234
+    r_x: 0.0180952234
     r_y: 0.0214626785
     r_yaw: 0.609218545
     r_z: 0.0016992016
@@ -77,17 +77,17 @@ armor_tracker:
     s2qyaw: 20
     s2qz: 1
     yr_d: 0.65388986
-    yr_p: 0.01073833
-    yr_y: 0.042568339
-    yr_yaw: 0.609218545
+    yr_p: 0.008073833
+    yr_y: 0.0052568339
+    yr_yaw: 0.00509218545
     ys2qd_zc: 800
     ys2qr: 80
-    ys2qx: 10
-    ys2qy: 10
+    ys2qx: 15
+    ys2qy: 15
     ys2qyaw: 20
-    ys2qz: 0.5
+    ys2qz: 1.0
   jump_thresh: 0.4
-  lost_time_thres: 0.7
+  lost_time_thres: 0.5
   max_match_distance: 0.5
   max_match_yaw_diff: 0.5
   max_match_z_diff: 0.2
@@ -95,59 +95,58 @@ armor_tracker:
   target_frame: gimbal_odom
   tracking_thres: 5
   use_ypd_tracker: true
-  v_yaw_to_one_thres: 0.1
+  v_yaw_to_one_thres: 0.5
   v_yaw_update_thres: 1.5
 camera:
   acquisition_frame_rate: 200
   adc_bit_depth: Bits_8
   camera_info_path: /home/hy/wust_vision/config/camera_info.yaml
-  exposure_time: 500
+  exposure_time: 1000
   gain: 16
   pixel_format: BayerRG8
   recorder: false
   video_player:
     fps: 90
     loop: true
-    path: /home/hy/wust_data/video/1749800971.avi
-    start_frame: 0
+    path: /home/hy/6.11/output.mp4
+    start_frame: 500
     use: false
 control:
-  alpha_pitch: 0.8
+  alpha_pitch: 0.9
   alpha_yaw: 0.9
   control_rate: 1000
-  communication_delay: 0.0
+  communication_delay: 1
   device_name: /dev/ttyACM0
   max_pitch_change: 5
   max_yaw_change: 10
   use_nav: false
-  use_serial: false
+  use_serial:  true
 debug:
   debug_h: 1080
   debug_mode: true
-  debug_show_dt: 0.05
+  debug_show_dt: 0.01
   debug_w: 1440
-detect_color: 1
+detect_color: 0
 init_attack_mode: 0
 logger:
-  log_level: DEBUG
+  log_level: INFO
   log_path: /home/hy/wust_log
   use_logcli: true
-  use_logfile: false
+  use_logfile: true
   use_simplelog: true
 max_infer_running: 7
 only_nav_enable: false
 rune_detector:
   confidence_threshold: 0.5
-  detect_r_tag: true
-  use_manual_r: false
-  device_type: GPU
-  min_lightness: 100
+  detect_r_tag: false
+  use_manual_r: true
+  min_lightness: 80
   model: /home/hy/wust_vision/model/yolox_rune_3.6m.onnx
   nms_threshold: 0.3
   top_k: 128
 rune_solver:
   auto_type_determined: true
-  bullet_speet: 28
+  bullet_speet: 20
   compensator_type: resistance
   ekf:
     q:
@@ -165,22 +164,20 @@ rune_solver:
   predict_offset: 0.1
   predict_time: 0
   trajectory_offset:
-  - d_max: 0
-    d_min: 7
+  - d_max: 6
+    d_min: 5
     h_max: 0.4
     h_min: -1
-    pitch_off: -1.5
+    pitch_off: 0.1
     yaw_off: 0
 tf:
   gimbal2camera_pitch: 0
   gimbal2camera_roll: 0
-  gimbal2camera_x: 0
-  gimbal2camera_y: 0.04
-  gimbal2camera_yaw: 0.5
-  gimbal2camera_z: 0
-  odom2gimbal_pitch: 0
-  odom2gimbal_roll: 0
-  odom2gimbal_yaw: 0
-use_armor_detect_opencv: true
+  gimbal2camera_x: 0.07
+  gimbal2camera_y: 0
+  gimbal2camera_yaw: 0
+  gimbal2camera_z: -0.05
+
+use_armor_detect_opencv: false
 use_auto_labeler: false
 use_calculation: false
