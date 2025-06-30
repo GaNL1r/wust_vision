@@ -26,6 +26,7 @@
 #include <opencv2/imgproc.hpp>
 // project
 #include "common/common.hpp"
+#include "common/gobal.hpp"
 #include "type/type.hpp"
 
 static constexpr int INPUT_W = 480; // Width of input
@@ -399,6 +400,16 @@ bool RuneDetectorOpenvino::processCallback(
             objs_result[i].pts = pts_final / N;
         }
     }
+    objs_result.erase(
+        std::remove_if(
+            objs_result.begin(),
+            objs_result.end(),
+            [c = static_cast<EnemyColor>(gobal::detect_color_)](const auto& objs_result) {
+                return objs_result.color != c;
+            }
+        ),
+        objs_result.end()
+    );
 
     // NMS & TopK
     // cv::dnn::NMSBoxes(

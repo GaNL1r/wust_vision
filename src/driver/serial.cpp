@@ -175,7 +175,7 @@ void Serial::aim_cbk(ReceiveAimINFO& aim_data) {
     tf::Transform gimbal_tf(tf::Position(0, 0, 0), q);
     gobal::tf_tree_.setTransform("gimbal_odom", "gimbal_link", gimbal_tf, false);
 
-    gobal::detect_color_ = aim_data.detect_color;
+    //gobal::detect_color_ = aim_data.detect_color;
     //gobal::velocity = aim_data.bullet_speed;
 
     if (gobal::debug_mode_) {

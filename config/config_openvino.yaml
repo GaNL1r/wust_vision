@@ -110,7 +110,7 @@ camera:
     loop: true
     path: /home/hy/6.11/output.mp4
     start_frame: 500
-    use: false
+    use: true
 control:
   alpha_pitch: 0.9
   alpha_yaw: 0.9
@@ -120,14 +120,14 @@ control:
   max_pitch_change: 5
   max_yaw_change: 10
   use_nav: false
-  use_serial:  true
+  use_serial: true
 debug:
   debug_h: 1080
   debug_mode: true
   debug_show_dt: 0.01
   debug_w: 1440
-detect_color: 0
-init_attack_mode: 0
+detect_color: 1
+init_attack_mode: 1
 logger:
   log_level: INFO
   log_path: /home/hy/wust_log
@@ -138,7 +138,7 @@ max_infer_running: 7
 only_nav_enable: false
 rune_detector:
   confidence_threshold: 0.5
-  detect_r_tag: false
+  detect_r_tag: true
   use_manual_r: true
   min_lightness: 80
   model: /home/hy/wust_vision/model/yolox_rune_3.6m.onnx
@@ -162,7 +162,7 @@ rune_solver:
   gravity: 9.8
   lost_time_thres: 0.5
   predict_offset: 0.1
-  predict_time: 0
+  predict_time: 0.05
   trajectory_offset:
   - d_max: 6
     d_min: 5

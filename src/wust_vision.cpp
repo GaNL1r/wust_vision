@@ -462,6 +462,7 @@ void WustVision::runeTargetCallback(const Rune rune_target, Eigen::Matrix4d T_ca
     } else {
         observed_angle = rune_solver_->update(rune_target, T_camera_to_odom);
     }
+    
     auto now = std::chrono::steady_clock::now();
     auto latency_nano =
         std::chrono::duration_cast<std::chrono::nanoseconds>(now - rune_target.timestamp).count();
@@ -682,7 +683,7 @@ void WustVision::RuneDetectCallback(
     rune_target.timestamp = timestamp;
     rune_target.is_big_rune = false;
 
-    if (objs.empty()) {
+    if (!objs.empty()) {
         // Sort by probability
         std::sort(objs.begin(), objs.end(), [](const RuneObject& a, const RuneObject& b) {
             return a.prob > b.prob;
@@ -965,7 +966,6 @@ void WustVision::timerCallback() {
             switch (mode) {
                 case AttackMode::ARMOR: {
                     gimbal_cmd = armor_solver_->solve(target, one_targets, now);
-
                 } break;
                 case AttackMode::SMALL_RUNE: {
                     gimbal_cmd = rune_solver_->solve();
@@ -1075,6 +1075,7 @@ void WustVision::timerCallback() {
         } else {
             double predict_angle =
                 rune_solver_->last_pre_angle - rune_solver_->last_observed_angle_;
+              
             try {
                 drawRuneandprewrite(
                     src,

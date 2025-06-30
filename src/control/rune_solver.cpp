@@ -117,6 +117,7 @@ double RuneSolver::update(const Rune received_target, Eigen::Matrix4d T_camera_t
         double observed_time = now_time - start_time_;
         double normal_angle = getNormalAngle(received_target);
         double observed_angle = getObservedAngle(normal_angle);
+        
 
         // Update fitter
         curve_fitter->update(observed_time, observed_angle);
@@ -223,7 +224,7 @@ RuneSolver::solvePose(const Rune& predicted_target, Eigen::Matrix4d T_camera_to_
 
             // 从 camera 坐标系变换到 gimbal_odom 坐标系
             Eigen::Matrix4d pose_odom = T_camera_to_odom * pose_camera;
-
+            
             // 提取变换结果
             tf::Transform pose_in_target_frame;
             pose_in_target_frame.position.x = pose_odom(0, 3);
@@ -448,6 +449,7 @@ GimbalCmd RuneSolver::solve() {
     if (tracker_state == RuneSolver::TRACKING) {
         // Predict target
         predict_angle = predictTarget(pred_pos, predict_time);
+   
 
         last_pre_angle = predict_angle;
         try {

@@ -477,14 +477,7 @@ bool RuneDetectorTrt::processCallback(
         ),
         objs_result.end()
     );
-    for (auto& obj: objs_result) {
-        if (obj.type == RuneType::INACTIVATED) {
-            // if(extractImage(src_img, obj))
-            // {
-            //     detectTarget(obj);
-            // }
-        }
-    }
+  
     // Call callback function
     if (this->infer_callback_) {
         this->infer_callback_(objs_result, timestamp, src_img, T_camera_to_odom);
