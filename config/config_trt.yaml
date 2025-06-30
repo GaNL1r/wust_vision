@@ -1,6 +1,6 @@
 armor_detect:
   armor:
-    max_angle: 35
+    max_angle: 30
     max_large_center_distance: 8
     max_small_center_distance: 3.5
     min_large_center_distance: 3.5
@@ -80,20 +80,20 @@ armor_tracker:
     s2qyaw: 20
     s2qz: 1
     yr_d: 0.65388986
-    yr_p: 0.01073833
-    yr_y: 0.042568339
-    yr_yaw: 0.609218545
+    yr_p: 0.008073833
+    yr_y: 0.0052568339
+    yr_yaw: 0.00509218545
     ys2qd_zc: 800
     ys2qr: 80
-    ys2qx: 10
-    ys2qy: 10
+    ys2qx: 15
+    ys2qy: 15
     ys2qyaw: 20
-    ys2qz: 0.5
+    ys2qz: 1.0
   jump_thresh: 0.4
   lost_time_thres: 0.5
   max_match_distance: 0.5
   max_match_yaw_diff: 0.5
-  max_match_z_diff: 0.1
+  max_match_z_diff: 0.2
   one_lost_time_thres: 0.1
   target_frame: gimbal_odom
   tracking_thres: 5
@@ -104,7 +104,7 @@ camera:
   acquisition_frame_rate: 200
   adc_bit_depth: Bits_8
   camera_info_path: /home/hy/wust_vision/config/camera_info.yaml
-  exposure_time: 1500
+  exposure_time: 1000
   gain: 16
   pixel_format: BayerRG8
   recorder: false
@@ -113,23 +113,24 @@ camera:
     loop: true
     path: /home/hy/6.11/output.mp4
     start_frame: 500
-    use: true
+    use: false
 control:
   alpha_pitch: 0.9
   alpha_yaw: 0.9
   control_rate: 1000
+  communication_delay: 1
   device_name: /dev/ttyACM0
   max_pitch_change: 5
   max_yaw_change: 10
   use_nav: false
-  use_serial: false
+  use_serial:  true
 debug:
   debug_h: 1080
   debug_mode: true
   debug_show_dt: 0.01
   debug_w: 1440
-detect_color: 1
-init_attack_mode: 1
+detect_color: 0
+init_attack_mode: 0
 logger:
   log_level: INFO
   log_path: /home/hy/wust_log
@@ -180,6 +181,6 @@ tf:
   gimbal2camera_yaw: 0
   gimbal2camera_z: -0.05
 
-use_armor_detect_opencv: true
+use_armor_detect_opencv: false
 use_auto_labeler: false
 use_calculation: false

@@ -3,6 +3,8 @@
 #include "common/tf.hpp"
 #include "detect/mono_measure_tool.hpp"
 #include "yaml-cpp/yaml.h"
+#include <optional>
+
 namespace gobal {
 extern tf::TfTree tf_tree_;
 extern std::unique_ptr<MonoMeasureTool> measure_tool_;
@@ -23,4 +25,8 @@ extern YAML::Node config;
 extern bool use_calculation_;
 extern bool use_serial;
 extern int attack_mode;
+extern double communication_delay_μs;
+
+extern AttitudeBuffer attitude_buffer;
+
 } // namespace gobal

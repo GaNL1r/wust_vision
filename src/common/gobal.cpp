@@ -19,4 +19,7 @@ YAML::Node config;
 bool use_calculation_ = false;
 bool use_serial = false;
 int attack_mode = 0;
+double communication_delay_μs;
+AttitudeBuffer attitude_buffer;
+
 } // namespace gobal

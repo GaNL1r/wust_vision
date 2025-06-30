@@ -1195,13 +1195,31 @@ void draw_debug_overlay(
         int size_pts = target_info->pts.size();
 
         if (target_info->select_id != -1 && !target_info->pts[target_info->select_id].empty()
-            && target_info->select_id == size_pts - 1)
+            && target_info->select_id < size_pts)
         {
             cv::Point2f center(0.f, 0.f);
             for (int i = 0; i < 4; ++i)
                 center += target_info->pts[target_info->select_id][i];
             center *= 0.25f;
-            cv::circle(debug_img, center + cv::Point2f(0, -200), 20, cv::Scalar(0, 0, 255), 5);
+            cv::circle(debug_img, center + cv::Point2f(0, -200), 20, cv::Scalar(0, 255, 255), 5);
+            if (gimbal_cmd->fire_advice) {
+                int cross_len = 60;
+                cv::line(
+                    debug_img,
+                    center + cv::Point2f(0, -200) + cv::Point2f(-cross_len, -cross_len),
+                    center + cv::Point2f(0, -200) + cv::Point2f(+cross_len, +cross_len),
+                    cv::Scalar(0, 0, 255),
+                    5
+                );
+
+                cv::line(
+                    debug_img,
+                    center + cv::Point2f(0, -200) + cv::Point2f(-cross_len, +cross_len),
+                    center + cv::Point2f(0, -200) + cv::Point2f(+cross_len, -cross_len),
+                    cv::Scalar(0, 0, 255),
+                    5
+                );
+            }
         }
 
         if (!all_corners.empty()) {
@@ -1537,13 +1555,31 @@ void draw_debug_overlaywrite(
         int size_pts = target_info->pts.size();
 
         if (target_info->select_id != -1 && !target_info->pts[target_info->select_id].empty()
-            && target_info->select_id == size_pts - 1)
+            && target_info->select_id < size_pts)
         {
             cv::Point2f center(0.f, 0.f);
             for (int i = 0; i < 4; ++i)
                 center += target_info->pts[target_info->select_id][i];
             center *= 0.25f;
-            cv::circle(debug_img, center + cv::Point2f(0, -200), 20, cv::Scalar(0, 0, 255), 5);
+            cv::circle(debug_img, center + cv::Point2f(0, -200), 20, cv::Scalar(0, 255, 255), 5);
+            if (gimbal_cmd->fire_advice) {
+                int cross_len = 60;
+                cv::line(
+                    debug_img,
+                    center + cv::Point2f(0, -200) + cv::Point2f(-cross_len, -cross_len),
+                    center + cv::Point2f(0, -200) + cv::Point2f(+cross_len, +cross_len),
+                    cv::Scalar(0, 0, 255),
+                    5
+                );
+
+                cv::line(
+                    debug_img,
+                    center + cv::Point2f(0, -200) + cv::Point2f(-cross_len, +cross_len),
+                    center + cv::Point2f(0, -200) + cv::Point2f(+cross_len, -cross_len),
+                    cv::Scalar(0, 0, 255),
+                    5
+                );
+            }
         }
 
         if (!all_corners.empty()) {
@@ -1870,13 +1906,31 @@ cv::Mat draw_debug_overlayMat(
         int size_pts = target_info->pts.size();
 
         if (target_info->select_id != -1 && !target_info->pts[target_info->select_id].empty()
-            && target_info->select_id == size_pts - 1)
+            && target_info->select_id < size_pts)
         {
             cv::Point2f center(0.f, 0.f);
             for (int i = 0; i < 4; ++i)
                 center += target_info->pts[target_info->select_id][i];
             center *= 0.25f;
-            cv::circle(debug_img, center + cv::Point2f(0, -200), 20, cv::Scalar(0, 0, 255), 5);
+            cv::circle(debug_img, center + cv::Point2f(0, -200), 20, cv::Scalar(0, 255, 255), 5);
+            if (gimbal_cmd->fire_advice) {
+                int cross_len = 60;
+                cv::line(
+                    debug_img,
+                    center + cv::Point2f(0, -200) + cv::Point2f(-cross_len, -cross_len),
+                    center + cv::Point2f(0, -200) + cv::Point2f(+cross_len, +cross_len),
+                    cv::Scalar(0, 0, 255),
+                    5
+                );
+
+                cv::line(
+                    debug_img,
+                    center + cv::Point2f(0, -200) + cv::Point2f(-cross_len, +cross_len),
+                    center + cv::Point2f(0, -200) + cv::Point2f(+cross_len, -cross_len),
+                    cv::Scalar(0, 0, 255),
+                    5
+                );
+            }
         }
 
         if (!all_corners.empty()) {
@@ -2255,6 +2309,10 @@ void write_target_log_to_json(const Target& target) {
         file << j.dump(2);
     }
 }
+
+// double ypd_y = std::atan2(p.y, p.x);
+//             double ypd_p = std::atan2(p.z, std::sqrt(p.x * p.x + p.y * p.y));
+//             double ypd_d = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
 void drawRune(
     cv::Mat& src_img,
     const std::vector<RuneObject>& objs,
@@ -2474,7 +2532,9 @@ void drawRuneandprewrite(
     cv::Mat& src_img,
     const std::vector<RuneObject>& objs,
     std::chrono::steady_clock::time_point timestamp,
-    double predict_angle, GimbalCmd gimbal_cmd
+    double predict_angle,
+    GimbalCmd gimbal_cmd,
+    std::vector<cv::Point2f> manual_r_box
 ) {
     static auto last_show_time = std::chrono::steady_clock::now();
     if (src_img.empty()) {
@@ -2524,7 +2584,7 @@ void drawRuneandprewrite(
             cv::Point2f end_point_circle =
                 tip + cv::Point2f(std::cos(angle_rad), std::sin(angle_rad)) * length;
 
-            cv::line(debug_img, tip, end_point_line, cv::Scalar(255, 255, 255), 4);
+            cv::line(debug_img, tip, end_point_line, cv::Scalar(255, 255, 255), 2);
 
             cv::circle(
                 debug_img,
@@ -2537,6 +2597,9 @@ void drawRuneandprewrite(
 
             break;
         }
+    }
+    for (int i = 0; i < manual_r_box.size(); i++) {
+        cv::line(debug_img, manual_r_box[i], manual_r_box[(i + 1) % 4], cv::Scalar(48, 48, 255), 1);
     }
 
     for (const auto& obj: objs) {
@@ -2601,7 +2664,7 @@ void drawRuneandprewrite(
         cv::Scalar(255, 255, 255),
         2
     );
-    int baseline =0;
+    int baseline = 0;
     std::string fire_str = gimbal_cmd.fire_advice ? "Fire!" : "";
     cv::Size fire_size = cv::getTextSize(fire_str, cv::FONT_HERSHEY_SIMPLEX, 1.2, 2, &baseline);
     int fire_x = 1440 / 2 - fire_size.width - 10;
@@ -2617,24 +2680,23 @@ void drawRuneandprewrite(
         2
     );
 
-   
-        std::string gimbal_str = fmt::format(
-            "Pitch: {:.2f}, Yaw: {:.2f}, Pitch_diff: {:.2f}, Yaw_diff: {:.2f}",
-            gimbal_cmd.pitch,
-            gimbal_cmd.yaw,
-            gimbal_cmd.pitch_diff,
-            gimbal_cmd.yaw_diff
-        );
-        cv::putText(
-            debug_img,
-            gimbal_str,
-            { 10, debug_img.rows - 30 },
-            cv::FONT_HERSHEY_SIMPLEX,
-            0.8,
-            cv::Scalar(255, 255, 0),
-            2
-        );
-    
+    std::string gimbal_str = fmt::format(
+        "Pitch: {:.2f}, Yaw: {:.2f}, Pitch_diff: {:.2f}, Yaw_diff: {:.2f}",
+        gimbal_cmd.pitch,
+        gimbal_cmd.yaw,
+        gimbal_cmd.pitch_diff,
+        gimbal_cmd.yaw_diff
+    );
+    cv::putText(
+        debug_img,
+        gimbal_str,
+        { 10, debug_img.rows - 30 },
+        cv::FONT_HERSHEY_SIMPLEX,
+        0.8,
+        cv::Scalar(255, 255, 0),
+        2
+    );
+
     std::vector<uchar> buf;
     cv::imencode(".jpg", debug_img, buf);
     std::ofstream ofs("/dev/shm/debug_frame.jpg.tmp", std::ios::binary);

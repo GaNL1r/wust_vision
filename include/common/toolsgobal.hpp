@@ -15,6 +15,13 @@ extern std::vector<double> time_log_;
 extern std::vector<double> cmd_yaw_log_;
 extern std::vector<double> cmd_pitch_log_;
 extern std::vector<double> armor_dis_log_;
+extern std::vector<double> armor_x_log_;
+extern std::vector<double> armor_y_log_;
+extern std::vector<double> armor_z_log_;
+extern std::vector<double> armor_yaw_log_;
+extern std::vector<double> ypd_y_log_;
+extern std::vector<double> ypd_p_log_;
+
 extern int debug_w;
 extern int debug_h;
 

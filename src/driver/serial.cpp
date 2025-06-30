@@ -149,13 +149,16 @@ void Serial::aim_cbk(ReceiveAimINFO& aim_data) {
         return;
     }
 
-    double roll = (aim_data.roll) * M_PI / 180.0;
+    double roll = -(aim_data.roll) * M_PI / 180.0;
     double pitch = (aim_data.pitch) * M_PI / 180.0;
     double yaw = (aim_data.yaw) * M_PI / 180.0;
 
     gobal::last_pitch = pitch;
     gobal::last_roll = roll;
     gobal::last_yaw = yaw;
+
+    auto now = std::chrono::steady_clock::now();
+    gobal::attitude_buffer.push(yaw, pitch, roll, now);
 
     if (aim_data.manual_reset_count != last_reset_count) {
         WUST_INFO(serial_logger) << "Manual reset count changed: " << last_reset_count << " -> "
@@ -173,7 +176,7 @@ void Serial::aim_cbk(ReceiveAimINFO& aim_data) {
     gobal::tf_tree_.setTransform("gimbal_odom", "gimbal_link", gimbal_tf, false);
 
     gobal::detect_color_ = aim_data.detect_color;
-    gobal::velocity = aim_data.bullet_speed;
+    //gobal::velocity = aim_data.bullet_speed;
 
     if (gobal::debug_mode_) {
         write_aim_log_to_json(aim_data);

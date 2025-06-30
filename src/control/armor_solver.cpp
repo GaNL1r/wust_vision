@@ -70,9 +70,29 @@ ArmorSolver::solve(const Target& target, std::chrono::steady_clock::time_point c
     // 1. 获取最新的云台 RPY
     std::array<double, 3> rpy {};
 
-    rpy[0] = gobal::last_roll + gobal::gimbal2camera_roll;
-    rpy[1] = gobal::last_pitch + gobal::gimbal2camera_pitch;
-    rpy[2] = gobal::last_yaw + gobal::gimbal2camera_yaw;
+    if (gobal::communication_delay_μs != 0) {
+        std::chrono::microseconds delay =
+            std::chrono::microseconds(static_cast<int64_t>(std::round(gobal::communication_delay_μs)
+            ));
+        auto t_query = std::chrono::steady_clock::now() - delay;
+        auto past_att = gobal::attitude_buffer.get_interpolated(t_query);
+        if (past_att) {
+            double delay_yaw = past_att->yaw;
+            double delay_pitch = past_att->pitch;
+            double delay_roll = past_att->roll;
+            rpy[0] = delay_roll + gobal::gimbal2camera_roll;
+            rpy[1] = delay_pitch + gobal::gimbal2camera_pitch;
+            rpy[2] = delay_yaw + gobal::gimbal2camera_yaw;
+        } else {
+            rpy[0] = gobal::last_roll + gobal::gimbal2camera_roll;
+            rpy[1] = gobal::last_pitch + gobal::gimbal2camera_pitch;
+            rpy[2] = gobal::last_yaw + gobal::gimbal2camera_yaw;
+        }
+    } else {
+        rpy[0] = gobal::last_roll + gobal::gimbal2camera_roll;
+        rpy[1] = gobal::last_pitch + gobal::gimbal2camera_pitch;
+        rpy[2] = gobal::last_yaw + gobal::gimbal2camera_yaw;
+    }
 
     //  2. 预测目标位置与朝向
     Eigen::Vector3d pos(target.position_.x, target.position_.y, target.position_.z);
@@ -214,6 +234,12 @@ ArmorSolver::solve(const Target& target, std::chrono::steady_clock::time_point c
     cmd.yaw = cmd_yaw * 180.0 / M_PI;
     cmd.pitch = cmd_pitch * 180.0 / M_PI;
     cmd.yaw_diff = (cmd_yaw - rpy[2]) * 180.0 / M_PI;
+    if (cmd.yaw_diff > 180) {
+        cmd.yaw_diff -= 360;
+    }
+    if (cmd.yaw_diff < -180) {
+        cmd.yaw_diff += 360;
+    }
     cmd.pitch_diff = (cmd_pitch - rpy[1]) * 180.0 / M_PI;
     cmd.select_id = idx;
     return cmd;
@@ -226,9 +252,31 @@ GimbalCmd ArmorSolver::solve(
     // 1. 获取最新的云台 RPY
     std::array<double, 3> rpy {};
 
-    rpy[0] = gobal::last_roll + gobal::gimbal2camera_roll;
-    rpy[1] = gobal::last_pitch + gobal::gimbal2camera_pitch;
-    rpy[2] = gobal::last_yaw + gobal::gimbal2camera_yaw;
+    if (gobal::communication_delay_μs != 0) {
+        std::chrono::microseconds delay =
+            std::chrono::microseconds(static_cast<int64_t>(std::round(gobal::communication_delay_μs)
+            ));
+        auto t_query = std::chrono::steady_clock::now() - delay;
+        auto past_att = gobal::attitude_buffer.get_interpolated(t_query);
+        if (past_att) {
+            double delay_yaw = past_att->yaw;
+            double delay_pitch = past_att->pitch;
+            double delay_roll = past_att->roll;
+            rpy[0] = delay_roll + gobal::gimbal2camera_roll;
+            rpy[1] = delay_pitch + gobal::gimbal2camera_pitch;
+            rpy[2] = delay_yaw + gobal::gimbal2camera_yaw;
+            // std::cout << "delay_yaw: " << delay_yaw << " delay_pitch: " << delay_pitch
+            //           << " delay_roll: " << delay_roll << std::endl;
+        } else {
+            rpy[0] = gobal::last_roll + gobal::gimbal2camera_roll;
+            rpy[1] = gobal::last_pitch + gobal::gimbal2camera_pitch;
+            rpy[2] = gobal::last_yaw + gobal::gimbal2camera_yaw;
+        }
+    } else {
+        rpy[0] = gobal::last_roll + gobal::gimbal2camera_roll;
+        rpy[1] = gobal::last_pitch + gobal::gimbal2camera_pitch;
+        rpy[2] = gobal::last_yaw + gobal::gimbal2camera_yaw;
+    }
     int one_idx = selectBestTarget(one_targets_);
     int target_armor_num = target.armors_num;
     // 2. 选择最佳单目标
@@ -315,7 +363,7 @@ GimbalCmd ArmorSolver::solve(
                     calcYawAndPitch(tmp, rpy, raw_yaw, raw_pitch);
                     distance = tmp.norm();
                 }
-                calcYawAndPitch(pos, rpy, raw_yaw_, raw_pitch);
+                //calcYawAndPitch(pos, rpy, raw_yaw_, raw_pitch);
                 offs = manual_compensator_->angleHardCorrect(distance, chosen.z());
                 yaw_off = offs[1] * M_PI / 180.0;
                 pitch_off = offs[0] * M_PI / 180.0;
@@ -386,6 +434,12 @@ GimbalCmd ArmorSolver::solve(
         cmd.yaw = cmd_yaw * 180.0 / M_PI;
         cmd.pitch = cmd_pitch * 180.0 / M_PI;
         cmd.yaw_diff = (cmd_yaw - rpy[2]) * 180.0 / M_PI;
+        if (cmd.yaw_diff > 180) {
+            cmd.yaw_diff -= 360;
+        }
+        if (cmd.yaw_diff < -180) {
+            cmd.yaw_diff += 360;
+        }
         cmd.pitch_diff = (cmd_pitch - rpy[1]) * 180.0 / M_PI;
         cmd.select_id = idx;
         return cmd;
@@ -445,6 +499,12 @@ GimbalCmd ArmorSolver::solve(
         cmd.yaw = cmd_yaw * 180.0 / M_PI;
         cmd.pitch = cmd_pitch * 180.0 / M_PI;
         cmd.yaw_diff = (cmd_yaw - rpy[2]) * 180.0 / M_PI;
+        if (cmd.yaw_diff > 180) {
+            cmd.yaw_diff -= 360;
+        }
+        if (cmd.yaw_diff < -180) {
+            cmd.yaw_diff += 360;
+        }
         cmd.pitch_diff = (cmd_pitch - rpy[1]) * 180.0 / M_PI;
         cmd.select_id = one_idx + target_armor_num;
         return cmd;

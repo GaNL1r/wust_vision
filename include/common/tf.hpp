@@ -8,6 +8,7 @@
 #include <iostream>
 #include <map>
 #include <opencv2/core.hpp>
+#include <optional>
 #include <set>
 #include <shared_mutex>
 #include <stdexcept>
@@ -822,5 +823,104 @@ struct fmt::formatter<tf::Quaternion> {
     template<typename FormatContext>
     auto format(const tf::Quaternion& q, FormatContext& ctx) {
         return fmt::format_to(ctx.out(), "{:.3f}, {:.3f}, {:.3f}, {:.3f}", q.w, q.x, q.y, q.z);
+    }
+};
+class AttitudeBuffer {
+public:
+    struct AttitudeStamped {
+        double yaw, pitch, roll;
+        std::chrono::steady_clock::time_point stamp;
+    };
+
+    static constexpr size_t BUFFER_SIZE = 512;
+
+    // 推入一组新的姿态
+    void push(double yaw, double pitch, double roll, std::chrono::steady_clock::time_point stamp) {
+        std::unique_lock lock(mutex_);
+
+        // unwrap
+        if (has_last_) {
+            yaw = unwrap_angle(last_yaw_, yaw);
+            pitch = unwrap_angle(last_pitch_, pitch);
+            roll = unwrap_angle(last_roll_, roll);
+        }
+
+        buffer_[head_] = { yaw, pitch, roll, stamp };
+        time_buffer_[head_] = stamp;
+
+        head_ = (head_ + 1) % BUFFER_SIZE;
+        if (size_ < BUFFER_SIZE)
+            ++size_;
+
+        last_yaw_ = yaw;
+        last_pitch_ = pitch;
+        last_roll_ = roll;
+        has_last_ = true;
+    }
+
+    // 返回距离 t_query 最近的线性插值结果
+    std::optional<AttitudeStamped> get_interpolated(std::chrono::steady_clock::time_point t_query) {
+        std::shared_lock lock(mutex_);
+        if (size_ < 2)
+            return std::nullopt;
+
+        // 1) 计算当前有效区间的起点
+        size_t begin = (head_ + BUFFER_SIZE - size_) % BUFFER_SIZE;
+
+        // 2) 拉平成连续数组
+        //    注意：如果没有环绕（begin + size_ <= BUFFER_SIZE），可直接用指针，
+        //          否则分两段拷贝。为了保持代码简洁，这里总是拷贝到临时 vector。
+        std::vector<std::chrono::steady_clock::time_point> times;
+        times.reserve(size_);
+        for (size_t i = 0; i < size_; ++i) {
+            times.push_back(time_buffer_[(begin + i) % BUFFER_SIZE]);
+        }
+
+        // 3) 二分查找第一个 >= t_query 的位置
+        auto it_hi = std::lower_bound(times.begin(), times.end(), t_query);
+        if (it_hi == times.begin() || it_hi == times.end()) {
+            // query 在区域之外，无法插值
+            return std::nullopt;
+        }
+
+        size_t idx_hi = std::distance(times.begin(), it_hi);
+        size_t idx_lo = idx_hi - 1;
+
+        // 4) 取出两端数据并插值
+        const auto& lo = buffer_[(begin + idx_lo) % BUFFER_SIZE];
+        const auto& hi = buffer_[(begin + idx_hi) % BUFFER_SIZE];
+        double span = std::chrono::duration<double>(hi.stamp - lo.stamp).count();
+        if (span <= 0)
+            return lo; // 去重或时间相同
+
+        double t = std::chrono::duration<double>(t_query - lo.stamp).count() / span;
+
+        AttitudeStamped res;
+        res.yaw = lo.yaw + t * (hi.yaw - lo.yaw);
+        res.pitch = lo.pitch + t * (hi.pitch - lo.pitch);
+        res.roll = lo.roll + t * (hi.roll - lo.roll);
+        res.stamp = t_query;
+        return res;
+    }
+
+private:
+    // 环形缓存
+    std::array<AttitudeStamped, BUFFER_SIZE> buffer_;
+    std::array<std::chrono::steady_clock::time_point, BUFFER_SIZE> time_buffer_;
+    size_t head_ = 0, size_ = 0;
+
+    // 用于unwrap
+    bool has_last_ = false;
+    double last_yaw_, last_pitch_, last_roll_;
+
+    mutable std::shared_mutex mutex_;
+
+    double unwrap_angle(double prev, double curr) {
+        double d = curr - prev;
+        if (d > M_PI)
+            curr -= 2 * M_PI;
+        else if (d < -M_PI)
+            curr += 2 * M_PI;
+        return curr;
     }
 };

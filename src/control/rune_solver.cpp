@@ -267,8 +267,26 @@ GimbalCmd RuneSolver::solveGimbalCmd(const Eigen::Vector3d& target) {
     // Get current yaw and pitch of gimbal
     double current_yaw = 0.0, current_pitch = 0.0;
 
-    current_yaw = gobal::last_yaw;
-    current_pitch = gobal::last_pitch;
+    if (gobal::communication_delay_μs != 0) {
+        std::chrono::microseconds delay =
+            std::chrono::microseconds(static_cast<int64_t>(std::round(gobal::communication_delay_μs)
+            ));
+        auto t_query = std::chrono::steady_clock::now() - delay;
+        auto past_att = gobal::attitude_buffer.get_interpolated(t_query);
+        if (past_att) {
+            double delay_yaw = past_att->yaw;
+            double delay_pitch = past_att->pitch;
+            double delay_roll = past_att->roll;
+            current_pitch = delay_pitch + gobal::gimbal2camera_pitch;
+            current_yaw = delay_yaw + gobal::gimbal2camera_yaw;
+        } else {
+            current_pitch = gobal::last_pitch + gobal::gimbal2camera_pitch;
+            current_yaw = gobal::last_yaw + gobal::gimbal2camera_yaw;
+        }
+    } else {
+        current_pitch = gobal::last_pitch + gobal::gimbal2camera_pitch;
+        current_yaw = gobal::last_yaw + gobal::gimbal2camera_yaw;
+    }
 
     // Calculate yaw and pitch
     double yaw = atan2(target.y(), target.x());
@@ -295,6 +313,12 @@ GimbalCmd RuneSolver::solveGimbalCmd(const Eigen::Vector3d& target) {
     gimbal_cmd.yaw = cmd_yaw * 180 / M_PI;
     gimbal_cmd.pitch = cmd_pitch * 180 / M_PI;
     gimbal_cmd.yaw_diff = (cmd_yaw - current_yaw) * 180 / M_PI;
+    if (gimbal_cmd.yaw_diff > 180) {
+        gimbal_cmd.yaw_diff -= 360;
+    }
+    if (gimbal_cmd.yaw_diff < -180) {
+        gimbal_cmd.yaw_diff += 360;
+    }
     gimbal_cmd.pitch_diff = (cmd_pitch - current_pitch) * 180 / M_PI;
     gimbal_cmd.distance = distance;
 

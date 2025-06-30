@@ -122,7 +122,10 @@ public:
     std::chrono::steady_clock::time_point last_stat_time_steady_;
     double debug_show_dt_;
     GimbalCmd last_cmd_;
+    Armor last_armor_;
     double last_distance;
+    double last_ypd_y;
+    double last_ypd_p;
 
     std::unique_ptr<ArmorDetectorBase> armor_detector_;
     std::unique_ptr<RuneDetectorBase> rune_detector_;

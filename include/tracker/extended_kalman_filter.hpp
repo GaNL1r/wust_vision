@@ -27,6 +27,7 @@
 #include <Eigen/Dense>
 // ceres
 #include <ceres/jet.h>
+#include <common/angles.h>
 
 // Extended Kalman Filter with auto differentiation
 // N_X: state vector dimension
@@ -54,6 +55,7 @@ public:
         const UpdateQFunc& u_q,
         const UpdateRFunc& u_r,
         const MatrixXX& P0
+
     ) noexcept:
         f(f),
         h(h),
@@ -118,9 +120,16 @@ public:
 
         R = update_R(z);
         K = P_pri * H.transpose() * (H * P_pri * H.transpose() + R).inverse();
-        x_post = x_post + K * (z - z_pri);
+        MatrixZ1 residual = z - z_pri;
+        for (int idx: angle_dims_) {
+            residual[idx] = angles::shortest_angular_distance(z_pri[idx], z[idx]);
+        }
+        x_post = x_post + K * residual;
         P_post = (MatrixXX::Identity() - K * H) * P_pri;
         return x_post;
+    }
+    void setAngleDims(const std::vector<int>& dims) {
+        angle_dims_ = dims;
     }
 
 private:
@@ -149,4 +158,6 @@ private:
     MatrixX1 x_pri;
     // Posteriori state
     MatrixX1 x_post;
+
+    std::vector<int> angle_dims_;
 };

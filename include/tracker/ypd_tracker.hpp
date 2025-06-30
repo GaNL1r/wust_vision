@@ -103,7 +103,7 @@ private:
     int lost_count_;
 
     double last_yaw_;
-
+    double last_ypd_y;
     std::chrono::steady_clock::time_point last_track_time_;
     std::deque<float> yaw_velocity_buffer_;
 

@@ -115,6 +115,7 @@ control:
   alpha_pitch: 0.8
   alpha_yaw: 0.9
   control_rate: 1000
+  communication_delay: 0.0
   device_name: /dev/ttyACM0
   max_pitch_change: 5
   max_yaw_change: 10

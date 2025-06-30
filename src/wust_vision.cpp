@@ -243,6 +243,11 @@ void WustVision::init() {
 }
 void WustVision::run() {
     WUST_MAIN(vision_logger) << "WustVision run start";
+    if (serial_) {
+        bool if_use_nav = gobal::config["control"]["use_nav"].as<bool>(false);
+        gobal::use_serial = gobal::config["control"]["use_serial"].as<bool>();
+        serial_->startThread(gobal::use_serial, if_use_nav);
+    }
     if (!only_nav_enable) {
         if (video_player_ && use_video) {
             video_player_->start();
@@ -256,11 +261,6 @@ void WustVision::run() {
         toolsgobal::robot_cmd_plot_thread_ = std::thread(&robotCmdLoggerThread);
     }
 
-    if (serial_) {
-        bool if_use_nav = gobal::config["control"]["use_nav"].as<bool>(false);
-        gobal::use_serial = gobal::config["control"]["use_serial"].as<bool>();
-        serial_->startThread(gobal::use_serial, if_use_nav);
-    }
     WUST_MAIN(vision_logger) << "WustVision run success";
 }
 
@@ -437,7 +437,7 @@ void WustVision::initSerial() {
     serial_->alpha_pitch = gobal::config["control"]["alpha_pitch"].as<double>();
     serial_->max_yaw_change = gobal::config["control"]["max_yaw_change"].as<double>();
     serial_->max_pitch_change = gobal::config["control"]["max_pitch_change"].as<double>();
-
+    gobal::communication_delay_μs = gobal::config["control"]["communication_delay"].as<double>();
 }
 
 void WustVision::initTracker(const YAML::Node& config) {
@@ -682,7 +682,7 @@ void WustVision::RuneDetectCallback(
     rune_target.timestamp = timestamp;
     rune_target.is_big_rune = false;
 
-    if (!objs.empty()) {
+    if (objs.empty()) {
         // Sort by probability
         std::sort(objs.begin(), objs.end(), [](const RuneObject& a, const RuneObject& b) {
             return a.prob > b.prob;
@@ -1076,7 +1076,14 @@ void WustVision::timerCallback() {
             double predict_angle =
                 rune_solver_->last_pre_angle - rune_solver_->last_observed_angle_;
             try {
-                drawRuneandprewrite(src, rune_objects_, imgframe_.timestamp, predict_angle, last_cmd_ );
+                drawRuneandprewrite(
+                    src,
+                    rune_objects_,
+                    imgframe_.timestamp,
+                    predict_angle,
+                    last_cmd_,
+                    manual_r_box
+                );
             } catch (const std::exception& e) {
                 std::cerr << "drawRuneandprewrite failed: " << e.what() << '\n';
             }
@@ -1118,17 +1125,49 @@ void WustVision::timerCallback() {
                     );
 
                     const Armor& min_armor = *min_armor_it;
+                    last_armor_ = min_armor;
                     last_distance = std::sqrt(
                         min_armor.target_pos.x * min_armor.target_pos.x
                         + min_armor.target_pos.y * min_armor.target_pos.y
                         + min_armor.target_pos.z * min_armor.target_pos.z
                     );
+                    double ypd_y = std::atan2(last_armor_.target_pos.y, last_armor_.target_pos.x);
+
+                    ypd_y = this->last_ypd_y
+                        + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
+                    this->last_ypd_y = ypd_y;
+                    last_ypd_p = std::atan2(
+                        last_armor_.target_pos.z,
+                        std::sqrt(
+                            last_armor_.target_pos.x * last_armor_.target_pos.x
+                            + last_armor_.target_pos.y * last_armor_.target_pos.y
+                        )
+                    );
+                    toolsgobal::armor_yaw_log_.push_back(last_armor_.yaw);
+                    toolsgobal::armor_x_log_.push_back(last_armor_.target_pos.x);
+                    toolsgobal::armor_y_log_.push_back(last_armor_.target_pos.y);
+                    toolsgobal::armor_z_log_.push_back(last_armor_.target_pos.z);
+                    toolsgobal::ypd_y_log_.push_back(last_ypd_y);
+                    toolsgobal::ypd_p_log_.push_back(last_ypd_p);
+
                     toolsgobal::armor_dis_log_.push_back(last_distance);
                 } else {
+                    toolsgobal::armor_yaw_log_.push_back(last_armor_.yaw);
+                    toolsgobal::armor_x_log_.push_back(last_armor_.target_pos.x);
+                    toolsgobal::armor_y_log_.push_back(last_armor_.target_pos.y);
+                    toolsgobal::armor_z_log_.push_back(last_armor_.target_pos.z);
+                    toolsgobal::ypd_y_log_.push_back(last_ypd_y);
+                    toolsgobal::ypd_p_log_.push_back(last_ypd_p);
                     toolsgobal::armor_dis_log_.push_back(last_distance);
                 }
 
             } else {
+                toolsgobal::armor_yaw_log_.push_back(last_armor_.yaw);
+                toolsgobal::armor_x_log_.push_back(last_armor_.target_pos.x);
+                toolsgobal::armor_y_log_.push_back(last_armor_.target_pos.y);
+                toolsgobal::armor_z_log_.push_back(last_armor_.target_pos.z);
+                toolsgobal::ypd_y_log_.push_back(last_ypd_y);
+                toolsgobal::ypd_p_log_.push_back(last_ypd_p);
                 toolsgobal::armor_dis_log_.push_back(last_distance);
             }
 
@@ -1137,6 +1176,12 @@ void WustVision::timerCallback() {
                 toolsgobal::cmd_yaw_log_.erase(toolsgobal::cmd_yaw_log_.begin());
                 toolsgobal::cmd_pitch_log_.erase(toolsgobal::cmd_pitch_log_.begin());
                 toolsgobal::armor_dis_log_.erase(toolsgobal::armor_dis_log_.begin());
+                toolsgobal::armor_yaw_log_.erase(toolsgobal::armor_yaw_log_.begin());
+                toolsgobal::armor_x_log_.erase(toolsgobal::armor_x_log_.begin());
+                toolsgobal::armor_y_log_.erase(toolsgobal::armor_y_log_.begin());
+                toolsgobal::armor_z_log_.erase(toolsgobal::armor_z_log_.begin());
+                toolsgobal::ypd_y_log_.erase(toolsgobal::ypd_y_log_.begin());
+                toolsgobal::ypd_p_log_.erase(toolsgobal::ypd_p_log_.begin());
             }
         }
     }

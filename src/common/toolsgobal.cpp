@@ -10,7 +10,12 @@ std::vector<double> time_log_;
 std::vector<double> cmd_yaw_log_;
 std::vector<double> cmd_pitch_log_;
 std::vector<double> armor_dis_log_;
-
+std::vector<double> armor_x_log_;
+std::vector<double> armor_y_log_;
+std::vector<double> armor_z_log_;
+std::vector<double> armor_yaw_log_;
+std::vector<double> ypd_y_log_;
+std::vector<double> ypd_p_log_;
 double latency_ms;
 int debug_w;
 int debug_h;

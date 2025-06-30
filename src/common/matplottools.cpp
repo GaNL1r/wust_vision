@@ -78,6 +78,12 @@ void write_cmd_log_to_json() {
         j["yaw"] = toolsgobal::cmd_yaw_log_;
         j["pitch"] = toolsgobal::cmd_pitch_log_;
         j["armor_dis"] = toolsgobal::armor_dis_log_;
+        j["armor_x"] = toolsgobal::armor_x_log_;
+        j["armor_y"] = toolsgobal::armor_y_log_;
+        j["armor_z"] = toolsgobal::armor_z_log_;
+        j["armor_yaw"] = toolsgobal::armor_yaw_log_;
+        j["ypd_y"] = toolsgobal::ypd_y_log_;
+        j["ypd_p"] = toolsgobal::ypd_p_log_;
     }
 
     std::ofstream file("/dev/shm/cmd_log.json");

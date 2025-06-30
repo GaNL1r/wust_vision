@@ -24,12 +24,12 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
         );
     }
 
-    one_tracker_ = std::make_unique<OneTracker>(
-        max_match_distance,
-        max_match_yaw_diff,
-        max_match_z_diff,
-        jump_thresh
-    );
+    // one_tracker_ = std::make_unique<OneTracker>(
+    //     max_match_distance,
+    //     max_match_yaw_diff,
+    //     max_match_z_diff,
+    //     jump_thresh
+    // );
     // one_ypd_tracker_ = std::make_unique<OneYpdTracker>(
     //     max_match_distance, max_match_yaw_diff,
     //     max_match_z_diff,jump_thresh);
@@ -66,7 +66,7 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
         tracker_->tracking_thres = config_["tracking_thres"].as<int>(5);
     }
 
-    one_tracker_->tracking_thres = config_["tracking_thres"].as<int>(5);
+    //one_tracker_->tracking_thres = config_["tracking_thres"].as<int>(5);
 
     // one_ypd_tracker_->tracking_thres = config_["tracking_thres"].as<int>(5);
     lost_time_thres_ = config_["lost_time_thres"].as<double>();
@@ -294,10 +294,10 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     auto yu_r = [this](const Eigen::Matrix<double, ypdarmor_motion_model::Z_N, 1>& z) {
         Eigen::Matrix<double, ypdarmor_motion_model::Z_N, ypdarmor_motion_model::Z_N> r;
         // clang-format off
-r << yr_y_      * std::abs(z[0]), 0, 0, 0,
-     0, yr_p_ * std::abs(z[1]), 0, 0,
-     0, 0, yr_d_ * std::abs(z[2]), 0,
-     0, 0, 0, yr_yaw_;
+      r << yr_y_      * std::abs(z[0]), 0, 0, 0,
+                0, yr_p_ * std::abs(z[1]), 0, 0,
+                0, 0, yr_d_ * std::abs(z[2]), 0,
+                0, 0, 0, yr_yaw_;
         // clang-format on
         return r;
     };
@@ -315,10 +315,10 @@ r << yr_y_      * std::abs(z[0]), 0, 0, 0,
     auto oyu_r = [this](const Eigen::Matrix<double, oneypdarmor_motion_model::Z_N, 1>& z) {
         Eigen::Matrix<double, oneypdarmor_motion_model::Z_N, oneypdarmor_motion_model::Z_N> r;
         // clang-format off
-r << oyr_y_      * std::abs(z[0]), 0, 0, 0,
-     0, oyr_p_ * std::abs(z[1]), 0, 0,
-     0, 0, oyr_d_ * std::abs(z[2]), 0,
-     0, 0, 0, oyr_yaw_;
+    r << oyr_y_      * std::abs(z[0]), 0, 0, 0,
+                    0, oyr_p_ * std::abs(z[1]), 0, 0,
+                    0, 0, oyr_d_ * std::abs(z[2]), 0,
+                    0, 0, 0, oyr_yaw_;
         // clang-format on
         return r;
     };
@@ -348,22 +348,28 @@ r << oyr_y_      * std::abs(z[0]), 0, 0, 0,
     if (use_ypd_tracker_) {
         ypd_tracker_->ekf =
             std::make_unique<ypdarmor_motion_model::RobotStateEKF>(yf, yh, yu_q, yu_r, yp0);
+        ypd_tracker_->ekf->setAngleDims({ 0, 3 });
     } else {
         tracker_->ekf = std::make_unique<armor_motion_model::RobotStateEKF>(f, h, u_q, u_r, p0);
+        tracker_->ekf->setAngleDims({ 3 });
     }
 
-    one_tracker_->ekf =
-        std::make_unique<onearmor_motion_model::RobotStateEKF>(of, oh, ou_q, ou_r, op0);
+    // one_tracker_->ekf =
+    //     std::make_unique<onearmor_motion_model::RobotStateEKF>(of, oh, ou_q, ou_r, op0);
+    // one_tracker_->ekf->setAngleDims({3});
     // one_ypd_tracker_->ekf =
     //     std::make_unique<oneypdarmor_motion_model::RobotStateEKF>(oyf, oyh,
-    //     oyu_q,
-    //                                                               oyu_r, oyp0);
+    //     oyu_q, oyu_r, oyp0);
+    //
+    // one_ypd_tracker_->ekf->setAngleDims({0});
     for (auto& o_tracker: one_trackers_) {
         o_tracker->ekf =
             std::make_unique<onearmor_motion_model::RobotStateEKF>(of, oh, ou_q, ou_r, op0);
+        o_tracker->ekf->setAngleDims({ 3 });
     }
     one_ca_tracker_->ekf =
         std::make_unique<onecaarmor_motion_model::RobotStateEKF>(ocaf, ocah, ocau_q, ocau_r, ocap0);
+    one_ca_tracker_->ekf->setAngleDims({ 3 });
     // for (auto &oy_tracker : one_ypd_trackers_) {
     //   oy_tracker->ekf =
     //   std::make_unique<oneypdarmor_motion_model::RobotStateEKF>(

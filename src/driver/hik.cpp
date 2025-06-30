@@ -243,20 +243,47 @@ void HikCamera::hikCaptureLoop() {
                 frame.timestamp = current_time;
 
                 if (on_frame_callback_) {
-                    Eigen::Matrix3d R_gimbal2odom;
-                    R_gimbal2odom = Eigen::AngleAxisd(
-                                        gobal::last_yaw + gobal::gimbal2camera_yaw,
-                                        Eigen::Vector3d::UnitZ()
-                                    )
-                        * Eigen::AngleAxisd(
-                                        -gobal::last_pitch - gobal::gimbal2camera_pitch,
-                                        Eigen::Vector3d::UnitY()
-                        )
-                        * Eigen::AngleAxisd(
-                                        gobal::last_roll + gobal::gimbal2camera_roll,
-                                        Eigen::Vector3d::UnitX()
-                        );
-                    on_frame_callback_(frame, R_gimbal2odom);
+                    std::chrono::microseconds delay =
+                        std::chrono::microseconds(static_cast<int64_t>(
+                            std::round((last_exposure_time_ / 2.0) + gobal::communication_delay_μs)
+                        ));
+                    auto t_query = std::chrono::steady_clock::now() - delay;
+                    auto past_att = gobal::attitude_buffer.get_interpolated(t_query);
+                    if (past_att) {
+                        double yaw = past_att->yaw;
+                        double pitch = past_att->pitch;
+                        double roll = past_att->roll;
+                        Eigen::Matrix3d R_gimbal2odom;
+                        R_gimbal2odom = Eigen::AngleAxisd(
+                                            yaw + gobal::gimbal2camera_yaw,
+                                            Eigen::Vector3d::UnitZ()
+                                        )
+                            * Eigen::AngleAxisd(
+                                            -pitch - gobal::gimbal2camera_pitch,
+                                            Eigen::Vector3d::UnitY()
+                            )
+                            * Eigen::AngleAxisd(
+                                            roll + gobal::gimbal2camera_roll,
+                                            Eigen::Vector3d::UnitX()
+                            );
+                        on_frame_callback_(frame, R_gimbal2odom);
+
+                    } else {
+                        Eigen::Matrix3d R_gimbal2odom;
+                        R_gimbal2odom = Eigen::AngleAxisd(
+                                            gobal::last_yaw + gobal::gimbal2camera_yaw,
+                                            Eigen::Vector3d::UnitZ()
+                                        )
+                            * Eigen::AngleAxisd(
+                                            -gobal::last_pitch - gobal::gimbal2camera_pitch,
+                                            Eigen::Vector3d::UnitY()
+                            )
+                            * Eigen::AngleAxisd(
+                                            gobal::last_roll + gobal::gimbal2camera_roll,
+                                            Eigen::Vector3d::UnitX()
+                            );
+                        on_frame_callback_(frame, R_gimbal2odom);
+                    }
                 }
                 if (recorder_ != nullptr) {
                     recorder_->addFrame(frame.data);
