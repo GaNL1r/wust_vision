@@ -78,6 +78,9 @@ public:
     void setMeasureFunc(const MeasureFunc& h) noexcept {
         this->h = h;
     }
+    void setIterationNum(int num) {
+        iteration_num_ = num;
+    }
 
     // Compute a predicted state
     MatrixX1 predict() noexcept {
@@ -104,27 +107,38 @@ public:
 
     // Update the estimated state based on measurement
     MatrixX1 update(const MatrixZ1& z) noexcept {
-        ceres::Jet<double, N_X> x_p_jet[N_X];
-        for (int i = 0; i < N_X; i++) {
-            x_p_jet[i].a = x_pri[i];
-            x_p_jet[i].v[i] = 1;
-        }
-        ceres::Jet<double, N_X> z_p_jet[N_Z];
-        h(x_p_jet, z_p_jet);
+        MatrixX1 x_iter = x_post;
 
-        MatrixZ1 z_pri;
-        for (int i = 0; i < N_Z; i++) {
-            z_pri[i] = z_p_jet[i].a;
-            H.block(i, 0, 1, N_X) = z_p_jet[i].v.transpose();
+        for (int iter = 0; iter < iteration_num_; ++iter) {
+            // 使用 Jet 对当前状态求雅可比
+            ceres::Jet<double, N_X> x_p_jet[N_X];
+            for (int i = 0; i < N_X; ++i) {
+                x_p_jet[i].a = x_iter[i];
+                x_p_jet[i].v[i] = 1;
+            }
+            ceres::Jet<double, N_X> z_p_jet[N_Z];
+            h(x_p_jet, z_p_jet);
+
+            MatrixZ1 z_pri;
+            for (int i = 0; i < N_Z; ++i) {
+                z_pri[i] = z_p_jet[i].a;
+                H.block(i, 0, 1, N_X) = z_p_jet[i].v.transpose();
+            }
+
+            R = update_R(z);
+            K = P_pri * H.transpose() * (H * P_pri * H.transpose() + R).inverse();
+
+            MatrixZ1 residual = z - z_pri;
+            for (int idx: angle_dims_) {
+                residual[idx] = angles::shortest_angular_distance(z_pri[idx], z[idx]);
+            }
+
+            MatrixX1 x_new = x_iter + K * residual;
+
+            x_iter = x_new;
         }
 
-        R = update_R(z);
-        K = P_pri * H.transpose() * (H * P_pri * H.transpose() + R).inverse();
-        MatrixZ1 residual = z - z_pri;
-        for (int idx: angle_dims_) {
-            residual[idx] = angles::shortest_angular_distance(z_pri[idx], z[idx]);
-        }
-        x_post = x_post + K * residual;
+        x_post = x_iter;
         P_post = (MatrixXX::Identity() - K * H) * P_pri;
         return x_post;
     }
@@ -160,4 +174,5 @@ private:
     MatrixX1 x_post;
 
     std::vector<int> angle_dims_;
+    int iteration_num_ = 1;
 };

@@ -462,7 +462,7 @@ void WustVision::runeTargetCallback(const Rune rune_target, Eigen::Matrix4d T_ca
     } else {
         observed_angle = rune_solver_->update(rune_target, T_camera_to_odom);
     }
-    
+
     auto now = std::chrono::steady_clock::now();
     auto latency_nano =
         std::chrono::duration_cast<std::chrono::nanoseconds>(now - rune_target.timestamp).count();
@@ -1075,7 +1075,7 @@ void WustVision::timerCallback() {
         } else {
             double predict_angle =
                 rune_solver_->last_pre_angle - rune_solver_->last_observed_angle_;
-              
+
             try {
                 drawRuneandprewrite(
                     src,

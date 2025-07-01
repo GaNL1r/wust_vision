@@ -42,7 +42,7 @@ void OneCaTracker::init(const Armors& armors_msg) noexcept {
         if (armor.distance_to_image_center < min_distance) {
             min_distance = armor.distance_to_image_center;
             tracked_armor = armor;
-            retype = retypetotracker(armor.number);
+
             type = armor.type;
         }
     }
@@ -57,7 +57,7 @@ void OneCaTracker::init(const Armor& armor_msg) noexcept {
 
     min_distance = armor_msg.distance_to_image_center;
     tracked_armor = armor_msg;
-    retype = retypetotracker(armor_msg.number);
+
     type = armor_msg.type;
 
     WUST_DEBUG(tracker_logger) << "INIT EKF";
@@ -86,7 +86,7 @@ void OneCaTracker::update(const Armors& armors_msg) noexcept {
         double yaw_diff = DBL_MAX;
 
         for (auto& armor: armors_msg.armors) {
-            if (retypetotracker(armor.number) == retype) {
+            if (isSameTarget(armor.number, tracked_id)) {
                 same_id_armor = armor;
                 same_id_armors_count++;
 

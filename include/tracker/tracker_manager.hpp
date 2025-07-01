@@ -63,6 +63,7 @@ public:
     std::chrono::steady_clock::time_point last_time_;
     double v_yaw_update_thres_;
     double v_yaw_to_one_thres_;
+    int iteration_num_ = 1;
 
     std::vector<OneTarget> one_targets;
 };

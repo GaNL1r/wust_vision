@@ -140,30 +140,21 @@ inline AttackMode toAttackMode(int value) {
 }
 
 inline int retypetotracker(ArmorNumber a) {
-    switch (a) {
-        case ArmorNumber::SENTRY:
-            return 0;
-        case ArmorNumber::NO1:
-            return 1;
-        case ArmorNumber::NO2:
-            return 0;
-        case ArmorNumber::NO3:
-            return 0;
-        case ArmorNumber::NO4:
-            return 0;
-        case ArmorNumber::NO5:
-            return 0;
-        case ArmorNumber::OUTPOST:
-            return 2;
-        case ArmorNumber::BASE:
-            return 1;
-        case ArmorNumber::UNKNOWN:
-            return -1;
-        default:
-            std::cerr << "[retypetotracker] Invalid ArmorNumber: " << static_cast<int>(a)
-                      << std::endl;
-            return -1;
-    }
+    static const std::unordered_map<ArmorNumber, int> map = {
+        { ArmorNumber::SENTRY, 0 },  { ArmorNumber::NO1, 1 },  { ArmorNumber::NO2, 0 },
+        { ArmorNumber::NO3, 0 },     { ArmorNumber::NO4, 0 },  { ArmorNumber::NO5, 0 },
+        { ArmorNumber::OUTPOST, 2 }, { ArmorNumber::BASE, 1 }, { ArmorNumber::UNKNOWN, -1 }
+    };
+
+    auto it = map.find(a);
+    if (it != map.end())
+        return it->second;
+
+    std::cerr << "[retypetotracker] Invalid ArmorNumber: " << static_cast<int>(a) << std::endl;
+    return -1;
+}
+inline bool isSameTarget(ArmorNumber a, ArmorNumber b) {
+    return retypetotracker(a) == retypetotracker(b);
 }
 
 template<>

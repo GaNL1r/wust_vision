@@ -45,13 +45,14 @@ armor_solver:
     yaw_off: 0
 armor_tracker:
   ekf:
-    ocar_x: 0.0180952234
-    ocar_y: 0.0180952234
-    ocar_yaw: 0.609218545
-    ocar_z: 0.00180952234
-    ocas2qx: 10
-    ocas2qy: 10
-    ocas2qyaw: 20
+    iteration_num: 4
+    ocar_x: 0.0080952234
+    ocar_y: 0.00780952234
+    ocar_yaw: 0.00609218545
+    ocar_z: 0.0180952234
+    ocas2qx: 1
+    ocas2qy: 1
+    ocas2qyaw: 10
     ocas2qz: 1
     or_x: 0.0180952234
     or_y: 0.0214626785

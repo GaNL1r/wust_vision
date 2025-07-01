@@ -72,6 +72,7 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     lost_time_thres_ = config_["lost_time_thres"].as<double>();
     one_lost_time_thres_ = config_["one_lost_time_thres"].as<double>(0.1);
 
+    iteration_num_ = config_["ekf"]["iteration_num"].as<int>(1);
     // EKF 噪声参数
     s2qx_ = config_["ekf"]["s2qx"].as<double>(20.0);
     s2qy_ = config_["ekf"]["s2qy"].as<double>(20.0);
@@ -241,39 +242,37 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
         return q;
     };
     auto ocau_q = [this]() {
-        Eigen::Matrix<double, onecaarmor_motion_model::X_N, onecaarmor_motion_model::X_N> q;
+        using Mat =
+            Eigen::Matrix<double, onecaarmor_motion_model::X_N, onecaarmor_motion_model::X_N>;
+        Mat q = Mat::Zero();
         double t = dt_;
-        double x = ocas2qx_, y = ocas2qy_, z = ocas2qz_, yaw = ocas2qyaw_;
 
-        // 按照“加速度是白噪声”的协方差传播公式
-        double q_x_x = pow(t, 4) / 4.0 * x;
-        double q_x_vx = pow(t, 3) / 2.0 * x;
-        double q_vx_vx = pow(t, 2) * x;
-        double q_ax_ax = 0.0001; // ax 白噪声强度（可设为 x）
+        double t2 = t * t;
+        double t3 = t2 * t;
+        double t4 = t3 * t;
 
-        // y 方向（匀加速）
-        double q_y_y = pow(t, 4) / 4.0 * y;
-        double q_y_vy = pow(t, 3) / 2.0 * y;
-        double q_vy_vy = pow(t, 2) * y;
-        double q_ay_ay = 0.0001; // ay 白噪声强度（可设为 y）
+        // 白噪声强度
+        double qax = ocas2qx_;
+        double qay = ocas2qy_;
+        double qvz = ocas2qz_;
+        double qvyaw = ocas2qyaw_;
 
-        // z 方向（匀速）
-        double q_z_z = pow(t, 4) / 4 * z, q_z_vz = pow(t, 3) / 2 * z, q_vz_vz = pow(t, 2) * z;
-
-        // yaw 方向（匀角速度）
-        double q_yaw_yaw = pow(t, 4) / 4 * yaw, q_yaw_vyaw = pow(t, 3) / 2 * yaw,
-               q_vyaw_vyaw = pow(t, 2) * yaw;
         // clang-format off
-    q << q_x_x,     q_x_vx,    0,         0,         0,         0,         0,         0,         0,           0,
-        q_x_vx,    q_vx_vx,   0,         0,         0,         0,         0,         0,         0,           0,
-        0,         0,         q_ax_ax,   0,         0,         0,         0,         0,         0,           0,
-        0,         0,         0,         q_y_y,     q_y_vy,    0,         0,         0,         0,           0,
-        0,         0,         0,         q_y_vy,    q_vy_vy,   0,         0,         0,         0,           0,
-        0,         0,         0,         0,         0,         q_ay_ay,   0,         0,         0,           0,
-        0,         0,         0,         0,         0,         0,         q_z_z,     q_z_vz,    0,           0,
-        0,         0,         0,         0,         0,         0,         q_z_vz,    q_vz_vz,   0,           0,
-        0,         0,         0,         0,         0,         0,         0,         0,         q_yaw_yaw,   q_yaw_vyaw,
-        0,         0,         0,         0,         0,         0,         0,         0,         q_yaw_vyaw,  q_vyaw_vyaw;
+        q <<
+        // x,   vx,     ax,     y,     vy,     ay,     z,     vz,     yaw,   vyaw
+         t4/4*qax, t3/2*qax, t2/2*qax, 0,     0,     0,      0,     0,     0,     0,       // x
+         t3/2*qax, t2*qax,   t*qax,    0,     0,     0,      0,     0,     0,     0,       // vx
+         t2/2*qax, t*qax,    1.0*qax,  0,     0,     0,      0,     0,     0,     0,       // ax
+    
+         0,       0,        0,        t4/4*qay, t3/2*qay, t2/2*qay, 0,     0,     0,     0,  // y
+         0,       0,        0,        t3/2*qay, t2*qay,   t*qay,    0,     0,     0,     0,  // vy
+         0,       0,        0,        t2/2*qay, t*qay,    1.0*qay,  0,     0,     0,     0,  // ay
+    
+         0,       0,        0,        0,       0,        0,        t3/3*qvz, t2/2*qvz, 0,     0,  // z
+         0,       0,        0,        0,       0,        0,        t2/2*qvz, t*qvz,    0,     0,  // vz
+    
+         0,       0,        0,        0,       0,        0,        0,     0,     t3/3*qvyaw, t2/2*qvyaw, // yaw
+         0,       0,        0,        0,       0,        0,        0,     0,     t2/2*qvyaw, t*qvyaw;    // vyaw
         // clang-format on
 
         return q;
@@ -349,9 +348,11 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
         ypd_tracker_->ekf =
             std::make_unique<ypdarmor_motion_model::RobotStateEKF>(yf, yh, yu_q, yu_r, yp0);
         ypd_tracker_->ekf->setAngleDims({ 0, 3 });
+        ypd_tracker_->ekf->setIterationNum(iteration_num_);
     } else {
         tracker_->ekf = std::make_unique<armor_motion_model::RobotStateEKF>(f, h, u_q, u_r, p0);
         tracker_->ekf->setAngleDims({ 3 });
+        tracker_->ekf->setIterationNum(iteration_num_);
     }
 
     // one_tracker_->ekf =
@@ -366,6 +367,7 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
         o_tracker->ekf =
             std::make_unique<onearmor_motion_model::RobotStateEKF>(of, oh, ou_q, ou_r, op0);
         o_tracker->ekf->setAngleDims({ 3 });
+        o_tracker->ekf->setIterationNum(iteration_num_);
     }
     one_ca_tracker_->ekf =
         std::make_unique<onecaarmor_motion_model::RobotStateEKF>(ocaf, ocah, ocau_q, ocau_r, ocap0);
@@ -528,6 +530,7 @@ void TrackerManager::update(
     //     one_target.type = one_ca_tracker_->type;
     //   }
     // }
+    // one_targets_.push_back(one_target);
     // std::cout<<one_target.position_<<" "<<one_target.velocity_<<"
     // "<<one_target.acceleration_<<" "<<one_target.yaw<<"
     // "<<one_target.v_yaw<<std::endl; one_targets_.push_back(one_target);
@@ -586,9 +589,8 @@ void TrackerManager::update(
                     continue;
 
                 // 类型不匹配
-                if (retypetotracker(armors_.armors[i].number) != otracker->retype)
+                if (!isSameTarget(armors_.armors[i].number, otracker->tracked_id))
                     continue;
-
                 // 提取观测装甲板的位置和 yaw
                 const auto& armor = armors_.armors[i];
                 Eigen::Vector3d obs_pos(armor.target_pos.x, armor.target_pos.y, armor.target_pos.z);
@@ -701,8 +703,8 @@ void TrackerManager::update(
     //         continue;
 
     //       // 类型不匹配
-    //       if (retypetotracker(armors_.armors[i].number) != otracker->retype)
-    //         continue;
+    //       if(!isSameTarget(armors_.armors[i].number, otracker->tracked_id))
+    //          continue;
 
     //       // 提取观测装甲板的位置和 yaw
     //       const auto &armor = armors_.armors[i];

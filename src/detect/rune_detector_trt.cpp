@@ -477,7 +477,7 @@ bool RuneDetectorTrt::processCallback(
         ),
         objs_result.end()
     );
-  
+
     // Call callback function
     if (this->infer_callback_) {
         this->infer_callback_(objs_result, timestamp, src_img, T_camera_to_odom);

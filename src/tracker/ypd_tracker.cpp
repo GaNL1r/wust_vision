@@ -44,7 +44,6 @@ void YpdTracker::init(const Armors& armors_msg) noexcept {
         if (armor.distance_to_image_center < min_distance) {
             min_distance = armor.distance_to_image_center;
             tracked_armor = armor;
-            retype = retypetotracker(armor.number);
             type = armor.type;
         }
     }
@@ -84,18 +83,14 @@ void YpdTracker::update(const Armors& armors_msg) noexcept {
                 continue;
             }
 
-            if (retypetotracker(armor.number) == retype) {
+            if (isSameTarget(armor.number, tracked_id)) {
                 same_id_armor = armor;
                 same_id_armors_count++;
-                // WUST_INFO(tracker_logger)<<"Same ID armor
-                // found!"<<fmt::format("count: {}\n", same_id_armors_count);
+
                 auto p = armor.target_pos;
                 Eigen::Vector3d position_vec(p.x, p.y, p.z);
                 double position_diff = (predicted_position - position_vec).norm();
                 double z_diff = std::abs(armor.target_pos.z - predicted_position.z());
-
-                // WUST_INFO(tracker_logger)<<"Armor
-                // found!"<<fmt::format("position_diff: {}\n", position_diff);
 
                 if (position_diff < min_position_diff) {
                     min_position_diff = position_diff;

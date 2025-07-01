@@ -87,23 +87,24 @@ std::vector<Armor> ArmorPoseEstimator::extractArmorPoses(
             double armor_roll = rotationMatrixToRPY(R_gimbal_camera_ * R)[0] * 180 / M_PI;
             Eigen::Quaterniond q1(R);
 
-            if (armor_roll < 105) {
+            if (std::abs(armor_roll) < 30) {
+
                 // Use BA alogorithm to optimize the pose from PnP
                 // solveBa() will modify the rotation_matrix
                 Eigen::Matrix3d tmp_R = R;
                 R = ba_solver_->solveBa(armor, t, R, R_imu_camera, temp_number);
                 t = ba_solver_->solveBa_t(armor, t, tmp_R, R_imu_camera, temp_number);
             }
+            
             Eigen::Quaterniond q(R);
             // 定义绕 X 轴的额外旋转（90 度）
             double roll_angle = M_PI / 2; // 弧度
-            // double yaw_angle = M_PI / 2;
+   
 
             Eigen::Quaterniond additional_roll(
                 Eigen::AngleAxisd(roll_angle, Eigen::Vector3d::UnitX())
             );
-            // Eigen::Quaterniond additional_yaw(Eigen::AngleAxisd(yaw_angle,
-            // Eigen::Vector3d::UnitY()));
+    
 
             // 应用额外旋转
             Eigen::Quaterniond new_q = q * additional_roll;
@@ -111,7 +112,7 @@ std::vector<Armor> ArmorPoseEstimator::extractArmorPoses(
             // 转换回旋转矩阵
             Eigen::Matrix3d new_R = new_q.toRotationMatrix();
 
-            // Fill the armor message
+          
 
             // Fill basic info
             armor_.type = temp_type;
@@ -129,10 +130,7 @@ std::vector<Armor> ArmorPoseEstimator::extractArmorPoses(
             armor_.is_ok = true;
 
             Eigen::Vector3d rpy = rotationMatrixToRPY(q.toRotationMatrix());
-            // std::cout << "Roll: " << rpy.x() * 180 / M_PI << " degrees" <<
-            // std::endl; std::cout << "Pitch: " << rpy.y() * 180 / M_PI << " degrees"
-            // << std::endl; std::cout << "Yaw: " << rpy.z() * 180 / M_PI << "
-            // degrees" << std::endl;
+
 
             armors_msg.push_back(std::move(armor_));
         } else {
