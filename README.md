@@ -1,30 +1,46 @@
 # WUST_VISION
-* 2025年4月30日开始开发
-* 2025年5月11日完成第一版框架
-
-## 已完成：
-* 海康驱动直连观测器，已实现openvino和tensorrt基于相同模型的模板开发，165hz情况下openvino运算延迟在10ms-20ms实际帧率，165hz（对于nuc），160hz情况下tensorrt运算延迟在10-25ms，实际帧率140-160（对于6核心nx,无图像化），位姿结算已完成。
-* 科学的项目结构，一键编译部署脚本
-* EKF融合粒子滤波跟踪器，整车建模
-* debug ui美化
-* 一键加载config 
-* guard守护进程
-* 串口收发通信
-* 弹道结算与选板
-  
-  ---
-## 以上为初始框架搭建过程中的记录
 
 
-
-
-## 更新
-* 支持trt10+
-* 增加网页调试器
-* 增加动态相机帧率模式（无上限）
-* 已经经过上车测试
-* 添加自动数据集/回放录制-播放
-* 完成神经网络的大符
-* 添加极坐标模型
-* 添加单板模型
-  
+## 依赖
+* OpenCV
+* OpenVINO/TensorRT-cuda
+* fmt
+* ceres
+* Eigen3
+* Sophus
+* g2o
+* nlohmann
+* yaml-cpp
+## 环境配置
+```
+sudo apt install libfmt-dev
+sudo apt install libceres-dev
+sudo apt install libeigen3-dev
+sudo apt install nlohmann-json3-dev
+sudo apt install libyaml-cpp-dev
+```
+Sophus: 
+```
+git clone https://github.com/strasdat/Sophus
+cd Sophus
+mkdir build && cd build
+cmake ..
+make -j
+sudo make install
+```
+G2O:
+```
+sudo apt install libeigen3-dev libspdlog-dev libsuitesparse-dev qtdeclarative5-dev qt5-qmake libqglviewer-dev-qt5
+git clone https://github.com/RainerKuemmerle/g2o
+cd g2o
+mkdir build && cd build
+cmake ..
+make -j
+sudo make install
+```
+## Quick Start
+```
+sudo ./run.sh trt/openvino/build #TensorRT-cuda识别版本/OpenVINO识别版本/仅编译
+```
+### 注意：本项目默认要求OpenVINO或TensorRT-cuda参与编译（可选择其一，需在build第一次缓存前在camkelists设置）
+### OpenVINO或TensorRT-cuda实际参与装甲板与能量机关的识别，装甲板识别可使用纯OpenCV（但OpenVINO或TensorRT-cuda仍然在编译路径中），能量机关如不使用可删除
