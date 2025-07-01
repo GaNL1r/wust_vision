@@ -114,7 +114,7 @@ camera:
     loop: true
     path: /home/hy/6.11/output.mp4
     start_frame: 500
-    use: false
+    use: true
 control:
   alpha_pitch: 0.9
   alpha_yaw: 0.9
@@ -124,14 +124,14 @@ control:
   max_pitch_change: 5
   max_yaw_change: 10
   use_nav: false
-  use_serial:  true
+  use_serial:  false
 debug:
   debug_h: 1080
   debug_mode: true
   debug_show_dt: 0.01
   debug_w: 1440
-detect_color: 0
-init_attack_mode: 0
+detect_color: 1
+init_attack_mode: 1
 logger:
   log_level: INFO
   log_path: /home/hy/wust_log
@@ -153,20 +153,31 @@ rune_solver:
   bullet_speet: 20
   compensator_type: resistance
   ekf:
-    q:
-    - 4e-4
+    use_ypd: true
+    iteration_num: 1
+    q_xyzyaw:
+    - 2e-4
     - 1e-4
     - 1e-4
     - 1e-4
-    r:
+    r_xyzyaw:
     - 4e-2
     - 1e-2
     - 1e-2
     - 1e-2
+    q_ypdyaw:
+    - 2e-4
+    - 1e-4
+    - 1e-4
+    - 1e-4
+    r_ypdyaw:
+    - 1e-4
+    - 1e-4
+    - 5e-2
+    - 1e-2
   gravity: 9.8
   lost_time_thres: 0.5
   predict_offset: 0.1
-  predict_time: 0
   trajectory_offset:
   - d_max: 6
     d_min: 5

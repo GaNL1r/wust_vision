@@ -3,73 +3,7 @@
 #include <chrono>
 #include <nlohmann/json.hpp>
 #include <vector>
-void plotYawThread() {
-    while (!gobal::is_inited_) {
-        usleep(10000);
-    }
-    try {
-        matplotlibcpp::ion();
-    } catch (const std::exception& e) {
-        std::cerr << "Failed to initialize matplotlib interactive mode: " << e.what();
-        return;
-    }
 
-    bool figureClosed = false;
-
-    while (gobal::is_inited_) {
-        std::vector<double> time_list, yaw_list;
-        {
-            std::lock_guard<std::mutex> lock(toolsgobal::yaw_log_mutex_);
-            for (const auto& [t, yaw]: toolsgobal::target_yaw_log_) {
-                time_list.push_back(t);
-                yaw_list.push_back(yaw);
-            }
-        }
-
-        matplotlibcpp::clf();
-        if (!time_list.empty())
-            matplotlibcpp::plot(time_list, yaw_list);
-        matplotlibcpp::title("Target Yaw Over Time");
-        matplotlibcpp::xlabel("Time (s)");
-        matplotlibcpp::ylabel("Yaw (rad)");
-        matplotlibcpp::grid(true);
-        matplotlibcpp::pause(0.001);
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(50)); // 20 Hz
-    }
-
-    WUST_DEBUG("matplot") << "[plotYawThread] Ending...";
-
-    try {
-        if (!figureClosed) {
-            matplotlibcpp::close();
-            // 给窗口关闭一点时间
-            for (int i = 0; i < 10; ++i)
-                matplotlibcpp::pause(0.05);
-
-            // Python 层彻底关闭所有窗口并切后端，避免卡死
-            matplotlibcpp::detail::_interpreter::get();
-            PyRun_SimpleString(
-                "import matplotlib.pyplot as plt\n"
-                "plt.close('all')\n"
-                "plt.switch_backend('agg')\n"
-            );
-
-            figureClosed = true;
-            WUST_DEBUG("matplot") << "[plotYawThread] Figure closed successfully.";
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "[plotYawThread] Exception on close: " << e.what();
-    }
-
-    try {
-        matplotlibcpp::detail::_interpreter::kill();
-    } catch (...) {
-        // 忽略异常
-    }
-
-    WUST_DEBUG("matplot") << "[plotYawThread] Fully terminated.";
-}
 void write_cmd_log_to_json() {
     nlohmann::json j;
     {
@@ -84,6 +18,8 @@ void write_cmd_log_to_json() {
         j["armor_yaw"] = toolsgobal::armor_yaw_log_;
         j["ypd_y"] = toolsgobal::ypd_y_log_;
         j["ypd_p"] = toolsgobal::ypd_p_log_;
+        j["rune_obs"] = toolsgobal::rune_obs_log_;
+        j["rune_pre"] = toolsgobal::rune_pre_log_;
     }
 
     std::ofstream file("/dev/shm/cmd_log.json");
@@ -174,87 +110,3 @@ void plotRobotCmdThread() {
     WUST_DEBUG("matplot") << "plotRobotCmdThread fully terminated";
 }
 
-void plotAllThread() {
-    while (!gobal::is_inited_) {
-        usleep(10000);
-    }
-    try {
-        matplotlibcpp::ion(); // 启用交互模式
-    } catch (const std::exception& e) {
-        std::cerr << "Failed to initialize matplotlib interactive mode: " << e.what();
-        return;
-    }
-
-    bool figureClosed = false;
-
-    while (gobal::is_inited_) {
-        std::vector<double> time_list_target, target_yaw_list;
-        std::vector<double> time_list_cmd, cmd_yaw_list, cmd_pitch_list;
-
-        {
-            std::lock_guard<std::mutex> lock(toolsgobal::yaw_log_mutex_);
-            for (const auto& [t, yaw]: toolsgobal::target_yaw_log_) {
-                time_list_target.push_back(t);
-                target_yaw_list.push_back(yaw * 180.0 / M_PI); // 转为角度显示
-            }
-        }
-
-        {
-            std::lock_guard<std::mutex> lock(toolsgobal::robot_cmd_mutex_);
-            time_list_cmd = toolsgobal::time_log_;
-            cmd_yaw_list = toolsgobal::cmd_yaw_log_;
-            cmd_pitch_list = toolsgobal::cmd_pitch_log_;
-        }
-
-        matplotlibcpp::clf();
-
-        if (!time_list_target.empty())
-            matplotlibcpp::named_plot("Target Yaw", time_list_target, target_yaw_list, "g-");
-
-        if (!time_list_cmd.empty()) {
-            matplotlibcpp::named_plot("Cmd Yaw", time_list_cmd, cmd_yaw_list, "r-");
-            matplotlibcpp::named_plot("Cmd Pitch", time_list_cmd, cmd_pitch_list, "b-");
-        }
-
-        matplotlibcpp::legend();
-        matplotlibcpp::title("Yaw & Pitch Over Time");
-        matplotlibcpp::xlabel("Time (s)");
-        matplotlibcpp::ylabel("Angle (deg)");
-        matplotlibcpp::grid(true);
-        matplotlibcpp::pause(0.001);
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(50)); // 20Hz
-    }
-
-    WUST_DEBUG("matplot") << "[plotAllThread] Ending...";
-
-    // 正确关闭图形窗口
-    try {
-        if (!figureClosed) {
-            matplotlibcpp::close(); // C++ 层调用
-            for (int i = 0; i < 10; ++i)
-                matplotlibcpp::pause(0.05); // 给窗口时间关闭
-
-            // Python 层彻底关闭所有窗口并切后端
-            matplotlibcpp::detail::_interpreter::get();
-            PyRun_SimpleString(
-                "import matplotlib.pyplot as plt\n"
-                "plt.close('all')\n"
-                "plt.switch_backend('agg')\n"
-            );
-
-            figureClosed = true;
-            WUST_DEBUG("matplot") << "[plotAllThread] Figure closed successfully.";
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "[plotAllThread] Exception on close: " << e.what();
-    }
-
-    try {
-        matplotlibcpp::detail::_interpreter::kill(); // 释放 Python
-    } catch (...) {
-        // 忽略 kill 异常
-    }
-
-    WUST_DEBUG("matplot") << "[plotAllThread] Fully terminated.";
-}

@@ -31,12 +31,10 @@ void WustVision::stop() {
             // if (capture_thread_ && capture_thread_->joinable()) {
             //   capture_thread_->join();
             // }
-            if(camera_)
-            {
+            if (camera_) {
                 camera_->stopCamera();
                 camera_.reset();
             }
-            
         }
 
         stopTimer();
@@ -281,6 +279,8 @@ void WustVision::initRune(const std::string& camera_info_path) {
         .auto_type_determined = gobal::config["rune_solver"]["auto_type_determined"].as<bool>(true),
     };
     rune_solver_ = std::make_unique<RuneSolver>(rune_solver_params);
+    bool use_ypd = gobal::config["rune_solver"]["ekf"]["use_ypd"].as<bool>();
+    rune_solver_->use_ypd = use_ypd;
     rune_solver_->predict_offset_ = gobal::config["rune_solver"]["predict_offset"].as<double>(0.0);
     YAML::Node camera_config = YAML::LoadFile(camera_info_path);
 
@@ -309,10 +309,12 @@ void WustVision::initRune(const std::string& camera_info_path) {
     // measurement: x, y, z, yaw
     // f - Process function
     auto f = rune_motion_model::Predict();
+    auto yf = ypdrune_motion_model::Predict();
     // h - Observation function
     auto h = rune_motion_model::Measure();
+    auto yh = ypdrune_motion_model::Measure();
     // update_Q - process noise covariance matrix
-    std::vector<double> q_vec = gobal::config["rune_solver"]["ekf"]["q"].as<std::vector<double>>();
+    std::vector<double> q_vec = gobal::config["rune_solver"]["ekf"]["q_xyzyaw"].as<std::vector<double>>();
 
     auto u_q = [q_vec]() {
         Eigen::Matrix<double, rune_motion_model::X_N, rune_motion_model::X_N> q =
@@ -320,17 +322,43 @@ void WustVision::initRune(const std::string& camera_info_path) {
         q.diagonal() << q_vec[0], q_vec[1], q_vec[2], q_vec[3];
         return q;
     };
+    std::vector<double> yq_vec = gobal::config["rune_solver"]["ekf"]["q_ypdyaw"].as<std::vector<double>>();
+    auto yu_q = [yq_vec]() {
+        Eigen::Matrix<double, ypdrune_motion_model::X_N, ypdrune_motion_model::X_N> q =
+            Eigen::MatrixXd::Zero(2, 2);
+        q.diagonal() << yq_vec[0], yq_vec[1];
+        return q;
+    };
     // update_R - measurement noise covariance matrix
-    std::vector<double> r_vec = gobal::config["rune_solver"]["ekf"]["r"].as<std::vector<double>>();
+    std::vector<double> r_vec = gobal::config["rune_solver"]["ekf"]["r_xyzyaw"].as<std::vector<double>>();
     auto u_r = [r_vec](const Eigen::Matrix<double, rune_motion_model::Z_N, 1>& z) {
         Eigen::Matrix<double, rune_motion_model::Z_N, rune_motion_model::Z_N> r =
             Eigen::MatrixXd::Zero(4, 4);
         r.diagonal() << r_vec[0], r_vec[1], r_vec[2], r_vec[3];
         return r;
     };
+    std::vector<double> yr_vec = gobal::config["rune_solver"]["ekf"]["r_ypdyaw"].as<std::vector<double>>();
+    auto yu_r = [yr_vec](const Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>& z) {
+        Eigen::Matrix<double, ypdrune_motion_model::Z_N, ypdrune_motion_model::Z_N> r =
+            Eigen::MatrixXd::Zero(4, 4);
+        r.diagonal() << yr_vec[0], yr_vec[1], yr_vec[2], yr_vec[3];
+        return r;
+    };
     // P - error estimate covariance matrix
     Eigen::MatrixXd p0 = Eigen::MatrixXd::Identity(4, 4);
-    rune_solver_->ekf = std::make_unique<rune_motion_model::RuneCenterEKF>(f, h, u_q, u_r, p0);
+    Eigen::MatrixXd yp0 = Eigen::MatrixXd::Identity(4, 4);
+    int iteration_num =gobal::config["rune_solver"]["ekf"]["iteration_num"].as<int>(1);
+    if(use_ypd)
+    {
+        rune_solver_->ekf_ypd = std::make_unique<ypdrune_motion_model::RuneCenterEKF>(yf, yh, yu_q, yu_r, yp0);
+        rune_solver_->ekf_ypd->setAngleDims({0,3});
+        rune_solver_->ekf_ypd->setIterationNum(iteration_num);
+    }else {
+        rune_solver_->ekf_xyz = std::make_unique<rune_motion_model::RuneCenterEKF>(f, h, u_q, u_r, p0);
+        rune_solver_->ekf_xyz->setAngleDims({3});
+        rune_solver_->ekf_xyz->setIterationNum(iteration_num);
+    }
+    
 }
 
 void WustVision::captureLoop() {
@@ -676,6 +704,7 @@ void WustVision::RuneDetectCallback(
     Eigen::Matrix4d T_camera_to_odom
 ) {
     std::lock_guard<std::mutex> lock(callback_mutex_);
+    static bool last_rune_big = false; //Always small rune first
     detect_finish_count_++;
     // Used to draw debug info
     cv::Mat debug_img;
@@ -765,6 +794,24 @@ void WustVision::RuneDetectCallback(
         rune_target.is_lost = true;
     }
     infer_running_count_--;
+    AttackMode mode = toAttackMode(gobal::attack_mode);
+    switch (mode) {
+        case AttackMode::ARMOR: {
+            rune_target.is_big_rune = last_rune_big;
+        } break;
+        case AttackMode::BIG_RUNE: {
+            rune_target.is_big_rune = true;
+            last_rune_big = true;
+        } break;
+        case AttackMode::SMALL_RUNE: {
+            rune_target.is_big_rune = false;
+            last_rune_big = false;
+        } break;
+        case AttackMode::UNKNOWN: {
+            rune_target.is_big_rune = last_rune_big;
+        }
+    }
+
     runeTargetCallback(rune_target, T_camera_to_odom);
     auto now = std::chrono::steady_clock::now();
 
@@ -976,9 +1023,10 @@ void WustVision::timerCallback() {
                 } break;
                 case AttackMode::BIG_RUNE: {
                     gimbal_cmd = rune_solver_->solve();
-                }
-                case AttackMode::UNKNOWN:
-                    break;
+                } break;
+                case AttackMode::UNKNOWN: {
+                    gimbal_cmd = armor_solver_->solve(target, one_targets, now);
+                } break;
             }
             last_cmd_ = gimbal_cmd;
             if (gimbal_cmd.fire_advice) {
@@ -1096,22 +1144,16 @@ void WustVision::timerCallback() {
 
         auto now = std::chrono::steady_clock::now();
         double t = std::chrono::duration<double>(now - toolsgobal::start_time_).count();
-        {
-            std::lock_guard<std::mutex> lock(toolsgobal::yaw_log_mutex_);
-
-            toolsgobal::target_yaw_log_.emplace_back(t, target.yaw);
-            if (toolsgobal::target_yaw_log_.size() > 1000) {
-                toolsgobal::target_yaw_log_.erase(
-                    toolsgobal::target_yaw_log_.begin(),
-                    toolsgobal::target_yaw_log_.begin() + toolsgobal::target_yaw_log_.size() - 1000
-                );
-            }
-        }
+        
         {
             std::lock_guard<std::mutex> lock(toolsgobal::robot_cmd_mutex_);
             toolsgobal::time_log_.push_back(t);
             toolsgobal::cmd_yaw_log_.push_back(last_cmd_.yaw);
             toolsgobal::cmd_pitch_log_.push_back(last_cmd_.pitch);
+            double rune_obs = rune_solver_->last_observed_angle_;
+            double rune_pre = rune_solver_->last_pre_angle;
+            toolsgobal::rune_obs_log_.push_back(rune_obs);
+            toolsgobal::rune_pre_log_.push_back(rune_pre);
             if (!armors.armors.empty()) {
                 std::vector<Armor> ok_armors;
                 for (const auto& armor: armors.armors) {
@@ -1191,7 +1233,8 @@ void WustVision::timerCallback() {
                 toolsgobal::armor_y_log_.erase(toolsgobal::armor_y_log_.begin());
                 toolsgobal::armor_z_log_.erase(toolsgobal::armor_z_log_.begin());
                 toolsgobal::ypd_y_log_.erase(toolsgobal::ypd_y_log_.begin());
-                toolsgobal::ypd_p_log_.erase(toolsgobal::ypd_p_log_.begin());
+                toolsgobal::rune_obs_log_.erase(toolsgobal::rune_obs_log_.begin());
+                toolsgobal::rune_pre_log_.erase(toolsgobal::rune_pre_log_.begin());
             }
         }
     }
@@ -1244,8 +1287,9 @@ void WustVision::processImage(const ImageFrame& frame, Eigen::Matrix3d R_gimbal2
         case AttackMode::BIG_RUNE: {
             rune_detector_->pushInput(img, frame.timestamp, T_camera_to_odom);
         }
-        case AttackMode::UNKNOWN:
-            break;
+        case AttackMode::UNKNOWN: {
+            armor_detector_->pushInput(img, frame.timestamp, T_camera_to_odom);
+        } break;
     }
 }
 void WustVision::processImage(
@@ -1297,8 +1341,9 @@ void WustVision::processImage(
         case AttackMode::BIG_RUNE: {
             rune_detector_->pushInput(frame, timestamp, T_camera_to_odom);
         }
-        case AttackMode::UNKNOWN:
-            break;
+        case AttackMode::UNKNOWN: {
+            armor_detector_->pushInput(frame, timestamp, T_camera_to_odom);
+        } break;
     }
 }
 

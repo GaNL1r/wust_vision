@@ -60,7 +60,13 @@ double RuneSolver::init(const Rune received_target, Eigen::Matrix4d T_camera_to_
         }
 
         ekf_state_ = getStateFromTransform(T_odom_2_rune);
-        ekf->setState(ekf_state_);
+        if(use_ypd)
+        {
+            ekf_ypd->setState(ekf_state_);
+        }else {
+            ekf_xyz->setState(ekf_state_);
+        }
+      
     } catch (...) {
         WUST_ERROR("rune_solver") << "Init failed";
         return 0;
@@ -106,8 +112,23 @@ double RuneSolver::update(const Rune received_target, Eigen::Matrix4d T_camera_t
             }
 
             Eigen::Vector4d measurement = getStateFromTransform(T_odom_2_rune);
-            ekf->predict();
-            ekf_state_ = ekf->update(measurement);
+            if (use_ypd) {
+                ekf_ypd->predict();
+                tf::Position p(measurement[0], measurement[1], measurement[2]);
+                double ypd_y = std::atan2(p.y, p.x);
+                ypd_y =
+                    this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
+                this->last_ypd_y = ypd_y;
+                double ypd_p = std::atan2(p.z, std::sqrt(p.x * p.x + p.y * p.y));
+                double ypd_d = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
+                Eigen::Vector4d state;
+                state << ypd_y, ypd_p, ypd_d, measurement[3];
+                ekf_state_ = ekf_ypd->update(state);
+            } else {
+                ekf_xyz->predict();
+                ekf_xyz->update(measurement);
+            }
+
         } catch (...) {
             WUST_ERROR("rune_solver") << "EKF update failed";
             return 0;
@@ -185,9 +206,9 @@ RuneSolver::solvePose(const Rune& predicted_target, Eigen::Matrix4d T_camera_to_
             cv::Rodrigues(rvec, rmat);
             Eigen::Matrix3d rot;
             // clang-format off
-      rot << rmat.at<double>(0, 0), rmat.at<double>(0, 1), rmat.at<double>(0, 2),
-             rmat.at<double>(1, 0), rmat.at<double>(1, 1), rmat.at<double>(1, 2), 
-             rmat.at<double>(2, 0), rmat.at<double>(2, 1), rmat.at<double>(2, 2);
+            rot << rmat.at<double>(0, 0), rmat.at<double>(0, 1), rmat.at<double>(0, 2),
+                    rmat.at<double>(1, 0), rmat.at<double>(1, 1), rmat.at<double>(1, 2), 
+                    rmat.at<double>(2, 0), rmat.at<double>(2, 1), rmat.at<double>(2, 2);
             // clang-format on
             Eigen::Quaterniond quat(rot);
 

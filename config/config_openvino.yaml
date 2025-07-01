@@ -150,12 +150,24 @@ rune_solver:
   bullet_speet: 20
   compensator_type: resistance
   ekf:
-    q:
+    use_ypd: true
+    iteration_num: 1
+    q_xyzyaw:
     - 4e-4
     - 1e-4
     - 1e-4
     - 1e-4
-    r:
+    r_xyzyaw:
+    - 4e-2
+    - 1e-2
+    - 1e-2
+    - 1e-2
+    q_ypdyaw:
+    - 2e-4
+    - 1e-4
+    - 1e-4
+    - 1e-4
+    r_ypdyaw:
     - 4e-2
     - 1e-2
     - 1e-2
@@ -163,7 +175,6 @@ rune_solver:
   gravity: 9.8
   lost_time_thres: 0.5
   predict_offset: 0.1
-  predict_time: 0.05
   trajectory_offset:
   - d_max: 6
     d_min: 5

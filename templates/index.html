@@ -338,6 +338,8 @@
         <label><input type="checkbox" data-key="armor_yaw" onchange="updateCharts()" /> Armor Yaw</label>
         <label><input type="checkbox" data-key="ypd_p" onchange="updateCharts()" /> Ypd Pitch</label>
         <label><input type="checkbox" data-key="ypd_y" onchange="updateCharts()" /> Ypd Yaw</label>
+        <label><input type="checkbox" data-key="rune_obs" onchange="updateCharts()" /> Rune Obs</label>
+        <label><input type="checkbox" data-key="rune_pre" onchange="updateCharts()" /> Rune Pre</label>
       </div>
       <fieldset>
         <legend>主图范围设置</legend>
@@ -381,6 +383,8 @@
     armor_yaw: { label: "Armor Yaw" },
     ypd_p: { label: "Ypd Pitch" },
     ypd_y: { label: "Ypd Yaw" },
+    rune_obs: { label: "Rune Obs" },
+    rune_pre: { label: "Rune Pre" },
   };
 
   const mainCtx = document.getElementById("mainChart").getContext("2d");

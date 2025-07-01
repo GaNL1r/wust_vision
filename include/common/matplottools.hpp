@@ -5,8 +5,7 @@
 #include "type/type.hpp"
 #include <thread>
 
-void plotYawThread();
+
 void plotRobotCmdThread();
-void plotAllThread();
 void write_cmd_log_to_json();
 void robotCmdLoggerThread();

@@ -314,7 +314,7 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     auto oyu_r = [this](const Eigen::Matrix<double, oneypdarmor_motion_model::Z_N, 1>& z) {
         Eigen::Matrix<double, oneypdarmor_motion_model::Z_N, oneypdarmor_motion_model::Z_N> r;
         // clang-format off
-    r << oyr_y_      * std::abs(z[0]), 0, 0, 0,
+       r << oyr_y_* std::abs(z[0]), 0, 0, 0,
                     0, oyr_p_ * std::abs(z[1]), 0, 0,
                     0, 0, oyr_d_ * std::abs(z[2]), 0,
                     0, 0, 0, oyr_yaw_;

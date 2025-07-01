@@ -33,6 +33,7 @@
 #include "tracker/curve_fitter.hpp"
 #include "tracker/extended_kalman_filter.hpp"
 #include "tracker/motion_modelr.hpp"
+#include "tracker/motion_modelrypd.hpp"
 #include "type/type.hpp"
 
 // Usage:
@@ -89,7 +90,9 @@ public:
     std::unique_ptr<PnPSolver> pnp_solver;
     std::unique_ptr<TrajectoryCompensator> trajectory_compensator;
     std::unique_ptr<CurveFitter> curve_fitter;
-    std::unique_ptr<rune_motion_model::RuneCenterEKF> ekf;
+    bool use_ypd;
+    std::unique_ptr<rune_motion_model::RuneCenterEKF> ekf_xyz;
+    std::unique_ptr<ypdrune_motion_model::RuneCenterEKF> ekf_ypd;
     std::unique_ptr<ManualCompensator> manual_compensator;
 
     RuneSolverParams rune_solver_params;
@@ -117,8 +120,7 @@ private:
     double last_angle_;
     double start_time_;
     double last_time_;
+    double last_ypd_y;
 
     Eigen::Vector4d ekf_state_;
 };
-
-#pragma once
