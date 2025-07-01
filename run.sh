@@ -50,7 +50,10 @@ total=$(find .. \
         -name "*.py" -o \
         -name "*.html" -o \
         -name "*.sh" -o \
-        -name "*.md" \
+        -name "*.md" -o \
+        -name "*.yaml" -o \
+        -name "*.json" -o \
+        -name "*.txt"\
     \) -exec wc -l {} + | awk 'END{print $1}')
 echo -e "${blue}        $total${reset}"
 

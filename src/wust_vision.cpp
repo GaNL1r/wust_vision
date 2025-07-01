@@ -1127,11 +1127,15 @@ void WustVision::timerCallback() {
 
                     const Armor& min_armor = *min_armor_it;
                     last_armor_ = min_armor;
+                    
                     last_distance = std::sqrt(
                         min_armor.target_pos.x * min_armor.target_pos.x
                         + min_armor.target_pos.y * min_armor.target_pos.y
                         + min_armor.target_pos.z * min_armor.target_pos.z
                     );
+                    double armor_yaw = last_armor_.yaw;
+                    armor_yaw = this->last_armor_yaw + angles::shortest_angular_distance(this->last_armor_yaw, armor_yaw);
+                    this->last_armor_yaw = armor_yaw;
                     double ypd_y = std::atan2(last_armor_.target_pos.y, last_armor_.target_pos.x);
 
                     ypd_y = this->last_ypd_y
@@ -1144,7 +1148,7 @@ void WustVision::timerCallback() {
                             + last_armor_.target_pos.y * last_armor_.target_pos.y
                         )
                     );
-                    toolsgobal::armor_yaw_log_.push_back(last_armor_.yaw);
+                    toolsgobal::armor_yaw_log_.push_back((last_armor_yaw/M_PI*180));
                     toolsgobal::armor_x_log_.push_back(last_armor_.target_pos.x);
                     toolsgobal::armor_y_log_.push_back(last_armor_.target_pos.y);
                     toolsgobal::armor_z_log_.push_back(last_armor_.target_pos.z);
@@ -1153,7 +1157,7 @@ void WustVision::timerCallback() {
 
                     toolsgobal::armor_dis_log_.push_back(last_distance);
                 } else {
-                    toolsgobal::armor_yaw_log_.push_back(last_armor_.yaw);
+                    toolsgobal::armor_yaw_log_.push_back((last_armor_yaw/M_PI*180));
                     toolsgobal::armor_x_log_.push_back(last_armor_.target_pos.x);
                     toolsgobal::armor_y_log_.push_back(last_armor_.target_pos.y);
                     toolsgobal::armor_z_log_.push_back(last_armor_.target_pos.z);
@@ -1163,7 +1167,7 @@ void WustVision::timerCallback() {
                 }
 
             } else {
-                toolsgobal::armor_yaw_log_.push_back(last_armor_.yaw);
+                toolsgobal::armor_yaw_log_.push_back((last_armor_yaw/M_PI*180));
                 toolsgobal::armor_x_log_.push_back(last_armor_.target_pos.x);
                 toolsgobal::armor_y_log_.push_back(last_armor_.target_pos.y);
                 toolsgobal::armor_z_log_.push_back(last_armor_.target_pos.z);

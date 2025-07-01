@@ -126,6 +126,7 @@ public:
     double last_distance;
     double last_ypd_y;
     double last_ypd_p;
+    double last_armor_yaw;
 
     std::unique_ptr<ArmorDetectorBase> armor_detector_;
     std::unique_ptr<RuneDetectorBase> rune_detector_;

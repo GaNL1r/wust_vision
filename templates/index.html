@@ -1,452 +1,668 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-    <meta charset="UTF-8">
-    <title>崇实战队自瞄系统网页调试器</title>
-    <link rel="icon" href="/static/logo.JPG" type="image/png">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            background-color: #f0f0f0;
-        }
-        .video-container, .chart-container {
-            margin-top: 20px;
-            display: inline-block;
-            background-color: #fff;
-            padding: 10px;
-            border: 3px solid #333;
-        }
-        input, textarea {
-            margin: 5px;
-            width: 500px;
-            max-width: 90%;
-            font-family: monospace;
-        }
-        textarea {
-            resize: vertical;
-            white-space: pre-wrap;
-            overflow-x: auto;
-            font-family: monospace;
-            line-height: 1.4;
-        }
-        fieldset {
-            margin: 10px auto;
-            border: 1px solid #999;
-            padding: 10px;
-            text-align: left;
-            max-width: 640px;
-        }
-        label {
-            display: inline-block;
-            width: 150px;
-            text-align: right;
-            margin-right: 10px;
-            vertical-align: top;
-        }
-        .json-container {
-            margin-top: 20px;
-            background-color: #fff;
-            border: 3px solid #333;
-            padding: 15px;
-            display: inline-block;
-            vertical-align: top;
-            text-align: left;
-            width: 600px;
-            box-sizing: border-box;
-            font-size: 14px;
-            height: 450px;
-            border-radius: 6px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            overflow-y: auto;
-            transition: opacity 0.2s ease;
-        }
-        .json-updating { opacity: 0.7; }
-        #json-aim { color: #b22222; background-color: #fff5f5; border: 1px solid #f4cccc; padding: 12px; border-radius: 4px; }
-        #json-target { color: #2e8b57; background-color: #f5fff5; border: 1px solid #c6ecc6; padding: 12px; border-radius: 4px; }
-        #json-row {
-            margin-top: 20px;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-        .json-tree {
-            list-style-type: none;
-            padding-left: 10px;
-        }
-        .json-tree details { margin: 5px 0; }
-        .json-tree summary { cursor: pointer; font-weight: bold; outline: none; }
-        .json-tree ul { margin-left: 20px; padding-left: 15px; border-left: 1px dashed #ccc; }
-        #config-form {
-            display: block;
-            max-width: 800px;
-            margin: 0 auto;
-            text-align: left;
-        }
-        #config-tab fieldset {
-            display: block;
-            width: 100%;
-            box-sizing: border-box;
-            margin-bottom: 16px;
-        }
-        #config-tab button {
-            display: block;
-            margin: 16px auto 0;
-            padding: 8px 16px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-        .chart-select-controls {
-            margin: 10px auto 15px auto;
-            width: 640px;
-            text-align: left;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <title>崇实战队自瞄系统网页调试器</title>
+  <link rel="icon" href="/static/logo.JPG" type="image/png" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f0;
+      margin: 0;
+      padding-bottom: 50px;
+    }
+    h1, p {
+      margin: 0;
+    }
+    #header {
+      display: flex;
+      align-items: center;
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      z-index: 100;
+      background: #fff;
+      padding: 10px 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    #header img {
+      width: 100px;
+      margin-right: 20px;
+    }
+    #header div {
+      flex-grow: 1;
+      text-align: left;
+    }
+    #header p {
+      color: #555;
+      font-size: 14px;
+    }
+    #tab-buttons {
+      margin: 130px 0 10px 0;
+      text-align: center;
+      user-select: none;
+    }
+    #tab-buttons button {
+      margin: 0 8px;
+      padding: 8px 16px;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 6px;
+      border: 1px solid #666;
+      background-color: #fff;
+      transition: background-color 0.3s ease;
+    }
+    #tab-buttons button:hover {
+      background-color: #e0e0e0;
+    }
+    #video-tab {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 20px;
+      padding: 0 10px 40px 10px;
+      max-width: 1400px;
+      margin: 0 auto;
+      box-sizing: border-box;
+      min-height: 600px;
+    }
+    #left-panel {
+      flex: 1 1 820px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .video-container {
+      background-color: #fff;
+      padding: 10px;
+      border: 3px solid #333;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      width: 640px;
+      box-sizing: border-box;
+    }
+    .chart-controls {
+      background-color: #fff;
+      border: 3px solid #333;
+      padding: 12px;
+      border-radius: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      width: 640px;
+      box-sizing: border-box;
+      margin-bottom: 20px;
+    }
+    .chart-select-controls {
+      flex: 1 1 280px;
+      max-width: 280px;
+      text-align: left;
+      margin-right: 20px;
+      overflow-y: auto;
+      max-height: 280px;
+      padding-right: 10px;
+    }
+    .chart-select-controls label {
+      display: block;
+      margin-bottom: 6px;
+      cursor: pointer;
+      user-select: none;
+    }
+    fieldset {
+      flex: 1 1 320px;
+      border: 1px solid #999;
+      padding: 10px;
+      box-sizing: border-box;
+      max-height: 280px;
+      overflow-y: auto;
+      text-align: left;
+      border-radius: 6px;
+    }
+    fieldset legend {
+      font-weight: bold;
+      padding: 0 6px;
+    }
+    #mainChart {
+      background: #fff;
+      border: 3px solid #333;
+      border-radius: 10px;
+      padding: 10px;
+      width: 640px !important;
+      height: 300px !important;
+      box-sizing: border-box;
+      margin-bottom: 20px;
+    }
+    #individualCharts {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      gap: 20px;
+      width: 640px;
+      box-sizing: border-box;
+      max-height: 700px;
+      overflow-y: auto;
+    }
+    .chart-box {
+      border: 2px solid #444;
+      background: #fff;
+      padding: 10px;
+      border-radius: 10px;
+      width: 500px;
+      box-sizing: border-box;
+      user-select: none;
+    }
+    .chart-box h4 {
+      margin: 5px 0 12px 0;
+      font-size: 16px;
+    }
+    .range-controls {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .range-controls input[type="number"] {
+      width: 60px;
+      padding: 2px 4px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .range-controls button {
+      padding: 4px 8px;
+      font-size: 14px;
+      cursor: pointer;
+      border-radius: 4px;
+      border: 1px solid #666;
+      background: #eee;
+    }
+    #json-column {
+      width: 600px;
+      max-height: 920px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      box-sizing: border-box;
+      overflow-y: auto;
+    }
+    .json-container {
+      background-color: #fff;
+      border: 3px solid #333;
+      padding: 15px;
+      flex: 1;
+      text-align: left;
+      border-radius: 6px;
+      font-size: 14px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      overflow-y: auto;
+      max-height: 450px;
+      user-select: text;
+    }
+    .json-container h3 {
+      margin-top: 0;
+      user-select: none;
+    }
+    #json-aim {
+      color: #b22222;
+      background-color: #fff5f5;
+      border: 1px solid #f4cccc;
+      padding: 12px;
+      border-radius: 4px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      min-height: 400px;
+    }
+    #json-target {
+      color: #2e8b57;
+      background-color: #f5fff5;
+      border: 1px solid #c6ecc6;
+      padding: 12px;
+      border-radius: 4px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      min-height: 400px;
+    }
+    .json-updating {
+      opacity: 0.7;
+      transition: opacity 0.3s ease;
+    }
+    .json-tree {
+      list-style-type: none;
+      padding-left: 10px;
+      font-family: monospace;
+      font-size: 13px;
+    }
+    .json-tree details {
+      margin: 5px 0;
+    }
+    .json-tree summary {
+      cursor: pointer;
+      font-weight: bold;
+      outline: none;
+      user-select: none;
+    }
+    .json-tree ul {
+      margin-left: 20px;
+      padding-left: 15px;
+      border-left: 1px dashed #ccc;
+    }
+    #config-tab {
+      max-width: 800px;
+      margin: 40px auto 0;
+      text-align: left;
+      padding: 20px;
+      background: #fff;
+      border: 3px solid #333;
+      border-radius: 10px;
+      box-sizing: border-box;
+      min-height: 600px;
+      user-select: none;
+    }
+    #config-form fieldset {
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      border: 1px solid #999;
+      padding: 12px 20px;
+    }
+    #config-form label {
+      display: inline-block;
+      width: 220px;
+      font-weight: bold;
+      margin-bottom: 8px;
+      user-select: text;
+    }
+    #config-form input {
+      width: 240px;
+      margin-bottom: 14px;
+      font-family: monospace;
+      font-size: 14px;
+      padding: 6px 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      box-sizing: border-box;
+    }
+    #config-tab button {
+      display: block;
+      margin: 16px auto 0;
+      padding: 10px 20px;
+      font-size: 18px;
+      cursor: pointer;
+      border-radius: 8px;
+      border: none;
+      background-color: #337ab7;
+      color: #fff;
+      user-select: none;
+      transition: background-color 0.3s ease;
+    }
+    #config-tab button:hover {
+      background-color: #286090;
+    }
+  </style>
 </head>
 <body>
 
-<!-- 顶部 logo 和标题 -->
-<div style="display: flex; align-items: center; position: absolute; top: 10px; left: 10px; z-index: 999;">
-    <img src="/static/logo.JPG" alt="Logo" style="width: 100px; height: auto; margin-right: 20px;">
-    <div style="display: flex; flex-direction: column;">
-        <h1>崇实战队自瞄系统网页调试器</h1>
-        <p style="margin-top: 5px; font-size: 14px; color: #555;">访问地址：{{ server_url }}</p>
-    </div>
+<div id="header">
+  <img src="/static/logo.JPG" alt="logo" />
+  <div>
+    <h1>崇实战队自瞄系统网页调试器</h1>
+    <p>访问地址：{{ server_url }}</p>
+  </div>
 </div>
 
-<!-- 切换按钮 -->
-<div style="margin-top: 140px;">
-    <button onclick="showTab('video')">视频调试</button>
-    <button onclick="showTab('config')">参数配置</button>
+<div id="tab-buttons">
+  <button onclick="showTab('video')">视频调试</button>
+  <button onclick="showTab('config')">参数配置</button>
 </div>
 
-<!-- 视频调试页 -->
 <div id="video-tab">
+  <div id="left-panel">
     <div class="video-container">
-        <img src="{{ url_for('video_feed') }}" width="640" alt="视频流">
+      <img src="{{ url_for('video_feed') }}" width="640" alt="视频流" />
     </div>
 
-    <!-- 图表选择和范围设置 -->
-    <div class="chart-container">
-        <div class="chart-select-controls">
-            <label for="chartSelector">选择显示图表：</label>
-            <select id="chartSelector" onchange="updateChartType()">
-                <option value="yaw">Yaw</option>
-                <option value="pitch">Pitch</option>
-                <option value="armor_dis">Armor Distance</option>
-                <option value="armor_x">Armor x</option>
-                <option value="armor_y">Armor y</option>
-                <option value="armor_z">Armor z</option>
-                <option value="armor_yaw">Armor yaw</option>
-                <option value="ypd_p">Ypd p</option>
-                <option value="ypd_y">Ypd y</option>
-            </select>
-        </div>
-
-        <fieldset id="range-settings" style="text-align: left;">
-            <legend>范围设置</legend>
-            <label for="enableFixedRange">启用固定范围:</label>
-            <input type="checkbox" id="enableFixedRange" onchange="updateChartRange()"><br>
-            <label for="chartMin">最小值 (min):</label>
-            <input type="number" id="chartMin" value="2.0" step="0.1"><br>
-            <label for="chartMax">最大值 (max):</label>
-            <input type="number" id="chartMax" value="3.0" step="0.1"><br>
-            <label for="maxDataPoints">最大显示点数:</label>
-            <input type="number" id="maxDataPoints" value="100" min="10" max="1000" step="1"><br>
-            <button type="button" onclick="updateChartRange()">更新图表范围</button>
-        </fieldset>
-
-        <canvas id="mainChart" width="640" height="300"></canvas>
+    <div class="chart-controls">
+      <div class="chart-select-controls">
+        <label><input type="checkbox" id="multiLineChart" checked onchange="updateCharts()" /> 显示总图（多曲线）</label>
+        <label><input type="checkbox" data-key="yaw" onchange="updateCharts()" /> Yaw</label>
+        <label><input type="checkbox" data-key="pitch" onchange="updateCharts()" /> Pitch</label>
+        <label><input type="checkbox" data-key="armor_dis" onchange="updateCharts()" /> Armor Distance</label>
+        <label><input type="checkbox" data-key="armor_x" onchange="updateCharts()" /> Armor X</label>
+        <label><input type="checkbox" data-key="armor_y" onchange="updateCharts()" /> Armor Y</label>
+        <label><input type="checkbox" data-key="armor_z" onchange="updateCharts()" /> Armor Z</label>
+        <label><input type="checkbox" data-key="armor_yaw" onchange="updateCharts()" /> Armor Yaw</label>
+        <label><input type="checkbox" data-key="ypd_p" onchange="updateCharts()" /> Ypd Pitch</label>
+        <label><input type="checkbox" data-key="ypd_y" onchange="updateCharts()" /> Ypd Yaw</label>
+      </div>
+      <fieldset>
+        <legend>主图范围设置</legend>
+        <label>启用固定范围:<input type="checkbox" id="enableFixedRange" onchange="updateMainRange()" /></label><br />
+        <label>最小 (min):<input type="number" id="mainMin" value="0.0" step="0.1" /></label><br />
+        <label>最大 (max):<input type="number" id="mainMax" value="1.0" step="0.1" /></label><br />
+        <label>最大点数:<input type="number" id="mainMaxPts" value="100" min="10" max="1000" step="1" /></label><br />
+        <button type="button" onclick="updateMainRange()">应用主图范围</button>
+      </fieldset>
     </div>
 
-    <!-- Aim/Target JSON 显示 -->
-    <div id="json-row">
-        <div class="json-container" id="json-aim-container">
-            <h3>Aim_info</h3>
-            <div id="json-aim"></div>
-        </div>
-        <div class="json-container" id="json-target-container">
-            <h3>Target_info</h3>
-            <div id="json-target"></div>
-        </div>
+    <canvas id="mainChart" width="640" height="300"></canvas>
+    <div id="individualCharts"></div>
+  </div>
+
+  <div id="json-column">
+    <div class="json-container" id="json-aim-container">
+      <h3>Aim_info</h3>
+      <div id="json-aim"></div>
     </div>
+    <div class="json-container" id="json-target-container">
+      <h3>Target_info</h3>
+      <div id="json-target"></div>
+    </div>
+  </div>
 </div>
 
-<!-- 参数配置页 -->
-<div id="config-tab" style="display: none; margin-top: 40px;">
-    <form id="config-form"></form>
-    <br>
-    <button onclick="submitConfig()" type="button">保存参数</button>
+<div id="config-tab" style="display:none;">
+  <form id="config-form"></form>
+  <button type="button" onclick="submitConfig()">保存参数</button>
 </div>
 
 <script>
-    let selectedChartType = 'yaw';
-    const mainCtx = document.getElementById('mainChart').getContext('2d');
+  const chartMap = {
+    yaw: { label: "Yaw" },
+    pitch: { label: "Pitch" },
+    armor_dis: { label: "Armor Distance" },
+    armor_x: { label: "Armor X" },
+    armor_y: { label: "Armor Y" },
+    armor_z: { label: "Armor Z" },
+    armor_yaw: { label: "Armor Yaw" },
+    ypd_p: { label: "Ypd Pitch" },
+    ypd_y: { label: "Ypd Yaw" },
+  };
 
-    const mainChart = new Chart(mainCtx, {
-        type: 'line',
+  const mainCtx = document.getElementById("mainChart").getContext("2d");
+  let individualCharts = {};
+  let individualRanges = {}; // 存储每个子图的范围设置
+
+  const mainChart = new Chart(mainCtx, {
+    type: "line",
+    data: { labels: [], datasets: [] },
+    options: {
+      animation: false,
+      responsive: false,
+      scales: {
+        x: { title: { display: true, text: "Time" } },
+        y: { title: { display: true, text: "Value" } }
+      }
+    }
+  });
+
+  function updateMainRange() {
+    const enable = document.getElementById("enableFixedRange").checked;
+    const min = parseFloat(document.getElementById("mainMin").value);
+    const max = parseFloat(document.getElementById("mainMax").value);
+    const maxPts = parseInt(document.getElementById("mainMaxPts").value) || 100;
+    mainChart._maxPoints = maxPts;
+    if (enable) {
+      mainChart.options.scales.y.min = min;
+      mainChart.options.scales.y.max = max;
+    } else {
+      mainChart.options.scales.y.min = undefined;
+      mainChart.options.scales.y.max = undefined;
+    }
+    mainChart.update("none");
+  }
+
+  function updateCharts() {
+    const showMulti = document.getElementById("multiLineChart").checked;
+    const selected = Array.from(
+      document.querySelectorAll('.chart-select-controls input[type="checkbox"]:checked')
+    )
+      .map(cb => cb.dataset.key)
+      .filter(Boolean);
+
+    // 清空容器
+    const container = document.getElementById("individualCharts");
+    container.innerHTML = "";
+    individualCharts = {};
+    individualRanges = {};
+
+    // 更新主图数据集
+    if (showMulti) {
+      mainChart.data.datasets = selected.map(key => ({
+        label: chartMap[key]?.label || key,
+        data: [],
+        fill: false,
+        tension: 0.2
+      }));
+    } else {
+      mainChart.data.datasets = [];
+    }
+    mainChart.update();
+
+    // 为每个选中项创建子图与独立范围控件
+    selected.forEach(key => {
+      const box = document.createElement("div");
+      box.className = "chart-box";
+
+      const title = document.createElement("h4");
+      title.textContent = chartMap[key]?.label || key;
+      box.appendChild(title);
+
+      // 范围控件区
+      const rdiv = document.createElement("div");
+      rdiv.className = "range-controls";
+      rdiv.innerHTML = `
+        <label><input type="checkbox" class="childEnable" /> 固定范围</label>
+        min:<input type="number" class="childMin" value="0" step="0.1" />
+        max:<input type="number" class="childMax" value="1" step="0.1" />
+        <button type="button" class="applyRange">应用</button>
+      `;
+      box.appendChild(rdiv);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = 440;
+      canvas.height = 280;
+      box.appendChild(canvas);
+      container.appendChild(box);
+
+      const ctx = canvas.getContext("2d");
+      const chart = new Chart(ctx, {
+        type: "line",
         data: {
-            labels: [],
-            datasets: [{
-                label: 'Yaw',
-                data: [],
-                borderColor: 'red',
-                fill: false,
-                tension: 0.2
-            }]
+          labels: [],
+          datasets: [{ label: chartMap[key]?.label || key, data: [], fill: false, tension: 0.2 }]
         },
         options: {
-            animation: false,
-            responsive: false,
-            scales: {
-                x: { title: { display: true, text: 'Time (s)' } },
-                y: { title: { display: true, text: 'Value' }, min: undefined, max: undefined }
-            }
+          animation: false,
+          responsive: false,
+          scales: {
+            x: { title: { display: true, text: "Time" } },
+            y: { title: { display: true, text: "Value" } }
+          }
         }
-    });
+      });
+      individualCharts[key] = chart;
+      individualRanges[key] = { enable: false, min: 0, max: 1 };
 
-    function updateChartType() {
-        selectedChartType = document.getElementById('chartSelector').value;
-
-        const chartMap = {
-            yaw:       { label: 'Yaw',            color: 'red' },
-            pitch:     { label: 'Pitch',          color: 'blue' },
-            armor_dis: { label: 'Armor Distance', color: 'green' },
-            armor_x:   { label: 'Armor X',        color: '#FF8C00' },
-            armor_y:   { label: 'Armor Y',        color: '#1E90FF' },
-            armor_z:   { label: 'Armor Z',        color: '#8A2BE2' },
-            armor_yaw: { label: 'Armor Yaw',      color: '#FF1493' },
-            ypd_p:     { label: 'Ypd Pitch',      color: '#228B22' },
-            ypd_y:     { label: 'Ypd Yaw',        color: '#A52A2A' },
-        };
-
-        const info = chartMap[selectedChartType] || { label: selectedChartType, color: 'black' };
-
-        mainChart.data.datasets[0].label = info.label;
-        mainChart.data.datasets[0].borderColor = info.color;
-
-        updateChartRange();  // 切换时更新范围设置生效与否
-    }
-
-    function updateChartRange() {
-        const enableFixed = document.getElementById('enableFixedRange').checked;
-        const minVal = parseFloat(document.getElementById('chartMin').value);
-        const maxVal = parseFloat(document.getElementById('chartMax').value);
-        const maxPointsInput = document.getElementById('maxDataPoints');
-        let maxPoints = parseInt(maxPointsInput.value);
-        if (isNaN(maxPoints) || maxPoints < 1) maxPoints = 100; // 默认100
-
-        if (enableFixed) {
-            if (!isNaN(minVal) && !isNaN(maxVal)) {
-                mainChart.options.scales.y.min = minVal;
-                mainChart.options.scales.y.max = maxVal;
-            } else {
-                alert("请输入有效的最小/最大值");
-                return;
-            }
+      // 绑定范围应用按钮
+      const applyBtn = rdiv.querySelector(".applyRange");
+      applyBtn.addEventListener("click", () => {
+        const enabled = rdiv.querySelector(".childEnable").checked;
+        const minVal = parseFloat(rdiv.querySelector(".childMin").value);
+        const maxVal = parseFloat(rdiv.querySelector(".childMax").value);
+        const ch = individualCharts[key];
+        if (enabled) {
+          ch.options.scales.y.min = minVal;
+          ch.options.scales.y.max = maxVal;
         } else {
-            mainChart.options.scales.y.min = undefined;
-            mainChart.options.scales.y.max = undefined;
+          ch.options.scales.y.min = undefined;
+          ch.options.scales.y.max = undefined;
         }
-
-        // 保存当前最大点数，供 fetch 更新时使用
-        mainChart._maxPoints = maxPoints;
-
-        mainChart.update();
-    }
-    async function fetchDataAndUpdateCharts() {
-        try {
-            const response = await fetch('/data');
-            const json = await response.json();
-
-            if (json.time && json.yaw && json.pitch && json.armor_dis) {
-                const maxPoints = mainChart._maxPoints || 100;
-                const len = json.time.length;
-                const startIdx = len > maxPoints ? len - maxPoints : 0;
-
-                mainChart.data.labels = json.time.slice(startIdx);
-
-                switch (selectedChartType) {
-                    case 'yaw':
-                        mainChart.data.datasets[0].data = json.yaw.slice(startIdx);
-                        break;
-                    case 'pitch':
-                        mainChart.data.datasets[0].data = json.pitch.slice(startIdx);
-                        break;
-                    case 'armor_dis':
-                        mainChart.data.datasets[0].data = json.armor_dis.slice(startIdx);
-                        break;
-                    case 'armor_x':
-                        mainChart.data.datasets[0].data = json.armor_x.slice(startIdx);
-                        break;
-                    case 'armor_y':
-                        mainChart.data.datasets[0].data = json.armor_y.slice(startIdx);
-                        break;
-                    case 'armor_z':
-                        mainChart.data.datasets[0].data = json.armor_z.slice(startIdx);
-                        break;
-                    case 'armor_yaw':
-                        mainChart.data.datasets[0].data = json.armor_yaw.slice(startIdx);
-                        break;
-                    case 'ypd_y':
-                        mainChart.data.datasets[0].data = json.ypd_y.slice(startIdx);
-                        break;
-                    case 'ypd_p':
-                        mainChart.data.datasets[0].data = json.ypd_p.slice(startIdx);
-                        break;
-                    default:
-                        mainChart.data.datasets[0].data = [];
-                }
-                mainChart.update('none');
-            }
-        } catch (e) {
-            console.error('Failed to fetch data:', e);
-        }
-    }
-
-    function showTab(tab) {
-        document.getElementById('video-tab').style.display = tab === 'video' ? 'block' : 'none';
-        document.getElementById('config-tab').style.display = tab === 'config' ? 'block' : 'none';
-        if (tab === 'config') loadConfig();
-    }
-
-    let lastAimData = null, lastTargetData = null, configData = {};
-
-    function jsonToHtml(data, container) {
-        const title = container.querySelector('h3');
-        container.innerHTML = '';
-        if (title) container.appendChild(title);
-        const contentDiv = document.createElement('div');
-        contentDiv.id = container.id + '-content';
-        container.appendChild(contentDiv);
-
-        function buildTree(data, parentElement) {
-            if (typeof data !== 'object' || data === null) {
-                parentElement.textContent = String(data);
-                return;
-            }
-            const ul = document.createElement('ul');
-            ul.className = 'json-tree';
-            const entries = Array.isArray(data) ? data.map((item, idx) => [idx, item]) : Object.entries(data);
-            entries.forEach(([key, value]) => {
-                const li = document.createElement('li');
-                if (typeof value === 'object' && value !== null) {
-                    const details = document.createElement('details');
-                    details.open = true;
-                    const summary = document.createElement('summary');
-                    summary.textContent = key;
-                    details.appendChild(summary);
-                    const childUl = document.createElement('ul');
-                    childUl.className = 'json-tree';
-                    buildTree(value, childUl);
-                    details.appendChild(childUl);
-                    li.appendChild(details);
-                } else {
-                    li.textContent = `${key}: ${value}`;
-                }
-                ul.appendChild(li);
-            });
-            parentElement.appendChild(ul);
-        }
-
-        buildTree(data, contentDiv);
-    }
-
-    async function fetchAndDisplayJsonWithTree(id, url) {
-        const container = document.getElementById(id);
-        const containerParent = document.getElementById(id + '-container');
-        try {
-            containerParent.classList.add('json-updating');
-            const res = await fetch(url);
-            if (res.ok) {
-                const newData = await res.json();
-                const lastData = id === 'json-aim' ? lastAimData : lastTargetData;
-                if (JSON.stringify(newData) !== JSON.stringify(lastData)) {
-                    jsonToHtml(newData, container);
-                    if (id === 'json-aim') lastAimData = newData;
-                    else lastTargetData = newData;
-                }
-            }
-        } catch (err) {
-            console.error(`Error fetching ${url}:`, err);
-            container.textContent = `请求错误: ${err.message}`;
-        } finally {
-            containerParent.classList.remove('json-updating');
-        }
-    }
-
-    async function loadConfig() {
-        try {
-            const res = await fetch('/config');
-            configData = await res.json();
-            renderForm(configData, document.getElementById('config-form'));
-        } catch (err) {
-            console.error('配置加载失败:', err);
-        }
-    }
-
-    function renderForm(obj, container, prefix = '') {
-        container.innerHTML = '';
-        for (let key in obj) {
-            const value = obj[key];
-            const path = prefix ? `${prefix}.${key}` : key;
-            if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-                const fieldset = document.createElement('fieldset');
-                const legend = document.createElement('legend');
-                legend.innerText = path;
-                fieldset.appendChild(legend);
-                renderForm(value, fieldset, path);
-                container.appendChild(fieldset);
-            } else {
-                const label = document.createElement('label');
-                label.innerText = path;
-                const input = document.createElement('input');
-                input.value = value;
-                input.onchange = () => updateValue(path, parseFloat(input.value));
-                container.appendChild(label);
-                container.appendChild(input);
-                container.appendChild(document.createElement('br'));
-            }
-        }
-    }
-
-    function updateValue(path, val) {
-        const keys = path.replace(/\[(\d+)\]/g, '.$1').split('.');
-        let obj = configData;
-        for (let i = 0; i < keys.length - 1; i++) {
-            obj = obj[keys[i]];
-        }
-        obj[keys[keys.length - 1]] = val;
-    }
-
-    async function submitConfig() {
-        try {
-            const res = await fetch('/config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(configData)
-            });
-            if (res.ok) alert('参数保存成功！');
-            else alert('保存失败: ' + res.status);
-        } catch (err) {
-            alert('保存异常: ' + err);
-        }
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        fetchAndDisplayJsonWithTree('json-aim', '/aim_log');
-        fetchAndDisplayJsonWithTree('json-target', '/target_log');
-        updateChartRange(); // 初始化范围和最大点数
-
-        setInterval(() => {
-            fetchDataAndUpdateCharts();
-            fetchAndDisplayJsonWithTree('json-aim', '/aim_log');
-            fetchAndDisplayJsonWithTree('json-target', '/target_log');
-        }, 200);
+        ch.update("none");
+      });
     });
+  }
+
+  async function fetchDataAndUpdateCharts() {
+    try {
+      const res = await fetch("/data");
+      const json = await res.json();
+      const time = json.time;
+      if (!time) return;
+
+      const maxPts = mainChart._maxPoints || 100;
+      const start = time.length > maxPts ? time.length - maxPts : 0;
+      const slicedTime = time.slice(start);
+
+      // 主图更新
+      if (document.getElementById("multiLineChart").checked) {
+        mainChart.data.labels = slicedTime;
+        const keys = Object.keys(individualCharts);
+        mainChart.data.datasets.forEach((ds, i) => {
+          const key = keys[i];
+          ds.data = json[key]?.slice(start) || [];
+        });
+        mainChart.update("none");
+      }
+
+      // 子图更新
+      Object.entries(individualCharts).forEach(([key, ch]) => {
+        ch.data.labels = slicedTime;
+        ch.data.datasets[0].data = json[key]?.slice(start) || [];
+        ch.update("none");
+      });
+    } catch (e) {
+      console.error("fetch error:", e);
+    }
+  }
+
+  function jsonToHtml(data, container) {
+    const title = container.querySelector("h3");
+    container.innerHTML = "";
+    if (title) container.appendChild(title);
+    const contentDiv = document.createElement("div");
+    container.appendChild(contentDiv);
+
+    function buildTree(d, parent) {
+      if (typeof d !== "object" || d === null) {
+        parent.textContent = String(d);
+        return;
+      }
+      const ul = document.createElement("ul");
+      ul.className = "json-tree";
+      const entries = Array.isArray(d) ? d.map((v,i)=>[i,v]) : Object.entries(d);
+      entries.forEach(([k,v]) => {
+        const li = document.createElement("li");
+        if (typeof v==="object" && v!==null) {
+          const details = document.createElement("details");
+          details.open = true;
+          const summary = document.createElement("summary");
+          summary.textContent = k;
+          details.appendChild(summary);
+          const childUl = document.createElement("ul");
+          childUl.className = "json-tree";
+          buildTree(v, childUl);
+          details.appendChild(childUl);
+          li.appendChild(details);
+        } else {
+          li.textContent = `${k}: ${v}`;
+        }
+        ul.appendChild(li);
+      });
+      parent.appendChild(ul);
+    }
+    buildTree(data, contentDiv);
+  }
+
+  let lastAimData = null, lastTargetData = null;
+  async function fetchAndDisplayJsonWithTree(id, url) {
+    const parent = document.getElementById(id + "-container");
+    const cont = document.getElementById(id);
+    try {
+      parent.classList.add("json-updating");
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(res.statusText);
+      const data = await res.json();
+      const prev = id==="json-aim"? lastAimData: lastTargetData;
+      if (JSON.stringify(data)!==JSON.stringify(prev)) {
+        jsonToHtml(data, cont);
+        if (id==="json-aim") lastAimData = data; else lastTargetData = data;
+      }
+    } catch (e) {
+      cont.textContent = `请求错误: ${e.message}`;
+    } finally {
+      parent.classList.remove("json-updating");
+    }
+  }
+
+  // 参数配置逻辑（同原来）
+  let configData = {};
+  async function loadConfig() {
+    try {
+      const res = await fetch("/config");
+      configData = await res.json();
+      renderForm(configData, document.getElementById("config-form"));
+    } catch (e) { console.error(e); }
+  }
+  function renderForm(obj, container) {
+    container.innerHTML = "";
+    Object.entries(obj).forEach(([k,v])=>{
+      const fs = document.createElement("fieldset");
+      const lg = document.createElement("legend");
+      lg.textContent = k;
+      fs.appendChild(lg);
+      if (typeof v==="object"&&v!==null) {
+        renderForm(v, fs);
+      } else {
+        const lbl=document.createElement("label");
+        lbl.textContent = k+": ";
+        const inp=document.createElement("input");
+        inp.name=k; inp.value=v;
+        inp.type = typeof v==="number"?"number":"text";
+        lbl.appendChild(inp);
+        fs.appendChild(lbl);
+      }
+      container.appendChild(fs);
+    });
+  }
+  async function submitConfig() {
+    const inputs = document.querySelectorAll("#config-form input");
+    let newCfg = {};
+    inputs.forEach(i=>{
+      newCfg[i.name] = i.type==="number"? parseFloat(i.value): i.value;
+    });
+    try {
+      const res = await fetch("/config", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(newCfg)
+      });
+      alert(res.ok?"参数保存成功！":"参数保存失败！");
+    } catch(e){
+      alert("保存出错："+e.message);
+    }
+  }
+
+  function showTab(tab) {
+    document.getElementById("video-tab").style.display = tab==="video"?"flex":"none";
+    document.getElementById("config-tab").style.display = tab==="config"?"block":"none";
+    if (tab==="config") loadConfig();
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    updateCharts();
+    updateMainRange();
+    setInterval(() => {
+      fetchDataAndUpdateCharts();
+      fetchAndDisplayJsonWithTree("json-aim", "/aim_log");
+      fetchAndDisplayJsonWithTree("json-target", "/target_log");
+    }, 200);
+  });
 </script>
+
 </body>
 </html>
