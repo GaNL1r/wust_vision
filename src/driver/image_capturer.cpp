@@ -1,3 +1,8 @@
+/**
+ * @author Qzh (zihanqin2048@gmail.com)
+ * @brief Hikcamera
+ * @copyright Copyright (c) 2024 by Alliance, All Rights Reserved.
+ */
 #include "driver/image_capturer.hpp"
 
 #include <cstring>

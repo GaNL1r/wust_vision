@@ -1,4 +1,5 @@
 // Copyright (C) FYT Vision Group. All rights reserved.
+// Copyright 2025 XiaoJian Wu
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,11 +23,6 @@
 #include <opencv2/opencv.hpp>
 // Eigen
 #include <Eigen/Dense>
-// ros2
-// #include <geometry_msgs/msg/pose.hpp>
-// #include <rclcpp/rclcpp.hpp>
-// #include <sensor_msgs/msg/camera_info.hpp>
-// #include <tf2_ros/buffer.h>
 // project
 #include "detect/ba_solver.hpp"
 

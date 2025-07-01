@@ -1,6 +1,7 @@
 // Created by Labor 2023.8.25
 // Maintained by Labor, Chengfu Zou
 // Copyright (C) FYT Vision Group. All rights reserved.
+// Copyright 2025 XiaoJian Wu
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,6 +32,7 @@
 #include <opencv2/core.hpp>
 #include <sophus/se3.hpp>
 #include <sophus/so3.hpp>
+
 // project
 #include "type/type.hpp"
 
@@ -80,5 +82,78 @@ private:
     Sophus::SO3d R_camera_imu_;
     Sophus::SO3d R_pitch_;
     Eigen::Vector3d t_;
+    Eigen::Matrix3d K_;
+};
+
+class VertexTranslation: public g2o::BaseVertex<3, Eigen::Vector3d> {
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    void setToOriginImpl() override;
+    void oplusImpl(const double* update) override;
+    bool read(std::istream&) override;
+    bool write(std::ostream&) const override;
+};
+
+class EdgeSymmetry: public g2o::BaseUnaryEdge<2, Eigen::Vector2d, VertexYaw> {
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    EdgeSymmetry(
+        const Sophus::SO3d& R_cam_imu,
+        const Sophus::SO3d& R_pitch,
+        const Eigen::Vector3d& t_cam_arm,
+        const Eigen::Matrix3d& K,
+        const Eigen::Vector3d& P1,
+        const Eigen::Vector3d& P2,
+        const Eigen::Vector2d& meas,
+        double weight = 1.0
+    );
+    void computeError() override;
+    bool read(std::istream&) override;
+    bool write(std::ostream&) const override;
+
+private:
+    Sophus::SO3d R_cam_imu_, R_pitch_;
+    Eigen::Vector3d t_cam_arm_;
+    Eigen::Matrix3d K_;
+    Eigen::Vector3d P1_, P2_;
+    double weight_;
+};
+
+class EdgeProjectionTvecOnly: public g2o::BaseUnaryEdge<2, Eigen::Vector2d, VertexTranslation> {
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    EdgeProjectionTvecOnly(
+        const Sophus::SO3d& R_fixed,
+        const Eigen::Vector3d& Xw,
+        const Eigen::Matrix3d& K
+    );
+    void computeError() override;
+    bool read(std::istream&) override;
+    bool write(std::ostream&) const override;
+
+private:
+    Sophus::SO3d R_fixed_;
+    Eigen::Vector3d Xw_;
+    Eigen::Matrix3d K_;
+};
+
+class EdgeSymmetryTvecOnly: public g2o::BaseUnaryEdge<2, Eigen::Vector2d, VertexTranslation> {
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    EdgeSymmetryTvecOnly(
+        const Sophus::SO3d& R_fixed,
+        const Eigen::Vector3d& P1,
+        const Eigen::Vector3d& P2,
+        const Eigen::Vector2d& measCenter,
+        const Eigen::Matrix3d& K,
+        double weight = 1.0
+    );
+    void computeError() override;
+    bool read(std::istream&) override;
+    bool write(std::ostream&) const override;
+
+private:
+    Sophus::SO3d R_fixed_;
+    Eigen::Vector3d P1_, P2_;
     Eigen::Matrix3d K_;
 };

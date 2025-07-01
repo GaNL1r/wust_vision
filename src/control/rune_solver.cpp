@@ -1,5 +1,6 @@
 // Maintained by Chengfu Zou, Labor
 // Copyright (C) FYT Vision Group. All rights reserved.
+// Copyright 2025 XiaoJian Wu
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -60,13 +61,12 @@ double RuneSolver::init(const Rune received_target, Eigen::Matrix4d T_camera_to_
         }
 
         ekf_state_ = getStateFromTransform(T_odom_2_rune);
-        if(use_ypd)
-        {
+        if (use_ypd) {
             ekf_ypd->setState(ekf_state_);
-        }else {
+        } else {
             ekf_xyz->setState(ekf_state_);
         }
-      
+
     } catch (...) {
         WUST_ERROR("rune_solver") << "Init failed";
         return 0;

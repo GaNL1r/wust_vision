@@ -109,4 +109,3 @@ void plotRobotCmdThread() {
 
     WUST_DEBUG("matplot") << "plotRobotCmdThread fully terminated";
 }
-
