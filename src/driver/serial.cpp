@@ -159,12 +159,12 @@ void Serial::aim_cbk(ReceiveAimINFO& aim_data) {
 
     auto now = std::chrono::steady_clock::now();
     gobal::attitude_buffer.push(yaw, pitch, roll, now);
-
-    if (aim_data.manual_reset_count != last_reset_count) {
+    int manual_reset_count = aim_data.manual_reset_count;
+    if (manual_reset_count != last_reset_count) {
         WUST_INFO(serial_logger) << "Manual reset count changed: " << last_reset_count << " -> "
-                                 << aim_data.manual_reset_count;
+                                 << manual_reset_count;
         gobal::if_manual_reset = true;
-        last_reset_count = aim_data.manual_reset_count;
+        last_reset_count = manual_reset_count;
     } else {
         gobal::if_manual_reset = false;
     }

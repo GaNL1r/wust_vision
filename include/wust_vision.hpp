@@ -86,7 +86,7 @@ public:
 
     std::unique_ptr<serial::Serial> serial_;
     std::unique_ptr<ArmorSolver> armor_solver_;
-
+    int max_detect_armors_;
     std::unique_ptr<ArmorPoseEstimator> armor_pose_estimator_;
     Eigen::Matrix3d imu_to_camera_;
     bool only_nav_enable;

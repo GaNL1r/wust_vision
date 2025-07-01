@@ -185,3 +185,4 @@ tf:
 use_armor_detect_opencv: false
 use_auto_labeler: false
 use_calculation: false
+max_detect_armors: 10

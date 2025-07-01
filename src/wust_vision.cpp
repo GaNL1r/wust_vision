@@ -7,7 +7,6 @@
 #include "common/tools.hpp"
 #include "common/toolsgobal.hpp"
 #include "control/armor_solver.hpp"
-#include "tracker/motion_modelonea.hpp"
 #include "type/type.hpp"
 #include <csignal>
 #include <functional>
@@ -32,8 +31,12 @@ void WustVision::stop() {
             // if (capture_thread_ && capture_thread_->joinable()) {
             //   capture_thread_->join();
             // }
-            camera_->stopCamera();
-            camera_.reset();
+            if(camera_)
+            {
+                camera_->stopCamera();
+                camera_.reset();
+            }
+            
         }
 
         stopTimer();
@@ -85,6 +88,7 @@ void WustVision::init() {
     bool use_simplelog = gobal::config["logger"]["use_simplelog"].as<bool>();
     initLogger(log_level_, log_path_, use_logcli, use_logfile, use_simplelog);
     gobal::control_rate = gobal::config["control"]["control_rate"].as<int>();
+    initSerial();
     only_nav_enable = gobal::config["only_nav_enable"].as<bool>();
     if (!only_nav_enable) {
         gobal::attack_mode = gobal::config["init_attack_mode"].as<int>();
@@ -100,67 +104,6 @@ void WustVision::init() {
         gimbal2camera_pitch_ = gobal::config["tf"]["gimbal2camera_pitch"].as<double>(0.0);
         gimbal2camera_yaw_ = gobal::config["tf"]["gimbal2camera_yaw"].as<double>(0.0);
 
-        use_auto_labeler = gobal::config["use_auto_labeler"].as<bool>(false);
-        if (use_auto_labeler) {
-            auto_labeler_ = std::make_unique<Labeler>();
-        }
-
-        const std::string camera_info_path =
-            gobal::config["camera"]["camera_info_path"].as<std::string>();
-        gobal::measure_tool_ = std::make_unique<MonoMeasureTool>(camera_info_path);
-        armor_pose_estimator_ = std::make_unique<ArmorPoseEstimator>(camera_info_path);
-        initTF();
-        initTracker(gobal::config["armor_tracker"]);
-        gobal::detect_color_ = gobal::config["detect_color"].as<int>(0);
-        max_infer_running_ = gobal::config["max_infer_running"].as<int>(4);
-        bool use_armor_detect_opencv = gobal::config["use_armor_detect_opencv"].as<bool>(false);
-
-#ifdef USE_OPENVINO
-        if (use_armor_detect_opencv) {
-            auto opencv_config =
-                YAML::LoadFile("/home/hy/wust_vision/config/armor_detect_opencv.yaml");
-            armor_detector_ = DetectorFactory::createArmorDetector("opencv", opencv_config);
-        } else {
-            armor_detector_ = DetectorFactory::createArmorDetector("openvino", gobal::config);
-        }
-
-        rune_detector_ = DetectorFactory::createRuneDetector("openvino", gobal::config);
-        WUST_INFO(vision_logger) << "Using OpenVINO";
-#elif defined(USE_TRT)
-        if (use_armor_detect_opencv) {
-            auto opencv_config =
-                YAML::LoadFile("/home/hy/wust_vision/config/armor_detect_opencv.yaml");
-            armor_detector_ = DetectorFactory::createArmorDetector("opencv", opencv_config);
-        } else {
-            armor_detector_ = DetectorFactory::createArmorDetector("tensorrt", gobal::config);
-        }
-        rune_detector_ = DetectorFactory::createRuneDetector("tensorrt", gobal::config);
-        WUST_INFO(vision_logger) << "Using TensorRT";
-#else
-        static_assert(false, "No backend defined: USE_OPENVINO or USE_TRT");
-#endif
-
-        armor_detector_->setCallback(std::bind(
-            &WustVision::ArmorDetectCallback,
-            this,
-            std::placeholders::_1,
-            std::placeholders::_2,
-            std::placeholders::_3,
-            std::placeholders::_4
-        ));
-        rune_detector_->setCallback(std::bind(
-            &WustVision::RuneDetectCallback,
-            this,
-            std::placeholders::_1,
-            std::placeholders::_2,
-            std::placeholders::_3,
-            std::placeholders::_4
-        ));
-
-        initRune(camera_info_path);
-
-        thread_pool_ = std::make_unique<ThreadPool>(std::thread::hardware_concurrency(), 100);
-        armor_solver_ = std::make_unique<ArmorSolver>(gobal::config);
         use_video = gobal::config["camera"]["video_player"]["use"].as<bool>(false);
         if (use_video) {
             std::string video_play_path =
@@ -232,12 +175,73 @@ void WustVision::init() {
             // capture_thread_ =
             //     std::make_unique<std::thread>(&WustVision::captureLoop, this);
         }
+        use_auto_labeler = gobal::config["use_auto_labeler"].as<bool>(false);
+        if (use_auto_labeler) {
+            auto_labeler_ = std::make_unique<Labeler>();
+        }
+
+        const std::string camera_info_path =
+            gobal::config["camera"]["camera_info_path"].as<std::string>();
+        gobal::measure_tool_ = std::make_unique<MonoMeasureTool>(camera_info_path);
+        armor_pose_estimator_ = std::make_unique<ArmorPoseEstimator>(camera_info_path);
+        initTF();
+        initTracker(gobal::config["armor_tracker"]);
+        gobal::detect_color_ = gobal::config["detect_color"].as<int>(0);
+        max_infer_running_ = gobal::config["max_infer_running"].as<int>(4);
+        bool use_armor_detect_opencv = gobal::config["use_armor_detect_opencv"].as<bool>(false);
+
+#ifdef USE_OPENVINO
+        if (use_armor_detect_opencv) {
+            auto opencv_config =
+                YAML::LoadFile("/home/hy/wust_vision/config/armor_detect_opencv.yaml");
+            armor_detector_ = DetectorFactory::createArmorDetector("opencv", opencv_config);
+        } else {
+            armor_detector_ = DetectorFactory::createArmorDetector("openvino", gobal::config);
+        }
+
+        rune_detector_ = DetectorFactory::createRuneDetector("openvino", gobal::config);
+        WUST_INFO(vision_logger) << "Using OpenVINO";
+#elif defined(USE_TRT)
+        if (use_armor_detect_opencv) {
+            auto opencv_config =
+                YAML::LoadFile("/home/hy/wust_vision/config/armor_detect_opencv.yaml");
+            armor_detector_ = DetectorFactory::createArmorDetector("opencv", opencv_config);
+        } else {
+            armor_detector_ = DetectorFactory::createArmorDetector("tensorrt", gobal::config);
+        }
+        rune_detector_ = DetectorFactory::createRuneDetector("tensorrt", gobal::config);
+        WUST_INFO(vision_logger) << "Using TensorRT";
+#else
+        static_assert(false, "No backend defined: USE_OPENVINO or USE_TRT");
+#endif
+
+        armor_detector_->setCallback(std::bind(
+            &WustVision::ArmorDetectCallback,
+            this,
+            std::placeholders::_1,
+            std::placeholders::_2,
+            std::placeholders::_3,
+            std::placeholders::_4
+        ));
+        rune_detector_->setCallback(std::bind(
+            &WustVision::RuneDetectCallback,
+            this,
+            std::placeholders::_1,
+            std::placeholders::_2,
+            std::placeholders::_3,
+            std::placeholders::_4
+        ));
+        max_detect_armors_ = gobal::config["max_detect_armors"].as<int>(10);
+
+        initRune(camera_info_path);
+
+        thread_pool_ = std::make_unique<ThreadPool>(std::thread::hardware_concurrency(), 100);
+        armor_solver_ = std::make_unique<ArmorSolver>(gobal::config);
 
     } else {
         WUST_MAIN(vision_logger) << "only nav mode";
     }
 
-    initSerial();
     gobal::is_inited_ = true;
     WUST_MAIN(vision_logger) << "WustVision init success";
 }
@@ -592,7 +596,7 @@ void WustVision::ArmorDetectCallback(
 ) {
     std::lock_guard<std::mutex> lock(callback_mutex_);
     detect_finish_count_++;
-    if (objs.size() >= 6) {
+    if (objs.size() >= max_detect_armors_) {
         WUST_WARN(vision_logger) << "Detected " << objs.size() << " objects"
                                  << "too much";
         infer_running_count_--;
@@ -1127,14 +1131,15 @@ void WustVision::timerCallback() {
 
                     const Armor& min_armor = *min_armor_it;
                     last_armor_ = min_armor;
-                    
+
                     last_distance = std::sqrt(
                         min_armor.target_pos.x * min_armor.target_pos.x
                         + min_armor.target_pos.y * min_armor.target_pos.y
                         + min_armor.target_pos.z * min_armor.target_pos.z
                     );
                     double armor_yaw = last_armor_.yaw;
-                    armor_yaw = this->last_armor_yaw + angles::shortest_angular_distance(this->last_armor_yaw, armor_yaw);
+                    armor_yaw = this->last_armor_yaw
+                        + angles::shortest_angular_distance(this->last_armor_yaw, armor_yaw);
                     this->last_armor_yaw = armor_yaw;
                     double ypd_y = std::atan2(last_armor_.target_pos.y, last_armor_.target_pos.x);
 
@@ -1148,7 +1153,7 @@ void WustVision::timerCallback() {
                             + last_armor_.target_pos.y * last_armor_.target_pos.y
                         )
                     );
-                    toolsgobal::armor_yaw_log_.push_back((last_armor_yaw/M_PI*180));
+                    toolsgobal::armor_yaw_log_.push_back((last_armor_yaw / M_PI * 180));
                     toolsgobal::armor_x_log_.push_back(last_armor_.target_pos.x);
                     toolsgobal::armor_y_log_.push_back(last_armor_.target_pos.y);
                     toolsgobal::armor_z_log_.push_back(last_armor_.target_pos.z);
@@ -1157,7 +1162,7 @@ void WustVision::timerCallback() {
 
                     toolsgobal::armor_dis_log_.push_back(last_distance);
                 } else {
-                    toolsgobal::armor_yaw_log_.push_back((last_armor_yaw/M_PI*180));
+                    toolsgobal::armor_yaw_log_.push_back((last_armor_yaw / M_PI * 180));
                     toolsgobal::armor_x_log_.push_back(last_armor_.target_pos.x);
                     toolsgobal::armor_y_log_.push_back(last_armor_.target_pos.y);
                     toolsgobal::armor_z_log_.push_back(last_armor_.target_pos.z);
@@ -1167,7 +1172,7 @@ void WustVision::timerCallback() {
                 }
 
             } else {
-                toolsgobal::armor_yaw_log_.push_back((last_armor_yaw/M_PI*180));
+                toolsgobal::armor_yaw_log_.push_back((last_armor_yaw / M_PI * 180));
                 toolsgobal::armor_x_log_.push_back(last_armor_.target_pos.x);
                 toolsgobal::armor_y_log_.push_back(last_armor_.target_pos.y);
                 toolsgobal::armor_z_log_.push_back(last_armor_.target_pos.z);

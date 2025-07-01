@@ -88,31 +88,26 @@ std::vector<Armor> ArmorPoseEstimator::extractArmorPoses(
             Eigen::Quaterniond q1(R);
 
             if (std::abs(armor_roll) < 30) {
-
                 // Use BA alogorithm to optimize the pose from PnP
                 // solveBa() will modify the rotation_matrix
                 Eigen::Matrix3d tmp_R = R;
                 R = ba_solver_->solveBa(armor, t, R, R_imu_camera, temp_number);
                 t = ba_solver_->solveBa_t(armor, t, tmp_R, R_imu_camera, temp_number);
             }
-            
+
             Eigen::Quaterniond q(R);
             // 定义绕 X 轴的额外旋转（90 度）
             double roll_angle = M_PI / 2; // 弧度
-   
 
             Eigen::Quaterniond additional_roll(
                 Eigen::AngleAxisd(roll_angle, Eigen::Vector3d::UnitX())
             );
-    
 
             // 应用额外旋转
             Eigen::Quaterniond new_q = q * additional_roll;
 
             // 转换回旋转矩阵
             Eigen::Matrix3d new_R = new_q.toRotationMatrix();
-
-          
 
             // Fill basic info
             armor_.type = temp_type;
@@ -130,7 +125,6 @@ std::vector<Armor> ArmorPoseEstimator::extractArmorPoses(
             armor_.is_ok = true;
 
             Eigen::Vector3d rpy = rotationMatrixToRPY(q.toRotationMatrix());
-
 
             armors_msg.push_back(std::move(armor_));
         } else {
