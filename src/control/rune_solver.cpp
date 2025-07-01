@@ -47,7 +47,7 @@ double RuneSolver::init(const Rune received_target, Eigen::Matrix4d T_camera_to_
         return 0;
     }
 
-    WUST_INFO("rune_solver") << "Init rune solver";
+    WUST_INFO(rune_solver_logger) << "Init rune solver";
 
     // Init EKF
     try {
@@ -56,11 +56,16 @@ double RuneSolver::init(const Rune received_target, Eigen::Matrix4d T_camera_to_
         // Filter out outliers
         Eigen::Vector3d t = T_odom_2_rune.block(0, 3, 3, 1);
         if (t.norm() < MIN_RUNE_DISTANCE || t.norm() > MAX_RUNE_DISTANCE) {
-            WUST_ERROR("rune_solver") << "Rune position is out of range";
+            WUST_ERROR(rune_solver_logger) << "Rune position is out of range";
             return 0;
         }
 
         ekf_state_ = getStateFromTransform(T_odom_2_rune);
+        if(!isStateValid(ekf_state_))
+        {
+            WUST_ERROR(rune_solver_logger)<<"Is not valid";
+            return 0;
+        }
         if (use_ypd) {
             ekf_ypd->setState(ekf_state_);
         } else {
@@ -68,7 +73,7 @@ double RuneSolver::init(const Rune received_target, Eigen::Matrix4d T_camera_to_
         }
 
     } catch (...) {
-        WUST_ERROR("rune_solver") << "Init failed";
+        WUST_ERROR(rune_solver_logger) << "Init failed";
         return 0;
     }
 
@@ -107,7 +112,7 @@ double RuneSolver::update(const Rune received_target, Eigen::Matrix4d T_camera_t
             // Filter out outliers
             Eigen::Vector3d t = T_odom_2_rune.block(0, 3, 3, 1);
             if (t.norm() < MIN_RUNE_DISTANCE || t.norm() > MAX_RUNE_DISTANCE) {
-                WUST_ERROR("rune_solver") << "Rune position is out of range";
+                WUST_ERROR(rune_solver_logger) << "Rune position is out of range";
                 return 0;
             }
 
@@ -130,7 +135,7 @@ double RuneSolver::update(const Rune received_target, Eigen::Matrix4d T_camera_t
             }
 
         } catch (...) {
-            WUST_ERROR("rune_solver") << "EKF update failed";
+            WUST_ERROR(rune_solver_logger) << "EKF update failed";
             return 0;
         }
 
@@ -213,10 +218,8 @@ RuneSolver::solvePose(const Rune& predicted_target, Eigen::Matrix4d T_camera_to_
             Eigen::Quaterniond quat(rot);
 
             // Init pose msg
-            // geometry_msgs::msg::PoseStamped tf;
             tf::Transform tf;
-            // tf.header.frame_id = "camera_optical_frame";
-            // tf.header.stamp = predicted_target.header.stamp;
+  
 
             // Fill pose msg
             tf.orientation.x = quat.x();
@@ -275,11 +278,17 @@ RuneSolver::solvePose(const Rune& predicted_target, Eigen::Matrix4d T_camera_to_
             pose.block(0, 0, 3, 3) = rot_odom;
 
         } catch (const std::exception& e) {
-            WUST_ERROR("rune_solver") << e.what();
+            WUST_ERROR(rune_solver_logger) << e.what();
         }
     } else {
-        WUST_ERROR("rune_solver") << "PnP failed";
+        WUST_ERROR(rune_solver_logger) << "PnP failed";
         throw std::runtime_error("PnP failed");
+    }
+    Eigen::VectorXd pose_flatten = Eigen::Map<const Eigen::VectorXd>(pose.data(), pose.size());
+    if(!isStateValid(pose_flatten))
+    {
+        WUST_ERROR(rune_solver_logger)<<"Pose is not valid";
+        return Eigen::Matrix4d();
     }
     return pose;
 }
@@ -355,7 +364,7 @@ GimbalCmd RuneSolver::solveGimbalCmd(const Eigen::Vector3d& target) {
         && std::abs(gimbal_cmd.pitch_diff) < shooting_range_pitch)
     {
         gimbal_cmd.fire_advice = true;
-        WUST_DEBUG("rune_solver") << "You Can Fire!";
+        WUST_DEBUG(rune_solver_logger) << "You Can Fire!";
     } else {
         gimbal_cmd.fire_advice = false;
     }
@@ -474,7 +483,7 @@ GimbalCmd RuneSolver::solve() {
         try {
             gimbal_control_cmd = solveGimbalCmd(pred_pos);
         } catch (...) {
-            WUST_ERROR("rune_solver") << "solveGimbalCmd error";
+            WUST_ERROR(rune_solver_logger) << "solveGimbalCmd error";
             gimbal_control_cmd.yaw_diff = 0;
             gimbal_control_cmd.pitch_diff = 0;
             gimbal_control_cmd.distance = -1;

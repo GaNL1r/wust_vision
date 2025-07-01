@@ -123,5 +123,7 @@ private:
     double last_time_;
     double last_ypd_y;
 
+    std::string rune_solver_logger="rune_solver";
+
     Eigen::Vector4d ekf_state_;
 };

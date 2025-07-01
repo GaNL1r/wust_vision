@@ -518,3 +518,6 @@ inline cv::Point2f computeCenter(const std::vector<cv::Point2f>& points) {
     }
     return cv::Point2f(sum_x / points.size(), sum_y / points.size());
 }
+inline bool isStateValid(const Eigen::VectorXd& state) {
+    return state.allFinite(); // 所有元素都不是 NaN 或 Inf
+}
