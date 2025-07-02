@@ -14,6 +14,7 @@
 #pragma once
 
 #include "Eigen/Dense"
+#include "common/logger.hpp"
 #include "fmt/format.h"
 #include "opencv2/opencv.hpp"
 #include <chrono>

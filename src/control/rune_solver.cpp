@@ -61,9 +61,8 @@ double RuneSolver::init(const Rune received_target, Eigen::Matrix4d T_camera_to_
         }
 
         ekf_state_ = getStateFromTransform(T_odom_2_rune);
-        if(!isStateValid(ekf_state_))
-        {
-            WUST_ERROR(rune_solver_logger)<<"Is not valid";
+        if (!isStateValid(ekf_state_)) {
+            WUST_ERROR(rune_solver_logger) << "Is not valid";
             return 0;
         }
         if (use_ypd) {
@@ -219,7 +218,6 @@ RuneSolver::solvePose(const Rune& predicted_target, Eigen::Matrix4d T_camera_to_
 
             // Init pose msg
             tf::Transform tf;
-  
 
             // Fill pose msg
             tf.orientation.x = quat.x();
@@ -285,9 +283,8 @@ RuneSolver::solvePose(const Rune& predicted_target, Eigen::Matrix4d T_camera_to_
         throw std::runtime_error("PnP failed");
     }
     Eigen::VectorXd pose_flatten = Eigen::Map<const Eigen::VectorXd>(pose.data(), pose.size());
-    if(!isStateValid(pose_flatten))
-    {
-        WUST_ERROR(rune_solver_logger)<<"Pose is not valid";
+    if (!isStateValid(pose_flatten)) {
+        WUST_ERROR(rune_solver_logger) << "Pose is not valid";
         return Eigen::Matrix4d();
     }
     return pose;

@@ -38,7 +38,7 @@
 
 G2O_USE_OPTIMIZATION_LIBRARY(dense)
 
-BaSolver::BaSolver(std::array<double, 9>& camera_matrix, std::vector<double>& dist_coeffs) {
+BaSolver::BaSolver(std::array<double, 9>& camera_matrix) {
     K_ = Eigen::Matrix3d::Identity();
     K_(0, 0) = camera_matrix[0];
     K_(1, 1) = camera_matrix[4];
@@ -58,98 +58,6 @@ BaSolver::BaSolver(std::array<double, 9>& camera_matrix, std::vector<double>& di
     lm_algorithm_->setUserLambdaInit(0.1);
 }
 
-// Eigen::Matrix3d BaSolver::solveBa(const ArmorObject &armor,
-//                                   const Eigen::Vector3d &t_camera_armor,
-//                                   const Eigen::Matrix3d &R_camera_armor,
-//                                   const Eigen::Matrix3d &R_imu_camera,
-//                                   int type_number) noexcept {
-//   // Reset optimizer
-//   optimizer_.clear();
-
-//   // Essential coordinate system transformation
-//   Eigen::Matrix3d R_imu_armor = R_imu_camera * R_camera_armor;
-//   Sophus::SO3d R_camera_imu = Sophus::SO3d(R_imu_camera.transpose());
-
-//   // Compute the initial yaw from rotation matrix
-//   double initial_armor_yaw;
-//   auto theta_by_sin = std::asin(-R_imu_armor(0, 1));
-//   auto theta_by_cos = std::acos(R_imu_armor(1, 1));
-//   if (std::abs(theta_by_sin) > 1e-5) {
-//     initial_armor_yaw = theta_by_sin > 0 ? theta_by_cos : -theta_by_cos;
-//   } else {
-//     initial_armor_yaw = R_imu_armor(1, 1) > 0 ? 0 : CV_PI;
-//   }
-//   // std::cout << "armor_detector"
-//   //           << "Initial yaw angle: " << initial_armor_yaw/M_PI*180 <<
-//   //           std::endl;
-//   // Get the pitch angle of the armor
-//   double armor_pitch = armor.number == ArmorNumber::OUTPOST
-//                            ? -FIFTTEN_DEGREE_RAD
-//                            : FIFTTEN_DEGREE_RAD;
-//   Sophus::SO3d R_pitch = Sophus::SO3d::exp(Eigen::Vector3d(0, armor_pitch,
-//   0)); Eigen::Vector2d armor_size; switch (type_number) { case 0:
-//     armor_size = Eigen::Vector2d(LARGE_ARMOR_WIDTH, LARGE_ARMOR_HEIGHT);
-//     break;
-//   case 1:
-//     armor_size = Eigen::Vector2d(SMALL_ARMOR_WIDTH, SMALL_ARMOR_HEIGHT);
-//     break;
-//   case 2:
-//     armor_size = Eigen::Vector2d(LARGE_ARMOR_WIDTH_NET,
-//     LARGE_ARMOR_HEIGHT_NET); break;
-//   case 3:
-//     armor_size = Eigen::Vector2d(SMALL_ARMOR_WIDTH_NET,
-//     SMALL_ARMOR_HEIGHT_NET); break;
-//   }
-
-//   const auto object_points = ArmorObject::buildObjectPoints<Eigen::Vector3d>(
-//       armor_size(0), armor_size(1));
-
-//   // Fill the optimizer
-//   size_t id_counter = 0;
-
-//   VertexYaw *v_yaw = new VertexYaw();
-//   v_yaw->setId(id_counter++);
-//   v_yaw->setEstimate(initial_armor_yaw);
-//   optimizer_.addVertex(v_yaw);
-
-//   const auto &landmarks = armor.landmarks();
-//   for (size_t i = 0; i < ArmorObject::N_LANDMARKS; i++) {
-//     g2o::VertexPointXYZ *v_point = new g2o::VertexPointXYZ();
-//     v_point->setId(id_counter++);
-//     v_point->setEstimate(Eigen::Vector3d(
-//         object_points[i].x(), object_points[i].y(), object_points[i].z()));
-//     v_point->setFixed(true);
-//     optimizer_.addVertex(v_point);
-
-//     EdgeProjection *edge =
-//         new EdgeProjection(R_camera_imu, R_pitch, t_camera_armor, K_);
-//     edge->setId(id_counter++);
-//     edge->setVertex(0, v_yaw);
-//     edge->setVertex(1, v_point);
-//     edge->setMeasurement(Eigen::Vector2d(landmarks[i].x, landmarks[i].y));
-//     edge->setInformation(EdgeProjection::InfoMatrixType::Identity());
-//     edge->setRobustKernel(new g2o::RobustKernelHuber);
-//     optimizer_.addEdge(edge);
-//   }
-
-//   // Start optimizing
-//   optimizer_.initializeOptimization();
-//   optimizer_.optimize(200);
-
-//   // Get yaw angle after optimization
-//   double yaw_optimized = v_yaw->estimate();
-
-//   if (std::isnan(yaw_optimized)) {
-//     // FYT_ERROR("armor_detector", "Yaw angle is nan after optimization");
-//     std::cout << "armor_detector"
-//               << "Yaw angle is nan after optimization" << std::endl;
-//     return R_camera_armor;
-//   }
-
-//   Sophus::SO3d R_yaw = Sophus::SO3d::exp(Eigen::Vector3d(0, 0,
-//   yaw_optimized)); return (R_camera_imu * R_yaw * R_pitch).matrix();
-// }
-// 在 BaSolver.cpp 中，修改 solveBa 函数
 Eigen::Matrix3d BaSolver::solveBa(
     const ArmorObject& armor,
     const Eigen::Vector3d& t_camera_armor,

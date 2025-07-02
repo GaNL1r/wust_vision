@@ -50,7 +50,7 @@ inline double normalizeAngleaa(double angle) {
 // the Yaw angle)
 class BaSolver {
 public:
-    BaSolver(std::array<double, 9>& camera_matrix, std::vector<double>& dist_coeffs);
+    BaSolver(std::array<double, 9>& camera_matrix);
     ~BaSolver() = default;
 
     // Solve the armor pose using the BA algorithm, return the optimized rotation

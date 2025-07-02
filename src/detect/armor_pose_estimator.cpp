@@ -22,13 +22,8 @@
 #include "yaml-cpp/yaml.h"
 #include <iostream>
 
-ArmorPoseEstimator::ArmorPoseEstimator(const std::string& camera_info_path) {
-    YAML::Node config = YAML::LoadFile(camera_info_path);
-
-    std::array<double, 9> camera_k = config["camera_matrix"]["data"].as<std::array<double, 9>>();
-    std::vector<double> camera_d =
-        config["distortion_coefficients"]["data"].as<std::vector<double>>();
-    pnp_solver_ = std::make_unique<PnPSolver>(camera_k, camera_d);
+ArmorPoseEstimator::ArmorPoseEstimator() {
+    pnp_solver_ = std::make_unique<PnPSolver>();
     pnp_solver_->setObjectPoints(
         "small",
         ArmorObject::buildObjectPoints<cv::Point3f>(SMALL_ARMOR_WIDTH, SMALL_ARMOR_HEIGHT)
@@ -37,7 +32,17 @@ ArmorPoseEstimator::ArmorPoseEstimator(const std::string& camera_info_path) {
         "large",
         ArmorObject::buildObjectPoints<cv::Point3f>(LARGE_ARMOR_WIDTH, LARGE_ARMOR_HEIGHT)
     );
-    ba_solver_ = std::make_unique<BaSolver>(camera_k, camera_d);
+
+    std::array<double, 9> camera_matrix;
+
+    CV_Assert(gobal::camera_intrinsic_.rows == 3 && gobal::camera_intrinsic_.cols == 3);
+    CV_Assert(gobal::camera_intrinsic_.type() == CV_64F);
+
+    for (int i = 0; i < 3; ++i)
+        for (int j = 0; j < 3; ++j)
+            camera_matrix[i * 3 + j] = gobal::camera_intrinsic_.at<double>(i, j);
+
+    ba_solver_ = std::make_unique<BaSolver>(camera_matrix);
 
     R_gimbal_camera_ = Eigen::Matrix3d::Identity();
     // R_gimbal_camera_ << 0, 1, 0, 0, 0, -1, -1, 0, 0;
@@ -47,9 +52,10 @@ ArmorPoseEstimator::ArmorPoseEstimator(const std::string& camera_info_path) {
 
 std::vector<Armor> ArmorPoseEstimator::extractArmorPoses(
     const std::vector<ArmorObject>& armors,
-    Eigen::Matrix3d R_imu_camera
+    Eigen::Matrix4d T_camera_to_odom
 ) {
     std::vector<Armor> armors_msg;
+    Eigen::Matrix3d R_imu_camera = T_camera_to_odom.block<3, 3>(0, 0);
 
     for (const auto& armor: armors) {
         if (!armor.is_ok) {
@@ -121,6 +127,7 @@ std::vector<Armor> ArmorPoseEstimator::extractArmorPoses(
             armor_.ori.y = new_q.y();
             armor_.ori.z = new_q.z();
             armor_.ori.w = new_q.w();
+            utils::transformArmorData(armor_, T_camera_to_odom);
             armor_.distance_to_image_center = pnp_solver_->calculateDistanceToCenter(armor.center);
             armor_.is_ok = true;
 

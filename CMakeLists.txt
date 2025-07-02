@@ -63,7 +63,6 @@ set(COMMON_SOURCES
   src/detect/pnp_solver.cpp
   src/driver/crc8_crc16.cpp
   src/driver/hik.cpp
-  src/driver/image_capturer.cpp
   src/driver/labeler.cpp
   src/driver/recorder.cpp
   src/driver/serial.cpp

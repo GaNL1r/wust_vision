@@ -15,6 +15,9 @@
 
 #pragma once
 
+#include "common/gobal.hpp"
+#include "common/logger.hpp"
+#include "type/type.hpp"
 #include <Eigen/Dense>
 #include <opencv2/calib3d.hpp>
 #include <opencv2/core.hpp>
@@ -86,6 +89,97 @@ inline Eigen::MatrixXd cvToEigen(const cv::Mat& cv_mat) noexcept {
     Eigen::MatrixXd eigen_mat = Eigen::MatrixXd::Zero(cv_mat.rows, cv_mat.cols);
     cv::cv2eigen(cv_mat, eigen_mat);
     return eigen_mat;
+}
+
+inline void transformArmorData(Armors& armors, std::string target_frame_) {
+    for (auto& armor: armors.armors) {
+        try {
+            tf::Transform tf(armor.pos, armor.ori, armors.timestamp);
+            auto pose_in_target_frame =
+                gobal::tf_tree_.transform(tf, armors.frame_id, target_frame_, armors.timestamp);
+
+            armor.target_pos = pose_in_target_frame.position;
+            armor.target_ori = pose_in_target_frame.orientation;
+
+            armor.yaw = getRPYFromQuaternion(armor.target_ori).yaw;
+            double yaw = armor.yaw * 180 / M_PI;
+
+        } catch (const std::exception& e) {
+            WUST_ERROR("tf") << "Can't find transform from " << armors.frame_id << " to "
+                             << target_frame_ << ": " << e.what();
+            return;
+        }
+    }
+}
+inline void transformArmorData(Armors& armors, Eigen::Matrix4d T_camera_to_odom) {
+    for (auto& armor: armors.armors) {
+        try {
+            // Step 1: Transform position from camera to odom
+            Eigen::Vector4d pos_camera(armor.pos.x, armor.pos.y, armor.pos.z, 1.0);
+            Eigen::Vector4d pos_odom = T_camera_to_odom * pos_camera;
+
+            armor.target_pos.x = pos_odom.x();
+            armor.target_pos.y = pos_odom.y();
+            armor.target_pos.z = pos_odom.z();
+
+            // Step 2: Transform orientation from camera to odom
+            Eigen::Matrix3d R_camera_to_odom = T_camera_to_odom.block<3, 3>(0, 0);
+            Eigen::Quaterniond q_camera(armor.ori.w, armor.ori.x, armor.ori.y, armor.ori.z);
+            Eigen::Matrix3d R_ori_camera = q_camera.normalized().toRotationMatrix();
+
+            Eigen::Matrix3d R_ori_odom = R_camera_to_odom * R_ori_camera;
+            Eigen::Quaterniond q_odom(R_ori_odom);
+
+            armor.target_ori.w = q_odom.w();
+            armor.target_ori.x = q_odom.x();
+            armor.target_ori.y = q_odom.y();
+            armor.target_ori.z = q_odom.z();
+            // std::cout << "x" << armor.target_pos.x<< "y"<< armor.target_pos.y <<
+            // "z"<< armor.target_pos.z << std::endl;
+
+            // Step 3: Extract yaw (assuming you have a function like this)
+            Eigen::Vector3d euler = R_ori_odom.eulerAngles(2, 1, 0); // ZYX
+            armor.yaw = euler[0]; // yaw
+
+        } catch (const std::exception& e) {
+            WUST_ERROR("tf") << "Error in camera-to-odom transform: " << e.what();
+            return;
+        }
+    }
+}
+inline void transformArmorData(Armor& armor, Eigen::Matrix4d T_camera_to_odom) {
+    try {
+        // Step 1: Transform position from camera to odom
+        Eigen::Vector4d pos_camera(armor.pos.x, armor.pos.y, armor.pos.z, 1.0);
+        Eigen::Vector4d pos_odom = T_camera_to_odom * pos_camera;
+
+        armor.target_pos.x = pos_odom.x();
+        armor.target_pos.y = pos_odom.y();
+        armor.target_pos.z = pos_odom.z();
+
+        // Step 2: Transform orientation from camera to odom
+        Eigen::Matrix3d R_camera_to_odom = T_camera_to_odom.block<3, 3>(0, 0);
+        Eigen::Quaterniond q_camera(armor.ori.w, armor.ori.x, armor.ori.y, armor.ori.z);
+        Eigen::Matrix3d R_ori_camera = q_camera.normalized().toRotationMatrix();
+
+        Eigen::Matrix3d R_ori_odom = R_camera_to_odom * R_ori_camera;
+        Eigen::Quaterniond q_odom(R_ori_odom);
+
+        armor.target_ori.w = q_odom.w();
+        armor.target_ori.x = q_odom.x();
+        armor.target_ori.y = q_odom.y();
+        armor.target_ori.z = q_odom.z();
+        // std::cout << "x" << armor.target_pos.x<< "y"<< armor.target_pos.y <<
+        // "z"<< armor.target_pos.z << std::endl;
+
+        // Step 3: Extract yaw (assuming you have a function like this)
+        Eigen::Vector3d euler = R_ori_odom.eulerAngles(2, 1, 0); // ZYX
+        armor.yaw = euler[0]; // yaw
+
+    } catch (const std::exception& e) {
+        WUST_ERROR("tf") << "Error in camera-to-odom transform: " << e.what();
+        return;
+    }
 }
 
 } // namespace utils

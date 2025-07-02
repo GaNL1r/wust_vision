@@ -21,7 +21,6 @@
 #include <cmath>
 #include <numeric>
 #include <yaml-cpp/yaml.h>
-
 std::vector<cv::Point3f> MonoMeasureTool::SMALL_ARMOR_3D_POINTS = {
     { 0, 0.025, -0.066 },
     { 0, -0.025, -0.066 },
@@ -66,50 +65,6 @@ bool is_big_armor(const ArmorObject& obj) {
     }
 }
 
-MonoMeasureTool::MonoMeasureTool(
-    std::vector<double> camera_intrinsic,
-    std::vector<double> camera_distortion
-) {
-    setCameraInfo(camera_intrinsic, camera_distortion);
-}
-
-MonoMeasureTool::MonoMeasureTool(const std::string& yaml_path) {
-    YAML::Node config = YAML::LoadFile(yaml_path);
-
-    std::vector<double> camera_k = config["camera_matrix"]["data"].as<std::vector<double>>();
-    std::vector<double> camera_d =
-        config["distortion_coefficients"]["data"].as<std::vector<double>>();
-
-    if (!setCameraInfo(camera_k, camera_d)) {
-        WUST_ERROR(mono_logger) << "Failed to set camera info from YAML file: " << yaml_path;
-    }
-}
-
-bool MonoMeasureTool::setCameraInfo(
-    std::vector<double> camera_intrinsic,
-    std::vector<double> camera_distortion
-) {
-    if (camera_intrinsic.size() != 9) {
-        WUST_ERROR(mono_logger) << "Camera intrinsic size != 9";
-        return false;
-    }
-
-    cv::Mat camera_intrinsic_mat(camera_intrinsic, true);
-    camera_intrinsic_mat = camera_intrinsic_mat.reshape(0, 3);
-    camera_intrinsic_ = camera_intrinsic_mat.clone();
-
-    cv::Mat camera_distortion_mat(camera_distortion, true);
-    camera_distortion_mat = camera_distortion_mat.reshape(0, 1);
-    camera_distortion_ = camera_distortion_mat.clone();
-
-    fx_ = camera_intrinsic_.at<double>(0, 0);
-    fy_ = camera_intrinsic_.at<double>(1, 1);
-    u0_ = camera_intrinsic_.at<double>(0, 2);
-    v0_ = camera_intrinsic_.at<double>(1, 2);
-
-    return true;
-}
-
 bool MonoMeasureTool::solvePnp(
     const std::vector<cv::Point2f>& points2d,
     const std::vector<cv::Point3f>& points3d,
@@ -123,7 +78,7 @@ bool MonoMeasureTool::solvePnp(
         return false;
     }
 
-    if (camera_intrinsic_.empty() || camera_distortion_.empty()) {
+    if (gobal::camera_intrinsic_.empty() || gobal::camera_distortion_.empty()) {
         // WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
         return false;
     }
@@ -133,8 +88,8 @@ bool MonoMeasureTool::solvePnp(
     bool res = cv::solvePnP(
         points3d,
         points2d,
-        camera_intrinsic_,
-        camera_distortion_,
+        gobal::camera_intrinsic_,
+        gobal::camera_distortion_,
         r,
         trans,
         false,
@@ -203,7 +158,7 @@ bool MonoMeasureTool::calcRTarget(
     Eigen::Matrix4d& TRodom,
     const Eigen::Matrix4d& T_camera_to_odom
 ) {
-    if (camera_intrinsic_.empty() || camera_distortion_.empty()) {
+    if (gobal::camera_intrinsic_.empty() || gobal::camera_distortion_.empty()) {
         WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
         return false;
     }
@@ -213,8 +168,8 @@ bool MonoMeasureTool::calcRTarget(
     bool res = cv::solvePnP(
         R_BOX_POINTS,
         manual_r_box,
-        camera_intrinsic_,
-        camera_distortion_,
+        gobal::camera_intrinsic_,
+        gobal::camera_distortion_,
         rvec,
         tvec,
         false,
@@ -250,7 +205,7 @@ bool MonoMeasureTool::projectRTargetToImage(
     const Eigen::Matrix4d& T_camera_to_odom,
     std::vector<cv::Point2f>& manual_r_box
 ) {
-    if (camera_intrinsic_.empty() || camera_distortion_.empty()) {
+    if (gobal::camera_intrinsic_.empty() || gobal::camera_distortion_.empty()) {
         WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
         return false;
     }
@@ -273,8 +228,8 @@ bool MonoMeasureTool::projectRTargetToImage(
         R_BOX_POINTS,
         rvec,
         tvec,
-        camera_intrinsic_,
-        camera_distortion_,
+        gobal::camera_intrinsic_,
+        gobal::camera_distortion_,
         manual_r_box
     );
 
@@ -312,7 +267,7 @@ bool MonoMeasureTool::calcArmorTarget(
     }
 
     // Ensure camera parameters initialized
-    if (camera_intrinsic_.empty() || camera_distortion_.empty()) {
+    if (gobal::camera_intrinsic_.empty() || gobal::camera_distortion_.empty()) {
         WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
         return false;
     }
@@ -322,8 +277,8 @@ bool MonoMeasureTool::calcArmorTarget(
     bool generic_ok = cv::solvePnPGeneric(
         *model_points,
         *image_points,
-        camera_intrinsic_,
-        camera_distortion_,
+        gobal::camera_intrinsic_,
+        gobal::camera_distortion_,
         rvecs,
         tvecs,
         false, /* useExtrinsicGuess */
@@ -343,8 +298,8 @@ bool MonoMeasureTool::calcArmorTarget(
             *model_points,
             rvecs[i],
             tvecs[i],
-            camera_intrinsic_,
-            camera_distortion_,
+            gobal::camera_intrinsic_,
+            gobal::camera_distortion_,
             reproj
         );
         double err = 0.0;
@@ -371,8 +326,8 @@ bool MonoMeasureTool::calcArmorTarget(
 }
 float MonoMeasureTool::calcDistanceToCenter(const ArmorObject& obj) {
     cv::Point2f img_center(
-        this->camera_intrinsic_.at<double>(0, 2),
-        this->camera_intrinsic_.at<double>(1, 2)
+        gobal::camera_intrinsic_.at<double>(0, 2),
+        gobal::camera_intrinsic_.at<double>(1, 2)
     );
     cv::Point2f armor_center;
     if (obj.is_ok) {
@@ -393,7 +348,7 @@ bool MonoMeasureTool::reprojectArmorCorners(
     const Armor& armor,
     std::vector<cv::Point2f>& image_points
 ) {
-    if (camera_intrinsic_.empty() || camera_distortion_.empty()) {
+    if (gobal::camera_intrinsic_.empty() || gobal::camera_distortion_.empty()) {
         WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
         return false;
     }
@@ -435,8 +390,8 @@ bool MonoMeasureTool::reprojectArmorCorners(
         *model_points,
         rvec,
         tvec,
-        camera_intrinsic_,
-        camera_distortion_,
+        gobal::camera_intrinsic_,
+        gobal::camera_distortion_,
         image_points
     );
 
@@ -446,7 +401,7 @@ bool MonoMeasureTool::reprojectArmorCorners_raw(
     const Armor& armor,
     std::vector<cv::Point2f>& image_points
 ) {
-    if (camera_intrinsic_.empty() || camera_distortion_.empty()) {
+    if (gobal::camera_intrinsic_.empty() || gobal::camera_distortion_.empty()) {
         WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
         return false;
     }
@@ -487,15 +442,15 @@ bool MonoMeasureTool::reprojectArmorCorners_raw(
         *model_points,
         rvec,
         tvec,
-        camera_intrinsic_,
-        camera_distortion_,
+        gobal::camera_intrinsic_,
+        gobal::camera_distortion_,
         image_points
     );
 
     return true;
 }
 bool MonoMeasureTool::reprojectArmorsCorners(Armors& armors, Target_info& target_info) {
-    if (camera_intrinsic_.empty() || camera_distortion_.empty()) {
+    if (gobal::camera_intrinsic_.empty() || gobal::camera_distortion_.empty()) {
         WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
         return false;
     }
@@ -514,7 +469,8 @@ bool MonoMeasureTool::reprojectArmorsCorners(Armors& armors, Target_info& target
 void MonoMeasureTool::processDetectedArmors(
     const std::vector<ArmorObject>& objs,
     int detect_color,
-    Armors& armors_out
+    Armors& armors_out,
+    Eigen::Matrix4d T_camera_to_odom
 ) {
     for (const auto& obj: objs) {
         if (obj.is_ok) {
@@ -590,4 +546,5 @@ void MonoMeasureTool::processDetectedArmors(
             continue;
         }
     }
+    utils::transformArmorData(armors_out, T_camera_to_odom);
 }

@@ -34,23 +34,7 @@ struct Target_info {
 class MonoMeasureTool {
 public:
     MonoMeasureTool() = default;
-    MonoMeasureTool(const std::string& yaml_path);
 
-    explicit MonoMeasureTool(
-        std::vector<double> camera_intrinsic,
-        std::vector<double> camera_distortion
-    );
-
-    /**
-   * @brief Set the camera intrinsic parameter
-   *
-   * @param camera_intrinsic camera intrinsic in 3x3 matrix flat in line stretch
-   * @param camera_distortion camera distortion parameter in plumb_bob
-   * distortion model
-   * @return true
-   * @return false
-   */
-    bool setCameraInfo(std::vector<double> camera_intrinsic, std::vector<double> camera_distortion);
     /**
    * @brief Solve Perspective-n-Point problem in camera
    * 3d点坐标求解（use solve pnp）
@@ -119,7 +103,8 @@ public:
     void processDetectedArmors(
         const std::vector<ArmorObject>& objs,
         int detect_color,
-        Armors& armors_out
+        Armors& armors_out,
+        Eigen::Matrix4d T_camera_to_odom
     );
 
     static std::vector<cv::Point3f> SMALL_ARMOR_3D_POINTS;
@@ -127,8 +112,6 @@ public:
     static std::vector<cv::Point3f> SMALL_ARMOR_3D_POINTS_NET;
     static std::vector<cv::Point3f> BIG_ARMOR_3D_POINTS_NET;
     static std::vector<cv::Point3f> R_BOX_POINTS;
-    cv::Mat camera_intrinsic_; // 相机内参3*3
-    cv::Mat camera_distortion_; // 相机畸变参数1*5
 
 private:
     // 相机参数

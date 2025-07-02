@@ -29,4 +29,7 @@ extern double communication_delay_μs;
 
 extern AttitudeBuffer attitude_buffer;
 
+extern cv::Mat camera_intrinsic_;
+extern cv::Mat camera_distortion_;
+
 } // namespace gobal

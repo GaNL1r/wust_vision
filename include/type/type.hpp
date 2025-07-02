@@ -521,3 +521,14 @@ inline cv::Point2f computeCenter(const std::vector<cv::Point2f>& points) {
 inline bool isStateValid(const Eigen::VectorXd& state) {
     return state.allFinite(); // 所有元素都不是 NaN 或 Inf
 }
+inline double clamp_pm_pi(auto&& angle) {
+    while (angle >= M_PI)
+        angle -= M_PI;
+    while (angle <= -M_PI)
+        angle += M_PI;
+
+    return angle;
+}
+inline double ratio(const auto& point) {
+    return atan2(point.y, point.x);
+}

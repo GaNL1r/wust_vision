@@ -32,10 +32,10 @@
 
 class ArmorPoseEstimator {
 public:
-    explicit ArmorPoseEstimator(const std::string& camera_info_path);
+    explicit ArmorPoseEstimator();
 
     std::vector<Armor>
-    extractArmorPoses(const std::vector<ArmorObject>& armors, Eigen::Matrix3d R_imu_camera);
+    extractArmorPoses(const std::vector<ArmorObject>& armors, Eigen::Matrix4d T_camera_to_odom);
 
     void enableBA(bool enable) {
         use_ba_ = enable;

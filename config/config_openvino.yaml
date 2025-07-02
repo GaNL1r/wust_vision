@@ -105,6 +105,7 @@ camera:
   exposure_time: 1000
   gain: 16
   pixel_format: BayerRG8
+  acquisitionFrameRateEnable: false
   recorder: false
   video_player:
     fps: 90

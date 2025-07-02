@@ -84,17 +84,45 @@ bool HikCamera::initializeCamera() {
     convert_param_.nWidth = img_info_.nWidthValue;
     convert_param_.nHeight = img_info_.nHeightValue;
     convert_param_.enDstPixelType = PixelType_Gvsp_RGB8_Packed;
+    disableTrigger();
+    return true;
+}
+bool HikCamera::enableTrigger(
+    TriggerType type,
+    const std::string& source,
+    int64_t activation
+) {
+    trigger_type_       = type;
+    trigger_source_     = source;
+    trigger_activation_ = activation;
 
+    if (MV_CC_SetEnumValueByString(camera_handle_, "TriggerMode", "On") != MV_OK)
+        return false;
+    if (MV_CC_SetEnumValueByString(camera_handle_, "TriggerSource", source.c_str()) != MV_OK)
+        return false;
+
+    const char* act = (activation == 1 ? "RisingEdge" : "FallingEdge");
+    if (MV_CC_SetEnumValueByString(camera_handle_, "TriggerActivation", act) != MV_OK)
+        return false;
+
+    WUST_INFO(hik_logger)
+        << "Trigger enabled: src=" << source << ", act=" << act;
     return true;
 }
 
+void HikCamera::disableTrigger() {
+    trigger_type_ = TriggerType::None;
+    MV_CC_SetEnumValueByString(camera_handle_, "TriggerMode", "Off");
+    WUST_INFO(hik_logger) << "Trigger disabled, continuous mode.";
+}
 // 设置相机参数：帧率、曝光、增益、ADC位深及像素格式（这里硬编码参数，可按需修改）
 void HikCamera::setParameters(
     double acquisition_frame_rate,
     double exposure_time,
     double gain,
     const std::string& adc_bit_depth,
-    const std::string& pixel_format
+    const std::string& pixel_format,
+    bool acquisitionFrameRateEnable
 ) {
     MVCC_FLOATVALUE f_value;
 
@@ -127,12 +155,16 @@ void HikCamera::setParameters(
     } else {
         WUST_ERROR(hik_logger) << "Failed to set Pixel Format, status = " << status;
     }
-
+    if(!acquisitionFrameRateEnable)
+    {
+        MV_CC_SetBoolValue(camera_handle_, "AcquisitionFrameRateEnable", false);
+    }
     last_frame_rate_ = acquisition_frame_rate;
     last_exposure_time_ = exposure_time;
     last_gain_ = gain;
     last_adc_bit_depth_ = adc_bit_depth;
     last_pixel_format_ = pixel_format;
+    last_acquisitionFrameRateEnable = acquisitionFrameRateEnable;
 }
 
 // 启动图像采集，采集线程不断获取图像帧并推入队列
@@ -207,7 +239,8 @@ bool HikCamera::restartCamera() {
         last_exposure_time_,
         last_gain_,
         last_adc_bit_depth_,
-        last_pixel_format_
+        last_pixel_format_,
+        last_acquisitionFrameRateEnable
     );
 
     int n_ret = MV_CC_StartGrabbing(camera_handle_);
@@ -233,6 +266,9 @@ void HikCamera::hikCaptureLoop() {
 
     try {
         while (!stop_signal_) {
+            if (trigger_type_ == TriggerType::Software) {
+                MV_CC_SetCommandValue(camera_handle_, "TriggerSoftware");
+            }
             int n_ret = MV_CC_GetImageBuffer(camera_handle_, &out_frame, 1);
             if (n_ret == MV_OK) {
                 in_fail_state = false;

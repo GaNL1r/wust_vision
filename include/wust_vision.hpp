@@ -6,7 +6,6 @@
 #include "detect/armor_pose_estimator.hpp"
 #include "detect/detector_factory.hpp"
 #include "driver/hik.hpp"
-#include "driver/image_capturer.hpp"
 #include "driver/labeler.hpp"
 #include "driver/recorder.hpp"
 #include "driver/serial.hpp"
@@ -23,8 +22,8 @@ public:
     void init();
     void run();
     void processImage(const ImageFrame& frame, Eigen::Matrix3d R_gimbal2odom);
-    void processImage(const cv::Mat& frame, std::chrono::steady_clock::time_point timestamp);
-    void captureLoop();
+
+
 
     void printStats();
     void ArmorDetectCallback(
@@ -48,14 +47,11 @@ public:
     void startTimer();
     void stopTimer();
     void restartTimerThread();
-    void transformArmorData(Armors& armors);
-    void transformArmorData(Armors& armors, Eigen::Matrix4d T_camera_to_odom);
     void runeTargetCallback(const Rune rune_target, Eigen::Matrix4d T_camera_to_odom);
     void update();
     void initRune(const std::string& camera_info_path);
     void calculation_manual_r(const cv::Mat& src_img);
     static void onMouse(int event, int x, int y, int, void* userdata);
-    // Armors visualizeTargetProjection(Target armor_target_);
     Armors
     visualizeTargetProjection(Target armor_target_, std::vector<OneTarget> one_armor_targets_);
 
@@ -88,11 +84,8 @@ public:
     std::unique_ptr<ArmorSolver> armor_solver_;
     int max_detect_armors_;
     std::unique_ptr<ArmorPoseEstimator> armor_pose_estimator_;
-    Eigen::Matrix3d imu_to_camera_;
     bool only_nav_enable;
-    std::unique_ptr<hikcamera::ImageCapturer> capturer_;
-    std::unique_ptr<std::thread> capture_thread_;
-    std::atomic<bool> capture_running_;
+
     Target armor_target;
     std::vector<OneTarget> one_armor_targets;
     Armors armors_gobal;

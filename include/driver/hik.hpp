@@ -30,6 +30,11 @@
 #include <thread>
 #include <vector>
 
+enum class TriggerType {
+    None,
+    Software,
+    Hardware
+};
 class HikCamera {
 public:
     HikCamera();
@@ -44,11 +49,16 @@ public:
         double exposure_time,
         double gain,
         const std::string& adc_bit_depth,
-        const std::string& pixel_format
+        const std::string& pixel_format,
+        bool acquisitionFrameRateEnable
     );
     void startCamera(bool if_recorder);
     bool restartCamera();
     void stopCamera();
+    bool enableTrigger( TriggerType type,
+        const std::string& source,
+        int64_t activation);
+    void disableTrigger();
 
 private:
     void hikCaptureLoop();
@@ -60,8 +70,12 @@ private:
     std::thread capture_thread_;
     std::string hik_logger = "hik_camera";
     double last_frame_rate_, last_exposure_time_, last_gain_;
+    bool last_acquisitionFrameRateEnable;
     std::string last_adc_bit_depth_, last_pixel_format_;
     bool in_low_frame_rate_state_;
+    TriggerType trigger_type_ = TriggerType::None;
+    std::string trigger_source_;    // e.g. "Line0"、"Software"
+    int64_t    trigger_activation_; // 0=FallingEdge, 1=RisingEdge
     std::chrono::steady_clock::time_point low_frame_rate_start_time_;
     std::atomic<bool> stop_signal_ { false };
     int video_fps_;

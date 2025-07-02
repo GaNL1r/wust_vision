@@ -108,13 +108,14 @@ camera:
   exposure_time: 1000
   gain: 16
   pixel_format: BayerRG8
+  acquisitionFrameRateEnable: false
   recorder: false
   video_player:
     fps: 90
     loop: true
     path: /home/hy/6.11/output.mp4
     start_frame: 500
-    use: true
+    use: false
 control:
   alpha_pitch: 0.9
   alpha_yaw: 0.9
@@ -124,14 +125,14 @@ control:
   max_pitch_change: 5
   max_yaw_change: 10
   use_nav: false
-  use_serial:  false
+  use_serial:  true
 debug:
   debug_h: 1080
   debug_mode: true
   debug_show_dt: 0.01
   debug_w: 1440
-detect_color: 1
-init_attack_mode: 1
+detect_color: 0
+init_attack_mode: 0
 logger:
   log_level: INFO
   log_path: /home/hy/wust_log

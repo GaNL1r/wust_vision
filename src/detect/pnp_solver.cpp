@@ -17,16 +17,7 @@
 
 #include <opencv2/calib3d.hpp>
 
-PnPSolver::PnPSolver(
-    const std::array<double, 9>& camera_matrix,
-    const std::vector<double>& distortion_coefficients,
-    cv::SolvePnPMethod method
-):
-    camera_matrix_(cv::Mat(3, 3, CV_64F, const_cast<double*>(camera_matrix.data())).clone()),
-    distortion_coefficients_(
-        cv::Mat(1, 5, CV_64F, const_cast<double*>(distortion_coefficients.data())).clone()
-    ),
-    method_(method) {}
+PnPSolver::PnPSolver(cv::SolvePnPMethod method): method_(method) {}
 
 void PnPSolver::setObjectPoints(
     const std::string& coord_frame_name,
@@ -36,8 +27,8 @@ void PnPSolver::setObjectPoints(
 }
 
 float PnPSolver::calculateDistanceToCenter(const cv::Point2f& image_point) const noexcept {
-    float cx = camera_matrix_.at<double>(0, 2);
-    float cy = camera_matrix_.at<double>(1, 2);
+    float cx = gobal::camera_intrinsic_.at<double>(0, 2);
+    float cy = gobal::camera_intrinsic_.at<double>(1, 2);
     return cv::norm(image_point - cv::Point2f(cx, cy));
 }
 
@@ -54,8 +45,8 @@ double PnPSolver::calculateReprojectionError(
             object_points,
             rvec,
             tvec,
-            camera_matrix_,
-            distortion_coefficients_,
+            gobal::camera_intrinsic_,
+            gobal::camera_distortion_,
             reprojected_points
         );
         double error = 0;

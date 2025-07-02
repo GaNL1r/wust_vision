@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include "common/gobal.hpp"
 #include <Eigen/Dense>
 #include <iostream>
 #include <opencv2/calib3d.hpp>
@@ -24,11 +25,7 @@
 
 class PnPSolver {
 public:
-    PnPSolver(
-        const std::array<double, 9>& camera_matrix,
-        const std::vector<double>& distortion_coefficients,
-        cv::SolvePnPMethod method = cv::SOLVEPNP_IPPE
-    );
+    PnPSolver(cv::SolvePnPMethod method = cv::SOLVEPNP_IPPE);
 
     // Set an object coord system
     void setObjectPoints(
@@ -51,8 +48,8 @@ public:
             int solutions = cv::solvePnPGeneric(
                 object_points,
                 image_points,
-                camera_matrix_,
-                distortion_coefficients_,
+                gobal::camera_intrinsic_,
+                gobal::camera_distortion_,
                 rvecs,
                 tvecs,
                 false,
@@ -79,8 +76,8 @@ public:
             return cv::solvePnP(
                 object_points,
                 image_points,
-                camera_matrix_,
-                distortion_coefficients_,
+                gobal::camera_intrinsic_,
+                gobal::camera_distortion_,
                 rvec,
                 tvec,
                 false,
@@ -102,8 +99,8 @@ public:
             object_points,
             rvec,
             tvec,
-            camera_matrix_,
-            distortion_coefficients_,
+            gobal::camera_intrinsic_,
+            gobal::camera_distortion_,
             image_points
         );
 
@@ -122,7 +119,6 @@ public:
 
 private:
     std::unordered_map<std::string, std::vector<cv::Point3f>> object_points_map_;
-    cv::Mat camera_matrix_;
-    cv::Mat distortion_coefficients_;
+
     cv::SolvePnPMethod method_;
 };
