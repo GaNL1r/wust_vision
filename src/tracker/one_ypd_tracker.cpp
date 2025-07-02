@@ -132,6 +132,8 @@ void OneYpdTracker::update(const Armors& armors_msg) noexcept {
             double measured_yaw = orientationToYaw(tracked_armor.target_ori);
 
             double ypd_y = std::atan2(p.y, p.x);
+            ypd_y = this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
+            this->last_ypd_y = ypd_y;
             double ypd_p = std::atan2(p.z, std::sqrt(p.x * p.x + p.y * p.y));
             double ypd_d = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
             measurement = Eigen::Vector4d(ypd_y, ypd_p, ypd_d, measured_yaw);
@@ -195,6 +197,8 @@ void OneYpdTracker::update(const Armor& armor_msg) noexcept {
         auto p = tracked_armor.target_pos;
         double measured_yaw = orientationToYaw(tracked_armor.target_ori);
         double ypd_y = std::atan2(p.y, p.x);
+        ypd_y = this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
+        this->last_ypd_y = ypd_y;
         double ypd_p = std::atan2(p.z, std::sqrt(p.x * p.x + p.y * p.y));
         double ypd_d = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
         measurement = Eigen::Vector4d(ypd_y, ypd_p, ypd_d, measured_yaw);

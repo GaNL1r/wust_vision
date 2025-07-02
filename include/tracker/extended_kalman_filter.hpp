@@ -34,6 +34,19 @@
 // N_Z: measurement vector dimension
 // PredicFunc: process nonlinear vector function
 // MeasureFunc: observation nonlinear vector function
+#pragma once
+
+// std
+#include <functional>
+#include <vector>
+#include <cassert>
+// Eigen
+#include <Eigen/Dense>
+// ceres
+#include <ceres/jet.h>
+#include <common/angles.h>
+
+// Extended Kalman Filter with auto differentiation
 template<int N_X, int N_Z, class PredicFunc, class MeasureFunc>
 class ExtendedKalmanFilter {
 public:
@@ -55,18 +68,16 @@ public:
         const UpdateQFunc& u_q,
         const UpdateRFunc& u_r,
         const MatrixXX& P0
-
     ) noexcept:
         f(f),
         h(h),
         update_Q(u_q),
         update_R(u_r),
         P_post(P0) {
-        F = MatrixXX::Zero();
-        H = MatrixZX::Zero();
+        F.setZero();
+        H.setZero();
     }
 
-    // Set the initial state
     void setState(const MatrixX1& x0) noexcept {
         x_post = x0;
     }
@@ -78,100 +89,111 @@ public:
     void setMeasureFunc(const MeasureFunc& h) noexcept {
         this->h = h;
     }
+
     void setIterationNum(int num) {
         iteration_num_ = num;
     }
 
-    // Compute a predicted state
+    void setAngleDims(const std::vector<int>& dims) {
+        angle_dims_ = dims;
+    }
+
     MatrixX1 predict() noexcept {
         ceres::Jet<double, N_X> x_e_jet[N_X];
         for (int i = 0; i < N_X; ++i) {
             x_e_jet[i].a = x_post[i];
-            x_e_jet[i].v[i] = 1.;
-            // a 对自己的偏导数为 1.
+            x_e_jet[i].v.setZero(); 
+            x_e_jet[i].v[i] = 1.0;
         }
+
         ceres::Jet<double, N_X> x_p_jet[N_X];
         f(x_e_jet, x_p_jet);
 
         for (int i = 0; i < N_X; ++i) {
-            x_pri[i] = x_p_jet[i].a;
+            x_pri[i] = std::isfinite(x_p_jet[i].a) ? x_p_jet[i].a : 0.0; 
             F.block(i, 0, 1, N_X) = x_p_jet[i].v.transpose();
         }
 
         Q = update_Q();
         P_pri = F * P_post * F.transpose() + Q;
-        x_post = x_pri;
+        P_pri = 0.5 * (P_pri + P_pri.transpose());
 
+        x_post = x_pri;
         return x_pri;
     }
 
-    // Update the estimated state based on measurement
     MatrixX1 update(const MatrixZ1& z) noexcept {
         MatrixX1 x_iter = x_post;
 
         for (int iter = 0; iter < iteration_num_; ++iter) {
-            // 使用 Jet 对当前状态求雅可比
+            // Jet 初始化
             ceres::Jet<double, N_X> x_p_jet[N_X];
             for (int i = 0; i < N_X; ++i) {
                 x_p_jet[i].a = x_iter[i];
-                x_p_jet[i].v[i] = 1;
+                x_p_jet[i].v.setZero(); 
+                x_p_jet[i].v[i] = 1.0;
             }
+
             ceres::Jet<double, N_X> z_p_jet[N_Z];
             h(x_p_jet, z_p_jet);
 
             MatrixZ1 z_pri;
             for (int i = 0; i < N_Z; ++i) {
-                z_pri[i] = z_p_jet[i].a;
+                z_pri[i] = std::isfinite(z_p_jet[i].a) ? z_p_jet[i].a : 0.0; 
                 H.block(i, 0, 1, N_X) = z_p_jet[i].v.transpose();
             }
 
             R = update_R(z);
-            K = P_pri * H.transpose() * (H * P_pri * H.transpose() + R).inverse();
+            MatrixZZ S = H * P_pri * H.transpose() + R;
+            S += 1e-6 * MatrixZZ::Identity(); 
+            K = P_pri * H.transpose() * S.inverse();
 
             MatrixZ1 residual = z - z_pri;
-            for (int idx: angle_dims_) {
+            for (int idx : angle_dims_) {
                 residual[idx] = angles::shortest_angular_distance(z_pri[idx], z[idx]);
+            }
+            for (int i = 0; i < N_Z; ++i) {
+                if (!std::isfinite(residual[i])) residual[i] = 0.0;
+                residual[i] = std::clamp(residual[i], -1e2, 1e2); 
             }
 
             MatrixX1 x_new = x_iter + K * residual;
+
+         
+            for (int i = 0; i < N_X; ++i) {
+                if (!std::isfinite(x_new[i])) x_new[i] = x_iter[i];
+            }
 
             x_iter = x_new;
         }
 
         x_post = x_iter;
+        for (int i = 0; i < N_X; ++i) {
+            if (!std::isfinite(x_post[i])) x_post[i] = 0.0;
+        }
+
         P_post = (MatrixXX::Identity() - K * H) * P_pri;
+        P_post = 0.5 * (P_post + P_post.transpose()); 
         return x_post;
-    }
-    void setAngleDims(const std::vector<int>& dims) {
-        angle_dims_ = dims;
     }
 
 private:
-    // Process nonlinear vector function
     PredicFunc f;
-    MatrixXX F;
-    // Observation nonlinear vector function
     MeasureFunc h;
-    MatrixZX H;
-    // Process noise covariance matrix
     UpdateQFunc update_Q;
-    MatrixXX Q;
-    // Measurement noise covariance matrix
     UpdateRFunc update_R;
-    MatrixZZ R;
 
-    // Priori error estimate covariance matrix
-    MatrixXX P_pri;
-    // Posteriori error estimate covariance matrix
-    MatrixXX P_post;
+    MatrixXX F = MatrixXX::Zero();
+    MatrixZX H = MatrixZX::Zero();
+    MatrixXX Q = MatrixXX::Zero();
+    MatrixZZ R = MatrixZZ::Zero();
 
-    // Kalman gain
-    MatrixXZ K;
+    MatrixXX P_pri = MatrixXX::Identity();
+    MatrixXX P_post = MatrixXX::Identity();
+    MatrixXZ K = MatrixXZ::Zero();
 
-    // Priori state
-    MatrixX1 x_pri;
-    // Posteriori state
-    MatrixX1 x_post;
+    MatrixX1 x_pri = MatrixX1::Zero();
+    MatrixX1 x_post = MatrixX1::Zero();
 
     std::vector<int> angle_dims_;
     int iteration_num_ = 1;

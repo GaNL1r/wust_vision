@@ -43,31 +43,31 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     //     max_match_z_diff,
     //     jump_thresh
     // );
-    // one_ypd_tracker_ = std::make_unique<OneYpdTracker>(
-    //     max_match_distance, max_match_yaw_diff,
-    //     max_match_z_diff,jump_thresh);
 
-    for (int i = 0; i < track_one_num; i++) {
-        auto o_tracker_ = std::make_unique<OneTracker>(
-            max_match_distance,
-            max_match_yaw_diff,
-            max_match_z_diff,
-            jump_thresh
-        );
-        one_trackers_.push_back(std::move(o_tracker_));
-    }
-    one_ca_tracker_ = std::make_unique<OneCaTracker>(
-        max_match_distance,
-        max_match_yaw_diff,
-        max_match_z_diff,
-        jump_thresh
-    );
+
     // for (int i = 0; i < track_one_num; i++) {
-    //   auto oy_tracker_ = std::make_unique<OneYpdTracker>(
-    //       max_match_distance, max_match_yaw_diff,
-    //       max_match_z_diff,jump_thresh);
-    //   one_ypd_trackers_.push_back(std::move(oy_tracker_));
+    //     auto o_tracker_ = std::make_unique<OneTracker>(
+    //         max_match_distance,
+    //         max_match_yaw_diff,
+    //         max_match_z_diff,
+    //         jump_thresh
+    //     );
+    //o_tracker_->tracking_thres = config_["tracking_thres"].as<int>(5);
+    //     one_trackers_.push_back(std::move(o_tracker_));
     // }
+    // one_ca_tracker_ = std::make_unique<OneCaTracker>(
+    //     max_match_distance,
+    //     max_match_yaw_diff,
+    //     max_match_z_diff,
+    //     jump_thresh
+    // );
+    for (int i = 0; i < track_one_num; i++) {
+      auto oy_tracker_ = std::make_unique<OneYpdTracker>(
+          max_match_distance, max_match_yaw_diff,
+          max_match_z_diff,jump_thresh);
+          oy_tracker_->tracking_thres = config_["tracking_thres"].as<int>(5);
+      one_ypd_trackers_.push_back(std::move(oy_tracker_));
+    }
 
     v_yaw_update_thres_ = config_["v_yaw_update_thres"].as<float>(0.01);
     v_yaw_to_one_thres_ = config_["v_yaw_to_one_thres"].as<float>(0.01);
@@ -79,7 +79,7 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
         tracker_->tracking_thres = config_["tracking_thres"].as<int>(5);
     }
 
-    //one_tracker_->tracking_thres = config_["tracking_thres"].as<int>(5);
+  
 
     // one_ypd_tracker_->tracking_thres = config_["tracking_thres"].as<int>(5);
     lost_time_thres_ = config_["lost_time_thres"].as<double>();
@@ -376,20 +376,22 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     //     oyu_q, oyu_r, oyp0);
     //
     // one_ypd_tracker_->ekf->setAngleDims({0});
-    for (auto& o_tracker: one_trackers_) {
-        o_tracker->ekf =
-            std::make_unique<onearmor_motion_model::RobotStateEKF>(of, oh, ou_q, ou_r, op0);
-        o_tracker->ekf->setAngleDims({ 3 });
-        o_tracker->ekf->setIterationNum(iteration_num_);
-    }
-    one_ca_tracker_->ekf =
-        std::make_unique<onecaarmor_motion_model::RobotStateEKF>(ocaf, ocah, ocau_q, ocau_r, ocap0);
-    one_ca_tracker_->ekf->setAngleDims({ 3 });
-    // for (auto &oy_tracker : one_ypd_trackers_) {
-    //   oy_tracker->ekf =
-    //   std::make_unique<oneypdarmor_motion_model::RobotStateEKF>(
-    //       oyf, oyh, oyu_q, oyu_r, oyp0);
+    // for (auto& o_tracker: one_trackers_) {
+    //     o_tracker->ekf =
+    //         std::make_unique<onearmor_motion_model::RobotStateEKF>(of, oh, ou_q, ou_r, op0);
+    //     o_tracker->ekf->setAngleDims({ 3 });
+    //     o_tracker->ekf->setIterationNum(iteration_num_);
     // }
+    // one_ca_tracker_->ekf =
+    //     std::make_unique<onecaarmor_motion_model::RobotStateEKF>(ocaf, ocah, ocau_q, ocau_r, ocap0);
+    // one_ca_tracker_->ekf->setAngleDims({ 3 });
+    for (auto &oy_tracker : one_ypd_trackers_) {
+      oy_tracker->ekf =
+      std::make_unique<oneypdarmor_motion_model::RobotStateEKF>(
+          oyf, oyh, oyu_q, oyu_r, oyp0);
+          oy_tracker->ekf->setAngleDims({ 0, 3 });
+          oy_tracker->ekf->setIterationNum(iteration_num_);
+    }
 }
 
 void TrackerManager::update(
@@ -547,10 +549,125 @@ void TrackerManager::update(
     // std::cout<<one_target.position_<<" "<<one_target.velocity_<<"
     // "<<one_target.acceleration_<<" "<<one_target.yaw<<"
     // "<<one_target.v_yaw<<std::endl; one_targets_.push_back(one_target);
+    // if (!target_.tracking || std::abs(target_.v_yaw) < v_yaw_to_one_thres_) {
+    //     std::vector<bool> armor_assigned(armors_.armors.size(), false);
+
+    //     for (auto& otracker: one_trackers_) {
+    //         OneTarget target;
+
+    //         if (otracker->tracker_state == Tracker::LOST) {
+    //             int best_i = -1;
+    //             double min_dist_center = std::numeric_limits<double>::max();
+    //             for (size_t i = 0; i < armors_.armors.size(); ++i) {
+    //                 if (!armor_assigned[i]) {
+    //                     double dist_center = armors_.armors[i].distance_to_image_center;
+    //                     if (dist_center < min_dist_center) {
+    //                         min_dist_center = dist_center;
+    //                         best_i = static_cast<int>(i);
+    //                     }
+    //                 }
+    //             }
+
+    //             if (best_i >= 0) {
+    //                 otracker->init({ armors_.armors[best_i] });
+    //                 armor_assigned[best_i] = true;
+    //             }
+
+    //             target.tracking = false;
+    //             one_targets_.push_back(target);
+    //             continue;
+    //         }
+
+    //         // 设置预测函数
+    //         otracker->lost_thres = std::abs(static_cast<int>(one_lost_time_thres_ / dt_));
+    //         if (otracker->tracked_id == ArmorNumber::OUTPOST) {
+    //             otracker->ekf->setPredictFunc(onearmor_motion_model::Predict {
+    //                 dt_,
+    //                 onearmor_motion_model::MotionModel::CONSTANT_ROTATION });
+    //         } else {
+    //             otracker->ekf->setPredictFunc(onearmor_motion_model::Predict {
+    //                 dt_,
+    //                 onearmor_motion_model::MotionModel::CONSTANT_VEL_ROT });
+    //         }
+
+    //         // 预测当前状态
+    //         Eigen::VectorXd ekf_prediction = otracker->ekf->predict();
+    //         Eigen::Vector3d predicted_position =
+    //             otracker->getArmorPositionFromState(ekf_prediction);
+
+    //         // 匹配观测中最近的装甲板
+    //         int best_i = -1;
+    //         double min_dist = std::numeric_limits<double>::max();
+
+    //         for (size_t i = 0; i < armors_.armors.size(); ++i) {
+    //             if (armor_assigned[i])
+    //                 continue;
+
+    //             // 类型不匹配
+    //             if (!isSameTarget(armors_.armors[i].number, otracker->tracked_id))
+    //                 continue;
+    //             // 提取观测装甲板的位置和 yaw
+    //             const auto& armor = armors_.armors[i];
+    //             Eigen::Vector3d obs_pos(armor.target_pos.x, armor.target_pos.y, armor.target_pos.z);
+    //             double obs_yaw = otracker->orientationToYaw(armor.target_ori);
+
+    //             // 计算各项误差
+    //             double pos_dist = (obs_pos - predicted_position).norm();
+    //             double yaw_diff = std::abs(normalizeAngle(obs_yaw - otracker->target_state(6)));
+    //             double z_diff = std::abs(obs_pos.z() - predicted_position.z());
+
+    //             // 不满足阈值条件，跳过
+    //             if (pos_dist > otracker->max_match_distance_)
+    //                 continue;
+    //             if (yaw_diff > otracker->max_match_yaw_diff_)
+    //                 continue;
+    //             if (z_diff > otracker->max_match_z_diff_)
+    //                 continue;
+
+    //             // 选择最小距离匹配
+    //             if (pos_dist < min_dist) {
+    //                 min_dist = pos_dist;
+    //                 best_i = static_cast<int>(i);
+    //             }
+    //         }
+
+    //         if (best_i >= 0) {
+    //             otracker->update({ armors_.armors[best_i] });
+    //             armor_assigned[best_i] = true;
+    //         } else {
+    //             // 无匹配，发送空观测
+    //             Armor empty_armor;
+    //             otracker->update(empty_armor);
+    //         }
+
+    //         // 状态同步到目标信息
+    //         if (otracker->tracker_state == Tracker::TRACKING
+    //             || otracker->tracker_state == Tracker::TEMP_LOST) {
+    //             const auto& state = otracker->target_state;
+    //             target.tracking = true;
+    //             target.id = otracker->tracked_id;
+    //             target.position_.x = state(0);
+    //             target.velocity_.x = state(1);
+    //             target.position_.y = state(2);
+    //             target.velocity_.y = state(3);
+    //             target.position_.z = state(4);
+    //             target.velocity_.z = state(5);
+    //             target.yaw = state(6);
+    //             target.v_yaw = state(7);
+    //             target.type = otracker->type;
+    //             target.distance_to_image_center = otracker->distance_to_image_center;
+    //         } else {
+    //             target.tracking = false;
+    //         }
+
+    //         one_targets_.push_back(target);
+    //     }
+    // }
+
     if (!target_.tracking || std::abs(target_.v_yaw) < v_yaw_to_one_thres_) {
         std::vector<bool> armor_assigned(armors_.armors.size(), false);
 
-        for (auto& otracker: one_trackers_) {
+        for (auto& otracker: one_ypd_trackers_) {
             OneTarget target;
 
             if (otracker->tracker_state == Tracker::LOST) {
@@ -579,13 +696,13 @@ void TrackerManager::update(
             // 设置预测函数
             otracker->lost_thres = std::abs(static_cast<int>(one_lost_time_thres_ / dt_));
             if (otracker->tracked_id == ArmorNumber::OUTPOST) {
-                otracker->ekf->setPredictFunc(onearmor_motion_model::Predict {
+                otracker->ekf->setPredictFunc(oneypdarmor_motion_model::Predict {
                     dt_,
-                    onearmor_motion_model::MotionModel::CONSTANT_ROTATION });
+                    oneypdarmor_motion_model::MotionModel::CONSTANT_ROTATION });
             } else {
-                otracker->ekf->setPredictFunc(onearmor_motion_model::Predict {
+                otracker->ekf->setPredictFunc(oneypdarmor_motion_model::Predict {
                     dt_,
-                    onearmor_motion_model::MotionModel::CONSTANT_VEL_ROT });
+                    oneypdarmor_motion_model::MotionModel::CONSTANT_VEL_ROT });
             }
 
             // 预测当前状态
@@ -654,217 +771,17 @@ void TrackerManager::update(
                 target.v_yaw = state(7);
                 target.type = otracker->type;
                 target.distance_to_image_center = otracker->distance_to_image_center;
+          
             } else {
+                
                 target.tracking = false;
+               
             }
 
             one_targets_.push_back(target);
         }
     }
 
-    // if (!target_.tracking || target_.v_yaw < 1.0 && target_.v_yaw > -1.0) {
-    //   std::vector<bool> armor_assigned(armors_.armors.size(), false);
-
-    //   for (auto &otracker : one_ypd_trackers_) {
-    //     OneTarget target;
-
-    //     if (otracker->tracker_state == Tracker::LOST) {
-    //       int best_i = -1;
-    //       double min_dist_center = std::numeric_limits<double>::max();
-    //       for (size_t i = 0; i < armors_.armors.size(); ++i) {
-    //         if (!armor_assigned[i]) {
-    //           double dist_center = armors_.armors[i].distance_to_image_center;
-    //           if (dist_center < min_dist_center) {
-    //             min_dist_center = dist_center;
-    //             best_i = static_cast<int>(i);
-    //           }
-    //         }
-    //       }
-
-    //       if (best_i >= 0) {
-    //         otracker->init({armors_.armors[best_i]});
-    //         armor_assigned[best_i] = true;
-    //       }
-
-    //       target.tracking = false;
-    //       one_targets_.push_back(target);
-    //       continue;
-    //     }
-
-    //     // 设置预测函数
-    //     otracker->lost_thres =
-    //         std::abs(static_cast<int>(one_lost_time_thres_ / dt_));
-    //     if (otracker->tracked_id == ArmorNumber::OUTPOST) {
-    //       otracker->ekf->setPredictFunc(oneypdarmor_motion_model::Predict{
-    //           dt_, oneypdarmor_motion_model::MotionModel::CONSTANT_ROTATION});
-    //     } else {
-    //       otracker->ekf->setPredictFunc(oneypdarmor_motion_model::Predict{
-    //           dt_, oneypdarmor_motion_model::MotionModel::CONSTANT_VEL_ROT});
-    //     }
-
-    //     // 预测当前状态
-    //     Eigen::VectorXd ekf_prediction = otracker->ekf->predict();
-    //     Eigen::Vector3d predicted_position =
-    //         otracker->getArmorPositionFromState(ekf_prediction);
-
-    //     // 匹配观测中最近的装甲板
-    //     int best_i = -1;
-    //     double min_dist = std::numeric_limits<double>::max();
-
-    //     for (size_t i = 0; i < armors_.armors.size(); ++i) {
-    //       if (armor_assigned[i])
-    //         continue;
-
-    //       // 类型不匹配
-    //       if(!isSameTarget(armors_.armors[i].number, otracker->tracked_id))
-    //          continue;
-
-    //       // 提取观测装甲板的位置和 yaw
-    //       const auto &armor = armors_.armors[i];
-    //       Eigen::Vector3d obs_pos(armor.target_pos.x, armor.target_pos.y,
-    //                               armor.target_pos.z);
-    //       double obs_yaw = armor.yaw;
-
-    //       // 计算各项误差
-    //       double pos_dist = (obs_pos - predicted_position).norm();
-    //       double yaw_diff =
-    //           std::abs(normalizeAngle(obs_yaw - otracker->target_state(6)));
-    //       double z_diff = std::abs(obs_pos.z() - predicted_position.z());
-
-    //       // 不满足阈值条件，跳过
-    //       if (pos_dist > otracker->max_match_distance_)
-    //         continue;
-    //       if (yaw_diff > otracker->max_match_yaw_diff_)
-    //         continue;
-    //       if (z_diff > otracker->max_match_z_diff_)
-    //         continue;
-
-    //       // 选择最小距离匹配
-    //       if (pos_dist < min_dist) {
-    //         min_dist = pos_dist;
-    //         best_i = static_cast<int>(i);
-    //       }
-    //     }
-
-    //     if (best_i >= 0) {
-    //       otracker->update({armors_.armors[best_i]});
-    //       armor_assigned[best_i] = true;
-    //     } else {
-    //       // 无匹配，发送空观测
-    //       Armor empty_armor;
-    //       otracker->update(empty_armor);
-    //     }
-
-    //     // 状态同步到目标信息
-    //     if (otracker->tracker_state == Tracker::TRACKING ||
-    //         otracker->tracker_state == Tracker::TEMP_LOST) {
-    //       const auto &state = otracker->target_state;
-    //       target.tracking = true;
-    //       target.id = otracker->tracked_id;
-    //       target.position_.x = state(0);
-    //       target.velocity_.x = state(1);
-    //       target.position_.y = state(2);
-    //       target.velocity_.y = state(3);
-    //       target.position_.z = state(4);
-    //       target.velocity_.z = state(5);
-    //       target.yaw = state(6);
-    //       target.v_yaw = state(7);
-    //       target.type = otracker->type;
-    //       target.distance_to_image_center = otracker->distance_to_image_center;
-    //     } else {
-
-    //       target.tracking = false;
-    //     }
-
-    //     one_targets_.push_back(target);
-    //   }
-    // }
-    // OneTarget one_target_;
-    // if (one_tracker_->tracker_state == Tracker::LOST) {
-    //   one_tracker_->init(armors_);
-    //   one_target_.tracking = false;
-    // } else {
-    //   dt_ = std::chrono::duration<double>(time - last_time_).count();
-    //   one_tracker_->lost_thres = std::abs(static_cast<int>(lost_time_thres_
-    //   / dt_)); if (one_tracker_->tracked_id == ArmorNumber::OUTPOST) {
-    //     one_tracker_->ekf->setPredictFunc(onearmor_motion_model::Predict{
-    //         dt_, onearmor_motion_model::MotionModel::CONSTANT_ROTATION});
-    //   } else {
-    //     one_tracker_->ekf->setPredictFunc(onearmor_motion_model::Predict{
-    //         dt_, onearmor_motion_model::MotionModel::CONSTANT_VEL_ROT});
-    //   }
-    //   one_tracker_->update(armors_);
-
-    //   if (one_tracker_->tracker_state == Tracker::DETECTING) {
-    //     one_target_.tracking = false;
-    //   } else if (one_tracker_->tracker_state == Tracker::TRACKING ||
-    //     one_tracker_->tracker_state == Tracker::TEMP_LOST) {
-    //       one_target_.tracking = true;
-    //     // Fill target
-    //     const auto &state = one_tracker_->target_state;
-    //     one_target_.id = one_tracker_->tracked_id;
-
-    //     one_target_.position_.x = state(0);
-    //     one_target_.velocity_.x = state(1);
-    //     one_target_.position_.y = state(2);
-    //     one_target_.velocity_.y = state(3);
-    //     one_target_.position_.z = state(4);
-    //     one_target_.velocity_.z = state(5);
-    //     one_target_.yaw = state(6);
-    //     one_target_.v_yaw = state(7);
-    //     one_target_.type = one_tracker_->type;
-    //     //std::cout<<"v_yaw: "<<one_target_.v_yaw<<std::endl;
-
-    //   }
-    // }
-    // //one_targets_.push_back(one_target_);
-
-    // if(std::abs(one_target_.v_yaw-target_.v_yaw)>v_yaw_update_thres_)
-    // {
-    //   ypd_tracker_->updatev_yaw(one_target_.v_yaw);
-    // }
-
-    // if (one_ypd_tracker_->tracker_state == Tracker::LOST) {
-    //   one_ypd_tracker_->init(armors_);
-    //   one_target_.tracking = false;
-    // } else {
-    //   dt_ = std::chrono::duration<double>(time - last_time_).count();
-    //   one_ypd_tracker_->lost_thres = std::abs(static_cast<int>(lost_time_thres_
-    //   / dt_)); if (one_ypd_tracker_->tracked_id == ArmorNumber::OUTPOST) {
-    //     one_ypd_tracker_->ekf->setPredictFunc(oneypdarmor_motion_model::Predict{
-    //         dt_, oneypdarmor_motion_model::MotionModel::CONSTANT_ROTATION});
-    //   } else {
-    //     one_ypd_tracker_->ekf->setPredictFunc(oneypdarmor_motion_model::Predict{
-    //         dt_, oneypdarmor_motion_model::MotionModel::CONSTANT_VEL_ROT});
-    //   }
-    //   one_ypd_tracker_->update(armors_);
-
-    //   if (one_ypd_tracker_->tracker_state == Tracker::DETECTING) {
-    //     one_target_.tracking = false;
-    //   } else if (one_ypd_tracker_->tracker_state == Tracker::TRACKING ||
-    //     one_ypd_tracker_->tracker_state == Tracker::TEMP_LOST) {
-    //       one_target_.tracking = true;
-    //     // Fill target
-    //     const auto &state = one_ypd_tracker_->target_state;
-    //     one_target_.id = one_ypd_tracker_->tracked_id;
-
-    //     one_target_.position_.x = state(0);
-    //     one_target_.velocity_.x = state(1);
-    //     one_target_.position_.y = state(2);
-    //     one_target_.velocity_.y = state(3);
-    //     one_target_.position_.z = state(4);
-    //     one_target_.velocity_.z = state(5);
-    //     one_target_.yaw = state(6);
-    //     one_target_.v_yaw = state(7);
-    //     one_target_.type = one_ypd_tracker_->type;
-
-    //   }
-    // }
-    // one_targets_.push_back(one_target_);
-    //  if(std::abs(one_target_.v_yaw-target_.v_yaw)>1.0)
-    // {
-    //   ypd_tracker_->updatev_yaw(one_target_.v_yaw);
-    // }
 
     last_time_ = time;
 }

@@ -45,8 +45,6 @@ ArmorPoseEstimator::ArmorPoseEstimator() {
     ba_solver_ = std::make_unique<BaSolver>(camera_matrix);
 
     R_gimbal_camera_ = Eigen::Matrix3d::Identity();
-    // R_gimbal_camera_ << 0, 1, 0, 0, 0, -1, -1, 0, 0;
-    // R_gimbal_camera_ << 0, 0, -1, 1, 0, 0, 0, -1, 0;
     R_gimbal_camera_ << 0, 0, 1, -1, 0, 0, 0, -1, 0;
 }
 
@@ -98,7 +96,7 @@ std::vector<Armor> ArmorPoseEstimator::extractArmorPoses(
                 // solveBa() will modify the rotation_matrix
                 Eigen::Matrix3d tmp_R = R;
                 R = ba_solver_->solveBa(armor, t, R, R_imu_camera, temp_number);
-                t = ba_solver_->solveBa_t(armor, t, tmp_R, R_imu_camera, temp_number);
+                t = ba_solver_->solveBa_t(armor, t, R, R_imu_camera, temp_number);
             }
 
             Eigen::Quaterniond q(R);
@@ -200,11 +198,7 @@ void ArmorPoseEstimator::sortPnPResult(
 
     if (armor.number == ArmorNumber::OUTPOST)
         angle = -angle;
-    // double aa=rpy1[2]/M_PI*180;
-    // double bb=rpy2[2]/M_PI*180;
 
-    // std::cout<<aa<<""<<bb<<std::endl;
-    // std::cout<<angle<<std::endl;
 
     // 根据倾斜角度选择解
     // 如果装甲板左倾（angle > 0），选择Yaw为负的解

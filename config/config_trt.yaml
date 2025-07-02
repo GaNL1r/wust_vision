@@ -62,12 +62,12 @@ armor_tracker:
     os2qy: 10
     os2qyaw: 20
     os2qz: 1
-    oyr_d: 0.0065388986
-    oyr_p: 0.001073833
-    oyr_y: 0.3042568339
-    oyr_yaw: 0.609218545
-    oys2qx: 10
-    oys2qy: 10
+    oyr_d: 0.65388986
+    oyr_p: 0.008073833
+    oyr_y: 0.0052568339
+    oyr_yaw: 0.00509218545
+    oys2qx: 15
+    oys2qy: 15
     oys2qyaw: 20
     oys2qz: 1
     r_x: 0.0180952234
@@ -134,7 +134,7 @@ debug:
 detect_color: 0
 init_attack_mode: 0
 logger:
-  log_level: INFO
+  log_level: DEBUG
   log_path: /home/hy/wust_log
   use_logcli: true
   use_logfile: true

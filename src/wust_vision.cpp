@@ -1151,6 +1151,7 @@ void WustVision::timerCallback() {
                 toolsgobal::armor_y_log_.erase(toolsgobal::armor_y_log_.begin());
                 toolsgobal::armor_z_log_.erase(toolsgobal::armor_z_log_.begin());
                 toolsgobal::ypd_y_log_.erase(toolsgobal::ypd_y_log_.begin());
+                toolsgobal::ypd_p_log_.erase(toolsgobal::ypd_p_log_.begin());
                 toolsgobal::rune_obs_log_.erase(toolsgobal::rune_obs_log_.begin());
                 toolsgobal::rune_pre_log_.erase(toolsgobal::rune_pre_log_.begin());
             }
