@@ -24,18 +24,25 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake_modules)
 set(EXTERNAL_INCLUDE_DIRS ${G2O_INCLUDE_DIR})
 set(EXTERNAL_LIBS ${G2O_LIBRARIES})
 
-# === 公共依赖 ===
+
 find_package(OpenCV REQUIRED)
-find_package(OpenVINO REQUIRED COMPONENTS Runtime ONNX)
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(CUDAToolkit REQUIRED)
 find_package(fmt REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(G2O REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(Ceres REQUIRED)
+
+if(BUILD_WITH_OPENVINO)
+find_package(OpenVINO REQUIRED COMPONENTS Runtime ONNX)
+endif()
+if(BUILD_WITH_TRT)
+find_package(CUDAToolkit REQUIRED)
+endif()
+if(BUILD_WITH_NCNN)
 find_package(ncnn REQUIRED) 
+endif()
 
 # === TensorRT 库路径（手动指定）===
 set(TENSORRT_INCLUDE_DIR /home/hy/TensorRT-8.5.2.2/include)

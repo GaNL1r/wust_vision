@@ -131,8 +131,8 @@ debug:
   debug_mode: true
   debug_show_dt: 0.01
   debug_w: 1440
-detect_color: 1
-init_attack_mode: 1
+detect_color: 0
+init_attack_mode: 0
 logger:
   log_level: INFO
   log_path: /home/hy/wust_log
@@ -194,7 +194,7 @@ tf:
   gimbal2camera_yaw: 0
   gimbal2camera_z: -0.05
 
-use_armor_detect_ncnn: true
+use_armor_detect_ncnn: false
 use_armor_detect_opencv: false
 use_rune_detect_ncnn: false
 use_auto_labeler: false
