@@ -289,7 +289,7 @@ void RuneDetectorOpenvino::init() {
         );
 
     strides_ = { 8, 16, 32 };
-        generateGridsAndStride(INPUT_W, INPUT_H, strides_, grid_strides_);
+    generateGridsAndStride(INPUT_W, INPUT_H, strides_, grid_strides_);
     thread_pool_ = std::make_unique<ThreadPool>(std::thread::hardware_concurrency(), 100);
 }
 
