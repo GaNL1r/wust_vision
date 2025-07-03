@@ -18,7 +18,6 @@
 #include <string>
 #include <unistd.h>
 
-WustVision* global_vision = nullptr;
 std::mutex mtx;
 std::condition_variable c;
 std::atomic<bool> exit_flag(false);
@@ -30,7 +29,6 @@ void signalHandler(int signum) {
 
 int main() {
     WustVision vision;
-    global_vision = &vision;
     vision.init();
     vision.run();
 
