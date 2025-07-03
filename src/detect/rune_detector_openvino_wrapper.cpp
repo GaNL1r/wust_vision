@@ -28,7 +28,6 @@ RuneDetectorOpenvinoWrapper::RuneDetectorOpenvinoWrapper(const YAML::Node& confi
         top_k,
         nms_threshold
     );
-    rune_detector_->init();
 }
 
 RuneDetectorOpenvinoWrapper::~RuneDetectorOpenvinoWrapper() = default;

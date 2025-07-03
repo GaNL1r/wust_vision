@@ -47,8 +47,7 @@ public:
         float nms_threshold = 0.3,
         float expand_ratio_w = 1.1f,
         float expand_ratio_h = 1.1f,
-        int binary_thres_ = 85,
-        bool auto_init = true
+        int binary_thres_ = 85
     );
 
     ~ArmorDetectOpenVino();

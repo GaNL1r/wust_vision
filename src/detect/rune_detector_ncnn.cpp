@@ -20,7 +20,6 @@
 // third party
 #include <opencv2/imgproc.hpp>
 // project
-#include "common/common.hpp"
 #include "common/gobal.hpp"
 #include "type/type.hpp"
 
@@ -357,7 +356,7 @@ bool RuneDetectorNCNN::processCallback(
     );
 
     ncnn::Extractor ex = net_.create_extractor();
-
+ 
     ex.input(input_name_.c_str(), in);
 
     ncnn::Mat out;

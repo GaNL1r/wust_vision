@@ -50,8 +50,7 @@ public:
         const std::string& device_name,
         float conf_threshold = 0.25,
         int top_k = 128,
-        float nms_threshold = 0.3,
-        bool auto_init = false
+        float nms_threshold = 0.3
     );
 
     void init();

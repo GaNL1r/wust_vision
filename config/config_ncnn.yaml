@@ -62,8 +62,8 @@ armor_tracker:
     os2qyaw: 20
     os2qz: 1
     oyr_d: 0.0065388986
-    oyr_p: 0.001073833
-    oyr_y: 0.3042568339
+    oyr_p: 0.0001073833
+    oyr_y: 0.00003042568339
     oyr_yaw: 0.609218545
     oys2qx: 10
     oys2qy: 10
@@ -80,13 +80,13 @@ armor_tracker:
     s2qyaw: 20
     s2qz: 1
     yr_d: 0.65388986
-    yr_p: 0.008073833
-    yr_y: 0.0052568339
-    yr_yaw: 0.00509218545
+    yr_p: 0.010073833
+    yr_y: 0.0072568339
+    yr_yaw: 0.00609218545
     ys2qd_zc: 800
-    ys2qr: 80
-    ys2qx: 15
-    ys2qy: 15
+    ys2qr: 70
+    ys2qx: 10
+    ys2qy: 10
     ys2qyaw: 20
     ys2qz: 1.0
   jump_thresh: 0.4
@@ -114,7 +114,7 @@ camera:
     loop: true
     path: /home/hy/6.11/output.mp4
     start_frame: 500
-    use: true
+    use: false
 control:
   alpha_pitch: 0.9
   alpha_yaw: 0.9
@@ -124,14 +124,14 @@ control:
   max_pitch_change: 5
   max_yaw_change: 10
   use_nav: false
-  use_serial: false
+  use_serial: true
 debug:
   debug_h: 1080
   debug_mode: true
   debug_show_dt: 0.01
   debug_w: 1440
-detect_color: 1
-init_attack_mode: 1
+detect_color: 0
+init_attack_mode: 0
 logger:
   log_level: INFO
   log_path: /home/hy/wust_log

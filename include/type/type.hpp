@@ -13,7 +13,6 @@
 // limitations under the License.
 #pragma once
 
-#include "common/common.hpp"
 #include "common/tf.hpp"
 #include "opencv2/opencv.hpp"
 #include <fmt/core.h>
@@ -138,6 +137,23 @@ enum class AttackMode {
     UNKNOWN
 
 };
+enum class EnemyColor {
+    RED = 0,
+    BLUE = 1,
+    WHITE = 2,
+};
+inline std::string enemyColorToString(EnemyColor color) {
+    switch (color) {
+        case EnemyColor::RED:
+            return "RED";
+        case EnemyColor::BLUE:
+            return "BLUE";
+        case EnemyColor::WHITE:
+            return "WHITE";
+        default:
+            return "UNKNOWN";
+    }
+}
 inline AttackMode toAttackMode(int value) {
     switch (value) {
         case 0:

@@ -240,8 +240,7 @@ ArmorDetectOpenVino::ArmorDetectOpenVino(
     float nms_threshold,
     float expand_ratio_w,
     float expand_ratio_h,
-    int binary_thres_,
-    bool auto_init
+    int binary_thres_
 ):
     light_params_(l),
     armor_params_(a),
@@ -258,9 +257,9 @@ ArmorDetectOpenVino::ArmorDetectOpenVino(
     expand_ratio_h_(expand_ratio_h) {
     // 初始化数字识别模型和标签
     initNumberClassifier();
-    if (auto_init) {
-        init();
-    }
+    
+    init();
+    
 }
 void ArmorDetectOpenVino::initNumberClassifier() {
     // 加载数字识别模型
@@ -321,6 +320,7 @@ void ArmorDetectOpenVino::init() {
     ));
 
     strides_ = { 8, 16, 32 };
+    grid_strides_.clear();
     generate_grids_and_stride(INPUT_W, INPUT_H, strides_, grid_strides_);
     corner_corrector = std::make_unique<LightCornerCorrector>();
     thread_pool_ = std::make_unique<ThreadPool>(std::thread::hardware_concurrency(), 100);
@@ -726,8 +726,7 @@ bool ArmorDetectOpenVino::processCallback(
     auto infer_request = compiled_model_->create_infer_request();
     infer_request.set_input_tensor(input_tensor);
     infer_request.infer();
-    // infer_request.start_async();
-    // infer_request.wait();
+
 
     auto output = infer_request.get_output_tensor();
 

@@ -25,7 +25,6 @@
 // third party
 #include <opencv2/imgproc.hpp>
 // project
-#include "common/common.hpp"
 #include "common/gobal.hpp"
 #include "type/type.hpp"
 
@@ -257,17 +256,16 @@ RuneDetectorOpenvino::RuneDetectorOpenvino(
     const std::string& device_name,
     float conf_threshold,
     int top_k,
-    float nms_threshold,
-    bool auto_init
+    float nms_threshold
 ):
     model_path_(model_path),
     device_name_(device_name),
     conf_threshold_(conf_threshold),
     top_k_(top_k),
     nms_threshold_(nms_threshold) {
-    if (auto_init) {
-        init();
-    }
+    
+    init();
+    
 }
 
 void RuneDetectorOpenvino::init() {
@@ -347,11 +345,11 @@ bool RuneDetectorOpenvino::processCallback(
 
     // Start inference
     // Lock because of the thread race condition within the openvino library
-    mtx_.lock();
+
     auto infer_request = compiled_model_->create_infer_request();
     infer_request.set_input_tensor(input_tensor);
     infer_request.infer();
-    mtx_.unlock();
+
 
     auto output = infer_request.get_output_tensor();
 

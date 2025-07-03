@@ -34,7 +34,7 @@ RuneDetectorNCNNWrapper::RuneDetectorNCNNWrapper(const YAML::Node& config) {
         use_gpu,
         cpu_threads
     );
-    rune_detector_->init();
+
 }
 
 RuneDetectorNCNNWrapper::~RuneDetectorNCNNWrapper() = default;

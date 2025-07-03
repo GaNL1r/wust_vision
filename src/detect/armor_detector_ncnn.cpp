@@ -579,30 +579,32 @@ bool ArmorDetectNCNN::processCallback(
     const cv::Mat& src_img,
     Eigen::Matrix4d T_camera_to_odom
 ) {
-    // 转换为 RGB 并归一化
+   
     ncnn::Mat in = ncnn::Mat::from_pixels(
         resized_img.data,
-        ncnn::Mat::PIXEL_BGR2RGB, // OpenCV 默认 BGR，转为 RGB
+        ncnn::Mat::PIXEL_BGR2RGB, 
         INPUT_W,
         INPUT_H
     );
 
+
     ncnn::Extractor ex = net_.create_extractor();
 
-    ex.input(input_name_.c_str(), in); // 使用之前设置的输入名称
+
+    ex.input(input_name_.c_str(), in); 
 
     ncnn::Mat out;
-    ex.extract(output_name_.c_str(), out); // 使用之前设置的输出名称
+    ex.extract(output_name_.c_str(), out); 
 
     cv::Mat output_buffer(out.h, out.w, CV_32F, out.data);
 
-    // 4. 后处理 (与原始代码相同)
+   
     std::vector<ArmorObject> objs_tmp, objs_result;
     std::vector<cv::Rect> rects;
     std::vector<float> scores;
     std::vector<int> indices;
 
-    // Parse YOLO output (使用相同的函数)
+    // Parse YOLO output 
     generate_proposals(
         objs_tmp,
         scores,

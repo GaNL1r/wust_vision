@@ -676,23 +676,7 @@ bool ArmorDetectTrt::processCallback(
     const cv::Mat& src_img,
     Eigen::Matrix4d T_camera_to_odom
 ) {
-    // 预处理：Letterbox 缩放
-    // cv::Mat resized;
-    // cv::resize(image, resized, cv::Size(params_.input_w, params_.input_h));
 
-    //   Eigen::Matrix3f transform_matrix;  // transform matrix from resized image
-    //   to source image. cv::Mat resized = letterbox(image, transform_matrix);
-
-    // cv::Mat blob =
-    //   cv::dnn::blobFromImage(resized, 1.0 / 255.0, cv::Size(), cv::Scalar(0, 0,
-    //   0), true);
-    //   auto end = std::chrono::steady_clock::now();
-    //     std::chrono::steady_clock::time_point timestamp_timepoint =
-    //     std::chrono::steady_clock::time_point(std::chrono::nanoseconds(timestamp_nanosec));
-    // auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end -
-    // timestamp_timepoint);
-
-    // WUST_INFO("TRT") << "Detect time: " << duration.count() << " ms";
 
     cv::Mat blob = cv::dnn::blobFromImage(
         resized_img,

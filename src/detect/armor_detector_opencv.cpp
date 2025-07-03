@@ -33,7 +33,6 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 // project
-#include "common/common.hpp"
 #include "common/gobal.hpp"
 #include "common/logger.hpp"
 #include "type/type.hpp"
