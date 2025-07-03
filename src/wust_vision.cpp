@@ -290,7 +290,7 @@ void WustVision::init() {
             WUST_MAIN(vision_logger) << "Using Armor Detector: ncnn";
             use_armor_detect_ncnn = true;
         }
-        rune_detector_ = DetectorFactory::createRuneDetector("ncnn",  gobal::config);
+        rune_detector_ = DetectorFactory::createRuneDetector("ncnn", gobal::config);
         use_rune_detect_ncnn = true;
 
         WUST_MAIN(vision_logger) << "Using Rune Detector: ncnn";

@@ -122,7 +122,6 @@ include_directories(
   ${G2O_INCLUDE_DIRS}
   ${CERES_INCLUDE_DIRS}
   /home/hy/TensorRT-8.5.2.2/include
-  /home/hy/wust_vision/thirdparty/matplotlibcpp
   /usr/local/cuda-11.8/include
   ${ncnn_INCLUDE_DIRS}
   
