@@ -263,9 +263,7 @@ RuneDetectorOpenvino::RuneDetectorOpenvino(
     conf_threshold_(conf_threshold),
     top_k_(top_k),
     nms_threshold_(nms_threshold) {
-    
     init();
-    
 }
 
 void RuneDetectorOpenvino::init() {
@@ -349,7 +347,6 @@ bool RuneDetectorOpenvino::processCallback(
     auto infer_request = compiled_model_->create_infer_request();
     infer_request.set_input_tensor(input_tensor);
     infer_request.infer();
-
 
     auto output = infer_request.get_output_tensor();
 

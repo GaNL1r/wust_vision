@@ -676,8 +676,6 @@ bool ArmorDetectTrt::processCallback(
     const cv::Mat& src_img,
     Eigen::Matrix4d T_camera_to_odom
 ) {
-
-
     cv::Mat blob = cv::dnn::blobFromImage(
         resized_img,
         1.,

@@ -1042,26 +1042,8 @@ void WustVision::timerCallback() {
         if (mode == AttackMode::ARMOR) {
             Armors armor_data = visualizeTargetProjection(target, one_targets);
 
-            // for (auto &armor : armor_data.armors) {
-            //   try {
-            //     Transform tf(armor.pos, armor.ori);
-            //     auto pose_in_target_frame =
-            //         tf_tree_.transform(tf, armor_data.frame_id,
-            //                            "camera_optical_frame", target.timestamp);
-
-            //     armor.target_pos = pose_in_target_frame.position;
-            //     armor.target_ori = pose_in_target_frame.orientation;
-            //   } catch (const std::exception &e) {
-            //     WUST_ERROR(vision_logger)
-            //         << "Can't find transform from " << armor_data.frame_id << " to
-            //         "
-            //         << target_frame_ << ": " << e.what();
-            //     continue;
-            //   }
-            // }
             for (auto& armor: armor_data.armors) {
                 try {
-                    // Step 1: 位置变换：odom → camera_optical_frame
                     Eigen::Vector4d pos_odom;
                     pos_odom << armor.pos.x, armor.pos.y, armor.pos.z, 1.0;
 
@@ -1072,7 +1054,6 @@ void WustVision::timerCallback() {
                     armor.target_pos.y = pos_camera.y();
                     armor.target_pos.z = pos_camera.z();
 
-                    // Step 2: 姿态变换：odom → camera_optical_frame
                     Eigen::Quaterniond q_odom(armor.ori.w, armor.ori.x, armor.ori.y, armor.ori.z);
                     Eigen::Matrix3d R_odom = q_odom.normalized().toRotationMatrix();
                     Eigen::Matrix3d R_odom_to_camera = T_odom_to_camera.block<3, 3>(0, 0);

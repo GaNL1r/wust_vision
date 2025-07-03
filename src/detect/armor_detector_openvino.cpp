@@ -257,9 +257,8 @@ ArmorDetectOpenVino::ArmorDetectOpenVino(
     expand_ratio_h_(expand_ratio_h) {
     // 初始化数字识别模型和标签
     initNumberClassifier();
-    
+
     init();
-    
 }
 void ArmorDetectOpenVino::initNumberClassifier() {
     // 加载数字识别模型
@@ -726,7 +725,6 @@ bool ArmorDetectOpenVino::processCallback(
     auto infer_request = compiled_model_->create_infer_request();
     infer_request.set_input_tensor(input_tensor);
     infer_request.infer();
-
 
     auto output = infer_request.get_output_tensor();
 

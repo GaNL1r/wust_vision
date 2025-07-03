@@ -579,32 +579,24 @@ bool ArmorDetectNCNN::processCallback(
     const cv::Mat& src_img,
     Eigen::Matrix4d T_camera_to_odom
 ) {
-   
-    ncnn::Mat in = ncnn::Mat::from_pixels(
-        resized_img.data,
-        ncnn::Mat::PIXEL_BGR2RGB, 
-        INPUT_W,
-        INPUT_H
-    );
-
+    ncnn::Mat in =
+        ncnn::Mat::from_pixels(resized_img.data, ncnn::Mat::PIXEL_BGR2RGB, INPUT_W, INPUT_H);
 
     ncnn::Extractor ex = net_.create_extractor();
 
-
-    ex.input(input_name_.c_str(), in); 
+    ex.input(input_name_.c_str(), in);
 
     ncnn::Mat out;
-    ex.extract(output_name_.c_str(), out); 
+    ex.extract(output_name_.c_str(), out);
 
     cv::Mat output_buffer(out.h, out.w, CV_32F, out.data);
 
-   
     std::vector<ArmorObject> objs_tmp, objs_result;
     std::vector<cv::Rect> rects;
     std::vector<float> scores;
     std::vector<int> indices;
 
-    // Parse YOLO output 
+    // Parse YOLO output
     generate_proposals(
         objs_tmp,
         scores,
