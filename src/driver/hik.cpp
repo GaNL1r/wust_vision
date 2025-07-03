@@ -87,13 +87,9 @@ bool HikCamera::initializeCamera() {
     disableTrigger();
     return true;
 }
-bool HikCamera::enableTrigger(
-    TriggerType type,
-    const std::string& source,
-    int64_t activation
-) {
-    trigger_type_       = type;
-    trigger_source_     = source;
+bool HikCamera::enableTrigger(TriggerType type, const std::string& source, int64_t activation) {
+    trigger_type_ = type;
+    trigger_source_ = source;
     trigger_activation_ = activation;
 
     if (MV_CC_SetEnumValueByString(camera_handle_, "TriggerMode", "On") != MV_OK)
@@ -105,8 +101,7 @@ bool HikCamera::enableTrigger(
     if (MV_CC_SetEnumValueByString(camera_handle_, "TriggerActivation", act) != MV_OK)
         return false;
 
-    WUST_INFO(hik_logger)
-        << "Trigger enabled: src=" << source << ", act=" << act;
+    WUST_INFO(hik_logger) << "Trigger enabled: src=" << source << ", act=" << act;
     return true;
 }
 
@@ -155,8 +150,7 @@ void HikCamera::setParameters(
     } else {
         WUST_ERROR(hik_logger) << "Failed to set Pixel Format, status = " << status;
     }
-    if(!acquisitionFrameRateEnable)
-    {
+    if (!acquisitionFrameRateEnable) {
         MV_CC_SetBoolValue(camera_handle_, "AcquisitionFrameRateEnable", false);
     }
     last_frame_rate_ = acquisition_frame_rate;

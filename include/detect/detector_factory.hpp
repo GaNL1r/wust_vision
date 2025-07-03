@@ -27,6 +27,10 @@
     #include "detect/rune_detector_trt_wrapper.hpp"
 #endif
 #include "detect/armor_detector_opencv_wrapper.hpp"
+#ifdef USE_NCNN
+    #include "detect/armor_detector_ncnn_wrapper.hpp"
+    #include "detect/rune_detector_ncnn_wrapper.hpp"
+#endif
 class DetectorFactory {
 public:
     static std::unique_ptr<ArmorDetectorBase>
@@ -47,6 +51,11 @@ public:
             return std::make_unique<ArmorDetectorOpencvWrapper>(config);
         }
 #endif
+#ifdef USE_NCNN
+        if (backend == "ncnn") {
+            return std::make_unique<ArmorDetectorNCNNWrapper>(config);
+        }
+#endif
         throw std::runtime_error(
             "Unsupported armor detector backend (or not compiled): " + backend
         );
@@ -62,6 +71,11 @@ public:
 #if defined(USE_TRT)
         if (backend == "tensorrt") {
             return std::make_unique<RuneDetectorTrtWrapper>(config);
+        }
+#endif
+#ifdef USE_NCNN
+        if (backend == "ncnn") {
+            return std::make_unique<RuneDetectorNCNNWrapper>(config);
         }
 #endif
         throw std::runtime_error("Unsupported rune detector backend (or not compiled): " + backend);

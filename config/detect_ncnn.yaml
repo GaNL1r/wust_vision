@@ -1,0 +1,37 @@
+armor_detect:
+  armor:
+    max_angle: 30
+    max_large_center_distance: 8
+    max_small_center_distance: 3.5
+    min_large_center_distance: 3.5
+    min_light_ratio: 0.8
+    min_small_center_distance: 0.8
+  classify_label_path: /home/hy/wust_vision/model/label.txt
+  classify_model_path: /home/hy/wust_vision/model/mlp.onnx
+  light:
+    binary_thres: 85
+    expand_ratio_h: 1.1
+    expand_ratio_w: 1.1
+    max_angle: 40
+    max_ratio: 0.45
+    min_ratio: 0.02
+  model:
+    conf_threshold: 0.7
+    model_path_param: /home/hy/wust_vision/model/opt-1208-001.param
+    model_path_bin: /home/hy/wust_vision/model/opt-1208-001.bin
+    use_gpu: true
+    cpu_threads: 1
+    nms_threshold: 0.3
+    top_k: 128
+
+rune_detector:
+  confidence_threshold: 0.5
+  detect_r_tag: true
+  use_manual_r: true
+  min_lightness: 80
+  model_path_param: /home/hy/wust_vision/model/yolox_rune_3.6m_ncnn.param
+  model_path_bin: /home/hy/wust_vision/model/yolox_rune_3.6m_ncnn.bin
+  use_gpu: true
+  cpu_threads: 1
+  nms_threshold: 0.3
+  top_k: 128

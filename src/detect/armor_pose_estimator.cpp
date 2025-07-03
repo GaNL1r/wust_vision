@@ -199,7 +199,6 @@ void ArmorPoseEstimator::sortPnPResult(
     if (armor.number == ArmorNumber::OUTPOST)
         angle = -angle;
 
-
     // 根据倾斜角度选择解
     // 如果装甲板左倾（angle > 0），选择Yaw为负的解
     // 如果装甲板右倾（angle < 0），选择Yaw为正的解

@@ -115,7 +115,7 @@ camera:
     loop: true
     path: /home/hy/6.11/output.mp4
     start_frame: 500
-    use: false
+    use: true
 control:
   alpha_pitch: 0.9
   alpha_yaw: 0.9
@@ -125,16 +125,16 @@ control:
   max_pitch_change: 5
   max_yaw_change: 10
   use_nav: false
-  use_serial:  true
+  use_serial:  false
 debug:
   debug_h: 1080
   debug_mode: true
   debug_show_dt: 0.01
   debug_w: 1440
-detect_color: 0
-init_attack_mode: 0
+detect_color: 1
+init_attack_mode: 1
 logger:
-  log_level: DEBUG
+  log_level: INFO
   log_path: /home/hy/wust_log
   use_logcli: true
   use_logfile: true
@@ -194,7 +194,9 @@ tf:
   gimbal2camera_yaw: 0
   gimbal2camera_z: -0.05
 
+use_armor_detect_ncnn: true
 use_armor_detect_opencv: false
+use_rune_detect_ncnn: false
 use_auto_labeler: false
 use_calculation: false
 max_detect_armors: 10

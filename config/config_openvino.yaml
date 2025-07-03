@@ -143,6 +143,7 @@ rune_detector:
   detect_r_tag: true
   use_manual_r: true
   min_lightness: 80
+  device_type: GPU
   model: /home/hy/wust_vision/model/yolox_rune_3.6m.onnx
   nms_threshold: 0.3
   top_k: 128
@@ -190,8 +191,9 @@ tf:
   gimbal2camera_y: 0
   gimbal2camera_yaw: 0
   gimbal2camera_z: -0.05
-
+use_armor_detect_ncnn: false
 use_armor_detect_opencv: false
+use_rune_detect_ncnn: false
 use_auto_labeler: false
 use_calculation: false
 max_detect_armors: 10

@@ -31,5 +31,6 @@ extern AttitudeBuffer attitude_buffer;
 
 extern cv::Mat camera_intrinsic_;
 extern cv::Mat camera_distortion_;
+extern std::atomic<bool> ncnn_gpu_destroyed;
 
 } // namespace gobal

@@ -91,8 +91,6 @@ private:
     void initEKF(const Armor& a) noexcept;
     void handleArmorJump(const Armor& a) noexcept;
 
-    
-
     int detect_count_;
     int lost_count_;
 

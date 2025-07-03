@@ -70,6 +70,11 @@ if [ "$1" == "build" ]; then
         echo -e "${red}\n--- Failed to copy wust_vision_openvino to /usr/local/bin ---${reset}"
         exit 1
     fi
+    sudo cp ./wust_vision_ncnn /usr/local/bin/
+    if [ $? -ne 0 ]; then
+        echo -e "${red}\n--- Failed to copy wust_vision_ncnn to /usr/local/bin ---${reset}"
+        exit 1
+    fi
     echo -e "${blue}\n----- Both executables copied to /usr/local/bin -----${reset}"
     exit 0
 fi
@@ -82,6 +87,11 @@ fi
 sudo cp ./wust_vision_openvino /usr/local/bin/
 if [ $? -ne 0 ]; then
     echo -e "${red}\n--- Failed to copy wust_vision_openvino to /usr/local/bin ---${reset}"
+    exit 1
+fi
+sudo cp ./wust_vision_ncnn /usr/local/bin/
+if [ $? -ne 0 ]; then
+    echo -e "${red}\n--- Failed to copy wust_vision_ncnn to /usr/local/bin ---${reset}"
     exit 1
 fi
 echo -e "${blue}\n----- Both executables copied to /usr/local/bin -----${reset}"
@@ -109,8 +119,18 @@ elif [ "$1" == "openvino" ]; then
         ./config/guard_openvino.sh
         exit 1
     fi
+elif [ "$1" == "ncnn" ]; then
+    echo -e "${yellow}\n<--- Running NCNN version --->${reset}"
+    echo -e "${blue}\n-----WUST-VISION-NCNN-----${reset}"
+    ./wust_vision_ncnn
+    program_name="wust_vision_ncnn"
+    if [ $? -ne 0 ]; then
+        echo -e "${red}\n--- NCNN program crashed, running guard_ncnn.sh ---${reset}"
+        ./config/guard_ncnn.sh
+        exit 1
+    fi
 else
-    echo -e "${red}\n--- Invalid argument: Please specify 'trt' or 'openvino' ---${reset}"
+    echo -e "${red}\n--- Invalid argument: Please specify 'trt' or 'openvino' or 'ncnn' ---${reset}"
     exit 1
 fi
 

@@ -1,0 +1,203 @@
+armor_detect:
+  armor:
+    max_angle: 30
+    max_large_center_distance: 8
+    max_small_center_distance: 3.5
+    min_large_center_distance: 3.5
+    min_light_ratio: 0.8
+    min_small_center_distance: 0.8
+  classify_label_path: /home/hy/wust_vision/model/label.txt
+  classify_model_path: /home/hy/wust_vision/model/mlp.onnx
+  light:
+    binary_thres: 85
+    expand_ratio_h: 1.1
+    expand_ratio_w: 1.1
+    max_angle: 40
+    max_ratio: 0.45
+    min_ratio: 0.02
+  model:
+    conf_threshold: 0.7
+    model_path_param: /home/hy/wust_vision/model/opt-1208-001.param
+    model_path_bin: /home/hy/wust_vision/model/opt-1208-001.bin
+    use_gpu: true
+    cpu_threads: 1
+    nms_threshold: 0.3
+    top_k: 128
+armor_solver:
+  bullet_speed: 25
+  compenstator_type: ideal
+  controller_delay: 0
+  gravity: 9.8
+  iteration_times: 20
+  max_tracking_v_yaw: 180
+  prediction_delay: 0.05
+  resistance: 0.092
+  shooting_range_h: 0.12
+  shooting_range_w: 0.12
+  side_angle: 20
+  trajectory_offset:
+  - d_max: 6
+    d_min: 5
+    h_max: 0.4
+    h_min: -1
+    pitch_off: 0.1
+    yaw_off: 0
+armor_tracker:
+  ekf:
+    iteration_num: 4
+    ocar_x: 0.0180952234
+    ocar_y: 0.0180952234
+    ocar_yaw: 0.609218545
+    ocar_z: 0.00180952234
+    ocas2qx: 10
+    ocas2qy: 10
+    ocas2qyaw: 20
+    ocas2qz: 1
+    or_x: 0.0180952234
+    or_y: 0.0214626785
+    or_yaw: 0.609218545
+    or_z: 0.0016992016
+    os2qx: 10
+    os2qy: 10
+    os2qyaw: 20
+    os2qz: 1
+    oyr_d: 0.0065388986
+    oyr_p: 0.001073833
+    oyr_y: 0.3042568339
+    oyr_yaw: 0.609218545
+    oys2qx: 10
+    oys2qy: 10
+    oys2qyaw: 20
+    oys2qz: 1
+    r_x: 0.0180952234
+    r_y: 0.0214626785
+    r_yaw: 0.609218545
+    r_z: 0.0016992016
+    s2qd_zc: 800
+    s2qr: 80
+    s2qx: 10
+    s2qy: 10
+    s2qyaw: 20
+    s2qz: 1
+    yr_d: 0.65388986
+    yr_p: 0.008073833
+    yr_y: 0.0052568339
+    yr_yaw: 0.00509218545
+    ys2qd_zc: 800
+    ys2qr: 80
+    ys2qx: 15
+    ys2qy: 15
+    ys2qyaw: 20
+    ys2qz: 1.0
+  jump_thresh: 0.4
+  lost_time_thres: 0.5
+  max_match_distance: 0.5
+  max_match_yaw_diff: 0.5
+  max_match_z_diff: 0.2
+  one_lost_time_thres: 0.1
+  target_frame: gimbal_odom
+  tracking_thres: 5
+  use_ypd_tracker: true
+  v_yaw_to_one_thres: 0.5
+  v_yaw_update_thres: 1.5
+camera:
+  acquisition_frame_rate: 200
+  adc_bit_depth: Bits_8
+  camera_info_path: /home/hy/wust_vision/config/camera_info.yaml
+  exposure_time: 1000
+  gain: 16
+  pixel_format: BayerRG8
+  acquisitionFrameRateEnable: false
+  recorder: false
+  video_player:
+    fps: 90
+    loop: true
+    path: /home/hy/6.11/output.mp4
+    start_frame: 500
+    use: true
+control:
+  alpha_pitch: 0.9
+  alpha_yaw: 0.9
+  control_rate: 1000
+  communication_delay: 1
+  device_name: /dev/ttyACM0
+  max_pitch_change: 5
+  max_yaw_change: 10
+  use_nav: false
+  use_serial: false
+debug:
+  debug_h: 1080
+  debug_mode: true
+  debug_show_dt: 0.01
+  debug_w: 1440
+detect_color: 1
+init_attack_mode: 1
+logger:
+  log_level: INFO
+  log_path: /home/hy/wust_log
+  use_logcli: true
+  use_logfile: true
+  use_simplelog: true
+max_infer_running: 7
+only_nav_enable: false
+rune_detector:
+  confidence_threshold: 0.5
+  detect_r_tag: true
+  use_manual_r: true
+  min_lightness: 80
+  model_path_param: /home/hy/wust_vision/model/yolox_rune_3.6m_ncnn.param
+  model_path_bin: /home/hy/wust_vision/model/yolox_rune_3.6m_ncnn.bin
+  use_gpu: true
+  cpu_threads: 1
+  nms_threshold: 0.3
+  top_k: 128
+rune_solver:
+  auto_type_determined: true
+  bullet_speet: 20
+  compensator_type: resistance
+  ekf:
+    use_ypd: true
+    iteration_num: 1
+    q_xyzyaw:
+    - 4e-4
+    - 1e-4
+    - 1e-4
+    - 1e-4
+    r_xyzyaw:
+    - 4e-2
+    - 1e-2
+    - 1e-2
+    - 1e-2
+    q_ypdyaw:
+    - 2e-4
+    - 1e-4
+    - 1e-4
+    - 1e-4
+    r_ypdyaw:
+    - 4e-2
+    - 1e-2
+    - 1e-2
+    - 1e-2
+  gravity: 9.8
+  lost_time_thres: 0.5
+  predict_offset: 0.1
+  trajectory_offset:
+  - d_max: 6
+    d_min: 5
+    h_max: 0.4
+    h_min: -1
+    pitch_off: 0.1
+    yaw_off: 0
+tf:
+  gimbal2camera_pitch: 0
+  gimbal2camera_roll: 0
+  gimbal2camera_x: 0.07
+  gimbal2camera_y: 0
+  gimbal2camera_yaw: 0
+  gimbal2camera_z: -0.05
+use_armor_detect_ncnn: false
+use_armor_detect_opencv: false
+use_rune_detect_ncnn: false
+use_auto_labeler: false
+use_calculation: false
+max_detect_armors: 10

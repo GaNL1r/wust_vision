@@ -44,7 +44,6 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     //     jump_thresh
     // );
 
-
     // for (int i = 0; i < track_one_num; i++) {
     //     auto o_tracker_ = std::make_unique<OneTracker>(
     //         max_match_distance,
@@ -62,11 +61,14 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     //     jump_thresh
     // );
     for (int i = 0; i < track_one_num; i++) {
-      auto oy_tracker_ = std::make_unique<OneYpdTracker>(
-          max_match_distance, max_match_yaw_diff,
-          max_match_z_diff,jump_thresh);
-          oy_tracker_->tracking_thres = config_["tracking_thres"].as<int>(5);
-      one_ypd_trackers_.push_back(std::move(oy_tracker_));
+        auto oy_tracker_ = std::make_unique<OneYpdTracker>(
+            max_match_distance,
+            max_match_yaw_diff,
+            max_match_z_diff,
+            jump_thresh
+        );
+        oy_tracker_->tracking_thres = config_["tracking_thres"].as<int>(5);
+        one_ypd_trackers_.push_back(std::move(oy_tracker_));
     }
 
     v_yaw_update_thres_ = config_["v_yaw_update_thres"].as<float>(0.01);
@@ -78,8 +80,6 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     } else {
         tracker_->tracking_thres = config_["tracking_thres"].as<int>(5);
     }
-
-  
 
     // one_ypd_tracker_->tracking_thres = config_["tracking_thres"].as<int>(5);
     lost_time_thres_ = config_["lost_time_thres"].as<double>();
@@ -385,12 +385,11 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     // one_ca_tracker_->ekf =
     //     std::make_unique<onecaarmor_motion_model::RobotStateEKF>(ocaf, ocah, ocau_q, ocau_r, ocap0);
     // one_ca_tracker_->ekf->setAngleDims({ 3 });
-    for (auto &oy_tracker : one_ypd_trackers_) {
-      oy_tracker->ekf =
-      std::make_unique<oneypdarmor_motion_model::RobotStateEKF>(
-          oyf, oyh, oyu_q, oyu_r, oyp0);
-          oy_tracker->ekf->setAngleDims({ 0, 3 });
-          oy_tracker->ekf->setIterationNum(iteration_num_);
+    for (auto& oy_tracker: one_ypd_trackers_) {
+        oy_tracker->ekf =
+            std::make_unique<oneypdarmor_motion_model::RobotStateEKF>(oyf, oyh, oyu_q, oyu_r, oyp0);
+        oy_tracker->ekf->setAngleDims({ 0, 3 });
+        oy_tracker->ekf->setIterationNum(iteration_num_);
     }
 }
 
@@ -771,17 +770,14 @@ void TrackerManager::update(
                 target.v_yaw = state(7);
                 target.type = otracker->type;
                 target.distance_to_image_center = otracker->distance_to_image_center;
-          
+
             } else {
-                
                 target.tracking = false;
-               
             }
 
             one_targets_.push_back(target);
         }
     }
-
 
     last_time_ = time;
 }

@@ -37,9 +37,9 @@
 #pragma once
 
 // std
+#include <cassert>
 #include <functional>
 #include <vector>
-#include <cassert>
 // Eigen
 #include <Eigen/Dense>
 // ceres
@@ -102,7 +102,7 @@ public:
         ceres::Jet<double, N_X> x_e_jet[N_X];
         for (int i = 0; i < N_X; ++i) {
             x_e_jet[i].a = x_post[i];
-            x_e_jet[i].v.setZero(); 
+            x_e_jet[i].v.setZero();
             x_e_jet[i].v[i] = 1.0;
         }
 
@@ -110,7 +110,7 @@ public:
         f(x_e_jet, x_p_jet);
 
         for (int i = 0; i < N_X; ++i) {
-            x_pri[i] = std::isfinite(x_p_jet[i].a) ? x_p_jet[i].a : 0.0; 
+            x_pri[i] = std::isfinite(x_p_jet[i].a) ? x_p_jet[i].a : 0.0;
             F.block(i, 0, 1, N_X) = x_p_jet[i].v.transpose();
         }
 
@@ -130,7 +130,7 @@ public:
             ceres::Jet<double, N_X> x_p_jet[N_X];
             for (int i = 0; i < N_X; ++i) {
                 x_p_jet[i].a = x_iter[i];
-                x_p_jet[i].v.setZero(); 
+                x_p_jet[i].v.setZero();
                 x_p_jet[i].v[i] = 1.0;
             }
 
@@ -139,29 +139,30 @@ public:
 
             MatrixZ1 z_pri;
             for (int i = 0; i < N_Z; ++i) {
-                z_pri[i] = std::isfinite(z_p_jet[i].a) ? z_p_jet[i].a : 0.0; 
+                z_pri[i] = std::isfinite(z_p_jet[i].a) ? z_p_jet[i].a : 0.0;
                 H.block(i, 0, 1, N_X) = z_p_jet[i].v.transpose();
             }
 
             R = update_R(z);
             MatrixZZ S = H * P_pri * H.transpose() + R;
-            S += 1e-6 * MatrixZZ::Identity(); 
+            S += 1e-6 * MatrixZZ::Identity();
             K = P_pri * H.transpose() * S.inverse();
 
             MatrixZ1 residual = z - z_pri;
-            for (int idx : angle_dims_) {
+            for (int idx: angle_dims_) {
                 residual[idx] = angles::shortest_angular_distance(z_pri[idx], z[idx]);
             }
             for (int i = 0; i < N_Z; ++i) {
-                if (!std::isfinite(residual[i])) residual[i] = 0.0;
-                residual[i] = std::clamp(residual[i], -1e2, 1e2); 
+                if (!std::isfinite(residual[i]))
+                    residual[i] = 0.0;
+                residual[i] = std::clamp(residual[i], -1e2, 1e2);
             }
 
             MatrixX1 x_new = x_iter + K * residual;
 
-         
             for (int i = 0; i < N_X; ++i) {
-                if (!std::isfinite(x_new[i])) x_new[i] = x_iter[i];
+                if (!std::isfinite(x_new[i]))
+                    x_new[i] = x_iter[i];
             }
 
             x_iter = x_new;
@@ -169,11 +170,12 @@ public:
 
         x_post = x_iter;
         for (int i = 0; i < N_X; ++i) {
-            if (!std::isfinite(x_post[i])) x_post[i] = 0.0;
+            if (!std::isfinite(x_post[i]))
+                x_post[i] = 0.0;
         }
 
         P_post = (MatrixXX::Identity() - K * H) * P_pri;
-        P_post = 0.5 * (P_post + P_post.transpose()); 
+        P_post = 0.5 * (P_post + P_post.transpose());
         return x_post;
     }
 

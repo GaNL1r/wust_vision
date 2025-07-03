@@ -86,7 +86,6 @@ public:
     LightParams light_params_;
     ArmorParams armor_params_;
     std::unique_ptr<LightCornerCorrector> corner_corrector;
-    std::thread image_thread_;
     std::string model_path_;
     std::string classify_model_path_;
     std::string classify_label_path_;

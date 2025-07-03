@@ -3,6 +3,7 @@
 #include "common/gobal.hpp"
 #include "control/armor_solver.hpp"
 #include "control/rune_solver.hpp"
+#include "detect/armor_detector_ncnn.hpp"
 #include "detect/armor_pose_estimator.hpp"
 #include "detect/detector_factory.hpp"
 #include "driver/hik.hpp"
@@ -22,8 +23,6 @@ public:
     void init();
     void run();
     void processImage(const ImageFrame& frame, Eigen::Matrix3d R_gimbal2odom);
-
-
 
     void printStats();
     void ArmorDetectCallback(
@@ -68,6 +67,8 @@ public:
     std::string vision_logger = "openvino_vision";
 #elif defined(USE_TRT)
     std::string vision_logger = "trt_vision";
+#elif defined(USE_NCNN_ONLY)
+    std::string vision_logger = "ncnn_vision";
 #else
     static_assert(false, "No backend defined: USE_OPENVINO or USE_TRT");
 #endif
@@ -131,4 +132,6 @@ public:
     bool use_manual_r = false;
     std::atomic<bool> manual_r_runing = false;
     Eigen::Matrix4d T_r;
+    bool use_rune_detect_ncnn;
+    bool use_armor_detect_ncnn;
 };
