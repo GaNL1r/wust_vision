@@ -4,7 +4,7 @@
 
 ## 依赖
 * OpenCV
-* OpenVINO/TensorRT-cuda
+* OpenVINO/TensorRT-cuda/NCNN
 * fmt
 * ceres
 * Eigen3
@@ -43,5 +43,5 @@ sudo make install
 ```
 sudo ./run.sh trt/openvino/build #TensorRT-cuda识别版本/OpenVINO识别版本/仅编译
 ```
-### 注意：本项目默认要求OpenVINO或TensorRT-cuda参与编译（可选择其一，需在build第一次缓存前在cmakelists设置）
-### OpenVINO或TensorRT-cuda实际参与装甲板与能量机关的识别，装甲板识别可使用纯OpenCV（但OpenVINO或TensorRT-cuda仍然在编译路径中），能量机关如不使用可删除
+### 注意：本项目默认要求OpenVINO、TensorRT-cuda或NCNN参与编译（可选择其一，需在build第一次缓存前在cmakelists设置）
+### OpenVINO、TensorRT-cuda或NCNN实际参与装甲板与能量机关的识别，装甲板识别可使用纯OpenCV（但OpenVINO、TensorRT-cuda或NCNN仍然在编译路径中），能量机关如不使用可删除，OpenVINO、TensorRT-cuda版本可选择使用NCNN的装甲板/能量机关识别。
