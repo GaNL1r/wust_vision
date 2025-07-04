@@ -217,17 +217,15 @@ void Serial::sendData() {
         }
 
         try {
-            // crc16::append_CRC16_check_sum(
-            //     reinterpret_cast<uint8_t *>(&send_robot_cmd_data_),
-            //     sizeof(SendRobotCmdData));
-
             std::vector<uint8_t> send_data = toVector(send_robot_cmd_data_);
             driver_.send(send_data);
         } catch (const std::exception& ex) {
             WUST_ERROR(serial_logger) << "Error sending data: " << ex.what();
             is_usb_ok_ = false;
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000 / gobal::control_rate));
+
+        double us_interval = 1e6 / static_cast<double>(gobal::control_rate);
+        std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int64_t>(us_interval)));
     }
 }
 void Serial::transformGimbalCmd(GimbalCmd& gimbal_cmd, bool appear) {
@@ -247,8 +245,6 @@ void Serial::transformGimbalCmd(GimbalCmd& gimbal_cmd, bool appear) {
     serial_last_yaw = send_robot_cmd_data_.yaw;
     serial_last_pitch = send_robot_cmd_data_.pitch;
 
-    // std::cout<<"yaw: "<<send_robot_cmd_data_.yaw<<" pitch:
-    // "<<send_robot_cmd_data_.pitch<<std::endl;
     send_robot_cmd_data_.distance = gimbal_cmd.distance;
     send_robot_cmd_data_.pitch_diff = gimbal_cmd.pitch_diff;
     send_robot_cmd_data_.yaw_diff = gimbal_cmd.yaw_diff;

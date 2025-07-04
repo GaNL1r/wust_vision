@@ -118,7 +118,7 @@ camera:
 control:
   alpha_pitch: 0.9
   alpha_yaw: 0.9
-  control_rate: 1000
+  control_rate: 1100
   communication_delay: 1
   device_name: /dev/ttyACM0
   max_pitch_change: 5

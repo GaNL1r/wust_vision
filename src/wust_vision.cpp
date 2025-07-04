@@ -112,12 +112,6 @@ void WustVision::init() {
         toolsgobal::debug_h = gobal::config["debug"]["debug_h"].as<int>(480);
         debug_show_dt_ = gobal::config["debug"]["debug_show_dt"].as<double>(0.05);
         gobal::use_calculation_ = gobal::config["common"]["use_calculation"].as<bool>();
-        gimbal2camera_x_ = gobal::config["tf"]["gimbal2camera_x"].as<double>(0.0);
-        gimbal2camera_y_ = gobal::config["tf"]["gimbal2camera_y"].as<double>(0.0);
-        gimbal2camera_z_ = gobal::config["tf"]["gimbal2camera_z"].as<double>(0.0);
-        gimbal2camera_roll_ = gobal::config["tf"]["gimbal2camera_roll"].as<double>(0.0);
-        gimbal2camera_pitch_ = gobal::config["tf"]["gimbal2camera_pitch"].as<double>(0.0);
-        gimbal2camera_yaw_ = gobal::config["tf"]["gimbal2camera_yaw"].as<double>(0.0);
 
         use_video = gobal::config["camera"]["video_player"]["use"].as<bool>(false);
         if (use_video) {
@@ -452,14 +446,15 @@ void WustVision::startTimer() {
     WUST_INFO(vision_logger) << "starting timer";
 
     timer_running_ = true;
-    int ms_interval = 1000 / gobal::control_rate;
-    auto interval = std::chrono::microseconds(ms_interval * 1000);
+
+    double us_interval = 1e6 / static_cast<double>(gobal::control_rate);
+    auto interval = std::chrono::microseconds(static_cast<int64_t>(us_interval));
+
     constexpr auto spin_margin = std::chrono::microseconds(200);
 
-    // 启动线程
     timer_thread_ = std::thread([this, interval, spin_margin]() {
         auto next_time = std::chrono::steady_clock::now() + interval;
-        auto last_time = std::chrono::steady_clock::now(); // 上一次 timerCallback 调用时间
+        auto last_time = std::chrono::steady_clock::now();
 
         while (true) {
             {
@@ -478,13 +473,19 @@ void WustVision::startTimer() {
             double dt_ms = std::chrono::duration<double, std::milli>(now - last_time).count();
             last_time = now;
 
-            this->timerCallback(dt_ms); // 传入与上次的时间差（毫秒）
+            this->timerCallback(dt_ms);
             next_time += interval;
         }
     });
 }
 
 void WustVision::initTF() {
+    gimbal2camera_x_ = gobal::config["tf"]["gimbal2camera_x"].as<double>(0.0);
+    gimbal2camera_y_ = gobal::config["tf"]["gimbal2camera_y"].as<double>(0.0);
+    gimbal2camera_z_ = gobal::config["tf"]["gimbal2camera_z"].as<double>(0.0);
+    gimbal2camera_roll_ = gobal::config["tf"]["gimbal2camera_roll"].as<double>(0.0);
+    gimbal2camera_pitch_ = gobal::config["tf"]["gimbal2camera_pitch"].as<double>(0.0);
+    gimbal2camera_yaw_ = gobal::config["tf"]["gimbal2camera_yaw"].as<double>(0.0);
     // odom 是世界坐标系的根节点
     gobal::tf_tree_.setTransform("", "odom", createTf(0, 0, 0, tf::Quaternion(0, 0, 0, 1)), true);
 
