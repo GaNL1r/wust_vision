@@ -55,7 +55,8 @@ public:
         TEMP_LOST,
     } tracker_state;
 
-    std::unique_ptr<ypdarmor_motion_model::RobotStateEKF> ekf;
+    //std::unique_ptr<ypdarmor_motion_model::RobotStateEKF> ekf;
+    std::unique_ptr<ypdarmor_motion_model::RobotStateESEKF> ekf;
 
     int tracking_thres;
     int lost_thres;
@@ -75,18 +76,6 @@ public:
     float position_diff_;
 
     double jump_thresh = 0.4;
-
-    // Eigen::Vector2f last_obs_position_;
-    // std::chrono::steady_clock::time_point last_obs_time_;
-
-    // int xy_track_update_count_ = 0;
-    // std::deque<float> xy_velocity_diff_buffer_;
-    // int xy_inconsistent_count_ = 0;
-    // int xy_inconsistent_cooldown_ = 0;
-
-    // int max_xy_inconsistent_count_ = 3;
-    // int xy_inconsistent_cooldown_limit_ = 30;
-    // float max_xy_velocity_diff_thresh_ = 1.0f;  // m/s
 
 private:
     void initEKF(const Armor& a) noexcept;

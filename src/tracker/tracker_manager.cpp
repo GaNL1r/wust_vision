@@ -359,9 +359,20 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     // 初始化 EKF 滤波器
     if (use_ypd_tracker_) {
         ypd_tracker_->ekf =
-            std::make_unique<ypdarmor_motion_model::RobotStateEKF>(yf, yh, yu_q, yu_r, yp0);
+            std::make_unique<ypdarmor_motion_model::RobotStateESEKF>(yf, yh, yu_q, yu_r, yp0);
         ypd_tracker_->ekf->setAngleDims({ 0, 3 });
         ypd_tracker_->ekf->setIterationNum(iteration_num_);
+        ypd_tracker_->ekf->setInjectFunc(
+            [](const Eigen::Matrix<double, ypdarmor_motion_model::X_N, 1>& delta,
+               Eigen::Matrix<double, ypdarmor_motion_model::X_N, 1>& nominal) {
+                for (int i = 0; i < ypdarmor_motion_model::X_N; i++) {
+                    if (i == 6)
+                        continue;
+                    nominal[i] += delta[i];
+                }
+                nominal[6] = angles::normalize_angle(nominal[6] + delta[6]);
+            }
+        );
     } else {
         tracker_->ekf = std::make_unique<armor_motion_model::RobotStateEKF>(f, h, u_q, u_r, p0);
         tracker_->ekf->setAngleDims({ 3 });

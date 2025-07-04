@@ -123,6 +123,12 @@ control:
   max_yaw_change: 10
   use_nav: false
   use_serial: true
+  control_filter:
+    order: 2
+    window: 5
+    alpha: 0.2
+    kff: 0.5
+    jump: 3 
 debug:
   debug_h: 1080
   debug_mode: true

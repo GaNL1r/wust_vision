@@ -16,6 +16,7 @@
 // ceres
 #include <ceres/ceres.h>
 // project
+#include "tracker/error_state_extended_kalman_filter.hpp"
 #include "tracker/extended_kalman_filter.hpp"
 
 namespace ypdarmor_motion_model {
@@ -86,6 +87,7 @@ struct Measure {
     }
 };
 
-using RobotStateEKF = ExtendedKalmanFilter<X_N, Z_N, Predict, Measure>;
+//using RobotStateEKF = ExtendedKalmanFilter<X_N, Z_N, Predict, Measure>;
+using RobotStateESEKF = ErrorStateEKF<X_N, Z_N, Predict, Measure>;
 
 } // namespace ypdarmor_motion_model

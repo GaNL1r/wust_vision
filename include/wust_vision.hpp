@@ -2,6 +2,7 @@
 
 #include "common/gobal.hpp"
 #include "control/armor_solver.hpp"
+#include "control/control_filter.hpp"
 #include "control/rune_solver.hpp"
 #include "detect/armor_detector_ncnn.hpp"
 #include "detect/armor_pose_estimator.hpp"
@@ -42,7 +43,7 @@ public:
     void initTF();
     void initSerial();
     void initTracker(const YAML::Node& config);
-    void timerCallback();
+    void timerCallback(double dt_ms);
     void startTimer();
     void stopTimer();
     void restartTimerThread();
@@ -121,6 +122,8 @@ public:
     double last_ypd_y;
     double last_ypd_p;
     double last_armor_yaw;
+    std::unique_ptr<ControlFilter> control_filter_;
+    int control_window;
 
     std::unique_ptr<ArmorDetectorBase> armor_detector_;
     std::unique_ptr<RuneDetectorBase> rune_detector_;

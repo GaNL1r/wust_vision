@@ -281,8 +281,6 @@ GimbalCmd ArmorSolver::solve(
             rpy[0] = delay_roll + gobal::gimbal2camera_roll;
             rpy[1] = delay_pitch + gobal::gimbal2camera_pitch;
             rpy[2] = delay_yaw + gobal::gimbal2camera_yaw;
-            // std::cout << "delay_yaw: " << delay_yaw << " delay_pitch: " << delay_pitch
-            //           << " delay_roll: " << delay_roll << std::endl;
         } else {
             rpy[0] = gobal::last_roll + gobal::gimbal2camera_roll;
             rpy[1] = gobal::last_pitch + gobal::gimbal2camera_pitch;
@@ -526,34 +524,22 @@ GimbalCmd ArmorSolver::solve(
         return cmd;
     }
 }
-
-std::vector<GimbalCmd> ArmorSolver::solveBatch(
+std::vector<GimbalCmd> ArmorSolver::solve_vector(
     const Target& target,
-    std::chrono::steady_clock::time_point base_time,
-    int count
+    std::vector<OneTarget> one_targets_,
+    std::chrono::steady_clock::time_point current_time,
+    int step,
+    double dt
 ) {
     std::vector<GimbalCmd> cmds;
-    cmds.reserve(count);
-
-    for (int i = 0; i < count; ++i) {
-        auto current_time = base_time + std::chrono::milliseconds(i);
-        try {
-            cmds.emplace_back(solve(target, current_time));
-        } catch (const std::exception& e) {
-            // 如果 solve 抛出异常，可选择忽略或返回默认值
-            GimbalCmd fallback;
-            fallback.timestamp = current_time;
-            fallback.fire_advice = false;
-            fallback.distance = -1.0;
-            fallback.yaw = 0.0;
-            fallback.pitch = 0.0;
-            fallback.yaw_diff = 0.0;
-            fallback.pitch_diff = 0.0;
-            fallback.select_id = -1;
-            cmds.emplace_back(fallback);
-        }
+    for (int i = 1; i <= step; ++i) {
+        auto cmd = solve(
+            target,
+            one_targets_,
+            current_time + std::chrono::milliseconds(static_cast<int>(std::round(i * dt)))
+        );
+        cmds.push_back(cmd);
     }
-
     return cmds;
 }
 

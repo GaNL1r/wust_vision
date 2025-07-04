@@ -458,6 +458,7 @@ void WustVision::startTimer() {
     // 启动线程
     timer_thread_ = std::thread([this, interval, spin_margin]() {
         auto next_time = std::chrono::steady_clock::now() + interval;
+        auto last_time = std::chrono::steady_clock::now(); // 上一次 timerCallback 调用时间
 
         while (true) {
             {
@@ -472,7 +473,11 @@ void WustVision::startTimer() {
                 // busy‐wait
             }
 
-            this->timerCallback();
+            auto now = std::chrono::steady_clock::now();
+            double dt_ms = std::chrono::duration<double, std::milli>(now - last_time).count();
+            last_time = now;
+
+            this->timerCallback(dt_ms); // 传入与上次的时间差（毫秒）
             next_time += interval;
         }
     });
@@ -537,6 +542,14 @@ void WustVision::initSerial() {
     serial_->max_yaw_change = gobal::config["control"]["max_yaw_change"].as<double>();
     serial_->max_pitch_change = gobal::config["control"]["max_pitch_change"].as<double>();
     gobal::communication_delay_μs = gobal::config["control"]["communication_delay"].as<double>();
+    int order;
+    double alpha, kff, jump;
+    order = gobal::config["control"]["control_filter"]["order"].as<int>();
+    control_window = gobal::config["control"]["control_filter"]["window"].as<int>();
+    alpha = gobal::config["control"]["control_filter"]["alpha"].as<double>();
+    kff = gobal::config["control"]["control_filter"]["kff"].as<double>();
+    jump = gobal::config["control"]["control_filter"]["jump"].as<double>();
+    control_filter_ = std::make_unique<ControlFilter>(order, control_window, alpha, kff, jump);
 }
 
 void WustVision::initTracker(const YAML::Node& config) {
@@ -963,7 +976,7 @@ void WustVision::onMouse(int event, int x, int y, int, void*) {
     }
 }
 
-void WustVision::timerCallback() {
+void WustVision::timerCallback(double dt_ms) {
     if (!gobal::is_inited_)
         return;
     timer_count_++;
@@ -1003,7 +1016,24 @@ void WustVision::timerCallback() {
         try {
             switch (mode) {
                 case AttackMode::ARMOR: {
-                    gimbal_cmd = armor_solver_->solve(target, one_targets, now);
+                    auto cmds = armor_solver_
+                                    ->solve_vector(target, one_targets, now, control_window, dt_ms);
+                    std::vector<double> future_yaw;
+                    std::vector<double> future_pitch;
+                    for (auto cmd: cmds) {
+                        future_yaw.push_back(cmd.yaw);
+                        future_pitch.push_back(cmd.pitch);
+                    }
+                    auto cmd = armor_solver_->solve(target, one_targets, now);
+                    double raw_pitch, raw_yaw;
+                    raw_pitch = cmd.pitch;
+                    raw_yaw = cmd.yaw;
+                    auto [filtered_yaw, filtered_pitch] =
+                        control_filter_->update(raw_yaw, raw_pitch, future_yaw, future_pitch, now);
+                    cmd.pitch = filtered_pitch;
+                    cmd.yaw = filtered_yaw;
+                    gimbal_cmd = cmd;
+
                 } break;
                 case AttackMode::SMALL_RUNE: {
                     gimbal_cmd = rune_solver_->solve();
