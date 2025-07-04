@@ -123,7 +123,7 @@ public:
     double last_ypd_p;
     double last_armor_yaw;
     std::unique_ptr<ControlFilter> control_filter_;
-    int control_window;
+    int future_window;
 
     std::unique_ptr<ArmorDetectorBase> armor_detector_;
     std::unique_ptr<RuneDetectorBase> rune_detector_;

@@ -544,12 +544,12 @@ void WustVision::initSerial() {
     gobal::communication_delay_μs = gobal::config["control"]["communication_delay"].as<double>();
     int order;
     double alpha, kff, jump;
-    order = gobal::config["control"]["control_filter"]["order"].as<int>();
-    control_window = gobal::config["control"]["control_filter"]["window"].as<int>();
-    alpha = gobal::config["control"]["control_filter"]["alpha"].as<double>();
-    kff = gobal::config["control"]["control_filter"]["kff"].as<double>();
-    jump = gobal::config["control"]["control_filter"]["jump"].as<double>();
-    control_filter_ = std::make_unique<ControlFilter>(order, control_window, alpha, kff, jump);
+    order = gobal::config["control"]["control_filter"]["poly_order"].as<int>();
+    future_window = gobal::config["control"]["control_filter"]["future_window"].as<int>();
+    alpha = gobal::config["control"]["control_filter"]["base_alpha"].as<double>();
+    kff = gobal::config["control"]["control_filter"]["base_k_ff"].as<double>();
+    jump = gobal::config["control"]["control_filter"]["jump_threshold"].as<double>();
+    control_filter_ = std::make_unique<ControlFilter>(order, future_window, alpha, kff, jump);
 }
 
 void WustVision::initTracker(const YAML::Node& config) {
@@ -1016,8 +1016,8 @@ void WustVision::timerCallback(double dt_ms) {
         try {
             switch (mode) {
                 case AttackMode::ARMOR: {
-                    auto cmds = armor_solver_
-                                    ->solve_vector(target, one_targets, now, control_window, dt_ms);
+                    auto cmds =
+                        armor_solver_->solve_vector(target, one_targets, now, future_window, dt_ms);
                     std::vector<double> future_yaw;
                     std::vector<double> future_pitch;
                     for (auto cmd: cmds) {

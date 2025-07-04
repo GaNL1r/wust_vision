@@ -126,11 +126,11 @@ control:
   use_nav: false
   use_serial: true
   control_filter:
-    order: 2
-    window: 5
-    alpha: 0.2
-    kff: 0.5
-    jump: 3      
+    poly_order: 2
+    future_window: 5
+    base_alpha: 0.2
+    base_k_ff: 0.5
+    jump_threshold: 3      
 debug:
   debug_h: 1080
   debug_mode: true
