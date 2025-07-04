@@ -1,11 +1,9 @@
 common:
-  detect_color: 1
-  init_attack_mode: 1
+  detect_color: 0
+  init_attack_mode: 0
   max_infer_running: 7
   only_nav_enable: false
-  use_armor_detect_ncnn: false
-  use_armor_detect_opencv: false
-  use_rune_detect_ncnn: false
+  use_armor_detect_opencv: true
   use_auto_labeler: false
   use_calculation: false
   max_detect_armors: 10
@@ -14,7 +12,7 @@ camera:
   acquisition_frame_rate: 200
   adc_bit_depth: Bits_8
   camera_info_path: /home/hy/wust_vision/config/camera_info.yaml
-  exposure_time: 1000
+  exposure_time: 1500
   gain: 16
   pixel_format: BayerRG8
   acquisitionFrameRateEnable: false
@@ -29,7 +27,7 @@ camera:
 control:
   alpha_pitch: 0.9
   alpha_yaw: 0.9
-  control_rate: 1000
+  control_rate: 1200
   communication_delay: 1
   device_name: /dev/ttyACM0
   max_pitch_change: 5
@@ -39,9 +37,10 @@ control:
   control_filter:
     poly_order: 2
     future_window: 5
-    base_alpha: 0.2
-    base_k_ff: 0.5
-    jump_threshold: 3
+    base_alpha: 0.5
+    base_k_ff: 0.7
+    jump_threshold: 1
+    use: false
 
 tf:
   gimbal2camera_pitch: 0
@@ -113,7 +112,7 @@ armor_solver:
 
 armor_tracker:
   ekf:
-    iteration_num: 4
+    iteration_num: 10
     ocar_x: 0.0180952234
     ocar_y: 0.0180952234
     ocar_yaw: 0.609218545

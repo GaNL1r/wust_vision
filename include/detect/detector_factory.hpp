@@ -56,6 +56,9 @@ public:
         if (backend == "ncnn") {
             return std::make_unique<ArmorDetectorNCNNWrapper>(config);
         }
+        if (backend == "opencv") {
+            return std::make_unique<ArmorDetectorOpencvWrapper>(config);
+        }
 #endif
         throw std::runtime_error(
             "Unsupported armor detector backend (or not compiled): " + backend

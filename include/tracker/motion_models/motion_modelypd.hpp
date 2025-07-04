@@ -87,7 +87,7 @@ struct Measure {
     }
 };
 
-//using RobotStateEKF = ExtendedKalmanFilter<X_N, Z_N, Predict, Measure>;
+using RobotStateEKF = ExtendedKalmanFilter<X_N, Z_N, Predict, Measure>;
 using RobotStateESEKF = ErrorStateEKF<X_N, Z_N, Predict, Measure>;
 
 } // namespace ypdarmor_motion_model

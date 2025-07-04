@@ -55,8 +55,8 @@ public:
         TEMP_LOST,
     } tracker_state;
 
-    //std::unique_ptr<ypdarmor_motion_model::RobotStateEKF> ekf;
-    std::unique_ptr<ypdarmor_motion_model::RobotStateESEKF> ekf;
+    std::unique_ptr<ypdarmor_motion_model::RobotStateEKF> ekf;
+    //std::unique_ptr<ypdarmor_motion_model::RobotStateESEKF> ekf;
 
     int tracking_thres;
     int lost_thres;

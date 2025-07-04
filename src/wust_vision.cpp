@@ -553,6 +553,7 @@ void WustVision::initSerial() {
     kff = gobal::config["control"]["control_filter"]["base_k_ff"].as<double>();
     jump = gobal::config["control"]["control_filter"]["jump_threshold"].as<double>();
     control_filter_ = std::make_unique<ControlFilter>(order, future_window, alpha, kff, jump);
+    use_control_filter_ = gobal::config["control"]["control_filter"]["use"].as<bool>();
 }
 
 void WustVision::initTracker(const YAML::Node& config) {
@@ -1017,22 +1018,29 @@ void WustVision::timerCallback(double dt_ms) {
         try {
             switch (mode) {
                 case AttackMode::ARMOR: {
-                    auto cmds =
-                        armor_solver_->solve_vector(target, one_targets, now, future_window, dt_ms);
-                    std::vector<double> future_yaw;
-                    std::vector<double> future_pitch;
-                    for (auto cmd: cmds) {
-                        future_yaw.push_back(cmd.yaw);
-                        future_pitch.push_back(cmd.pitch);
-                    }
                     auto cmd = armor_solver_->solve(target, one_targets, now);
-                    double raw_pitch, raw_yaw;
-                    raw_pitch = cmd.pitch;
-                    raw_yaw = cmd.yaw;
-                    auto [filtered_yaw, filtered_pitch] =
-                        control_filter_->update(raw_yaw, raw_pitch, future_yaw, future_pitch, now);
-                    cmd.pitch = filtered_pitch;
-                    cmd.yaw = filtered_yaw;
+
+                    if (use_control_filter_) {
+                        auto cmds =
+                            armor_solver_
+                                ->solve_vector(target, one_targets, now, future_window, dt_ms);
+                        std::vector<double> future_yaw;
+                        std::vector<double> future_pitch;
+                        for (auto cmd: cmds) {
+                            future_yaw.push_back(cmd.yaw);
+                            future_pitch.push_back(cmd.pitch);
+                        }
+
+                        double raw_pitch, raw_yaw;
+                        raw_pitch = cmd.pitch;
+                        raw_yaw = cmd.yaw;
+                        auto [filtered_yaw, filtered_pitch] =
+                            control_filter_
+                                ->update(raw_yaw, raw_pitch, future_yaw, future_pitch, now);
+                        cmd.pitch = filtered_pitch;
+                        cmd.yaw = filtered_yaw;
+                    }
+
                     gimbal_cmd = cmd;
 
                 } break;

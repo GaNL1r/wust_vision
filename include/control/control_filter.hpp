@@ -1,11 +1,12 @@
 #pragma once
-#include "common/gobal.hpp"
 #include <Eigen/Dense>
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <chrono>
 #include <cmath>
-#include <utility>
+#include <numeric>
+#include <vector>
 
 class AdaptiveFeedforwardFilter1D {
 public:
@@ -21,14 +22,13 @@ public:
         base_alpha_(base_alpha),
         base_k_ff_(base_k_ff),
         jump_threshold_(jump_threshold),
-        initialized_(false),
-        time_initialized_(false),
         prev_unwrapped_(0.0),
         filtered_prev_(0.0),
         prev_filtered_(0.0),
         velocity_estimate_(0.0),
         history_size_(0),
-        history_index_(0) {
+        history_index_(0),
+        time_initialized_(false) {
         future_unwrapped_.resize(future_window_);
     }
 
@@ -40,8 +40,7 @@ public:
         assert(future_vals.size() >= static_cast<size_t>(poly_order_ + 1));
         assert(future_vals.size() >= static_cast<size_t>(future_window_));
 
-        // --- Step 0: 计算时间差 ---
-        double dt = 1.0 / gobal::control_rate;
+        double dt = 1.0 / 1000.0; // fallback default
         if (time_initialized_) {
             dt = std::chrono::duration<double>(time_point - prev_time_).count();
             dt = std::max(1e-6, dt);
@@ -50,7 +49,7 @@ public:
         }
         prev_time_ = time_point;
 
-        // --- Step 1: unwrap 当前值和未来值 ---
+        // 1. unwrap 当前值和未来值
         double unwrapped = unwrapAngle(raw, prev_unwrapped_);
         prev_unwrapped_ = unwrapped;
 
@@ -61,33 +60,47 @@ public:
             last = uv;
         }
 
-        // --- Step 2: 判断是否目标跳变 ---
-        double diff = std::abs(unwrapped - filtered_prev_);
-        if (diff > jump_threshold_) {
-            reset(unwrapped);
+        // 2. 判断是否目标切换（当前或未来突变）
+        bool jump = std::abs(unwrapped - filtered_prev_) > jump_threshold_;
+        int fit_len = future_window_;
+        for (int i = 1; i < future_window_; ++i) {
+            double d = std::abs(future_unwrapped_[i] - future_unwrapped_[i - 1]);
+            if (d > jump_threshold_) {
+                jump = true;
+                fit_len = i; // 拟合截断
+                break;
+            }
         }
 
-        // --- Step 3: 更新滑动噪声历史 ---
+        if (fit_len < poly_order_ + 1) {
+            jump = true; // 拟合点不足
+        }
+
+        if (jump) {
+            reset(unwrapped);
+            prev_filtered_ = unwrapped;
+            return unwrapped;
+        }
+
+        // 3. 自适应噪声估计
         history_buffer_[history_index_] = unwrapped;
         history_index_ = (history_index_ + 1) % history_max_;
         if (history_size_ < history_max_)
             history_size_++;
-
         double noise = computeNoiseLevel();
 
-        // --- Step 4: 滤波参数自适应调整 ---
         double alpha = clamp(0.05, 0.5, base_alpha_ + noise);
         double k_ff = clamp(0.1, 1.0, base_k_ff_ - 0.5 * noise);
 
-        // --- Step 5: 一阶低通滤波 ---
+        // 4. 一阶低通滤波
         double smoothed = alpha * unwrapped + (1.0 - alpha) * filtered_prev_;
         filtered_prev_ = smoothed;
 
-        // --- Step 6: 多项式拟合未来趋势 ---
-        Eigen::MatrixXd X(future_window_, poly_order_ + 1);
-        Eigen::VectorXd y(future_window_);
+        // 5. 多项式拟合（只用 fit_len 内数据）
+        Eigen::MatrixXd X(fit_len, poly_order_ + 1);
+        Eigen::VectorXd y(fit_len);
 
-        for (int i = 0; i < future_window_; ++i) {
+        for (int i = 0; i < fit_len; ++i) {
             double t = dt * (i + 1);
             y(i) = future_unwrapped_[i];
             for (int j = 0; j <= poly_order_; ++j)
@@ -96,12 +109,18 @@ public:
 
         Eigen::VectorXd coeffs = X.colPivHouseholderQr().solve(y);
 
-        double fitted_now = coeffs(0); // t=0 处估计值
+        // 6. 前馈预测未来一点
+        double predict_time = dt; // 未来一帧
+        double fitted_future = 0.0;
+        for (int j = 0; j <= poly_order_; ++j)
+            fitted_future += coeffs(j) * std::pow(predict_time, j);
 
-        // --- Step 7: 前馈叠加 ---
-        double result = smoothed + k_ff * (fitted_now - unwrapped);
+        // 限幅前馈误差
+        double ff_term = clamp(-max_ff_correction_, max_ff_correction_, fitted_future - unwrapped);
 
-        // --- Step 8: 角速度估计 ---
+        double result = smoothed + k_ff * ff_term;
+
+        // 7. 角速度估计
         velocity_estimate_ = (result - prev_filtered_) / dt;
         prev_filtered_ = result;
 
@@ -113,14 +132,13 @@ public:
     }
 
     void reset(double init_val = 0.0) {
+        prev_unwrapped_ = init_val;
         filtered_prev_ = init_val;
         prev_filtered_ = init_val;
-        prev_unwrapped_ = init_val;
         velocity_estimate_ = 0.0;
         history_size_ = 0;
         history_index_ = 0;
         time_initialized_ = false;
-        initialized_ = true;
     }
 
 private:
@@ -133,15 +151,13 @@ private:
     double computeNoiseLevel() const {
         if (history_size_ < 3)
             return 0.0;
-        double sum = 0.0;
-        for (size_t i = 0; i < history_size_; ++i)
-            sum += history_buffer_[i];
-        double mean = sum / static_cast<double>(history_size_);
+        double mean =
+            std::accumulate(history_buffer_.begin(), history_buffer_.begin() + history_size_, 0.0)
+            / history_size_;
         double var = 0.0;
         for (size_t i = 0; i < history_size_; ++i)
             var += (history_buffer_[i] - mean) * (history_buffer_[i] - mean);
-        var /= static_cast<double>(history_size_);
-        return std::sqrt(var);
+        return std::sqrt(var / history_size_);
     }
 
     double clamp(double min_val, double max_val, double v) const {
@@ -149,30 +165,25 @@ private:
     }
 
 private:
-    // 参数
     int poly_order_;
     int future_window_;
     double base_alpha_, base_k_ff_;
     double jump_threshold_;
-
-    // 状态
-    bool initialized_;
-    bool time_initialized_;
     double prev_unwrapped_;
     double filtered_prev_;
     double prev_filtered_;
     double velocity_estimate_;
-
     std::chrono::steady_clock::time_point prev_time_;
+    bool time_initialized_;
 
-    // 历史缓存
+    std::vector<double> future_unwrapped_;
+
     static constexpr size_t history_max_ = 20;
     std::array<double, history_max_> history_buffer_;
     size_t history_size_;
     size_t history_index_;
 
-    // 避免重复分配的缓存
-    std::vector<double> future_unwrapped_;
+    static constexpr double max_ff_correction_ = 10.0; // 限制最大前馈值
 };
 
 // ------------------ 包装类处理 Yaw/Pitch ---------------------

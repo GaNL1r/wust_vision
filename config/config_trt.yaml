@@ -39,9 +39,10 @@ control:
   control_filter:
     poly_order: 2
     future_window: 5
-    base_alpha: 0.2
-    base_k_ff: 0.5
-    jump_threshold: 3
+    base_alpha: 0.5
+    base_k_ff: 0.7
+    jump_threshold: 1
+    use: false
 
 tf:
   gimbal2camera_pitch: 0
