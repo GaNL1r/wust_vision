@@ -48,7 +48,8 @@ public:
         int top_k = 128,
         float nms_threshold = 0.3,
         bool use_gpu = false,
-        int cpu_threads = 1
+        int cpu_threads = 1,
+        bool use_lightmode = true
     );
     ~RuneDetectorNCNN();
 
@@ -96,4 +97,5 @@ private:
 
     int cpu_threads;
     bool use_gpu;
+    bool use_lightmode = true;
 };

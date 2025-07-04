@@ -3,7 +3,7 @@ common:
   init_attack_mode: 0
   max_infer_running: 7
   only_nav_enable: false
-  use_armor_detect_opencv: true
+  use_armor_detect_opencv: false
   use_auto_labeler: false
   use_calculation: false
   max_detect_armors: 10
@@ -86,6 +86,7 @@ armor_detect:
     model_path_param: /home/hy/wust_vision/model/opt-1208-001.param
     model_path_bin: /home/hy/wust_vision/model/opt-1208-001.bin
     use_gpu: true
+    use_lightmode: true
     cpu_threads: 1
     nms_threshold: 0.3
     top_k: 128
@@ -177,6 +178,7 @@ rune_detector:
   model_path_param: /home/hy/wust_vision/model/yolox_rune_3.6m_ncnn.param
   model_path_bin: /home/hy/wust_vision/model/yolox_rune_3.6m_ncnn.bin
   use_gpu: true
+  use_lightmode: true
   cpu_threads: 1
   nms_threshold: 0.3
   top_k: 128

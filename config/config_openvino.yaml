@@ -1,6 +1,6 @@
 common:
-  detect_color: 1
-  init_attack_mode: 1
+  detect_color: 0
+  init_attack_mode: 0
   max_infer_running: 7
   only_nav_enable: false
   use_armor_detect_ncnn: false
@@ -43,6 +43,7 @@ control:
     base_k_ff: 0.7
     jump_threshold: 1
     use: true
+
 
 tf:
   gimbal2camera_pitch: 0
@@ -89,6 +90,9 @@ armor_detect:
     model_path: /home/hy/wust_vision/model/opt-1208-001.onnx
     nms_threshold: 0.3
     top_k: 128
+    use_fp16: true
+    use_throughputmode: false
+
 
 armor_solver:
   bullet_speed: 25
@@ -178,6 +182,8 @@ rune_detector:
   model: /home/hy/wust_vision/model/yolox_rune_3.6m.onnx
   nms_threshold: 0.3
   top_k: 128
+  use_fp16: true
+  use_throughputmode: false
 
 rune_solver:
   auto_type_determined: true

@@ -74,14 +74,14 @@ static cv::Mat letterbox(
     int right = static_cast<int>(round(half_w + 0.1));
 
     /* clang-format off */
-  /* *INDENT-OFF* */
+    /* *INDENT-OFF* */
 
-  // Compute point transform_matrix
-  transform_matrix << 1.0 / scale, 0, -half_w / scale,
-                      0, 1.0 / scale, -half_h / scale,
-                      0, 0, 1;
+    // Compute point transform_matrix
+    transform_matrix << 1.0 / scale, 0, -half_w / scale,
+                        0, 1.0 / scale, -half_h / scale,
+                        0, 0, 1;
 
-  /* *INDENT-ON* */
+    /* *INDENT-ON* */
     /* clang-format on */
 
     // Add border
@@ -172,11 +172,11 @@ static void generateProposals(
         Eigen::Matrix<float, 3, 5> apex_dst;
 
         /* clang-format off */
-    /* *INDENT-OFF* */
-    apex_norm << x_1, x_2, x_3, x_4, x_5,
-                y_1, y_2, y_3, y_4, y_5,
-                1,   1,   1,   1,   1;
-    /* *INDENT-ON* */
+        /* *INDENT-OFF* */
+        apex_norm << x_1, x_2, x_3, x_4, x_5,
+                    y_1, y_2, y_3, y_4, y_5,
+                    1,   1,   1,   1,   1;
+        /* *INDENT-ON* */
         /* clang-format on */
 
         apex_dst = transform_matrix * apex_norm;
@@ -256,13 +256,17 @@ RuneDetectorOpenvino::RuneDetectorOpenvino(
     const std::string& device_name,
     float conf_threshold,
     int top_k,
-    float nms_threshold
+    float nms_threshold,
+    bool use_fp16_,
+    bool use_throughputmode_
 ):
     model_path_(model_path),
     device_name_(device_name),
     conf_threshold_(conf_threshold),
     top_k_(top_k),
-    nms_threshold_(nms_threshold) {
+    nms_threshold_(nms_threshold),
+    use_fp16_(use_fp16_),
+    use_throughputmode_(use_throughputmode_) {
     init();
 }
 
@@ -276,8 +280,8 @@ void RuneDetectorOpenvino::init() {
     // Set infer type
     ov::preprocess::PrePostProcessor ppp(model);
     // Set input output precision
-    auto elem_type = device_name_ == "GPU" ? ov::element::f16 : ov::element::f32;
-    auto perf_mode = device_name_ == "GPU"
+    auto elem_type = use_fp16_ ? ov::element::f16 : ov::element::f32;
+    auto perf_mode = use_throughputmode_
         ? ov::hint::performance_mode(ov::hint::PerformanceMode::THROUGHPUT)
         : ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY);
     ppp.input().tensor().set_element_type(elem_type);

@@ -19,7 +19,7 @@ RuneDetectorNCNNWrapper::RuneDetectorNCNNWrapper(const YAML::Node& config) {
     const std::string model_path_bin = config["rune_detector"]["model_path_bin"].as<std::string>();
     bool use_gpu = config["rune_detector"]["use_gpu"].as<bool>();
     int cpu_threads = config["rune_detector"]["cpu_threads"].as<int>();
-
+    bool use_lightmode = config["armor_detect"]["model"]["use_lightmode"].as<bool>();
     float conf_threshold = config["rune_detector"]["confidence_threshold"].as<float>(0.50);
     int top_k = config["rune_detector"]["top_k"].as<int>(128);
     float nms_threshold = config["rune_detector"]["nms_threshold"].as<float>(0.3);

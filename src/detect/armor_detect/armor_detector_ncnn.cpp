@@ -227,7 +227,8 @@ ArmorDetectNCNN::ArmorDetectNCNN(
     float expand_ratio_h,
     int binary_thres_,
     bool use_gpu,
-    int cpu_threads
+    int cpu_threads,
+    bool use_lightmode
 ):
     light_params_(l),
     armor_params_(a),
@@ -243,7 +244,8 @@ ArmorDetectNCNN::ArmorDetectNCNN(
     expand_ratio_w_(expand_ratio_w),
     expand_ratio_h_(expand_ratio_h),
     use_gpu(use_gpu),
-    cpu_threads(cpu_threads) {
+    cpu_threads(cpu_threads),
+    use_lightmode(use_lightmode) {
     initNumberClassifier();
     init();
 }
@@ -305,8 +307,10 @@ void ArmorDetectNCNN::init() {
         opt_.use_vulkan_compute = false;
         WUST_INFO("armor_ncnn") << "ncnn: use cpu";
     }
+    if (use_lightmode) {
+        opt_.lightmode = true;
+    }
 
-    omp_set_num_threads(cpu_threads);
     opt_.num_threads = cpu_threads;
     net_.opt = opt_;
 

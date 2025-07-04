@@ -253,7 +253,8 @@ RuneDetectorNCNN::RuneDetectorNCNN(
     int top_k,
     float nms_threshold,
     bool use_gpu,
-    int cpu_threads
+    int cpu_threads,
+    bool use_lightmode
 ):
     model_path_param_(model_path_param),
     model_path_bin_(model_path_bin),
@@ -261,7 +262,8 @@ RuneDetectorNCNN::RuneDetectorNCNN(
     top_k_(top_k),
     nms_threshold_(nms_threshold),
     use_gpu(use_gpu),
-    cpu_threads(cpu_threads) {
+    cpu_threads(cpu_threads),
+    use_lightmode(use_lightmode) {
     init();
 }
 RuneDetectorNCNN::~RuneDetectorNCNN() {
@@ -283,8 +285,10 @@ void RuneDetectorNCNN::init() {
         opt_.use_vulkan_compute = false;
         WUST_INFO("rune_ncnn") << "ncnn: use cpu";
     }
+    if (use_lightmode) {
+        opt_.lightmode = true;
+    }
 
-    omp_set_num_threads(cpu_threads);
     opt_.num_threads = cpu_threads;
     net_.opt = opt_;
     WUST_INFO("rune_ncnn") << "ncnn: using " << cpu_threads << " threads";

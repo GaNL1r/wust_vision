@@ -46,7 +46,8 @@ public:
         float expand_ratio_h = 1.1f,
         int binary_thres_ = 85,
         bool use_gpu = false,
-        int cpu_threads = 1
+        int cpu_threads = 1,
+        bool use_lightmode = true
     );
     ~ArmorDetectNCNN();
     void init();
@@ -103,4 +104,5 @@ private:
     float expand_ratio_w_;
     float expand_ratio_h_;
     int cpu_threads;
+    bool use_lightmode = true;
 };

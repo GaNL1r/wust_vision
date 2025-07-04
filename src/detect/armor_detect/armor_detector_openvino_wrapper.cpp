@@ -21,6 +21,8 @@ ArmorDetectorOpenvinoWrapper::ArmorDetectorOpenvinoWrapper(const YAML::Node& con
     float conf_threshold = config["armor_detect"]["model"]["conf_threshold"].as<float>();
     int top_k = config["armor_detect"]["model"]["top_k"].as<int>();
     float nms_threshold = config["armor_detect"]["model"]["nms_threshold"].as<float>();
+    bool use_fp16 = config["armor_detect"]["model"]["use_fp16"].as<bool>();
+    bool use_throughputmode = config["armor_detect"]["model"]["use_throughputmode"].as<bool>();
     float expand_ratio_w = config["armor_detect"]["light"]["expand_ratio_w"].as<float>();
     float expand_ratio_h = config["armor_detect"]["light"]["expand_ratio_h"].as<float>();
     int binary_thres = config["armor_detect"]["light"]["binary_thres"].as<int>();
@@ -54,7 +56,9 @@ ArmorDetectorOpenvinoWrapper::ArmorDetectorOpenvinoWrapper(const YAML::Node& con
         nms_threshold,
         expand_ratio_w,
         expand_ratio_h,
-        binary_thres
+        binary_thres,
+        use_fp16,
+        use_throughputmode
     );
 }
 

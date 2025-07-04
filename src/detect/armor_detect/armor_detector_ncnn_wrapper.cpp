@@ -22,6 +22,7 @@ ArmorDetectorNCNNWrapper::ArmorDetectorNCNNWrapper(const YAML::Node& config) {
         config["armor_detect"]["model"]["model_path_bin"].as<std::string>();
     bool use_gpu = config["armor_detect"]["model"]["use_gpu"].as<bool>();
     int cpu_threads = config["armor_detect"]["model"]["cpu_threads"].as<int>();
+    bool use_lightmode = config["armor_detect"]["model"]["use_lightmode"].as<bool>();
     float conf_threshold = config["armor_detect"]["model"]["conf_threshold"].as<float>();
     int top_k = config["armor_detect"]["model"]["top_k"].as<int>();
     float nms_threshold = config["armor_detect"]["model"]["nms_threshold"].as<float>();
@@ -61,7 +62,8 @@ ArmorDetectorNCNNWrapper::ArmorDetectorNCNNWrapper(const YAML::Node& config) {
         expand_ratio_h,
         binary_thres,
         use_gpu,
-        cpu_threads
+        cpu_threads,
+        use_lightmode
     );
 }
 

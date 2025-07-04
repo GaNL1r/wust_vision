@@ -46,7 +46,9 @@ public:
         float nms_threshold = 0.3,
         float expand_ratio_w = 1.1f,
         float expand_ratio_h = 1.1f,
-        int binary_thres_ = 85
+        int binary_thres_ = 85,
+        bool use_fp16_ = true,
+        bool use_throughputmode_ = false
     );
 
     ~ArmorDetectOpenVino();
@@ -101,6 +103,8 @@ public:
     std::vector<std::string> class_names_;
     float number_threshold_;
     int binary_thres_;
+    bool use_fp16_ = true;
+    bool use_throughputmode_ = false;
 
     float expand_ratio_w_;
     float expand_ratio_h_;

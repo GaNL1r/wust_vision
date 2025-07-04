@@ -1,6 +1,6 @@
 common:
-  detect_color: 1
-  init_attack_mode: 1
+  detect_color: 0
+  init_attack_mode: 0
   max_infer_running: 7
   only_nav_enable: false
   use_armor_detect_ncnn: false
@@ -42,7 +42,7 @@ control:
     base_alpha: 0.5
     base_k_ff: 0.7
     jump_threshold: 1
-    use: false
+    use: true
 
 tf:
   gimbal2camera_pitch: 0

@@ -143,11 +143,11 @@ static void generate_proposals(
         Eigen::Matrix<float, 3, 4> apex_dst;
 
         /* clang-format off */
-      /* *INDENT-OFF* */
-      apex_norm << x_1, x_2, x_3, x_4,
-                  y_1, y_2, y_3, y_4,
-                  1,   1,   1,   1;
-      /* *INDENT-ON* */
+        /* *INDENT-OFF* */
+        apex_norm << x_1, x_2, x_3, x_4,
+                    y_1, y_2, y_3, y_4,
+                    1,   1,   1,   1;
+        /* *INDENT-ON* */
         /* clang-format on */
 
         apex_dst = transform_matrix * apex_norm;
@@ -240,7 +240,9 @@ ArmorDetectOpenVino::ArmorDetectOpenVino(
     float nms_threshold,
     float expand_ratio_w,
     float expand_ratio_h,
-    int binary_thres_
+    int binary_thres_,
+    bool use_fp16_,
+    bool use_throughputmode
 ):
     light_params_(l),
     armor_params_(a),
@@ -254,7 +256,9 @@ ArmorDetectOpenVino::ArmorDetectOpenVino(
     number_threshold_(0.2),
     binary_thres_(binary_thres_),
     expand_ratio_w_(expand_ratio_w),
-    expand_ratio_h_(expand_ratio_h) {
+    expand_ratio_h_(expand_ratio_h),
+    use_fp16_(use_fp16_),
+    use_throughputmode_(use_throughputmode) {
     // 初始化数字识别模型和标签
     initNumberClassifier();
 
@@ -308,15 +312,17 @@ void ArmorDetectOpenVino::init() {
     // Set infer type
     ov::preprocess::PrePostProcessor ppp(model);
     // Set input output precision
-    ppp.input().tensor().set_element_type(ov::element::f32);
-    ppp.output().tensor().set_element_type(ov::element::f32);
+    auto elem_type = use_fp16_ ? ov::element::f16 : ov::element::f32;
+    auto perf_mode = use_throughputmode_
+        ? ov::hint::performance_mode(ov::hint::PerformanceMode::THROUGHPUT)
+        : ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY);
+    ppp.input().tensor().set_element_type(elem_type);
+    ppp.output().tensor().set_element_type(elem_type);
 
     // Compile model
-    compiled_model_ = std::make_unique<ov::CompiledModel>(ov_core_->compile_model(
-        model,
-        device_name_,
-        ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY)
-    ));
+    compiled_model_ =
+        std::make_unique<ov::CompiledModel>(ov_core_->compile_model(model, device_name_, perf_mode)
+        );
 
     strides_ = { 8, 16, 32 };
     grid_strides_.clear();

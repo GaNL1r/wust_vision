@@ -50,7 +50,9 @@ public:
         const std::string& device_name,
         float conf_threshold = 0.25,
         int top_k = 128,
-        float nms_threshold = 0.3
+        float nms_threshold = 0.3,
+        bool use_fp16_ = true,
+        bool use_throughputmode_ = false
     );
 
     void init();
@@ -94,4 +96,6 @@ private:
 
     std::unique_ptr<ov::Core> ov_core_;
     std::unique_ptr<ov::CompiledModel> compiled_model_;
+    bool use_fp16_ = true;
+    bool use_throughputmode_ = false;
 };
