@@ -75,10 +75,10 @@ set(COMMON_SOURCES
   src/detect/pnp_solver.cpp
   src/driver/crc8_crc16.cpp
   src/driver/hik.cpp
-  src/driver/labeler.cpp
-  src/driver/recorder.cpp
+  src/driver/tools/labeler.cpp
+  src/driver/tools/recorder.cpp
   src/driver/serial.cpp
-  src/driver/video_player.cpp
+  src/driver/tools/video_player.cpp
   src/tracker/math/curve_fitter.cpp
   src/tracker/math/extended_kalman_filter.cpp
   src/tracker/math/error_state_extended_kalman_filter.cpp
