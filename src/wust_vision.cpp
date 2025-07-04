@@ -111,6 +111,7 @@ void WustVision::init() {
         toolsgobal::debug_w = gobal::config["debug"]["debug_w"].as<int>(640);
         toolsgobal::debug_h = gobal::config["debug"]["debug_h"].as<int>(480);
         debug_show_dt_ = gobal::config["debug"]["debug_show_dt"].as<double>(0.05);
+        toolsgobal::debug_fps = gobal::config["debug"]["debug_fps"].as<double>(30);
         gobal::use_calculation_ = gobal::config["common"]["use_calculation"].as<bool>();
 
         use_video = gobal::config["camera"]["video_player"]["use"].as<bool>(false);

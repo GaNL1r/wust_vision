@@ -20,5 +20,5 @@ std::vector<double> rune_pre_log_;
 double latency_ms;
 int debug_w;
 int debug_h;
-
+double debug_fps;
 } // namespace toolsgobal

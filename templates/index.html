@@ -1,611 +1,735 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh">
-<head>
-  <meta charset="UTF-8" />
-  <title>崇实战队自瞄系统网页调试器</title>
-  <link rel="icon" href="/static/logo.JPG" type="image/png" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f0f0f0;
-      margin: 0;
-      padding-bottom: 50px;
-    }
-    h1, p {
-      margin: 0;
-    }
-    #header {
-      display: flex;
-      align-items: center;
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      right: 10px;
-      z-index: 100;
-      background: #fff;
-      padding: 10px 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    #header img {
-      width: 100px;
-      margin-right: 20px;
-    }
-    #header div {
-      flex-grow: 1;
-      text-align: left;
-    }
-    #header p {
-      color: #555;
-      font-size: 14px;
-    }
-    #tab-buttons {
-      margin: 130px 0 10px 0;
-      text-align: center;
-      user-select: none;
-    }
-    #tab-buttons button {
-      margin: 0 8px;
-      padding: 8px 16px;
-      font-size: 16px;
-      cursor: pointer;
-      border-radius: 6px;
-      border: 1px solid #666;
-      background-color: #fff;
-      transition: background-color 0.3s ease;
-    }
-    #tab-buttons button:hover {
-      background-color: #e0e0e0;
-    }
-    #video-tab {
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      gap: 20px;
-      padding: 0 10px 40px 10px;
-      max-width: 1400px;
-      margin: 0 auto;
-      box-sizing: border-box;
-      min-height: 600px;
-    }
-    #left-panel {
-      flex: 1 1 820px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    .video-container {
-      background-color: #fff;
-      padding: 10px;
-      border: 3px solid #333;
-      border-radius: 10px;
-      margin-bottom: 20px;
-      width: 640px;
-      box-sizing: border-box;
-    }
-    .chart-controls {
-      background-color: #fff;
-      border: 3px solid #333;
-      padding: 12px;
-      border-radius: 10px;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      width: 640px;
-      box-sizing: border-box;
-      margin-bottom: 20px;
-    }
-    .chart-select-controls {
-      flex: 1 1 280px;
-      max-width: 280px;
-      text-align: left;
-      margin-right: 20px;
-      overflow-y: auto;
-      max-height: 280px;
-      padding-right: 10px;
-    }
-    .chart-select-controls label {
-      display: block;
-      margin-bottom: 6px;
-      cursor: pointer;
-      user-select: none;
-    }
-    fieldset {
-      flex: 1 1 320px;
-      border: 1px solid #999;
-      padding: 10px;
-      box-sizing: border-box;
-      max-height: 280px;
-      overflow-y: auto;
-      text-align: left;
-      border-radius: 6px;
-    }
-    fieldset legend {
-      font-weight: bold;
-      padding: 0 6px;
-    }
-    #mainChart {
-      background: #fff;
-      border: 3px solid #333;
-      border-radius: 10px;
-      padding: 10px;
-      width: 640px !important;
-      height: 300px !important;
-      box-sizing: border-box;
-      margin-bottom: 20px;
-    }
-    #individualCharts {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: flex-start;
-      gap: 20px;
-      width: 640px;
-      box-sizing: border-box;
-      max-height: 700px;
-      overflow-y: auto;
-    }
-    .chart-box {
-      border: 2px solid #444;
-      background: #fff;
-      padding: 10px;
-      border-radius: 10px;
-      width: 500px;
-      box-sizing: border-box;
-      user-select: none;
-    }
-    .chart-box h4 {
-      margin: 5px 0 12px 0;
-      font-size: 16px;
-    }
-    .range-controls {
-      display: flex;
-      align-items: center;
-      margin-bottom: 8px;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .range-controls input[type="number"] {
-      width: 60px;
-      padding: 2px 4px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-    .range-controls button {
-      padding: 4px 8px;
-      font-size: 14px;
-      cursor: pointer;
-      border-radius: 4px;
-      border: 1px solid #666;
-      background: #eee;
-    }
-    #json-column {
-      width: 600px;
-      max-height: 920px;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-      box-sizing: border-box;
-      overflow-y: auto;
-    }
-    .json-container {
-      background-color: #fff;
-      border: 3px solid #333;
-      padding: 15px;
-      flex: 1;
-      text-align: left;
-      border-radius: 6px;
-      font-size: 14px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      overflow-y: auto;
-      max-height: 450px;
-      user-select: text;
-    }
-    .json-container h3 {
-      margin-top: 0;
-      user-select: none;
-    }
-    #json-aim {
-      color: #b22222;
-      background-color: #fff5f5;
-      border: 1px solid #f4cccc;
-      padding: 12px;
-      border-radius: 4px;
-      font-family: monospace;
-      white-space: pre-wrap;
-      min-height: 400px;
-    }
-    #json-target {
-      color: #2e8b57;
-      background-color: #f5fff5;
-      border: 1px solid #c6ecc6;
-      padding: 12px;
-      border-radius: 4px;
-      font-family: monospace;
-      white-space: pre-wrap;
-      min-height: 400px;
-    }
-    .json-updating {
-      opacity: 0.7;
-      transition: opacity 0.3s ease;
-    }
-    .json-tree {
-      list-style-type: none;
-      padding-left: 10px;
-      font-family: monospace;
-      font-size: 13px;
-    }
-    .json-tree details {
-      margin: 5px 0;
-    }
-    .json-tree summary {
-      cursor: pointer;
-      font-weight: bold;
-      outline: none;
-      user-select: none;
-    }
-    .json-tree ul {
-      margin-left: 20px;
-      padding-left: 15px;
-      border-left: 1px dashed #ccc;
-    }
-    #config-form fieldset {
-      display: block;
-      width: 100%;
-      box-sizing: border-box;
-      margin-bottom: 20px;
-      border-radius: 8px;
-      border: 1px solid #999;
-      padding: 12px 20px;
-    }
-    #config-form label {
-      display: inline-block;
-      width: 220px;
-      font-weight: bold;
-      margin-bottom: 8px;
-      user-select: text;
-    }
-    #config-form input {
-      width: 240px;
-      margin-bottom: 14px;
-      font-family: monospace;
-      font-size: 14px;
-      padding: 6px 8px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      box-sizing: border-box;
-    }
-    #config-tab button {
-      display: block;
-      margin: 16px auto 0;
-      padding: 10px 20px;
-      font-size: 18px;
-      cursor: pointer;
-      border-radius: 8px;
-      border: none;
-      background-color: #337ab7;
-      color: #fff;
-      user-select: none;
-      transition: background-color 0.3s ease;
-    }
-    #config-tab button:hover {
-      background-color: #286090;
-    }
-  </style>
-</head>
-<body>
-
-<div id="header">
-  <img src="/static/logo.JPG" alt="logo" />
-  <div>
-    <h1>崇实战队自瞄系统网页调试器</h1>
-    <p>访问地址：{{ server_url }}</p>
-  </div>
-</div>
-
-<div id="tab-buttons">
-  <button onclick="showTab('video')">视频调试</button>
-</div>
-
-<div id="video-tab">
-  <div id="left-panel">
-    <div class="video-container">
-      <img src="{{ url_for('video_feed') }}" width="640" alt="视频流" />
-    </div>
-
-    <div class="chart-controls">
-      <div class="chart-select-controls">
-        <label><input type="checkbox" id="multiLineChart" checked onchange="updateCharts()" /> 显示总图（多曲线）</label>
-        <label><input type="checkbox" data-key="yaw" onchange="updateCharts()" /> Yaw</label>
-        <label><input type="checkbox" data-key="pitch" onchange="updateCharts()" /> Pitch</label>
-        <label><input type="checkbox" data-key="armor_dis" onchange="updateCharts()" /> Armor Distance</label>
-        <label><input type="checkbox" data-key="armor_x" onchange="updateCharts()" /> Armor X</label>
-        <label><input type="checkbox" data-key="armor_y" onchange="updateCharts()" /> Armor Y</label>
-        <label><input type="checkbox" data-key="armor_z" onchange="updateCharts()" /> Armor Z</label>
-        <label><input type="checkbox" data-key="armor_yaw" onchange="updateCharts()" /> Armor Yaw</label>
-        <label><input type="checkbox" data-key="ypd_p" onchange="updateCharts()" /> Ypd Pitch</label>
-        <label><input type="checkbox" data-key="ypd_y" onchange="updateCharts()" /> Ypd Yaw</label>
-        <label><input type="checkbox" data-key="rune_obs" onchange="updateCharts()" /> Rune Obs</label>
-        <label><input type="checkbox" data-key="rune_pre" onchange="updateCharts()" /> Rune Pre</label>
-      </div>
-      <fieldset>
-        <legend>主图范围设置</legend>
-        <label>启用固定范围:<input type="checkbox" id="enableFixedRange" onchange="updateMainRange()" /></label><br />
-        <label>最小 (min):<input type="number" id="mainMin" value="0.0" step="0.1" /></label><br />
-        <label>最大 (max):<input type="number" id="mainMax" value="1.0" step="0.1" /></label><br />
-        <label>最大点数:<input type="number" id="mainMaxPts" value="100" min="10" max="1000" step="1" /></label><br />
-        <button type="button" onclick="updateMainRange()">应用主图范围</button>
-      </fieldset>
-    </div>
-
-    <canvas id="mainChart" width="640" height="300"></canvas>
-    <div id="individualCharts"></div>
-  </div>
-
-  <div id="json-column">
-    <div class="json-container" id="json-aim-container">
-      <h3>Aim_info</h3>
-      <div id="json-aim"></div>
-    </div>
-    <div class="json-container" id="json-target-container">
-      <h3>Target_info</h3>
-      <div id="json-target"></div>
-    </div>
-  </div>
-</div>
-
-<div id="config-tab" style="display:none;">
-  <form id="config-form"></form>
-  <button type="button" onclick="submitConfig()">保存参数</button>
-</div>
-
-<script>
-  const chartMap = {
-    yaw: { label: "Yaw" },
-    pitch: { label: "Pitch" },
-    armor_dis: { label: "Armor Distance" },
-    armor_x: { label: "Armor X" },
-    armor_y: { label: "Armor Y" },
-    armor_z: { label: "Armor Z" },
-    armor_yaw: { label: "Armor Yaw" },
-    ypd_p: { label: "Ypd Pitch" },
-    ypd_y: { label: "Ypd Yaw" },
-    rune_obs: { label: "Rune Obs" },
-    rune_pre: { label: "Rune Pre" },
-  };
-
-  const mainCtx = document.getElementById("mainChart").getContext("2d");
-  let individualCharts = {};
-  let individualRanges = {}; // 存储每个子图的范围设置
-
-  const mainChart = new Chart(mainCtx, {
-    type: "line",
-    data: { labels: [], datasets: [] },
-    options: {
-      animation: false,
-      responsive: false,
-      scales: {
-        x: { title: { display: true, text: "Time" } },
-        y: { title: { display: true, text: "Value" } }
+  <head>
+    <meta charset="UTF-8" />
+    <title>崇实战队自瞄系统网页调试器</title>
+    <link rel="icon" href="/static/logo.JPG" type="image/png" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f0f0f0;
+        margin: 0;
+        padding-bottom: 50px;
       }
-    }
-  });
+      h1,
+      p {
+        margin: 0;
+      }
+      #header {
+        display: flex;
+        align-items: center;
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        right: 10px;
+        z-index: 100;
+        background: #fff;
+        padding: 10px 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+      #header img {
+        width: 100px;
+        margin-right: 20px;
+      }
+      #header div {
+        flex-grow: 1;
+        text-align: left;
+      }
+      #header p {
+        color: #555;
+        font-size: 14px;
+      }
+      #tab-buttons {
+        margin: 130px 0 10px 0;
+        text-align: center;
+        user-select: none;
+      }
+      #tab-buttons button {
+        margin: 0 8px;
+        padding: 8px 16px;
+        font-size: 16px;
+        cursor: pointer;
+        border-radius: 6px;
+        border: 1px solid #666;
+        background-color: #fff;
+        transition: background-color 0.3s ease;
+      }
+      #tab-buttons button:hover {
+        background-color: #e0e0e0;
+      }
+      #video-tab {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 20px;
+        padding: 0 10px 40px 10px;
+        max-width: 1400px;
+        margin: 0 auto;
+        box-sizing: border-box;
+        min-height: 600px;
+      }
+      #left-panel {
+        flex: 1 1 820px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .video-container {
+        background-color: #fff;
+        padding: 10px;
+        border: 3px solid #333;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        width: 640px;
+        box-sizing: border-box;
+      }
+      .chart-controls {
+        background-color: #fff;
+        border: 3px solid #333;
+        padding: 12px;
+        border-radius: 10px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        width: 640px;
+        box-sizing: border-box;
+        margin-bottom: 20px;
+      }
+      .chart-select-controls {
+        flex: 1 1 280px;
+        max-width: 280px;
+        text-align: left;
+        margin-right: 20px;
+        overflow-y: auto;
+        max-height: 280px;
+        padding-right: 10px;
+      }
+      .chart-select-controls label {
+        display: block;
+        margin-bottom: 6px;
+        cursor: pointer;
+        user-select: none;
+      }
+      fieldset {
+        flex: 1 1 320px;
+        border: 1px solid #999;
+        padding: 10px;
+        box-sizing: border-box;
+        max-height: 280px;
+        overflow-y: auto;
+        text-align: left;
+        border-radius: 6px;
+      }
+      fieldset legend {
+        font-weight: bold;
+        padding: 0 6px;
+      }
+      #mainChart {
+        background: #fff;
+        border: 3px solid #333;
+        border-radius: 10px;
+        padding: 10px;
+        width: 640px !important;
+        height: 300px !important;
+        box-sizing: border-box;
+        margin-bottom: 20px;
+      }
+      #individualCharts {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        gap: 20px;
+        width: 640px;
+        box-sizing: border-box;
+        max-height: 700px;
+        overflow-y: auto;
+      }
+      .chart-box {
+        border: 2px solid #444;
+        background: #fff;
+        padding: 10px;
+        border-radius: 10px;
+        width: 500px;
+        box-sizing: border-box;
+        user-select: none;
+      }
+      .chart-box h4 {
+        margin: 5px 0 12px 0;
+        font-size: 16px;
+      }
+      .range-controls {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .range-controls input[type="number"] {
+        width: 60px;
+        padding: 2px 4px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      .range-controls button {
+        padding: 4px 8px;
+        font-size: 14px;
+        cursor: pointer;
+        border-radius: 4px;
+        border: 1px solid #666;
+        background: #eee;
+      }
+      #json-column {
+        width: 600px;
+        max-height: 920px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        box-sizing: border-box;
+        overflow-y: auto;
+      }
+      .json-container {
+        background-color: #fff;
+        border: 3px solid #333;
+        padding: 15px;
+        flex: 1;
+        text-align: left;
+        border-radius: 6px;
+        font-size: 14px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        overflow-y: auto;
+        max-height: 450px;
+        user-select: text;
+      }
+      .json-container h3 {
+        margin-top: 0;
+        user-select: none;
+      }
+      #json-aim {
+        color: #b22222;
+        background-color: #fff5f5;
+        border: 1px solid #f4cccc;
+        padding: 12px;
+        border-radius: 4px;
+        font-family: monospace;
+        white-space: pre-wrap;
+        min-height: 400px;
+      }
+      #json-target {
+        color: #2e8b57;
+        background-color: #f5fff5;
+        border: 1px solid #c6ecc6;
+        padding: 12px;
+        border-radius: 4px;
+        font-family: monospace;
+        white-space: pre-wrap;
+        min-height: 400px;
+      }
+      .json-updating {
+        opacity: 0.7;
+        transition: opacity 0.3s ease;
+      }
+      .json-tree {
+        list-style-type: none;
+        padding-left: 10px;
+        font-family: monospace;
+        font-size: 13px;
+      }
+      .json-tree details {
+        margin: 5px 0;
+      }
+      .json-tree summary {
+        cursor: pointer;
+        font-weight: bold;
+        outline: none;
+        user-select: none;
+      }
+      .json-tree ul {
+        margin-left: 20px;
+        padding-left: 15px;
+        border-left: 1px dashed #ccc;
+      }
+      #config-form fieldset {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        margin-bottom: 20px;
+        border-radius: 8px;
+        border: 1px solid #999;
+        padding: 12px 20px;
+      }
+      #config-form label {
+        display: inline-block;
+        width: 220px;
+        font-weight: bold;
+        margin-bottom: 8px;
+        user-select: text;
+      }
+      #config-form input {
+        width: 240px;
+        margin-bottom: 14px;
+        font-family: monospace;
+        font-size: 14px;
+        padding: 6px 8px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        box-sizing: border-box;
+      }
+      #config-tab button {
+        display: block;
+        margin: 16px auto 0;
+        padding: 10px 20px;
+        font-size: 18px;
+        cursor: pointer;
+        border-radius: 8px;
+        border: none;
+        background-color: #337ab7;
+        color: #fff;
+        user-select: none;
+        transition: background-color 0.3s ease;
+      }
+      #config-tab button:hover {
+        background-color: #286090;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="header">
+      <img src="/static/logo.JPG" alt="logo" />
+      <div>
+        <h1>崇实战队自瞄系统网页调试器</h1>
+        <p>访问地址：{{ server_url }}</p>
+      </div>
+    </div>
 
-  function updateMainRange() {
-    const enable = document.getElementById("enableFixedRange").checked;
-    const min = parseFloat(document.getElementById("mainMin").value);
-    const max = parseFloat(document.getElementById("mainMax").value);
-    const maxPts = parseInt(document.getElementById("mainMaxPts").value) || 100;
-    mainChart._maxPoints = maxPts;
-    if (enable) {
-      mainChart.options.scales.y.min = min;
-      mainChart.options.scales.y.max = max;
-    } else {
-      mainChart.options.scales.y.min = undefined;
-      mainChart.options.scales.y.max = undefined;
-    }
-    mainChart.update("none");
-  }
+    <div id="tab-buttons">
+      <button onclick="showTab('video')">视频调试</button>
+    </div>
 
-  function updateCharts() {
-    const showMulti = document.getElementById("multiLineChart").checked;
-    const selected = Array.from(
-      document.querySelectorAll('.chart-select-controls input[type="checkbox"]:checked')
-    )
-      .map(cb => cb.dataset.key)
-      .filter(Boolean);
+    <div id="video-tab">
+      <div id="left-panel">
+        <div class="video-container">
+          <img src="{{ url_for('video_feed') }}" width="640" alt="视频流" />
+        </div>
 
-    // 清空容器
-    const container = document.getElementById("individualCharts");
-    container.innerHTML = "";
-    individualCharts = {};
-    individualRanges = {};
+        <div class="chart-controls">
+          <div class="chart-select-controls">
+            <label
+              ><input
+                type="checkbox"
+                id="multiLineChart"
+                checked
+                onchange="updateCharts()"
+              />
+              显示总图（多曲线）</label
+            >
+            <label
+              ><input
+                type="checkbox"
+                data-key="yaw"
+                onchange="updateCharts()"
+              />
+              Yaw</label
+            >
+            <label
+              ><input
+                type="checkbox"
+                data-key="pitch"
+                onchange="updateCharts()"
+              />
+              Pitch</label
+            >
+            <label
+              ><input
+                type="checkbox"
+                data-key="armor_dis"
+                onchange="updateCharts()"
+              />
+              Armor Distance</label
+            >
+            <label
+              ><input
+                type="checkbox"
+                data-key="armor_x"
+                onchange="updateCharts()"
+              />
+              Armor X</label
+            >
+            <label
+              ><input
+                type="checkbox"
+                data-key="armor_y"
+                onchange="updateCharts()"
+              />
+              Armor Y</label
+            >
+            <label
+              ><input
+                type="checkbox"
+                data-key="armor_z"
+                onchange="updateCharts()"
+              />
+              Armor Z</label
+            >
+            <label
+              ><input
+                type="checkbox"
+                data-key="armor_yaw"
+                onchange="updateCharts()"
+              />
+              Armor Yaw</label
+            >
+            <label
+              ><input
+                type="checkbox"
+                data-key="ypd_p"
+                onchange="updateCharts()"
+              />
+              Ypd Pitch</label
+            >
+            <label
+              ><input
+                type="checkbox"
+                data-key="ypd_y"
+                onchange="updateCharts()"
+              />
+              Ypd Yaw</label
+            >
+            <label
+              ><input
+                type="checkbox"
+                data-key="rune_obs"
+                onchange="updateCharts()"
+              />
+              Rune Obs</label
+            >
+            <label
+              ><input
+                type="checkbox"
+                data-key="rune_pre"
+                onchange="updateCharts()"
+              />
+              Rune Pre</label
+            >
+          </div>
+          <fieldset>
+            <legend>主图范围设置</legend>
+            <label
+              >启用固定范围:<input
+                type="checkbox"
+                id="enableFixedRange"
+                onchange="updateMainRange()" /></label
+            ><br />
+            <label
+              >最小 (min):<input
+                type="number"
+                id="mainMin"
+                value="0.0"
+                step="0.1" /></label
+            ><br />
+            <label
+              >最大 (max):<input
+                type="number"
+                id="mainMax"
+                value="1.0"
+                step="0.1" /></label
+            ><br />
+            <label
+              >最大点数:<input
+                type="number"
+                id="mainMaxPts"
+                value="100"
+                min="10"
+                max="1000"
+                step="1" /></label
+            ><br />
+            <button type="button" onclick="updateMainRange()">
+              应用主图范围
+            </button>
+          </fieldset>
+        </div>
 
-    // 更新主图数据集
-    if (showMulti) {
-      mainChart.data.datasets = selected.map(key => ({
-        label: chartMap[key]?.label || key,
-        data: [],
-        fill: false,
-        tension: 0.2
-      }));
-    } else {
-      mainChart.data.datasets = [];
-    }
-    mainChart.update();
+        <canvas id="mainChart" width="640" height="300"></canvas>
+        <div id="individualCharts"></div>
+      </div>
 
-    // 为每个选中项创建子图与独立范围控件
-    selected.forEach(key => {
-      const box = document.createElement("div");
-      box.className = "chart-box";
+      <div id="json-column">
+        <div class="json-container" id="json-aim-container">
+          <h3>Aim_info</h3>
+          <div id="json-aim"></div>
+        </div>
+        <div class="json-container" id="json-target-container">
+          <h3>Target_info</h3>
+          <div id="json-target"></div>
+        </div>
+      </div>
+    </div>
 
-      const title = document.createElement("h4");
-      title.textContent = chartMap[key]?.label || key;
-      box.appendChild(title);
+    <div id="config-tab" style="display: none">
+      <form id="config-form"></form>
+      <button type="button" onclick="submitConfig()">保存参数</button>
+    </div>
 
-      // 范围控件区
-      const rdiv = document.createElement("div");
-      rdiv.className = "range-controls";
-      rdiv.innerHTML = `
-        <label><input type="checkbox" class="childEnable" /> 固定范围</label>
-        min:<input type="number" class="childMin" value="0" step="0.1" />
-        max:<input type="number" class="childMax" value="1" step="0.1" />
-        <button type="button" class="applyRange">应用</button>
-      `;
-      box.appendChild(rdiv);
+    <script>
+      const chartMap = {
+        yaw: { label: "Yaw" },
+        pitch: { label: "Pitch" },
+        armor_dis: { label: "Armor Distance" },
+        armor_x: { label: "Armor X" },
+        armor_y: { label: "Armor Y" },
+        armor_z: { label: "Armor Z" },
+        armor_yaw: { label: "Armor Yaw" },
+        ypd_p: { label: "Ypd Pitch" },
+        ypd_y: { label: "Ypd Yaw" },
+        rune_obs: { label: "Rune Obs" },
+        rune_pre: { label: "Rune Pre" },
+      };
 
-      const canvas = document.createElement("canvas");
-      canvas.width = 440;
-      canvas.height = 280;
-      box.appendChild(canvas);
-      container.appendChild(box);
+      const mainCtx = document.getElementById("mainChart").getContext("2d");
+      let individualCharts = {};
+      let individualRanges = {}; // 存储每个子图的范围设置
 
-      const ctx = canvas.getContext("2d");
-      const chart = new Chart(ctx, {
+      const mainChart = new Chart(mainCtx, {
         type: "line",
-        data: {
-          labels: [],
-          datasets: [{ label: chartMap[key]?.label || key, data: [], fill: false, tension: 0.2 }]
-        },
+        data: { labels: [], datasets: [] },
         options: {
           animation: false,
           responsive: false,
           scales: {
             x: { title: { display: true, text: "Time" } },
-            y: { title: { display: true, text: "Value" } }
-          }
-        }
+            y: { title: { display: true, text: "Value" } },
+          },
+        },
       });
-      individualCharts[key] = chart;
-      individualRanges[key] = { enable: false, min: 0, max: 1 };
 
-      // 绑定范围应用按钮
-      const applyBtn = rdiv.querySelector(".applyRange");
-      applyBtn.addEventListener("click", () => {
-        const enabled = rdiv.querySelector(".childEnable").checked;
-        const minVal = parseFloat(rdiv.querySelector(".childMin").value);
-        const maxVal = parseFloat(rdiv.querySelector(".childMax").value);
-        const ch = individualCharts[key];
-        if (enabled) {
-          ch.options.scales.y.min = minVal;
-          ch.options.scales.y.max = maxVal;
+      function updateMainRange() {
+        const enable = document.getElementById("enableFixedRange").checked;
+        const min = parseFloat(document.getElementById("mainMin").value);
+        const max = parseFloat(document.getElementById("mainMax").value);
+        const maxPts =
+          parseInt(document.getElementById("mainMaxPts").value) || 100;
+        mainChart._maxPoints = maxPts;
+        if (enable) {
+          mainChart.options.scales.y.min = min;
+          mainChart.options.scales.y.max = max;
         } else {
-          ch.options.scales.y.min = undefined;
-          ch.options.scales.y.max = undefined;
+          mainChart.options.scales.y.min = undefined;
+          mainChart.options.scales.y.max = undefined;
         }
-        ch.update("none");
-      });
-    });
-  }
-
-  async function fetchDataAndUpdateCharts() {
-    try {
-      const res = await fetch("/data");
-      const json = await res.json();
-      const time = json.time;
-      if (!time) return;
-
-      const maxPts = mainChart._maxPoints || 100;
-      const start = time.length > maxPts ? time.length - maxPts : 0;
-      const slicedTime = time.slice(start);
-
-      // 主图更新
-      if (document.getElementById("multiLineChart").checked) {
-        mainChart.data.labels = slicedTime;
-        const keys = Object.keys(individualCharts);
-        mainChart.data.datasets.forEach((ds, i) => {
-          const key = keys[i];
-          ds.data = json[key]?.slice(start) || [];
-        });
         mainChart.update("none");
       }
 
-      // 子图更新
-      Object.entries(individualCharts).forEach(([key, ch]) => {
-        ch.data.labels = slicedTime;
-        ch.data.datasets[0].data = json[key]?.slice(start) || [];
-        ch.update("none");
-      });
-    } catch (e) {
-      console.error("fetch error:", e);
-    }
-  }
+      function updateCharts() {
+        const showMulti = document.getElementById("multiLineChart").checked;
+        const selected = Array.from(
+          document.querySelectorAll(
+            '.chart-select-controls input[type="checkbox"]:checked',
+          ),
+        )
+          .map((cb) => cb.dataset.key)
+          .filter(Boolean);
 
-  function jsonToHtml(data, container) {
-    const title = container.querySelector("h3");
-    container.innerHTML = "";
-    if (title) container.appendChild(title);
-    const contentDiv = document.createElement("div");
-    container.appendChild(contentDiv);
+        // 清空容器
+        const container = document.getElementById("individualCharts");
+        container.innerHTML = "";
+        individualCharts = {};
+        individualRanges = {};
 
-    function buildTree(d, parent) {
-      if (typeof d !== "object" || d === null) {
-        parent.textContent = String(d);
-        return;
-      }
-      const ul = document.createElement("ul");
-      ul.className = "json-tree";
-      const entries = Array.isArray(d) ? d.map((v,i)=>[i,v]) : Object.entries(d);
-      entries.forEach(([k,v]) => {
-        const li = document.createElement("li");
-        if (typeof v==="object" && v!==null) {
-          const details = document.createElement("details");
-          details.open = true;
-          const summary = document.createElement("summary");
-          summary.textContent = k;
-          details.appendChild(summary);
-          const childUl = document.createElement("ul");
-          childUl.className = "json-tree";
-          buildTree(v, childUl);
-          details.appendChild(childUl);
-          li.appendChild(details);
+        // 更新主图数据集
+        if (showMulti) {
+          mainChart.data.datasets = selected.map((key) => ({
+            label: chartMap[key]?.label || key,
+            data: [],
+            fill: false,
+            tension: 0.2,
+          }));
         } else {
-          li.textContent = `${k}: ${v}`;
+          mainChart.data.datasets = [];
         }
-        ul.appendChild(li);
-      });
-      parent.appendChild(ul);
-    }
-    buildTree(data, contentDiv);
-  }
+        mainChart.update();
 
-  let lastAimData = null, lastTargetData = null;
-  async function fetchAndDisplayJsonWithTree(id, url) {
-    const parent = document.getElementById(id + "-container");
-    const cont = document.getElementById(id);
-    try {
-      parent.classList.add("json-updating");
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(res.statusText);
-      const data = await res.json();
-      const prev = id==="json-aim"? lastAimData: lastTargetData;
-      if (JSON.stringify(data)!==JSON.stringify(prev)) {
-        jsonToHtml(data, cont);
-        if (id==="json-aim") lastAimData = data; else lastTargetData = data;
+        // 为每个选中项创建子图与独立范围控件
+        selected.forEach((key) => {
+          const box = document.createElement("div");
+          box.className = "chart-box";
+
+          const title = document.createElement("h4");
+          title.textContent = chartMap[key]?.label || key;
+          box.appendChild(title);
+
+          // 范围控件区
+          const rdiv = document.createElement("div");
+          rdiv.className = "range-controls";
+          rdiv.innerHTML = `
+        <label><input type="checkbox" class="childEnable" /> 固定范围</label>
+        min:<input type="number" class="childMin" value="0" step="0.1" />
+        max:<input type="number" class="childMax" value="1" step="0.1" />
+        <button type="button" class="applyRange">应用</button>
+      `;
+          box.appendChild(rdiv);
+
+          const canvas = document.createElement("canvas");
+          canvas.width = 440;
+          canvas.height = 280;
+          box.appendChild(canvas);
+          container.appendChild(box);
+
+          const ctx = canvas.getContext("2d");
+          const chart = new Chart(ctx, {
+            type: "line",
+            data: {
+              labels: [],
+              datasets: [
+                {
+                  label: chartMap[key]?.label || key,
+                  data: [],
+                  fill: false,
+                  tension: 0.2,
+                },
+              ],
+            },
+            options: {
+              animation: false,
+              responsive: false,
+              scales: {
+                x: { title: { display: true, text: "Time" } },
+                y: { title: { display: true, text: "Value" } },
+              },
+            },
+          });
+          individualCharts[key] = chart;
+          individualRanges[key] = { enable: false, min: 0, max: 1 };
+
+          // 绑定范围应用按钮
+          const applyBtn = rdiv.querySelector(".applyRange");
+          applyBtn.addEventListener("click", () => {
+            const enabled = rdiv.querySelector(".childEnable").checked;
+            const minVal = parseFloat(rdiv.querySelector(".childMin").value);
+            const maxVal = parseFloat(rdiv.querySelector(".childMax").value);
+            const ch = individualCharts[key];
+            if (enabled) {
+              ch.options.scales.y.min = minVal;
+              ch.options.scales.y.max = maxVal;
+            } else {
+              ch.options.scales.y.min = undefined;
+              ch.options.scales.y.max = undefined;
+            }
+            ch.update("none");
+          });
+        });
       }
-    } catch (e) {
-      cont.textContent = `请求错误: ${e.message}`;
-    } finally {
-      parent.classList.remove("json-updating");
-    }
-  }
 
-  
+      async function fetchDataAndUpdateCharts() {
+        try {
+          const res = await fetch("/data");
+          const json = await res.json();
+          const time = json.time;
+          if (!time) return;
 
-  function showTab(tab) {
-    document.getElementById("video-tab").style.display = tab==="video"?"flex":"none";
-  }
+          const maxPts = mainChart._maxPoints || 100;
+          const start = time.length > maxPts ? time.length - maxPts : 0;
+          const slicedTime = time.slice(start);
 
-  document.addEventListener("DOMContentLoaded", () => {
-    updateCharts();
-    updateMainRange();
-    setInterval(() => {
-      fetchDataAndUpdateCharts();
-      fetchAndDisplayJsonWithTree("json-aim", "/aim_log");
-      fetchAndDisplayJsonWithTree("json-target", "/target_log");
-    }, 200);
-  });
-</script>
+          // 主图更新
+          if (document.getElementById("multiLineChart").checked) {
+            mainChart.data.labels = slicedTime;
+            const keys = Object.keys(individualCharts);
+            mainChart.data.datasets.forEach((ds, i) => {
+              const key = keys[i];
+              ds.data = json[key]?.slice(start) || [];
+            });
+            mainChart.update("none");
+          }
 
-</body>
+          // 子图更新
+          Object.entries(individualCharts).forEach(([key, ch]) => {
+            ch.data.labels = slicedTime;
+            ch.data.datasets[0].data = json[key]?.slice(start) || [];
+            ch.update("none");
+          });
+        } catch (e) {
+          console.error("fetch error:", e);
+        }
+      }
+
+      function jsonToHtml(data, container) {
+        const title = container.querySelector("h3");
+        container.innerHTML = "";
+        if (title) container.appendChild(title);
+        const contentDiv = document.createElement("div");
+        container.appendChild(contentDiv);
+
+        function buildTree(d, parent) {
+          if (typeof d !== "object" || d === null) {
+            parent.textContent = String(d);
+            return;
+          }
+          const ul = document.createElement("ul");
+          ul.className = "json-tree";
+          const entries = Array.isArray(d)
+            ? d.map((v, i) => [i, v])
+            : Object.entries(d);
+          entries.forEach(([k, v]) => {
+            const li = document.createElement("li");
+            if (typeof v === "object" && v !== null) {
+              const details = document.createElement("details");
+              details.open = true;
+              const summary = document.createElement("summary");
+              summary.textContent = k;
+              details.appendChild(summary);
+              const childUl = document.createElement("ul");
+              childUl.className = "json-tree";
+              buildTree(v, childUl);
+              details.appendChild(childUl);
+              li.appendChild(details);
+            } else {
+              li.textContent = `${k}: ${v}`;
+            }
+            ul.appendChild(li);
+          });
+          parent.appendChild(ul);
+        }
+        buildTree(data, contentDiv);
+      }
+
+      let lastAimData = null,
+        lastTargetData = null;
+      async function fetchAndDisplayJsonWithTree(id, url) {
+        const parent = document.getElementById(id + "-container");
+        const cont = document.getElementById(id);
+        try {
+          parent.classList.add("json-updating");
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(res.statusText);
+          const data = await res.json();
+          const prev = id === "json-aim" ? lastAimData : lastTargetData;
+          if (JSON.stringify(data) !== JSON.stringify(prev)) {
+            jsonToHtml(data, cont);
+            if (id === "json-aim") lastAimData = data;
+            else lastTargetData = data;
+          }
+        } catch (e) {
+          cont.textContent = `请求错误: ${e.message}`;
+        } finally {
+          parent.classList.remove("json-updating");
+        }
+      }
+
+      function showTab(tab) {
+        document.getElementById("video-tab").style.display =
+          tab === "video" ? "flex" : "none";
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        updateCharts();
+        updateMainRange();
+        setInterval(() => {
+          fetchDataAndUpdateCharts();
+          fetchAndDisplayJsonWithTree("json-aim", "/aim_log");
+          fetchAndDisplayJsonWithTree("json-target", "/target_log");
+        }, 200);
+      });
+    </script>
+  </body>
 </html>

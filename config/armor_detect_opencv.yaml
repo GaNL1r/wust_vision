@@ -5,7 +5,6 @@ armor_detect_opencv:
     max_ratio: 0.45
     min_ratio: 0.001
     color_diff_thresh: 20
-
   armor:
     min_light_ratio: 0.8
     min_small_center_distance: 0.8

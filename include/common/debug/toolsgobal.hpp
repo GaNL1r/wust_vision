@@ -27,4 +27,5 @@ extern int debug_w;
 extern int debug_h;
 
 extern double latency_ms;
+extern double debug_fps;
 } // namespace toolsgobal

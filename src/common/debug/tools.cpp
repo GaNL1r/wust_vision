@@ -36,7 +36,7 @@ void drawresult(
     }
 
     auto now = std::chrono::steady_clock::now();
-    constexpr double min_interval_ms = 1000.0 / 60.0;
+    const double min_interval_ms = 1000.0 / toolsgobal::debug_fps;
 
     double elapsed_ms = std::chrono::duration<double, std::milli>(now - last_show_time).count();
     if (elapsed_ms < min_interval_ms) {
@@ -150,7 +150,7 @@ void drawresult(const imgframe& src_img, const Armors& armors) {
     }
 
     auto now = std::chrono::steady_clock::now();
-    constexpr double min_interval_ms = 1000.0 / 60.0;
+    const double min_interval_ms = 1000.0 / toolsgobal::debug_fps;
 
     double elapsed_ms = std::chrono::duration<double, std::milli>(now - last_show_time).count();
     if (elapsed_ms < min_interval_ms) {
@@ -301,7 +301,7 @@ void drawreprojec(
         window_initialized = true;
     }
     auto now = std::chrono::steady_clock::now();
-    constexpr double min_interval_ms = 1000.0 / 60.0;
+    const double min_interval_ms = 1000.0 / toolsgobal::debug_fps;
 
     double elapsed_ms = std::chrono::duration<double, std::milli>(now - last_show_time).count();
     if (elapsed_ms < min_interval_ms) {
@@ -411,7 +411,7 @@ void drawreprojec(
     }
 
     auto now = std::chrono::steady_clock::now();
-    constexpr double min_interval_ms = 1000.0 / 60.0;
+    const double min_interval_ms = 1000.0 / toolsgobal::debug_fps;
     double elapsed_ms = std::chrono::duration<double, std::milli>(now - last_show_time).count();
     if (elapsed_ms < min_interval_ms)
         return;
@@ -592,7 +592,7 @@ void drawreprojec(
         window_initialized = true;
     }
     auto now = std::chrono::steady_clock::now();
-    constexpr double min_interval_ms = 1000.0 / 60.0;
+    const double min_interval_ms = 1000.0 / toolsgobal::debug_fps;
 
     double elapsed_ms = std::chrono::duration<double, std::milli>(now - last_show_time).count();
     if (elapsed_ms < min_interval_ms) {
@@ -791,7 +791,7 @@ void drawreprojec(
         window_initialized = true;
     }
     auto now = std::chrono::steady_clock::now();
-    constexpr double min_interval_ms = 1000.0 / 60.0;
+    const double min_interval_ms = 1000.0 / toolsgobal::debug_fps;
 
     double elapsed_ms = std::chrono::duration<double, std::milli>(now - last_show_time).count();
     if (elapsed_ms < min_interval_ms) {
@@ -1042,7 +1042,7 @@ void draw_debug_overlay(
     }
 
     auto now = std::chrono::steady_clock::now();
-    constexpr double min_interval_ms = 1000.0 / 45.0;
+    const double min_interval_ms = 1000.0 / toolsgobal::debug_fps;
     double elapsed_ms = std::chrono::duration<double, std::milli>(now - last_show_time).count();
     if (elapsed_ms < min_interval_ms)
         return;
@@ -1382,15 +1382,8 @@ void draw_debug_overlaywrite(
     if (src_img.img.empty())
         return;
 
-    // if (!window_initialized) {
-    //   cv::namedWindow("debug_overlay", cv::WINDOW_NORMAL);
-    //   cv::resizeWindow("debug_overlay", debug_w, debug_h);
-    //   cv::createTrackbar("Brightness", "debug_overlay", &brightness_slider,
-    //   400); window_initialized = true;
-    // }
-
     auto now = std::chrono::steady_clock::now();
-    constexpr double min_interval_ms = 1000.0 / 45.0;
+    const double min_interval_ms = 1000.0 / toolsgobal::debug_fps;
     double elapsed_ms = std::chrono::duration<double, std::milli>(now - last_show_time).count();
     if (elapsed_ms < min_interval_ms)
         return;
@@ -1744,20 +1737,14 @@ cv::Mat draw_debug_overlayMat(
     if (src_img.img.empty())
         return cv::Mat();
 
-    // if (!window_initialized) {
-    // cv::namedWindow("debug_overlay", cv::WINDOW_NORMAL);
-    // cv::resizeWindow("debug_overlay", debug_w, debug_h);
-    // cv::createTrackbar("Brightness", "debug_overlay", &brightness_slider, 400);
-    // window_initialized = true;
-    // }
-
     auto now = std::chrono::steady_clock::now();
-    // constexpr double min_interval_ms = 1000.0 / 45.0;
-    // double elapsed_ms =
-    // std::chrono::duration<double, std::milli>(now - last_show_time).count();
-    // if (elapsed_ms < min_interval_ms)
-    // return cv::Mat();
-    // last_show_time = now;
+    const double min_interval_ms = 1000.0 / toolsgobal::debug_fps;
+    double elapsed_ms = std::chrono::duration<double, std::milli>(now - last_show_time).count();
+    if (elapsed_ms < min_interval_ms) {
+        return cv::Mat();
+    }
+
+    last_show_time = now;
 
     // 图像亮度调整
     // double brightness_factor = brightness_slider / 100.0;
@@ -2323,7 +2310,7 @@ void drawRune(
         return;
     }
     auto now = std::chrono::steady_clock::now();
-    constexpr double min_interval_ms = 1000.0 / 60.0;
+    const double min_interval_ms = 1000.0 / toolsgobal::debug_fps;
     double elapsed_ms = std::chrono::duration<double, std::milli>(now - last_show_time).count();
     if (elapsed_ms < min_interval_ms) {
         return;
@@ -2410,7 +2397,7 @@ void drawRuneandpre(
     }
     auto now = std::chrono::steady_clock::now();
 
-    constexpr double min_interval_ms = 1000.0 / 60.0;
+    const double min_interval_ms = 1000.0 / toolsgobal::debug_fps;
     double elapsed_ms = std::chrono::duration<double, std::milli>(now - last_show_time).count();
     if (elapsed_ms < min_interval_ms) {
         return;
@@ -2542,7 +2529,7 @@ void drawRuneandprewrite(
 
     auto now = std::chrono::steady_clock::now();
 
-    constexpr double min_interval_ms = 1000.0 / 60.0;
+    const double min_interval_ms = 1000.0 / toolsgobal::debug_fps;
     double elapsed_ms = std::chrono::duration<double, std::milli>(now - last_show_time).count();
     if (elapsed_ms < min_interval_ms) {
         return;

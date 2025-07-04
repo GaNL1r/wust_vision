@@ -13,8 +13,8 @@ while True:
         print("End of video or cannot read the frame.")
         break
 
-    cv2.imshow('Video Playback', frame)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    cv2.imshow("Video Playback", frame)
+    if cv2.waitKey(1) & 0xFF == ord("q"):
         break
 
 cap.release()
