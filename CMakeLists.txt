@@ -58,19 +58,19 @@ set(TENSORRT_LIBS
 set(COMMON_SOURCES
   src/main.cpp
   src/wust_vision.cpp
-  src/common/tools.cpp
+  src/common/debug/tools.cpp
   src/common/gobal.cpp
-  src/common/toolsgobal.cpp
-  src/common/matplottools.cpp
+  src/common/debug/toolsgobal.cpp
+  src/common/debug/matplottools.cpp
   src/common/calculation.cpp
   src/control/armor_solver.cpp
   src/control/manual_compensator.cpp
   src/control/trajectory_compensator.cpp
   src/control/rune_solver.cpp
-  src/detect/armor_pose_estimator.cpp
+  src/detect/armor_detect/armor_pose_estimator.cpp
   src/detect/ba_solver.cpp
   src/detect/graph_optimizer.cpp
-  src/detect/light_corner_corrector.cpp
+  src/detect/armor_detect/light_corner_corrector.cpp
   src/detect/mono_measure_tool.cpp
   src/detect/pnp_solver.cpp
   src/driver/crc8_crc16.cpp
@@ -79,36 +79,37 @@ set(COMMON_SOURCES
   src/driver/recorder.cpp
   src/driver/serial.cpp
   src/driver/video_player.cpp
-  src/tracker/curve_fitter.cpp
-  src/tracker/extended_kalman_filter.cpp
+  src/tracker/math/curve_fitter.cpp
+  src/tracker/math/extended_kalman_filter.cpp
+  src/tracker/math/error_state_extended_kalman_filter.cpp
   src/tracker/one_ca_tracker.cpp
   src/tracker/one_tracker.cpp
   src/tracker/one_ypd_tracker.cpp
   src/tracker/tracker.cpp
   src/tracker/tracker_manager.cpp
   src/tracker/ypd_tracker.cpp
-  src/detect/armor_detector_opencv.cpp
-  src/detect/armor_detector_opencv_wrapper.cpp
+  src/detect/armor_detect/armor_detector_opencv.cpp
+  src/detect/armor_detect/armor_detector_opencv_wrapper.cpp
 
   
 )
 set(NCNN_SOURCES
-  src/detect/armor_detector_ncnn.cpp
-  src/detect/armor_detector_ncnn_wrapper.cpp
-  src/detect/rune_detector_ncnn.cpp
-  src/detect/rune_detector_ncnn_wrapper.cpp
+  src/detect/armor_detect/armor_detector_ncnn.cpp
+  src/detect/armor_detect/armor_detector_ncnn_wrapper.cpp
+  src/detect/rune_detect/rune_detector_ncnn.cpp
+  src/detect/rune_detect/rune_detector_ncnn_wrapper.cpp
 )
 set(OPENVINO_SOURCES
-  src/detect/armor_detector_openvino.cpp
-  src/detect/armor_detector_openvino_wrapper.cpp
-  src/detect/rune_detector_openvino.cpp
-  src/detect/rune_detector_openvino_wrapper.cpp
+  src/detect/armor_detect/armor_detector_openvino.cpp
+  src/detect/armor_detect/armor_detector_openvino_wrapper.cpp
+  src/detect/rune_detect/rune_detector_openvino.cpp
+  src/detect/rune_detect/rune_detector_openvino_wrapper.cpp
 )
 set(TRT_SOURCES
-  src/detect/armor_detector_trt.cpp
-  src/detect/armor_detector_trt_wrapper.cpp
-  src/detect/rune_detector_trt.cpp
-  src/detect/rune_detector_trt_wrapper.cpp
+  src/detect/armor_detect/armor_detector_trt.cpp
+  src/detect/armor_detect/armor_detector_trt_wrapper.cpp
+  src/detect/rune_detect/rune_detector_trt.cpp
+  src/detect/rune_detect/rune_detector_trt_wrapper.cpp
 )
 
 # === include 路径 ===

@@ -23,8 +23,8 @@
 #include <vector>
 
 // project
-#include "tracker/extended_kalman_filter.hpp"
-#include "tracker/motion_modelypd.hpp"
+#include "tracker/math/extended_kalman_filter.hpp"
+#include "tracker/motion_models/motion_modelypd.hpp"
 #include "type/type.hpp"
 
 inline double normalizeAnglec(double angle) {

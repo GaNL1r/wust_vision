@@ -13,12 +13,12 @@
 // limitations under the License.
 #include "wust_vision.hpp"
 #include "common/calculation.hpp"
+#include "common/debug/matplottools.hpp"
+#include "common/debug/tools.hpp"
+#include "common/debug/toolsgobal.hpp"
 #include "common/gobal.hpp"
 #include "common/logger.hpp"
-#include "common/matplottools.hpp"
 #include "common/tf.hpp"
-#include "common/tools.hpp"
-#include "common/toolsgobal.hpp"
 #include "control/armor_solver.hpp"
 #include "type/type.hpp"
 #include <csignal>

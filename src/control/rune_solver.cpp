@@ -19,7 +19,7 @@
 // std
 #include <memory>
 // third party
-#include <common/angles.h>
+#include <common/3rdparty/angles.h>
 
 #include <Eigen/Geometry>
 // project

@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "driver/serial.hpp"
+#include "common/debug/tools.hpp"
 #include "common/gobal.hpp"
 #include "common/logger.hpp"
-#include "common/tools.hpp"
 #include "driver/crc8_crc16.hpp"
 #include "driver/packet_typedef.hpp"
 #include "driver/sharetype.hpp"

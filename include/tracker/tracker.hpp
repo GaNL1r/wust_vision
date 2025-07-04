@@ -29,8 +29,8 @@
 #include <vector>
 
 // project
-#include "tracker/extended_kalman_filter.hpp"
-#include "tracker/motion_modela.hpp"
+#include "tracker/math/extended_kalman_filter.hpp"
+#include "tracker/motion_models/motion_modela.hpp"
 #include "type/type.hpp"
 
 inline double normalizeAngle(double angle) {

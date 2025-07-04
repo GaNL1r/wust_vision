@@ -12,25 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #pragma once
-#include "detect/armor_detector_base.hpp"
-#include "detect/rune_detector_base.hpp"
+#include "detect/armor_detect/armor_detector_base.hpp"
+#include "detect/rune_detect/rune_detector_base.hpp"
 #include <memory>
 #include <string>
 
 #ifdef USE_OPENVINO
-    #include "detect/armor_detector_openvino_wrapper.hpp"
-    #include "detect/rune_detector_openvino_wrapper.hpp"
+    #include "detect/armor_detect/armor_detector_openvino_wrapper.hpp"
+    #include "detect/rune_detect/rune_detector_openvino_wrapper.hpp"
 #endif
 
 #ifdef USE_TRT
-    #include "detect/armor_detector_trt_wrapper.hpp"
-    #include "detect/rune_detector_trt_wrapper.hpp"
+    #include "detect/armor_detect/armor_detector_trt_wrapper.hpp"
+    #include "detect/rune_detect/rune_detector_trt_wrapper.hpp"
 #endif
-#include "detect/armor_detector_opencv_wrapper.hpp"
+
 #ifdef USE_NCNN
-    #include "detect/armor_detector_ncnn_wrapper.hpp"
-    #include "detect/rune_detector_ncnn_wrapper.hpp"
+    #include "detect/armor_detect/armor_detector_ncnn_wrapper.hpp"
+    #include "detect/rune_detect/rune_detector_ncnn_wrapper.hpp"
 #endif
+#include "detect/armor_detect/armor_detector_opencv_wrapper.hpp"
 class DetectorFactory {
 public:
     static std::unique_ptr<ArmorDetectorBase>

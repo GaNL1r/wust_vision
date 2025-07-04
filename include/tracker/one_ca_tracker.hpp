@@ -23,8 +23,8 @@
 #include <vector>
 
 // project
-#include "tracker/extended_kalman_filter.hpp"
-#include "tracker/motion_modeloneca.hpp"
+#include "tracker/math/extended_kalman_filter.hpp"
+#include "tracker/motion_models/motion_modeloneca.hpp"
 #include "type/type.hpp"
 
 inline double onormalizeAnglem(double angle) {
