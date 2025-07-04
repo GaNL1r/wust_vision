@@ -104,14 +104,14 @@ void WustVision::init() {
     initLogger(log_level_, log_path_, use_logcli, use_logfile, use_simplelog);
     gobal::control_rate = gobal::config["control"]["control_rate"].as<int>();
     initSerial();
-    only_nav_enable = gobal::config["only_nav_enable"].as<bool>();
+    only_nav_enable = gobal::config["common"]["only_nav_enable"].as<bool>();
     if (!only_nav_enable) {
-        gobal::attack_mode = gobal::config["init_attack_mode"].as<int>();
+        gobal::attack_mode = gobal::config["common"]["init_attack_mode"].as<int>();
         gobal::debug_mode_ = gobal::config["debug"]["debug_mode"].as<bool>();
         toolsgobal::debug_w = gobal::config["debug"]["debug_w"].as<int>(640);
         toolsgobal::debug_h = gobal::config["debug"]["debug_h"].as<int>(480);
         debug_show_dt_ = gobal::config["debug"]["debug_show_dt"].as<double>(0.05);
-        gobal::use_calculation_ = gobal::config["use_calculation"].as<bool>();
+        gobal::use_calculation_ = gobal::config["common"]["use_calculation"].as<bool>();
         gimbal2camera_x_ = gobal::config["tf"]["gimbal2camera_x"].as<double>(0.0);
         gimbal2camera_y_ = gobal::config["tf"]["gimbal2camera_y"].as<double>(0.0);
         gimbal2camera_z_ = gobal::config["tf"]["gimbal2camera_z"].as<double>(0.0);
@@ -173,7 +173,7 @@ void WustVision::init() {
                 }
             );
         }
-        use_auto_labeler = gobal::config["use_auto_labeler"].as<bool>(false);
+        use_auto_labeler = gobal::config["common"]["use_auto_labeler"].as<bool>(false);
         if (use_auto_labeler) {
             auto_labeler_ = std::make_unique<Labeler>();
         }
@@ -205,13 +205,14 @@ void WustVision::init() {
         armor_pose_estimator_ = std::make_unique<ArmorPoseEstimator>();
         initTF();
         initTracker(gobal::config["armor_tracker"]);
-        gobal::detect_color_ = gobal::config["detect_color"].as<int>(0);
-        max_infer_running_ = gobal::config["max_infer_running"].as<int>(4);
-        bool use_armor_detect_opencv = gobal::config["use_armor_detect_opencv"].as<bool>(false);
+        gobal::detect_color_ = gobal::config["common"]["detect_color"].as<int>(0);
+        max_infer_running_ = gobal::config["common"]["max_infer_running"].as<int>(4);
+        bool use_armor_detect_opencv =
+            gobal::config["common"]["use_armor_detect_opencv"].as<bool>(false);
         bool ncnn_runeinited = false;
         bool ncnn_armorinited = false;
-        use_armor_detect_ncnn = gobal::config["use_armor_detect_ncnn"].as<bool>(false);
-        use_rune_detect_ncnn = gobal::config["use_rune_detect_ncnn"].as<bool>(false);
+        use_armor_detect_ncnn = gobal::config["common"]["use_armor_detect_ncnn"].as<bool>(false);
+        use_rune_detect_ncnn = gobal::config["common"]["use_rune_detect_ncnn"].as<bool>(false);
 
 #ifdef USE_OPENVINO
     #ifdef USE_NCNN
@@ -315,7 +316,7 @@ void WustVision::init() {
             std::placeholders::_3,
             std::placeholders::_4
         ));
-        max_detect_armors_ = gobal::config["max_detect_armors"].as<int>(10);
+        max_detect_armors_ = gobal::config["common"]["max_detect_armors"].as<int>(10);
 
         initRune(camera_info_path);
 
@@ -553,8 +554,6 @@ void WustVision::initSerial() {
 }
 
 void WustVision::initTracker(const YAML::Node& config) {
-    // 目标参考坐标系
-    target_frame_ = config["target_frame"].as<std::string>("odom");
     tracker_manager_ = std::make_unique<TrackerManager>(config);
 }
 
@@ -602,7 +601,7 @@ void WustVision::armorsCallback(Armors armors_, const cv::Mat& src_img) {
     std::vector<OneTarget> one_targets_;
     auto time = armors_.timestamp;
     target_.timestamp = time;
-    target_.frame_id = target_frame_;
+    target_.frame_id = "gimbal_odom";
     tracker_manager_->update(target_, one_targets_, armors_, time);
 
     armor_target = target_;
@@ -619,7 +618,7 @@ Armors WustVision::visualizeTargetProjection(
     std::vector<OneTarget> one_armor_targets_
 ) {
     Armors armor_data;
-    armor_data.frame_id = "odom";
+    armor_data.frame_id = "gimbal_odom";
     armor_data.timestamp = armor_target_.timestamp;
 
     if (armor_target_.tracking) {

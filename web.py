@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 # 配置路径和视频帧共享路径
 shared_frame_path = '/dev/shm/debug_frame.jpg'
-CONFIG_PATH = '/home/hy/wust_vision/config/config_trt.yaml'
+
 
 # 视频流生成器（MJPEG）
 def mjpeg_stream():
@@ -72,31 +72,7 @@ def target_log():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# 配置数据（YAML）：读取和保存
-@app.route('/config', methods=['GET', 'POST'])
-def config_handler():
-    if not os.path.exists(CONFIG_PATH):
-        return jsonify({"error": f"{CONFIG_PATH} 不存在"}), 404
 
-    if request.method == 'POST':
-        try:
-            data = request.get_json(force=True)
-            #app.logger.info("接收到配置数据: %s", json.dumps(data, ensure_ascii=False, indent=2))
-
-            with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
-                yaml.dump(data, f, allow_unicode=True, sort_keys=False)
-
-            return jsonify({"message": "配置保存成功"})
-        except Exception as e:
-            #app.logger.error("保存配置失败: %s", e, exc_info=True)
-            return jsonify({"error": f"保存配置失败: {str(e)}"}), 500
-    else:
-        try:
-            with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
-                data = yaml.safe_load(f)
-            return jsonify(data)
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
 
 # 启动服务
 if __name__ == '__main__':

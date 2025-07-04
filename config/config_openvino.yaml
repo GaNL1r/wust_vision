@@ -134,16 +134,12 @@ debug:
   debug_mode: true
   debug_show_dt: 0.01
   debug_w: 1440
-detect_color: 0
-init_attack_mode: 0
 logger:
   log_level: INFO
   log_path: /home/hy/wust_log
   use_logcli: true
   use_logfile: true
   use_simplelog: true
-max_infer_running: 7
-only_nav_enable: false
 rune_detector:
   confidence_threshold: 0.5
   detect_r_tag: true
@@ -197,9 +193,14 @@ tf:
   gimbal2camera_y: 0
   gimbal2camera_yaw: 0
   gimbal2camera_z: -0.05
-use_armor_detect_ncnn: false
-use_armor_detect_opencv: false
-use_rune_detect_ncnn:
-use_auto_labeler: false
-use_calculation: false
-max_detect_armors: 10
+common:
+  detect_color: 0
+  init_attack_mode: 0
+  max_infer_running: 7
+  only_nav_enable: false
+  use_armor_detect_ncnn: false
+  use_armor_detect_opencv: false
+  use_rune_detect_ncnn: false
+  use_auto_labeler: false
+  use_calculation: false
+  max_detect_armors: 10

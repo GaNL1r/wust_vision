@@ -1,6 +1,5 @@
 #pragma once
 #include "type/type.hpp"
-#include <vector>
 
 double orientationToYaw(const tf::Quaternion& orientation);
 void command_callback(Armors& armors);

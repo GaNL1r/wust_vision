@@ -249,18 +249,6 @@
       padding-left: 15px;
       border-left: 1px dashed #ccc;
     }
-    #config-tab {
-      max-width: 800px;
-      margin: 40px auto 0;
-      text-align: left;
-      padding: 20px;
-      background: #fff;
-      border: 3px solid #333;
-      border-radius: 10px;
-      box-sizing: border-box;
-      min-height: 600px;
-      user-select: none;
-    }
     #config-form fieldset {
       display: block;
       width: 100%;
@@ -317,7 +305,6 @@
 
 <div id="tab-buttons">
   <button onclick="showTab('video')">视频调试</button>
-  <button onclick="showTab('config')">参数配置</button>
 </div>
 
 <div id="video-tab">
@@ -603,58 +590,10 @@
     }
   }
 
-  // 参数配置逻辑（同原来）
-  let configData = {};
-  async function loadConfig() {
-    try {
-      const res = await fetch("/config");
-      configData = await res.json();
-      renderForm(configData, document.getElementById("config-form"));
-    } catch (e) { console.error(e); }
-  }
-  function renderForm(obj, container) {
-    container.innerHTML = "";
-    Object.entries(obj).forEach(([k,v])=>{
-      const fs = document.createElement("fieldset");
-      const lg = document.createElement("legend");
-      lg.textContent = k;
-      fs.appendChild(lg);
-      if (typeof v==="object"&&v!==null) {
-        renderForm(v, fs);
-      } else {
-        const lbl=document.createElement("label");
-        lbl.textContent = k+": ";
-        const inp=document.createElement("input");
-        inp.name=k; inp.value=v;
-        inp.type = typeof v==="number"?"number":"text";
-        lbl.appendChild(inp);
-        fs.appendChild(lbl);
-      }
-      container.appendChild(fs);
-    });
-  }
-  async function submitConfig() {
-    const inputs = document.querySelectorAll("#config-form input");
-    let newCfg = {};
-    inputs.forEach(i=>{
-      newCfg[i.name] = i.type==="number"? parseFloat(i.value): i.value;
-    });
-    try {
-      const res = await fetch("/config", {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify(newCfg)
-      });
-      alert(res.ok?"参数保存成功！":"参数保存失败！");
-    } catch(e){
-      alert("保存出错："+e.message);
-    }
-  }
+  
 
   function showTab(tab) {
     document.getElementById("video-tab").style.display = tab==="video"?"flex":"none";
-    document.getElementById("config-tab").style.display = tab==="config"?"block":"none";
-    if (tab==="config") loadConfig();
   }
 
   document.addEventListener("DOMContentLoaded", () => {

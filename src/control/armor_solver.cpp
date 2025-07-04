@@ -27,14 +27,11 @@ ArmorSolver::ArmorSolver(const YAML::Node& config) {
     init(config);
 }
 void ArmorSolver::init(const YAML::Node& config) {
-    // 1. 加载 YAML
-
     if (!config["armor_solver"]) {
         throw std::runtime_error("Missing 'solver' node in config");
     }
     auto s = config["armor_solver"];
 
-    // 2. 基本标量参数
     shooting_range_w = s["shooting_range_w"].as<double>(0.12);
     shooting_range_h = s["shooting_range_h"].as<double>(0.12);
     max_tracking_v_yaw = s["max_tracking_v_yaw"].as<double>(60.0);

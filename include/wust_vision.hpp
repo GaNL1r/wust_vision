@@ -72,8 +72,6 @@ public:
 #else
     static_assert(false, "No backend defined: USE_OPENVINO or USE_TRT");
 #endif
-    std::atomic<bool> run_loop_ { false };
-    std::string target_frame_;
     std::atomic<bool> timer_running_ { false };
     std::thread timer_thread_;
 

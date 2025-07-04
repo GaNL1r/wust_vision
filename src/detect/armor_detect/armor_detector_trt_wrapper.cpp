@@ -20,7 +20,6 @@ ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(const YAML::Node& config) {
     float expand_ratio_w = config["armor_detect"]["light"]["expand_ratio_w"].as<float>();
     float expand_ratio_h = config["armor_detect"]["light"]["expand_ratio_h"].as<float>();
     int binary_thres = config["armor_detect"]["light"]["binary_thres"].as<int>();
-
     ArmorDetectTrt::Params params;
     params.input_w = config["armor_detect"]["model"]["input_w"].as<int>();
     params.input_h = config["armor_detect"]["model"]["input_h"].as<int>();
