@@ -288,7 +288,7 @@ void HikCamera::hikCaptureLoop() {
                 if (on_frame_callback_) {
                     std::chrono::microseconds delay =
                         std::chrono::microseconds(static_cast<int64_t>(
-                            std::round((last_exposure_time_ / 2.0) + gobal::communication_delay_μs)
+                            std::round((last_exposure_time_ / 2.0) - gobal::communication_delay_μs)
                         ));
                     auto t_query = std::chrono::steady_clock::now() - delay;
                     auto past_att = gobal::attitude_buffer.get_interpolated(t_query);

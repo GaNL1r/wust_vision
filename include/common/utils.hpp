@@ -170,8 +170,6 @@ inline void transformArmorData(Armor& armor, Eigen::Matrix4d T_camera_to_odom) {
         armor.target_ori.x = q_odom.x();
         armor.target_ori.y = q_odom.y();
         armor.target_ori.z = q_odom.z();
-        // std::cout << "x" << armor.target_pos.x<< "y"<< armor.target_pos.y <<
-        // "z"<< armor.target_pos.z << std::endl;
 
         // Step 3: Extract yaw (assuming you have a function like this)
         Eigen::Vector3d euler = R_ori_odom.eulerAngles(2, 1, 0); // ZYX
