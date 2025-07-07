@@ -268,11 +268,6 @@ RuneDetectorNCNN::RuneDetectorNCNN(
 }
 RuneDetectorNCNN::~RuneDetectorNCNN() {
     net_.clear();
-
-    if (thread_pool_) {
-        thread_pool_->waitUntilEmpty();
-        thread_pool_.reset();
-    }
 }
 
 void RuneDetectorNCNN::init() {
@@ -318,7 +313,7 @@ void RuneDetectorNCNN::init() {
     strides_ = { 8, 16, 32 };
     grid_strides_.clear();
     generateGridsAndStride(INPUT_W, INPUT_H, strides_, grid_strides_);
-    thread_pool_ = std::make_unique<ThreadPool>(std::thread::hardware_concurrency(), 100);
+
     WUST_INFO("rune_ncnn") << "ncnn: model loaded successfully";
 }
 
@@ -330,15 +325,7 @@ void RuneDetectorNCNN::pushInput(
     // Reprocess
     Eigen::Matrix3f transform_matrix; // transform matrix from resized image to source image.
     cv::Mat resized_img = letterbox(rgb_img, transform_matrix);
-    // processCallback(resized_img, transform_matrix, timestamp, rgb_img);
-    thread_pool_->enqueue([this,
-                           resized_img,
-                           transform_matrix,
-                           timestamp,
-                           rgb_img,
-                           T_camera_to_odom]() {
-        this->processCallback(resized_img, transform_matrix, timestamp, rgb_img, T_camera_to_odom);
-    });
+    processCallback(resized_img, transform_matrix, timestamp, rgb_img, T_camera_to_odom);
 }
 
 void RuneDetectorNCNN::setCallback(CallbackType callback) {

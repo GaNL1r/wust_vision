@@ -283,7 +283,6 @@ RuneDetectorTrt::RuneDetectorTrt(const std::filesystem::path& model_path, const 
     TRT_ASSERT(cudaStreamCreate(&stream_) == 0);
     strides_ = { 8, 16, 32 };
     generateGridsAndStride(INPUT_W, INPUT_H, strides_, grid_strides_);
-    thread_pool_ = std::make_unique<ThreadPool>(std::thread::hardware_concurrency(), 100);
 }
 void RuneDetectorTrt::buildEngine(const std::string& onnx_path) {
     std::string engine_path = onnx_path.substr(0, onnx_path.find_last_of('.')) + ".engine";
@@ -354,10 +353,6 @@ RuneDetectorTrt::~RuneDetectorTrt() {
         engine_->destroy();
     if (runtime_)
         runtime_->destroy();
-    thread_pool_.reset();
-    if (thread_pool_) {
-        thread_pool_->waitUntilEmpty();
-    }
 }
 void RuneDetectorTrt::pushInput(
     const cv::Mat& rgb_img,
@@ -376,15 +371,7 @@ void RuneDetectorTrt::pushInput(
         std::cerr << "[RuneDetectorTrt::pushInput] Warning: resized_img is empty!" << std::endl;
         return;
     }
-
-    thread_pool_->enqueue([this,
-                           resized_img,
-                           transform_matrix,
-                           timestamp,
-                           rgb_img,
-                           T_camera_to_odom]() {
-        this->processCallback(resized_img, transform_matrix, timestamp, rgb_img, T_camera_to_odom);
-    });
+    processCallback(resized_img, transform_matrix, timestamp, rgb_img, T_camera_to_odom);
 }
 
 void RuneDetectorTrt::setCallback(CallbackType callback) {

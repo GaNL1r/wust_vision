@@ -87,13 +87,9 @@ private:
     float conf_threshold_;
     int top_k_;
     float nms_threshold_;
-    std::mutex mtx_;
     std::vector<int> strides_;
     std::vector<GridAndStride> grid_strides_;
-
     CallbackType infer_callback_;
-    std::unique_ptr<ThreadPool> thread_pool_;
-
     std::unique_ptr<ov::Core> ov_core_;
     std::unique_ptr<ov::CompiledModel> compiled_model_;
     bool use_fp16_ = true;

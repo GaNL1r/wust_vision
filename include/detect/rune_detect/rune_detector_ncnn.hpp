@@ -91,10 +91,7 @@ private:
     std::vector<GridAndStride> grid_strides_;
     std::string input_name_;
     std::string output_name_;
-
     CallbackType infer_callback_;
-    std::unique_ptr<ThreadPool> thread_pool_;
-
     int cpu_threads;
     bool use_gpu;
     bool use_lightmode = true;

@@ -95,13 +95,9 @@ private:
     float conf_threshold_;
     int top_k_;
     float nms_threshold_;
-    std::mutex mtx_;
     std::vector<int> strides_;
     std::vector<GridAndStride> grid_strides_;
-
     CallbackType infer_callback_;
-    std::unique_ptr<ThreadPool> thread_pool_;
-
     Params params_;
     nvinfer1::ICudaEngine* engine_;
     nvinfer1::IExecutionContext* context_;
@@ -110,8 +106,6 @@ private:
     cudaStream_t stream_; // CUDA流
     int input_idx_, output_idx_;
     size_t input_sz_, output_sz_;
-    // Eigen::Matrix3f transform_matrix; // 变换矩阵
     TRTLogger g_logger_;
-
     nvinfer1::IRuntime* runtime_ = nullptr;
 };

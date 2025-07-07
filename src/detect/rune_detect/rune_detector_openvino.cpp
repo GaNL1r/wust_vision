@@ -294,7 +294,6 @@ void RuneDetectorOpenvino::init() {
 
     strides_ = { 8, 16, 32 };
     generateGridsAndStride(INPUT_W, INPUT_H, strides_, grid_strides_);
-    thread_pool_ = std::make_unique<ThreadPool>(std::thread::hardware_concurrency(), 100);
 }
 
 void RuneDetectorOpenvino::pushInput(
@@ -305,15 +304,7 @@ void RuneDetectorOpenvino::pushInput(
     // Reprocess
     Eigen::Matrix3f transform_matrix; // transform matrix from resized image to source image.
     cv::Mat resized_img = letterbox(rgb_img, transform_matrix);
-    // processCallback(resized_img, transform_matrix, timestamp, rgb_img);
-    thread_pool_->enqueue([this,
-                           resized_img,
-                           transform_matrix,
-                           timestamp,
-                           rgb_img,
-                           T_camera_to_odom]() {
-        this->processCallback(resized_img, transform_matrix, timestamp, rgb_img, T_camera_to_odom);
-    });
+    processCallback(resized_img, transform_matrix, timestamp, rgb_img, T_camera_to_odom);
 }
 
 void RuneDetectorOpenvino::setCallback(CallbackType callback) {
