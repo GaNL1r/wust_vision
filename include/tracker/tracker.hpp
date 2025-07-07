@@ -23,6 +23,7 @@
 // std
 #include <memory>
 #include <string>
+#include <variant>
 
 // third party
 #include <Eigen/Eigen>
@@ -31,6 +32,7 @@
 // project
 #include "tracker/math/extended_kalman_filter.hpp"
 #include "tracker/motion_models/motion_modela.hpp"
+#include "tracker/motion_models/motion_modelypd.hpp"
 #include "type/type.hpp"
 
 inline double normalizeAngle(double angle) {
@@ -60,8 +62,10 @@ public:
         TEMP_LOST,
     } tracker_state;
 
-    std::unique_ptr<armor_motion_model::RobotStateEKF> ekf;
+    std::unique_ptr<armor_motion_model::RobotStateEKF> ekf_xyz;
+    std::unique_ptr<ypdarmor_motion_model::RobotStateEKF> ekf_ypd;
 
+    bool use_ypd = true;
     int tracking_thres;
     int lost_thres;
 
@@ -96,18 +100,7 @@ private:
     int lost_count_;
 
     double last_yaw_;
-
-    std::chrono::steady_clock::time_point last_track_time_;
-    std::deque<float> yaw_velocity_buffer_;
-
-    int track_update_count_ = 0;
-    bool if_have_last_track_ = false;
-    double last_track_yaw_;
-
-    int rotation_inconsistent_count_ = 0;
-
-    int rotation_inconsistent_cooldown_ = 0;
+    double last_ypd_y;
 
     std::string tracker_logger = "tracker";
-    std::deque<std::chrono::steady_clock::time_point> armor_jump_timestamps_;
 };

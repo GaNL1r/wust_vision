@@ -12,7 +12,7 @@ camera:
   acquisition_frame_rate: 200
   adc_bit_depth: Bits_8
   camera_info_path: /home/hy/wust_vision/config/camera_info.yaml
-  exposure_time: 1500
+  exposure_time: 500
   gain: 16
   pixel_format: BayerRG8
   acquisitionFrameRateEnable: false
@@ -78,9 +78,9 @@ armor_detect:
     threshold: 0.5
   light:
     binary_thres: 85
-    expand_ratio_h: 1.1
-    expand_ratio_w: 1.1
-    max_angle: 40
+    expand_ratio_h: 1.2
+    expand_ratio_w: 1.2
+    max_angle: 35
     max_ratio: 0.45
     min_ratio: 0.02
   model:
@@ -150,8 +150,8 @@ armor_tracker:
     s2qy: 10
     s2qyaw: 20
     s2qz: 1
-    yr_d: 0.65388986
-    yr_p: 0.010073833
+    yr_d: 0.30388986
+    yr_p: 0.015073833
     yr_y: 0.0072568339
     yr_yaw: 0.00609218545
     ys2qd_zc: 800
@@ -166,7 +166,6 @@ armor_tracker:
   max_match_yaw_diff: 0.5
   max_match_z_diff: 0.2
   one_lost_time_thres: 0.1
-  target_frame: gimbal_odom
   tracking_thres: 5
   use_ypd_tracker: true
   v_yaw_to_one_thres: 0.5

@@ -50,8 +50,8 @@ ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(const YAML::Node& config) {
     detector_ = std::make_unique<ArmorDetectTrt>(
         model_path,
         params,
-        expand_ratio_h,
         expand_ratio_w,
+        expand_ratio_h,
         binary_thres,
         l_params,
         a_params,

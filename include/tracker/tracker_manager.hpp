@@ -16,9 +16,7 @@
 #include "common/3rdparty/angles.h"
 #include "tracker/one_ca_tracker.hpp"
 #include "tracker/one_tracker.hpp"
-#include "tracker/one_ypd_tracker.hpp"
 #include "tracker/tracker.hpp"
-#include "tracker/ypd_tracker.hpp"
 #include "type/type.hpp"
 #include "yaml-cpp/yaml.h"
 class TrackerManager {
@@ -41,13 +39,8 @@ public:
     bool use_ypd_tracker_ = false;
     double dt_;
     std::unique_ptr<Tracker> tracker_;
-    std::unique_ptr<OneTracker> one_tracker_;
-    std::unique_ptr<YpdTracker> ypd_tracker_;
-    std::unique_ptr<OneYpdTracker> one_ypd_tracker_;
-    std::unique_ptr<OneCaTracker> one_ca_tracker_;
     int track_one_num;
     std::vector<std::unique_ptr<OneTracker>> one_trackers_;
-    std::vector<std::unique_ptr<OneYpdTracker>> one_ypd_trackers_;
     double s2qx_, s2qy_, s2qz_, s2qyaw_, s2qr_, s2qd_zc_;
     double ys2qx_, ys2qy_, ys2qz_, ys2qyaw_, ys2qr_, ys2qd_zc_;
     double os2qx_, os2qy_, os2qz_, os2qyaw_;
@@ -64,6 +57,4 @@ public:
     double v_yaw_update_thres_;
     double v_yaw_to_one_thres_;
     int iteration_num_ = 1;
-
-    std::vector<OneTarget> one_targets;
 };

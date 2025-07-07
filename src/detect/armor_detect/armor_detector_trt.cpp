@@ -201,9 +201,9 @@ ArmorDetectTrt::ArmorDetectTrt(
         light_params,
         armor_params,
         classify_threshold,
-        binary_thres,
         expand_ratio_w,
-        expand_ratio_h
+        expand_ratio_h,
+        binary_thres
     );
 }
 

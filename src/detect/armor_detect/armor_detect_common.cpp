@@ -153,9 +153,7 @@ std::vector<Light> ArmorDetectCommon::findLights(
         return l1.center.x < l2.center.x;
     });
 
-    // 更新 armor 内的信息
     armor.lights = all_lights;
-    // armor.is_ok = !armor.lights.empty();
 
     return all_lights;
 }
@@ -224,7 +222,6 @@ ArmorDetectCommon::detectNet(const cv::Mat& src_img, std::vector<ArmorObject>& o
                 corner_corrector->correctCorners(armor);
             }
         }
-
         armors.emplace_back(armor);
     }
     return armors;

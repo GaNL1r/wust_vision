@@ -247,9 +247,9 @@ ArmorDetectNCNN::ArmorDetectNCNN(
         l,
         a,
         classifier_threshold,
-        binary_thres_,
         expand_ratio_w,
-        expand_ratio_h
+        expand_ratio_h,
+        binary_thres_
     );
 
     init();
@@ -394,11 +394,6 @@ void ArmorDetectNCNN::pushInput(
     Eigen::Matrix4d T_camera_to_odom
 ) {
     Eigen::Matrix3f transform_matrix;
-    cv::Mat resized_img = letterbox(rgb_img, transform_matrix); // ✅ 保证先定义
+    cv::Mat resized_img = letterbox(rgb_img, transform_matrix);
     processCallback(resized_img, transform_matrix, timestamp, rgb_img, T_camera_to_odom);
-    // 异步执行 processCallback
-    // thread_pool_->enqueue([this, resized_img, transform_matrix, timestamp,
-    // rgb_img]() {
-    //   this->processCallback(resized_img, transform_matrix, timestamp, rgb_img);
-    // });
 }

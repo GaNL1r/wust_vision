@@ -24,6 +24,7 @@
 // project
 #include "tracker/math/extended_kalman_filter.hpp"
 #include "tracker/motion_models/motion_modelonea.hpp"
+#include "tracker/motion_models/motion_modeloneypd.hpp"
 #include "type/type.hpp"
 
 inline double onormalizeAnglea(double angle) {
@@ -57,7 +58,9 @@ public:
     static Eigen::Vector3d getArmorPositionFromState(const Eigen::VectorXd& x) noexcept;
     double orientationToYaw(const tf::Quaternion& q) noexcept;
 
-    std::unique_ptr<onearmor_motion_model::RobotStateEKF> ekf;
+    std::unique_ptr<onearmor_motion_model::RobotStateEKF> ekf_xyz;
+    std::unique_ptr<oneypdarmor_motion_model::RobotStateEKF> ekf_ypd;
+    bool use_ypd;
 
     int tracking_thres;
     int lost_thres;
@@ -90,18 +93,7 @@ private:
     int lost_count_;
 
     double last_yaw_;
-
-    std::chrono::steady_clock::time_point last_track_time_;
-    std::deque<float> yaw_velocity_buffer_;
-
-    int track_update_count_ = 0;
-    bool if_have_last_track_ = false;
-    double last_track_yaw_;
-
-    int rotation_inconsistent_count_ = 0;
-
-    int rotation_inconsistent_cooldown_ = 0;
+    double last_ypd_y;
 
     std::string tracker_logger = "onetracker";
-    std::deque<std::chrono::steady_clock::time_point> armor_jump_timestamps_;
 };

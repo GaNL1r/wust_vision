@@ -259,9 +259,9 @@ ArmorDetectOpenVino::ArmorDetectOpenVino(
         l,
         a,
         classifier_threshold,
-        binary_thres_,
         expand_ratio_w,
-        expand_ratio_h
+        expand_ratio_h,
+        binary_thres_
     );
 
     init();

@@ -40,7 +40,8 @@ total=$(find .. \
     -type d \( \
         -path ../build -o \
         -path ../hikSDK -o \
-        -path ../model \
+        -path ../model -o \
+        -path ../.cache \
     \) -prune -o \
     -type f \( \
         -name "*.cpp" -o \

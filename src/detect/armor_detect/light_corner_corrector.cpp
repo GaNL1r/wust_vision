@@ -89,9 +89,6 @@ void LightCornerCorrector::correctCorners(ArmorObject& armor) noexcept {
         armor.is_ok = false;
     }
 
-    if (!armor.is_ok) {
-        armor.pts_binary.clear();
-    }
     if (armor.is_ok) {
         armor.center = (armor.lights[0].center + armor.lights[1].center) / 2;
     } else {

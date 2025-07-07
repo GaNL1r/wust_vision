@@ -84,10 +84,8 @@ set(COMMON_SOURCES
   src/tracker/math/error_state_extended_kalman_filter.cpp
   src/tracker/one_ca_tracker.cpp
   src/tracker/one_tracker.cpp
-  src/tracker/one_ypd_tracker.cpp
   src/tracker/tracker.cpp
   src/tracker/tracker_manager.cpp
-  src/tracker/ypd_tracker.cpp
   src/detect/armor_detect/armor_detector_opencv.cpp
   src/detect/armor_detect/armor_detector_opencv_wrapper.cpp
   src/detect/armor_detect/armor_detect_common.cpp
