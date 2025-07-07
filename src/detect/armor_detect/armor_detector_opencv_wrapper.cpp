@@ -15,13 +15,12 @@
 #include "common/logger.hpp"
 ArmorDetectorOpencvWrapper::ArmorDetectorOpencvWrapper(const YAML::Node& config) {
     auto classify_model_path =
-        config["armor_detect_opencv"]["classify_model_path"].as<std::string>();
+        config["armor_detect_opencv"]["classify"]["model_path"].as<std::string>();
     auto classify_label_path =
-        config["armor_detect_opencv"]["classify_label_path"].as<std::string>();
+        config["armor_detect_opencv"]["classify"]["label_path"].as<std::string>();
+    double classify_threshold = config["armor_detect_opencv"]["classify"]["threshold"].as<double>();
 
     int binary_thres = config["armor_detect_opencv"]["light"]["binary_thres"].as<int>();
-    double classifier_threshold =
-        config["armor_detect_opencv"]["classifier_threshold"].as<double>();
 
     LightParams l_params = {
         .min_ratio = config["armor_detect_opencv"]["light"]["min_ratio"].as<double>(),
@@ -46,7 +45,7 @@ ArmorDetectorOpencvWrapper::ArmorDetectorOpencvWrapper(const YAML::Node& config)
         classify_model_path,
         classify_label_path,
         binary_thres,
-        classifier_threshold,
+        classify_threshold,
         l_params,
         a_params
     );

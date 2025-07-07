@@ -14,8 +14,9 @@
 #include "detect/armor_detect/armor_detector_ncnn_wrapper.hpp"
 
 ArmorDetectorNCNNWrapper::ArmorDetectorNCNNWrapper(const YAML::Node& config) {
-    auto classify_model_path = config["armor_detect"]["classify_model_path"].as<std::string>();
-    auto classify_label_path = config["armor_detect"]["classify_label_path"].as<std::string>();
+    auto classify_model_path = config["armor_detect"]["classify"]["model_path"].as<std::string>();
+    auto classify_label_path = config["armor_detect"]["classify"]["label_path"].as<std::string>();
+    double classify_threshold = config["armor_detect"]["classify"]["threshold"].as<double>();
     const std::string model_path_param =
         config["armor_detect"]["model"]["model_path_param"].as<std::string>();
     const std::string model_path_bin =
@@ -55,6 +56,7 @@ ArmorDetectorNCNNWrapper::ArmorDetectorNCNNWrapper(const YAML::Node& config) {
         classify_label_path,
         l_params,
         a_params,
+        classify_threshold,
         conf_threshold,
         top_k,
         nms_threshold,

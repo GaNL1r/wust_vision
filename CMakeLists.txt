@@ -90,7 +90,8 @@ set(COMMON_SOURCES
   src/tracker/ypd_tracker.cpp
   src/detect/armor_detect/armor_detector_opencv.cpp
   src/detect/armor_detect/armor_detector_opencv_wrapper.cpp
-
+  src/detect/armor_detect/armor_detect_common.cpp
+  src/detect/armor_detect/number_classifier.cpp
   
 )
 set(NCNN_SOURCES

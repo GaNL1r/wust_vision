@@ -23,6 +23,7 @@
 #include "NvInferRuntime.h"
 #include "common/ThreadPool.h"
 #include "common/logger.hpp"
+#include "detect/armor_detect/armor_detect_common.hpp"
 #include "detect/armor_detect/light_corner_corrector.hpp"
 #include "detect/mono_measure_tool.hpp"
 #include "eigen3/Eigen/Dense"
@@ -61,14 +62,13 @@ public:
         LightParams light_params,
         ArmorParams armor_params,
         std::string classify_model_path,
-        std::string classify_label_path
+        std::string classify_label_path,
+        double classifier_threshold
     );
 
     // 析构函数：释放资源
     ~ArmorDetectTrt();
 
-    // 推理接口：输入图像，返回检测框列表
-    // std::vector<ArmorObject> detect(const cv::Mat & image);
     void pushInput(
         const cv::Mat& rgb_img,
         std::chrono::steady_clock::time_point timestamp,
@@ -83,22 +83,10 @@ public:
         Eigen::Matrix4d T_camera_to_odom
     );
     void setCallback(DetectorCallback callback);
-    bool extractImage(const cv::Mat& src, ArmorObject& armor);
-    std::vector<Light>
-    findLights(const cv::Mat& rbg_img, const cv::Mat& binary_img, ArmorObject& armor) noexcept;
-    bool classifyNumber(ArmorObject& armor);
-    void initNumberClassifier();
-
-    bool isLight(const Light& possible_light) noexcept;
-
-    bool isArmor(const Light& light_1, const Light& light_2) noexcept;
-
-    void detect(ArmorObject& armor);
 
 private:
     // TensorRT 引擎初始化
     void buildEngine(const std::string& onnx_path);
-    bool refineLightsFromArmorPts(ArmorObject& armor) const;
     // 后处理：解析输出张量，生成检测框
     std::vector<ArmorObject> postprocess(
         std::vector<ArmorObject>& output_objs,
@@ -110,8 +98,6 @@ private:
     );
 
     // 成员变量
-    ArmorParams armor_params_;
-    std::unique_ptr<LightCornerCorrector> corner_corrector;
     Params params_;
     nvinfer1::ICudaEngine* engine_;
     nvinfer1::IExecutionContext* context_;
@@ -120,17 +106,8 @@ private:
     cudaStream_t stream_; // CUDA流
     int input_idx_, output_idx_;
     size_t input_sz_, output_sz_;
-    // Eigen::Matrix3f transform_matrix; // 变换矩阵
     TRTLogger g_logger_;
-    std::unique_ptr<ThreadPool> thread_pool_;
     DetectorCallback infer_callback_;
     nvinfer1::IRuntime* runtime_ = nullptr;
-    double expand_ratio_w_;
-    double expand_ratio_h_;
-    int binary_thres_;
-    cv::dnn::Net number_net_;
-    LightParams light_params_;
-    std::string classify_model_path_;
-    std::string classify_label_path_;
-    std::vector<std::string> class_names_;
+    std::unique_ptr<ArmorDetectCommon> armor_detect_common_;
 };

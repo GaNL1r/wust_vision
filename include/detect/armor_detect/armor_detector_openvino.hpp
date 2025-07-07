@@ -16,7 +16,7 @@
 
 #include "common/ThreadPool.h"
 #include "common/logger.hpp"
-#include "detect/armor_detect/light_corner_corrector.hpp"
+#include "detect/armor_detect/armor_detect_common.hpp"
 #include "eigen3/Eigen/Dense"
 #include "fmt/color.h"
 #include "fmt/core.h"
@@ -41,6 +41,7 @@ public:
         const std::string& device_name,
         const LightParams& l,
         const ArmorParams& a,
+        double classifier_threshold,
         float conf_threshold = 0.25,
         int top_k = 128,
         float nms_threshold = 0.3,
@@ -69,26 +70,10 @@ public:
         std::chrono::steady_clock::time_point timestamp,
         Eigen::Matrix4d T_camera_to_odom
     );
-    void initNumberClassifier();
+
     void setCallback(DetectorCallback callback);
-    bool classifyNumber(ArmorObject& armor);
 
-    std::vector<Light>
-    findLights(const cv::Mat& rbg_img, const cv::Mat& binary_img, ArmorObject& armor) noexcept;
-
-    bool isLight(const Light& possible_light) noexcept;
-    bool isArmor(const Light& light_1, const Light& light_2) noexcept;
-
-    void detect(ArmorObject& armor);
-    void extractNumberImage(const cv::Mat& src, ArmorObject& armor);
-    bool refineLightsFromArmorPts(ArmorObject& armor) const;
-
-    LightParams light_params_;
-    ArmorParams armor_params_;
-    std::unique_ptr<LightCornerCorrector> corner_corrector;
     std::string model_path_;
-    std::string classify_model_path_;
-    std::string classify_label_path_;
     std::string device_name_;
     float conf_threshold_;
     int top_k_;
@@ -99,15 +84,8 @@ public:
     std::vector<GridAndStride> grid_strides_;
     std::unique_ptr<ThreadPool> thread_pool_;
     DetectorCallback infer_callback_;
-    cv::dnn::Net number_net_;
-    std::vector<std::string> class_names_;
-    float number_threshold_;
-    int binary_thres_;
+    std::unique_ptr<ArmorDetectCommon> armor_detect_common_;
     bool use_fp16_ = true;
     bool use_throughputmode_ = false;
-
-    float expand_ratio_w_;
-    float expand_ratio_h_;
-
     bool isinited_ = false;
 };

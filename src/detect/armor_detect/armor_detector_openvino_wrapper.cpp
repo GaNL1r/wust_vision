@@ -14,8 +14,9 @@
 #include "detect/armor_detect/armor_detector_openvino_wrapper.hpp"
 
 ArmorDetectorOpenvinoWrapper::ArmorDetectorOpenvinoWrapper(const YAML::Node& config) {
-    auto classify_model_path = config["armor_detect"]["classify_model_path"].as<std::string>();
-    auto classify_label_path = config["armor_detect"]["classify_label_path"].as<std::string>();
+    auto classify_model_path = config["armor_detect"]["classify"]["model_path"].as<std::string>();
+    auto classify_label_path = config["armor_detect"]["classify"]["label_path"].as<std::string>();
+    double classify_threshold = config["armor_detect"]["classify"]["threshold"].as<double>();
     const std::string model_path = config["armor_detect"]["model"]["model_path"].as<std::string>();
     auto device_type = config["armor_detect"]["model"]["device_type"].as<std::string>();
     float conf_threshold = config["armor_detect"]["model"]["conf_threshold"].as<float>();
@@ -51,6 +52,7 @@ ArmorDetectorOpenvinoWrapper::ArmorDetectorOpenvinoWrapper(const YAML::Node& con
         device_type,
         l_params,
         a_params,
+        classify_threshold,
         conf_threshold,
         top_k,
         nms_threshold,

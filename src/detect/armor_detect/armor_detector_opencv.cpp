@@ -49,50 +49,52 @@ ArmorDetectOpenCV::ArmorDetectOpenCV(
     binary_thres(bin_thres),
     light_params(l),
     armor_params(a),
-    classify_model_path_(classify_model_path),
-    classify_label_path_(classify_label_path),
+    // classify_model_path_(classify_model_path),
+    // classify_label_path_(classify_label_path),
     classifier_threshold_(classifier_threshold) {
     corner_corrector = std::make_unique<LightCornerCorrector>();
-    initNumberClassifier();
+    number_classifier_ =
+        std::make_unique<NumberClassifier>(classify_model_path, classify_label_path);
+    //initNumberClassifier();
 }
 
-void ArmorDetectOpenCV::initNumberClassifier() {
-    // 加载数字识别模型
-    const std::string model_path = classify_model_path_;
-    number_net_ = cv::dnn::readNetFromONNX(model_path);
+// void ArmorDetectOpenCV::initNumberClassifier() {
+//     // 加载数字识别模型
+//     const std::string model_path = classify_model_path_;
+//     number_net_ = cv::dnn::readNetFromONNX(model_path);
 
-    // 检查模型是否成功加载
-    if (number_net_.empty()) {
-        WUST_ERROR("number_classifier")
-            << "Failed to load number classifier model from " << model_path;
-        std::exit(EXIT_FAILURE); // 模型加载失败，退出程序
-    } else {
-        WUST_INFO("number_classifier")
-            << "Successfully loaded number classifier model from " << model_path;
-    }
+//     // 检查模型是否成功加载
+//     if (number_net_.empty()) {
+//         WUST_ERROR("number_classifier")
+//             << "Failed to load number classifier model from " << model_path;
+//         std::exit(EXIT_FAILURE); // 模型加载失败，退出程序
+//     } else {
+//         WUST_INFO("number_classifier")
+//             << "Successfully loaded number classifier model from " << model_path;
+//     }
 
-    // 加载标签
-    const std::string label_path = classify_label_path_;
-    std::ifstream label_file(label_path);
-    std::string line;
+//     // 加载标签
+//     const std::string label_path = classify_label_path_;
+//     std::ifstream label_file(label_path);
+//     std::string line;
 
-    // 清空之前的标签
-    class_names_.clear();
+//     // 清空之前的标签
+//     class_names_.clear();
 
-    // 读取标签文件
-    while (std::getline(label_file, line)) {
-        class_names_.push_back(line);
-    }
+//     // 读取标签文件
+//     while (std::getline(label_file, line)) {
+//         class_names_.push_back(line);
+//     }
 
-    // 检查标签是否成功加载
-    if (class_names_.empty()) {
-        WUST_ERROR("number_classifier") << "Failed to load labels from " << label_path;
-        std::exit(EXIT_FAILURE); // 标签加载失败，退出程序
-    } else {
-        WUST_INFO("number_classifier")
-            << "Successfully loaded " << class_names_.size() << " labels from " << label_path;
-    }
-}
+//     // 检查标签是否成功加载
+//     if (class_names_.empty()) {
+//         WUST_ERROR("number_classifier") << "Failed to load labels from " << label_path;
+//         std::exit(EXIT_FAILURE); // 标签加载失败，退出程序
+//     } else {
+//         WUST_INFO("number_classifier")
+//             << "Successfully loaded " << class_names_.size() << " labels from " << label_path;
+//     }
+// }
 
 std::vector<ArmorObject> ArmorDetectOpenCV::detect(const cv::Mat& input) noexcept {
     if (input.empty())
@@ -100,8 +102,7 @@ std::vector<ArmorObject> ArmorDetectOpenCV::detect(const cv::Mat& input) noexcep
     cv::Mat gray_img_;
     std::vector<Light> lights_;
     cv::Mat binary_img = preprocessImage(input, gray_img_);
-    // cv::imshow("binary_img", binary_img);
-    // cv::waitKey(1);
+
     lights_ = findLights(input, binary_img);
     std::vector<ArmorObject> armors = matchLights(lights_);
 
@@ -118,7 +119,7 @@ std::vector<ArmorObject> ArmorDetectOpenCV::detect(const cv::Mat& input) noexcep
                 if (armor.number_img.empty())
                     return;
 
-                if (!classifyNumber(armor))
+                if (!number_classifier_->classifyNumber(armor))
                     return;
 
                 if (armor.confidence < classifier_threshold_)
@@ -349,59 +350,6 @@ ArmorDetectOpenCV::extractNumber(const cv::Mat& src, const ArmorObject& armor) c
     cv::threshold(number_image, number_image, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
 
     return number_image;
-}
-
-bool ArmorDetectOpenCV::classifyNumber(ArmorObject& armor) {
-    static thread_local std::unique_ptr<cv::dnn::Net> thread_net;
-    if (armor.number_img.empty()) {
-        return false;
-    }
-
-    if (!thread_net) {
-        thread_net = std::make_unique<cv::dnn::Net>(cv::dnn::readNetFromONNX(classify_model_path_));
-        if (thread_net->empty()) {
-            std::cerr << "Failed to load thread-local number classifier model." << std::endl;
-            return false;
-        }
-    }
-
-    cv::Mat image = armor.number_img.clone();
-    image = image / 255.0;
-
-    cv::Mat blob;
-    cv::dnn::blobFromImage(image, blob);
-
-    thread_net->setInput(blob);
-    cv::Mat outputs = thread_net->forward();
-
-    float max_prob = *std::max_element(outputs.begin<float>(), outputs.end<float>());
-    cv::Mat softmax_prob;
-    cv::exp(outputs - max_prob, softmax_prob);
-    float sum = static_cast<float>(cv::sum(softmax_prob)[0]);
-    softmax_prob /= sum;
-
-    double confidence;
-    cv::Point class_id_point;
-    cv::minMaxLoc(softmax_prob.reshape(1, 1), nullptr, &confidence, nullptr, &class_id_point);
-    int label_id = class_id_point.x;
-
-    armor.confidence = confidence;
-
-    static const std::map<int, ArmorNumber> label_to_armor_number = {
-        { 0, ArmorNumber::NO1 },    { 1, ArmorNumber::NO2 }, { 2, ArmorNumber::NO3 },
-        { 3, ArmorNumber::NO4 },    { 4, ArmorNumber::NO5 }, { 5, ArmorNumber::OUTPOST },
-        { 6, ArmorNumber::SENTRY }, { 7, ArmorNumber::BASE }
-    };
-
-    if (label_id < 8 && label_to_armor_number.find(label_id) != label_to_armor_number.end()) {
-        armor.number = label_to_armor_number.at(label_id);
-
-        return true;
-    } else {
-        armor.number = ArmorNumber::UNKNOWN;
-        armor.confidence = 0;
-        return false;
-    }
 }
 
 void ArmorDetectOpenCV::setCallback(DetectorCallback callback) {

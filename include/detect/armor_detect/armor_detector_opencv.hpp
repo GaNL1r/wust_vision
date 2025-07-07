@@ -28,6 +28,7 @@
 #include <opencv2/core/types.hpp>
 // project
 #include "detect/armor_detect/light_corner_corrector.hpp"
+#include "detect/armor_detect/number_classifier.hpp"
 #include "type/type.hpp"
 
 class ArmorDetectOpenCV {
@@ -61,9 +62,9 @@ public:
 
     // For debug usage
 
-    void initNumberClassifier();
+    //void initNumberClassifier();
     cv::Mat extractNumber(const cv::Mat& src, const ArmorObject& armor) const noexcept;
-    bool classifyNumber(ArmorObject& armor);
+    //bool classifyNumber(ArmorObject& armor);
     void setCallback(DetectorCallback callback);
     // Parameters
     int binary_thres;
@@ -82,9 +83,10 @@ private:
     void topts(ArmorObject& armor);
 
     // std::vector<ArmorObject> armors_;
-    cv::dnn::Net number_net_;
-    std::vector<std::string> class_names_;
-    std::string classify_model_path_;
-    std::string classify_label_path_;
+    std::unique_ptr<NumberClassifier> number_classifier_;
+    // cv::dnn::Net number_net_;
+    // std::vector<std::string> class_names_;
+    // std::string classify_model_path_;
+    // std::string classify_label_path_;
     DetectorCallback infer_callback_;
 };

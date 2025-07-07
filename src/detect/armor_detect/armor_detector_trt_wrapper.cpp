@@ -14,8 +14,9 @@
 #include "detect/armor_detect/armor_detector_trt_wrapper.hpp"
 
 ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(const YAML::Node& config) {
-    auto classify_model_path = config["armor_detect"]["classify_model_path"].as<std::string>();
-    auto classify_label_path = config["armor_detect"]["classify_label_path"].as<std::string>();
+    auto classify_model_path = config["armor_detect"]["classify"]["model_path"].as<std::string>();
+    auto classify_label_path = config["armor_detect"]["classify"]["label_path"].as<std::string>();
+    double classify_threshold = config["armor_detect"]["classify"]["threshold"].as<double>();
     const std::string model_path = config["armor_detect"]["model"]["model_path"].as<std::string>();
     float expand_ratio_w = config["armor_detect"]["light"]["expand_ratio_w"].as<float>();
     float expand_ratio_h = config["armor_detect"]["light"]["expand_ratio_h"].as<float>();
@@ -55,7 +56,8 @@ ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(const YAML::Node& config) {
         l_params,
         a_params,
         classify_model_path,
-        classify_label_path
+        classify_label_path,
+        classify_threshold
     );
 }
 

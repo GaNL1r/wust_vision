@@ -727,7 +727,7 @@ void WustVision::ArmorDetectCallback(
 
     infer_running_count_--;
     if (use_auto_labeler) {
-        static int save_counter = 0; // 静态计数器记录保存次数
+        static int save_counter = 0;
 
         for (const auto& obj: objs) {
             std::vector<float> csv_data;
@@ -745,8 +745,8 @@ void WustVision::ArmorDetectCallback(
             csv_data.push_back(number_);
             csv_data.push_back(color_);
 
-            save_counter++; // 每次处理一个对象后计数器加一
-            if (save_counter % 10 == 0) { // 每10次执行一次保存
+            save_counter++;
+            if (save_counter % 10 == 0) {
                 cv::Mat img_save;
                 cv::cvtColor(src_img, img_save, cv::COLOR_RGB2BGR);
                 auto_labeler_->save(img_save, csv_data);
