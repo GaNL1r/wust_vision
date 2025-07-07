@@ -60,11 +60,8 @@ public:
     std::vector<Light> findLights(const cv::Mat& rbg_img, const cv::Mat& binary_img) noexcept;
     std::vector<ArmorObject> matchLights(const std::vector<Light>& lights) noexcept;
 
-    // For debug usage
-
-    //void initNumberClassifier();
     cv::Mat extractNumber(const cv::Mat& src, const ArmorObject& armor) const noexcept;
-    //bool classifyNumber(ArmorObject& armor);
+
     void setCallback(DetectorCallback callback);
     // Parameters
     int binary_thres;
@@ -82,11 +79,7 @@ private:
     ArmorType isArmor(const Light& light_1, const Light& light_2) noexcept;
     void topts(ArmorObject& armor);
 
-    // std::vector<ArmorObject> armors_;
     std::unique_ptr<NumberClassifier> number_classifier_;
-    // cv::dnn::Net number_net_;
-    // std::vector<std::string> class_names_;
-    // std::string classify_model_path_;
-    // std::string classify_label_path_;
+
     DetectorCallback infer_callback_;
 };
