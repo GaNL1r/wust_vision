@@ -62,10 +62,20 @@ public:
         TEMP_LOST,
     } tracker_state;
 
-    //std::unique_ptr<armor_motion_model::RobotStateEKF> ekf_xyz;
+    std::function<
+        Eigen::
+            VectorXd(const std::unique_ptr<ypdarmor_motion_model::RobotStateEKF>&, const std::unique_ptr<ypdarmor_motion_model::RobotStateESEKF>&)>
+        predict_func;
+    std::function<
+        void(const std::unique_ptr<ypdarmor_motion_model::RobotStateEKF>&, const std::unique_ptr<ypdarmor_motion_model::RobotStateESEKF>&, const Eigen::VectorXd&)>
+        update_func;
+    std::function<
+        void(const std::unique_ptr<ypdarmor_motion_model::RobotStateEKF>&, const std::unique_ptr<ypdarmor_motion_model::RobotStateESEKF>&, const Eigen::VectorXd&)>
+        setstate_func;
     std::unique_ptr<ypdarmor_motion_model::RobotStateEKF> ekf_ypd;
+    std::unique_ptr<ypdarmor_motion_model::RobotStateESEKF> esekf_ypd;
+    bool use_esekf;
 
-    bool use_ypd = true;
     int tracking_thres;
     int lost_thres;
 

@@ -20,7 +20,6 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     double max_match_yaw_diff = config_["max_match_yaw_diff"].as<double>(1.0);
     double max_match_z_diff = config_["max_match_z_diff"].as<double>(0.1);
     double jump_thresh = config_["jump_thresh"].as<double>(0.4);
-
     tracker_ = std::make_unique<Tracker>(
         max_match_distance,
         max_match_yaw_diff,
@@ -35,7 +34,7 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
             max_match_z_diff,
             jump_thresh
         );
-        o_tracker_->tracking_thres = config_["tracking_thres"].as<int>(5);
+        o_tracker_->tracking_thres = config_["one_tracking_thres"].as<int>(0);
         one_trackers_.push_back(std::move(o_tracker_));
     }
 
@@ -48,6 +47,9 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     one_lost_time_thres_ = config_["one_lost_time_thres"].as<double>(0.1);
 
     iteration_num_ = config_["ekf"]["iteration_num"].as<int>(1);
+    bool use_esekf = config_["ekf"]["use_esekf"].as<bool>(false);
+    bool fusion_esekf_ekf = config_["ekf"]["fusion_esekf_ekf"].as<bool>(false);
+    tracker_->use_esekf = use_esekf;
     // EKF 噪声参数
 
     ys2qx_ = config_["ekf"]["ys2qx"].as<double>(20.0);
@@ -75,13 +77,11 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     // EKF 状态预测函数
 
     auto yf = ypdarmor_motion_model::Predict(0.005);
-
     auto oyf = oneypdarmor_motion_model::Predict(0.005);
 
     // EKF 观测函数
 
     auto yh = ypdarmor_motion_model::Measure();
-
     auto oyh = oneypdarmor_motion_model::Measure();
 
     // EKF 过程噪声协方差 Q
@@ -98,17 +98,17 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
         double q_r = pow(t, 4) / 4 * r;
         double q_d_zc = pow(t, 4) / 4 * d_zc;
         // clang-format off
-      //    xc      v_xc    yc      v_yc    zc      v_zc    yaw         v_yaw       r       d_za
-      q <<  q_x_x,  q_x_vx, 0,      0,      0,      0,      0,          0,          0,      0,
-            q_x_vx, q_vx_vx,0,      0,      0,      0,      0,          0,          0,      0,
-            0,      0,      q_y_y,  q_y_vy, 0,      0,      0,          0,          0,      0,
-            0,      0,      q_y_vy, q_vy_vy,0,      0,      0,          0,          0,      0,
-            0,      0,      0,      0,      q_z_z,  q_z_vz, 0,          0,          0,      0,
-            0,      0,      0,      0,      q_z_vz, q_vz_vz,0,          0,          0,      0,
-            0,      0,      0,      0,      0,      0,      q_yaw_yaw,  q_yaw_vyaw, 0,      0,
-            0,      0,      0,      0,      0,      0,      q_yaw_vyaw, q_vyaw_vyaw,0,      0,
-            0,      0,      0,      0,      0,      0,      0,          0,          q_r,    0,
-            0,      0,      0,      0,      0,      0,      0,          0,          0,      q_d_zc;
+        //      xc      v_xc    yc      v_yc    zc      v_zc    yaw         v_yaw       r       d_za
+        q <<    q_x_x,  q_x_vx, 0,      0,      0,      0,      0,          0,          0,      0,
+                q_x_vx, q_vx_vx,0,      0,      0,      0,      0,          0,          0,      0,
+                0,      0,      q_y_y,  q_y_vy, 0,      0,      0,          0,          0,      0,
+                0,      0,      q_y_vy, q_vy_vy,0,      0,      0,          0,          0,      0,
+                0,      0,      0,      0,      q_z_z,  q_z_vz, 0,          0,          0,      0,
+                0,      0,      0,      0,      q_z_vz, q_vz_vz,0,          0,          0,      0,
+                0,      0,      0,      0,      0,      0,      q_yaw_yaw,  q_yaw_vyaw, 0,      0,
+                0,      0,      0,      0,      0,      0,      q_yaw_vyaw, q_vyaw_vyaw,0,      0,
+                0,      0,      0,      0,      0,      0,      0,          0,          q_r,    0,
+                0,      0,      0,      0,      0,      0,      0,          0,          0,      q_d_zc;
 
         // clang-format on
         return q;
@@ -124,15 +124,15 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
                q_vyaw_vyaw = pow(t, 2) * yaw;
 
         // clang-format off
-      //    xc      v_xc    yc      v_yc    zc      v_zc    yaw         v_yaw       
-      q <<  q_x_x,  q_x_vx, 0,      0,      0,      0,      0,          0,         
-            q_x_vx, q_vx_vx,0,      0,      0,      0,      0,          0,         
-            0,      0,      q_y_y,  q_y_vy, 0,      0,      0,          0,          
-            0,      0,      q_y_vy, q_vy_vy,0,      0,      0,          0,          
-            0,      0,      0,      0,      q_z_z,  q_z_vz, 0,          0,          
-            0,      0,      0,      0,      q_z_vz, q_vz_vz,0,          0,          
-            0,      0,      0,      0,      0,      0,      q_yaw_yaw,  q_yaw_vyaw, 
-            0,      0,      0,      0,      0,      0,      q_yaw_vyaw, q_vyaw_vyaw;
+        //    xc      v_xc    yc      v_yc    zc      v_zc    yaw         v_yaw       
+        q <<    q_x_x,  q_x_vx, 0,      0,      0,      0,      0,          0,         
+                q_x_vx, q_vx_vx,0,      0,      0,      0,      0,          0,         
+                0,      0,      q_y_y,  q_y_vy, 0,      0,      0,          0,          
+                0,      0,      q_y_vy, q_vy_vy,0,      0,      0,          0,          
+                0,      0,      0,      0,      q_z_z,  q_z_vz, 0,          0,          
+                0,      0,      0,      0,      q_z_vz, q_vz_vz,0,          0,          
+                0,      0,      0,      0,      0,      0,      q_yaw_yaw,  q_yaw_vyaw, 
+                0,      0,      0,      0,      0,      0,      q_yaw_vyaw, q_vyaw_vyaw;
 
         // clang-format on
         return q;
@@ -142,7 +142,7 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     auto yu_r = [this](const Eigen::Matrix<double, ypdarmor_motion_model::Z_N, 1>& z) {
         Eigen::Matrix<double, ypdarmor_motion_model::Z_N, ypdarmor_motion_model::Z_N> r;
         // clang-format off
-        r << pow(yr_y_ * M_PI / 180.0, 2), 0, 0, 0,
+        r <<pow(yr_y_ * M_PI / 180.0, 2), 0, 0, 0,
                 0, pow(yr_p_ * M_PI / 180.0, 2) , 0, 0,
                 0, 0, yr_d_ * std::abs(z[2]) *std::abs(z[2]), 0,
                 0, 0, 0, pow(yr_yaw_ * M_PI / 180.0, 2);
@@ -153,10 +153,10 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     auto oyu_r = [this](const Eigen::Matrix<double, oneypdarmor_motion_model::Z_N, 1>& z) {
         Eigen::Matrix<double, oneypdarmor_motion_model::Z_N, oneypdarmor_motion_model::Z_N> r;
         // clang-format off
-        r << pow(oyr_y_ * M_PI / 180.0, 2), 0, 0, 0,
-        0, pow(oyr_p_ * M_PI / 180.0, 2) , 0, 0,
-        0, 0, oyr_d_ * std::abs(z[2]) *std::abs(z[2]), 0,
-        0, 0, 0, pow(oyr_yaw_ * M_PI / 180.0, 2);
+            r <<pow(oyr_y_ * M_PI / 180.0, 2), 0, 0, 0,
+                0, pow(oyr_p_ * M_PI / 180.0, 2) , 0, 0,
+                0, 0, oyr_d_ * std::abs(z[2]) *std::abs(z[2]), 0,
+                0, 0, 0, pow(oyr_yaw_ * M_PI / 180.0, 2);
         // clang-format on
         return r;
     };
@@ -168,30 +168,75 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
 
     Eigen::DiagonalMatrix<double, oneypdarmor_motion_model::X_N> oyp0;
     oyp0.setIdentity();
+    auto tracker_predict_func =
+        [&](const std::unique_ptr<ypdarmor_motion_model::RobotStateEKF>& ekf,
+            const std::unique_ptr<ypdarmor_motion_model::RobotStateESEKF>& esekf) {
+            Eigen::VectorXd x1 = ekf->predict();
+            Eigen::VectorXd x2 = esekf->predict();
 
-    tracker_->use_ypd = true;
+            if (fusion_esekf_ekf) {
+                Eigen::MatrixXd P1 = ekf->getPriorCovariance();
+                Eigen::MatrixXd P2 = esekf->getPriorCovariance();
+                Eigen::MatrixXd info1 = P1.inverse();
+                Eigen::MatrixXd info2 = P2.inverse();
+                Eigen::MatrixXd info_fused = info1 + info2;
+                Eigen::MatrixXd P_fused = info_fused.inverse();
+                Eigen::VectorXd x_fused = P_fused * (info1 * x1 + info2 * x2);
+
+                return x_fused;
+            } else {
+                return use_esekf ? x2 : x1;
+            }
+        };
+    auto tracker_update_func =
+        [&](const std::unique_ptr<ypdarmor_motion_model::RobotStateEKF>& ekf,
+            const std::unique_ptr<ypdarmor_motion_model::RobotStateESEKF>& esekf,
+            const Eigen::VectorXd& measurement) {
+            if (fusion_esekf_ekf) {
+                ekf->update(measurement);
+                esekf->update(measurement);
+            } else {
+                use_esekf ? esekf->update(measurement) : ekf->update(measurement);
+            }
+        };
+    auto tracker_setstate_func =
+        [&](const std::unique_ptr<ypdarmor_motion_model::RobotStateEKF>& ekf,
+            const std::unique_ptr<ypdarmor_motion_model::RobotStateESEKF>& esekf,
+            const Eigen::VectorXd& target_state) {
+            if (fusion_esekf_ekf) {
+                ekf->setState(target_state);
+                esekf->setState(target_state);
+            } else {
+                use_esekf ? esekf->setState(target_state) : ekf->setState(target_state);
+            }
+        };
+    tracker_->predict_func = tracker_predict_func;
+    tracker_->update_func = tracker_update_func;
+    tracker_->setstate_func = tracker_setstate_func;
     tracker_->ekf_ypd =
         std::make_unique<ypdarmor_motion_model::RobotStateEKF>(yf, yh, yu_q, yu_r, yp0);
     tracker_->ekf_ypd->setAngleDims({ 0, 3 });
     tracker_->ekf_ypd->setIterationNum(iteration_num_);
-
-    // tracker_->ekf_ypd->setInjectFunc(
-    //     [](const Eigen::Matrix<double, ypdarmor_motion_model::X_N, 1>& delta,
-    //        Eigen::Matrix<double, ypdarmor_motion_model::X_N, 1>& nominal) {
-    //         for (int i = 0; i < ypdarmor_motion_model::X_N; i++) {
-    //             if (i == 6)
-    //                 continue;
-    //             nominal[i] += delta[i];
-    //         }
-    //         nominal[6] = angles::normalize_angle(nominal[6] + delta[6]);
-    //     }
-    // );
+    tracker_->esekf_ypd =
+        std::make_unique<ypdarmor_motion_model::RobotStateESEKF>(yf, yh, yu_q, yu_r, yp0);
+    tracker_->esekf_ypd->setAngleDims({ 0, 3 });
+    tracker_->esekf_ypd->setIterationNum(iteration_num_);
+    tracker_->esekf_ypd->setInjectFunc(
+        [](const Eigen::Matrix<double, ypdarmor_motion_model::X_N, 1>& delta,
+           Eigen::Matrix<double, ypdarmor_motion_model::X_N, 1>& nominal) {
+            for (int i = 0; i < ypdarmor_motion_model::X_N; i++) {
+                if (i == 6)
+                    continue;
+                nominal[i] += delta[i];
+            }
+            nominal[6] = angles::normalize_angle(nominal[6] + delta[6]);
+        }
+    );
 
     for (auto& o_tracker: one_trackers_) {
-        o_tracker->use_ypd = true;
         o_tracker->ekf_ypd =
             std::make_unique<oneypdarmor_motion_model::RobotStateEKF>(oyf, oyh, oyu_q, oyu_r, oyp0);
-        o_tracker->ekf_ypd->setAngleDims({ 0, 3 });
+        o_tracker->ekf_ypd->setAngleDims({ 0, 1, 3 });
         o_tracker->ekf_ypd->setIterationNum(iteration_num_);
     }
 }
@@ -213,8 +258,14 @@ void TrackerManager::update(
             tracker_->ekf_ypd->setPredictFunc(ypdarmor_motion_model::Predict {
                 dt_,
                 ypdarmor_motion_model::MotionModel::CONSTANT_ROTATION });
+            tracker_->esekf_ypd->setPredictFunc(ypdarmor_motion_model::Predict {
+                dt_,
+                ypdarmor_motion_model::MotionModel::CONSTANT_ROTATION });
         } else {
             tracker_->ekf_ypd->setPredictFunc(ypdarmor_motion_model::Predict {
+                dt_,
+                ypdarmor_motion_model::MotionModel::CONSTANT_VEL_ROT });
+            tracker_->esekf_ypd->setPredictFunc(ypdarmor_motion_model::Predict {
                 dt_,
                 ypdarmor_motion_model::MotionModel::CONSTANT_VEL_ROT });
         }
@@ -226,11 +277,9 @@ void TrackerManager::update(
         } else if (tracker_->tracker_state == Tracker::TRACKING || tracker_->tracker_state == Tracker::TEMP_LOST)
         {
             target_.tracking = true;
-
             const auto& state = tracker_->target_state;
             target_.id = tracker_->tracked_id;
             target_.armors_num = static_cast<int>(tracker_->tracked_armors_num);
-
             target_.position_.x = state(0);
             target_.velocity_.x = state(1);
             target_.position_.y = state(2);
@@ -247,7 +296,7 @@ void TrackerManager::update(
         }
     }
 
-    if (!target_.tracking || std::abs(target_.v_yaw) < v_yaw_to_one_thres_) {
+    if (!target_.tracking || (std::abs(target_.v_yaw) < v_yaw_to_one_thres_)) {
         std::vector<bool> armor_assigned(armors_.armors.size(), false);
 
         for (auto& otracker: one_trackers_) {
@@ -276,7 +325,6 @@ void TrackerManager::update(
                 continue;
             }
 
-            // 设置预测函数
             otracker->lost_thres = std::abs(static_cast<int>(one_lost_time_thres_ / dt_));
             Eigen::VectorXd ekf_prediction;
 
@@ -295,7 +343,6 @@ void TrackerManager::update(
             Eigen::Vector3d predicted_position =
                 otracker->getArmorPositionFromState(ekf_prediction);
 
-            // 匹配观测中最近的装甲板
             int best_i = -1;
             double min_dist = std::numeric_limits<double>::max();
 
@@ -303,28 +350,24 @@ void TrackerManager::update(
                 if (armor_assigned[i])
                     continue;
 
-                // 类型不匹配
-                if (!isSameTarget(armors_.armors[i].number, otracker->tracked_id))
+                if (!isSameTarget(armors_.armors[i].number, otracker->tracked_id)) {
                     continue;
-                // 提取观测装甲板的位置和 yaw
+                }
+
                 const auto& armor = armors_.armors[i];
                 Eigen::Vector3d obs_pos(armor.target_pos.x, armor.target_pos.y, armor.target_pos.z);
                 double obs_yaw = otracker->orientationToYaw(armor.target_ori);
 
-                // 计算各项误差
                 double pos_dist = (obs_pos - predicted_position).norm();
                 double yaw_diff = std::abs(normalizeAngle(obs_yaw - otracker->target_state(6)));
                 double z_diff = std::abs(obs_pos.z() - predicted_position.z());
-
-                // 不满足阈值条件，跳过
                 if (pos_dist > otracker->max_match_distance_)
                     continue;
+
                 if (yaw_diff > otracker->max_match_yaw_diff_)
                     continue;
                 if (z_diff > otracker->max_match_z_diff_)
                     continue;
-
-                // 选择最小距离匹配
                 if (pos_dist < min_dist) {
                     min_dist = pos_dist;
                     best_i = static_cast<int>(i);
@@ -335,12 +378,9 @@ void TrackerManager::update(
                 otracker->update({ armors_.armors[best_i] });
                 armor_assigned[best_i] = true;
             } else {
-                // 无匹配，发送空观测
                 Armor empty_armor;
                 otracker->update(empty_armor);
             }
-
-            // 状态同步到目标信息
             if (otracker->tracker_state == Tracker::TRACKING
                 || otracker->tracker_state == Tracker::TEMP_LOST) {
                 const auto& state = otracker->target_state;
@@ -356,11 +396,10 @@ void TrackerManager::update(
                 target.v_yaw = state(7);
                 target.type = otracker->type;
                 target.distance_to_image_center = otracker->distance_to_image_center;
-
             } else {
                 target.tracking = false;
             }
-
+            target.timestamp = time;
             one_targets_.push_back(target);
         }
     }

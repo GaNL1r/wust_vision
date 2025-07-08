@@ -468,11 +468,15 @@ GimbalCmd ArmorSolver::solve(
         double fly_t = trajectory_compensator_->getFlyingTime(pos);
         auto dt_seconds = duration<double>(fly_t + prediction_delay);
         auto dt = duration_cast<steady_clock::duration>(dt_seconds);
-        auto total_dt = (current_time - target.timestamp) + dt;
+        auto total_dt = (current_time - best_target.timestamp) + dt;
         double dt_seconds_double = duration<double>(total_dt).count();
         pos += dt_seconds_double
-            * Eigen::Vector3d(target.velocity_.x, target.velocity_.y, target.velocity_.z);
-        yaw += dt_seconds_double * target.v_yaw;
+            * Eigen::Vector3d(
+                   best_target.velocity_.x,
+                   best_target.velocity_.y,
+                   best_target.velocity_.z
+            );
+        yaw += dt_seconds_double * best_target.v_yaw;
         double raw_yaw, raw_pitch;
         calcYawAndPitch(pos, rpy, raw_yaw, raw_pitch);
         double distance = pos.norm();
@@ -485,8 +489,12 @@ GimbalCmd ArmorSolver::solve(
         bool fire_advice = false;
         if (gobal::controller_delay != 0.0) {
             pos += gobal::controller_delay
-                * Eigen::Vector3d(target.velocity_.x, target.velocity_.y, target.velocity_.z);
-            yaw += gobal::controller_delay * target.v_yaw;
+                * Eigen::Vector3d(
+                       best_target.velocity_.x,
+                       best_target.velocity_.y,
+                       best_target.velocity_.z
+                );
+            yaw += gobal::controller_delay * best_target.v_yaw;
 
             if (pos.norm() < 0.1) {
                 throw std::runtime_error("No valid armor after controller delay");
@@ -640,12 +648,12 @@ int ArmorSolver::selectBestArmor(
     double beta = target_yaw;
 
     // clang-format off
-  Eigen::Matrix2d R_odom2center;
-  Eigen::Matrix2d R_odom2armor;
-  R_odom2center << std::cos(alpha), std::sin(alpha), 
-  -std::sin(alpha), std::cos(alpha);
-  R_odom2armor << std::cos(beta), std::sin(beta), 
-  -std::sin(beta), std::cos(beta);
+    Eigen::Matrix2d R_odom2center;
+    Eigen::Matrix2d R_odom2armor;
+    R_odom2center << std::cos(alpha), std::sin(alpha), 
+    -std::sin(alpha), std::cos(alpha);
+    R_odom2armor << std::cos(beta), std::sin(beta), 
+    -std::sin(beta), std::cos(beta);
     // clang-format on
     Eigen::Matrix2d R_center2armor = R_odom2center.transpose() * R_odom2armor;
 

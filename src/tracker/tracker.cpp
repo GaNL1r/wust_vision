@@ -80,8 +80,12 @@ void Tracker::init(const Armors& armors_msg) noexcept {
 
 void Tracker::update(const Armors& armors_msg) noexcept {
     Eigen::VectorXd ekf_prediction;
-
-    ekf_prediction = ekf_ypd->predict();
+    // if (use_esekf) {
+    //     ekf_prediction = esekf_ypd->predict();
+    // } else {
+    //     ekf_prediction = ekf_ypd->predict();
+    // }
+    ekf_prediction = predict_func(ekf_ypd, esekf_ypd);
 
     bool matched = false;
     target_state = ekf_prediction;
@@ -107,8 +111,7 @@ void Tracker::update(const Armors& armors_msg) noexcept {
             if (isSameTarget(armor.number, tracked_id)) {
                 same_id_armor = armor;
                 same_id_armors_count++;
-                // WUST_INFO(tracker_logger)<<"Same ID armor
-                // found!"<<fmt::format("count: {}\n", same_id_armors_count);
+
                 auto p = armor.target_pos;
                 Eigen::Vector3d position_vec(p.x, p.y, p.z);
                 double position_diff = (predicted_position - position_vec).norm();
@@ -148,7 +151,9 @@ void Tracker::update(const Armors& armors_msg) noexcept {
             double ypd_p = std::atan2(p.z, std::sqrt(p.x * p.x + p.y * p.y));
             double ypd_d = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
             measurement = Eigen::Vector4d(ypd_y, ypd_p, ypd_d, measured_yaw);
-            ekf_ypd->update(measurement);
+            update_func(ekf_ypd, esekf_ypd, measurement);
+            // esekf_ypd->update(measurement);
+            // ekf_ypd->update(measurement);
 
         } else if (same_id_armors_count == 1 && yaw_diff > max_match_yaw_diff_ && min_z_diff < max_match_z_diff_)
         {
@@ -161,12 +166,16 @@ void Tracker::update(const Armors& armors_msg) noexcept {
     if (target_state(8) < 0.15) {
         target_state(8) = 0.15;
 
-        ekf_ypd->setState(target_state);
+        // esekf_ypd->setState(target_state);
+        // ekf_ypd->setState(target_state);
+        setstate_func(ekf_ypd, esekf_ypd, target_state);
 
     } else if (target_state(8) > 0.4) {
         target_state(8) = 0.4;
 
-        ekf_ypd->setState(target_state);
+        setstate_func(ekf_ypd, esekf_ypd, target_state);
+        // esekf_ypd->setState(target_state);
+        // ekf_ypd->setState(target_state);
     }
 
     if (tracker_state == DETECTING) {
@@ -214,7 +223,10 @@ void Tracker::initEKF(const Armor& a) noexcept {
     d_za = 0, d_zc = 0, another_r = r;
     target_state << xc, 0, yc, 0, zc, 0, yaw, 0, r, d_zc;
 
-    ekf_ypd->setState(target_state);
+    // esekf_ypd->setState(target_state);
+
+    // ekf_ypd->setState(target_state);
+    setstate_func(ekf_ypd, esekf_ypd, target_state);
 }
 
 void Tracker::handleArmorJump(const Armor& current_armor) noexcept {
@@ -253,7 +265,10 @@ void Tracker::handleArmorJump(const Armor& current_armor) noexcept {
         target_state(9) = d_zc;
     }
 
-    ekf_ypd->setState(target_state);
+    // esekf_ypd->setState(target_state);
+
+    // ekf_ypd->setState(target_state);
+    setstate_func(ekf_ypd, esekf_ypd, target_state);
 }
 
 double Tracker::orientationToYaw(const tf::Quaternion& q) noexcept {

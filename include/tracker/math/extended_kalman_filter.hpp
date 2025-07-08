@@ -116,6 +116,19 @@ public:
     }
 
     /**
+     * @brief Get the covariance matrix after prediction.
+     */
+    const MatrixXX& getPriorCovariance() const noexcept {
+        return P_pri;
+    }
+
+    /**
+     * @brief Get the covariance matrix after update.
+     */
+    const MatrixXX& getPosteriorCovariance() const noexcept {
+        return P_post;
+    }
+    /**
       * @brief Perform the prediction step of EKF.
       * @return Predicted state vector (x_prior).
       */

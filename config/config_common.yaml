@@ -14,7 +14,7 @@ camera:
   acquisition_frame_rate: 140
   adc_bit_depth: Bits_8
   camera_info_path: /home/hy/wust_vision/config/camera_info.yaml
-  exposure_time: 2000
+  exposure_time: 1000
   gain: 16
   pixel_format: BayerRG8
   acquisitionFrameRateEnable: true
@@ -60,7 +60,7 @@ debug:
   debug_fps: 60
 
 logger:
-  log_level: INFO
+  log_level: DEBUG
   log_path: /home/hy/wust_log
   use_logcli: true
   use_logfile: true
@@ -72,11 +72,12 @@ armor_solver:
   controller_delay: 0.01
   gravity: 9.8
   iteration_times: 20
+  min_switching_v_yaw: 1
   max_tracking_v_yaw: 180
   prediction_delay: 0.0
   resistance: 0.092
-  shooting_range_h: 0.15
-  shooting_range_w: 0.15
+  shooting_range_h: 0.12
+  shooting_range_w: 0.12
   side_angle: 20
   trajectory_offset:
     - d_max: 4
@@ -94,35 +95,38 @@ armor_solver:
 
 armor_tracker:
   ekf:
+    use_esekf: false
+    fusion_esekf_ekf: true
     iteration_num: 2
     oyr_d: 0.0005 #1m处
     oyr_p: 1 #角度
     oyr_y: 1 #角度
     oyr_yaw: 3 #角度
-    oys2qx: 10
-    oys2qy: 10
+    oys2qx: 30
+    oys2qy: 30
     oys2qyaw: 20
-    oys2qz: 1
+    oys2qz: 5
     yr_d: 0.005 #1m处
-    yr_p: 7 #角度
+    yr_p: 10 #角度
     yr_y: 7 #角度
     yr_yaw: 6 #角度
-    ys2qd_zc: 500
+    ys2qd_zc: 700
     ys2qr: 70
     ys2qx: 10
     ys2qy: 10
     ys2qyaw: 20
-    ys2qz: 3.0
+    ys2qz: 1.5
   jump_thresh: 0.4
-  lost_time_thres: 0.5
+  lost_time_thres: 0.9
   max_match_distance: 0.5
   max_match_yaw_diff: 0.5
-  max_match_z_diff: 0.2
-  one_lost_time_thres: 0.1
+  max_match_z_diff: 0.1
+  one_lost_time_thres: 0.5
   tracking_thres: 5
-  use_ypd_tracker: true
+  one_tracking_thres: 1
   v_yaw_to_one_thres: 1.0
   v_yaw_update_thres: 1.5
+  track_one_num: 2
 
 rune_solver:
   auto_type_determined: true

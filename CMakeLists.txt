@@ -90,6 +90,7 @@ set(COMMON_SOURCES
   src/detect/armor_detect/armor_detector_opencv_wrapper.cpp
   src/detect/armor_detect/armor_detect_common.cpp
   src/detect/armor_detect/number_classifier.cpp
+  src/tracker/math/adaptive_extended_kalman_filter.cpp
   
 )
 set(NCNN_SOURCES

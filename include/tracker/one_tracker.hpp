@@ -60,7 +60,6 @@ public:
 
     // std::unique_ptr<onearmor_motion_model::RobotStateEKF> ekf_xyz;
     std::unique_ptr<oneypdarmor_motion_model::RobotStateEKF> ekf_ypd;
-    bool use_ypd;
 
     int tracking_thres;
     int lost_thres;
