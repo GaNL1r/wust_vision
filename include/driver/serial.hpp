@@ -40,6 +40,21 @@ public:
     }
     void sendData();
     void transformGimbalCmd(GimbalCmd& gimbal_cmd, bool appear);
+    uint16_t calculateChecksum(const ReceiveAimINFO& info) {
+        size_t length = sizeof(ReceiveAimINFO) - sizeof(info.checksum);
+        const uint8_t* data = reinterpret_cast<const uint8_t*>(&info);
+
+        uint32_t sum = 0;
+        for (size_t i = 0; i < length; ++i) {
+            sum += data[i];
+        }
+        return static_cast<uint16_t>(sum % 256);
+    }
+    bool verifyChecksum(const ReceiveAimINFO& info) {
+        // printf("calchecksum: %x",calculateChecksum(info));
+        // printf("checksum: %x",info.checksum);
+        return info.checksum == calculateChecksum(info);
+    }
 
     void shmTheard();
     double serial_last_yaw;

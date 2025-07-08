@@ -55,7 +55,6 @@ void WustVision::stop() {
         if (use_rune_detect_ncnn || use_armor_detect_ncnn) {
             ncnn::destroy_gpu_instance();
         }
-
 #endif
         gobal::measure_tool_.reset();
 
@@ -86,15 +85,7 @@ void WustVision::stopTimer() {
 }
 void WustVision::init() {
     WUST_MAIN(vision_logger) << "WustVision init start";
-#ifdef USE_OPENVINO
-    gobal::config = YAML::LoadFile("/home/hy/wust_vision/config/config_openvino.yaml");
-#elif defined(USE_TRT)
-    gobal::config = YAML::LoadFile("/home/hy/wust_vision/config/config_trt.yaml");
-#elif defined(USE_NCNN_ONLY)
-    gobal::config = YAML::LoadFile("/home/hy/wust_vision/config/config_ncnn.yaml");
-#else
-    static_assert(false, "No backend defined: USE_OPENVINO or USE_TRT");
-#endif
+    gobal::config = YAML::LoadFile("/home/hy/wust_vision/config/config_common.yaml");
 
     std::string log_level_ = gobal::config["logger"]["log_level"].as<std::string>("INFO");
     std::string log_path_ = gobal::config["logger"]["log_path"].as<std::string>("wust_log");
@@ -181,18 +172,15 @@ void WustVision::init() {
         std::vector<double> camera_d =
             config_camera_info["distortion_coefficients"]["data"].as<std::vector<double>>();
 
-        // 检查大小正确性
         assert(camera_k.size() == 9);
         assert(camera_d.size() == 5);
 
-        // 将 vector 转为 Mat（安全地拷贝）
         cv::Mat K(3, 3, CV_64F);
         std::memcpy(K.data, camera_k.data(), 9 * sizeof(double));
 
         cv::Mat D(1, 5, CV_64F);
         std::memcpy(D.data, camera_d.data(), 5 * sizeof(double));
 
-        // 存储
         gobal::camera_intrinsic_ = K.clone();
         gobal::camera_distortion_ = D.clone();
 
@@ -220,8 +208,8 @@ void WustVision::init() {
         }
 
         if (use_rune_detect_ncnn) {
-            auto ncnn_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_ncnn.yaml");
-            rune_detector_ = DetectorFactory::createRuneDetector("ncnn", ncnn_config);
+            rune_detect_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_ncnn.yaml");
+            rune_detector_ = DetectorFactory::createRuneDetector("ncnn", rune_detect_config);
             ncnn_runeinited = true;
             WUST_MAIN(vision_logger) << "Using Rune Detector: ncnn";
         }
@@ -233,12 +221,15 @@ void WustVision::init() {
                 armor_detector_ = DetectorFactory::createArmorDetector("opencv", opencv_config);
                 WUST_MAIN(vision_logger) << "Using Armor Detector: opencv";
             } else {
-                armor_detector_ = DetectorFactory::createArmorDetector("openvino", gobal::config);
+                auto openvino_config =
+                    YAML::LoadFile("/home/hy/wust_vision/config/detect_openvino.yaml");
+                armor_detector_ = DetectorFactory::createArmorDetector("openvino", openvino_config);
                 WUST_MAIN(vision_logger) << "Using Armor Detector: openvino";
             }
         }
         if (!ncnn_runeinited) {
-            rune_detector_ = DetectorFactory::createRuneDetector("openvino", gobal::config);
+            rune_detect_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_openvino.yaml");
+            rune_detector_ = DetectorFactory::createRuneDetector("openvino", rune_detect_config);
             WUST_MAIN(vision_logger) << "Using Rune Detector: openvino";
         }
 
@@ -253,8 +244,8 @@ void WustVision::init() {
         }
 
         if (use_rune_detect_ncnn) {
-            auto ncnn_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_ncnn.yaml");
-            rune_detector_ = DetectorFactory::createRuneDetector("ncnn", ncnn_config);
+            rune_detect_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_ncnn.yaml");
+            rune_detector_ = DetectorFactory::createRuneDetector("ncnn", rune_detect_config);
             ncnn_runeinited = true;
             WUST_MAIN(vision_logger) << "Using Rune Detector: ncnn";
         }
@@ -266,12 +257,14 @@ void WustVision::init() {
                 armor_detector_ = DetectorFactory::createArmorDetector("opencv", opencv_config);
                 WUST_MAIN(vision_logger) << "Using Armor Detector: opencv";
             } else {
-                armor_detector_ = DetectorFactory::createArmorDetector("tensorrt", gobal::config);
+                auto trt_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_trt.yaml");
+                armor_detector_ = DetectorFactory::createArmorDetector("tensorrt", trt_config);
                 WUST_MAIN(vision_logger) << "Using Armor Detector: tensorrt";
             }
         }
         if (!ncnn_runeinited) {
-            rune_detector_ = DetectorFactory::createRuneDetector("tensorrt", gobal::config);
+            rune_detect_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_trt.yaml");
+            rune_detector_ = DetectorFactory::createRuneDetector("tensorrt", rune_detect_config);
             WUST_MAIN(vision_logger) << "Using Rune Detector: tensorrt";
         }
 
@@ -282,11 +275,13 @@ void WustVision::init() {
             armor_detector_ = DetectorFactory::createArmorDetector("opencv", opencv_config);
             WUST_MAIN(vision_logger) << "Using Armor Detector: opencv";
         } else {
-            armor_detector_ = DetectorFactory::createArmorDetector("ncnn", gobal::config);
+            auto ncnn_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_ncnn.yaml");
+            armor_detector_ = DetectorFactory::createArmorDetector("ncnn", ncnn_config);
             WUST_MAIN(vision_logger) << "Using Armor Detector: ncnn";
             use_armor_detect_ncnn = true;
         }
-        rune_detector_ = DetectorFactory::createRuneDetector("ncnn", gobal::config);
+        rune_detect_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_ncnn.yaml");
+        rune_detector_ = DetectorFactory::createRuneDetector("ncnn", rune_detect_config);
         use_rune_detect_ncnn = true;
 
         WUST_MAIN(vision_logger) << "Using Rune Detector: ncnn";
@@ -349,9 +344,9 @@ void WustVision::run() {
 }
 
 void WustVision::initRune(const std::string& camera_info_path) {
-    detect_r_tag_ = gobal::config["rune_detector"]["detect_r_tag"].as<bool>();
-    use_manual_r = gobal::config["rune_detector"]["use_manual_r"].as<bool>();
-    rune_binary_thresh_ = gobal::config["rune_detector"]["min_lightness"].as<int>();
+    detect_r_tag_ = rune_detect_config["rune_detector"]["detect_r_tag"].as<bool>();
+    use_manual_r = rune_detect_config["rune_detector"]["use_manual_r"].as<bool>();
+    rune_binary_thresh_ = rune_detect_config["rune_detector"]["min_lightness"].as<int>();
     auto rune_solver_params = RuneSolver::RuneSolverParams {
         .compensator_type = gobal::config["rune_solver"]["compensator_type"].as<std::string>(),
         .gravity = gobal::config["rune_solver"]["gravity"].as<double>(9.8),
@@ -972,7 +967,7 @@ void WustVision::calculation_manual_r(const cv::Mat& src_img) {
 std::vector<cv::Point2f> WustVision::clicked_points_;
 void WustVision::onMouse(int event, int x, int y, int, void*) {
     if (event == cv::EVENT_LBUTTONDOWN) {
-        clicked_points_.clear(); // 总是只保留一个点
+        clicked_points_.clear();
         clicked_points_.emplace_back(x, y);
         WUST_INFO("Manual R") << "Clicked Point: (" << x << ", " << y << ")";
     }
@@ -1206,8 +1201,8 @@ void WustVision::timerCallback(double dt_ms) {
                     toolsgobal::armor_x_log_.push_back(last_armor_.target_pos.x);
                     toolsgobal::armor_y_log_.push_back(last_armor_.target_pos.y);
                     toolsgobal::armor_z_log_.push_back(last_armor_.target_pos.z);
-                    toolsgobal::ypd_y_log_.push_back(last_ypd_y);
-                    toolsgobal::ypd_p_log_.push_back(last_ypd_p);
+                    toolsgobal::ypd_y_log_.push_back(last_ypd_y / M_PI * 180);
+                    toolsgobal::ypd_p_log_.push_back(last_ypd_p / M_PI * 180);
 
                     toolsgobal::armor_dis_log_.push_back(last_distance);
                 } else {
@@ -1215,8 +1210,8 @@ void WustVision::timerCallback(double dt_ms) {
                     toolsgobal::armor_x_log_.push_back(last_armor_.target_pos.x);
                     toolsgobal::armor_y_log_.push_back(last_armor_.target_pos.y);
                     toolsgobal::armor_z_log_.push_back(last_armor_.target_pos.z);
-                    toolsgobal::ypd_y_log_.push_back(last_ypd_y);
-                    toolsgobal::ypd_p_log_.push_back(last_ypd_p);
+                    toolsgobal::ypd_y_log_.push_back(last_ypd_y / M_PI * 180);
+                    toolsgobal::ypd_p_log_.push_back(last_ypd_p / M_PI * 180);
                     toolsgobal::armor_dis_log_.push_back(last_distance);
                 }
 
@@ -1225,8 +1220,8 @@ void WustVision::timerCallback(double dt_ms) {
                 toolsgobal::armor_x_log_.push_back(last_armor_.target_pos.x);
                 toolsgobal::armor_y_log_.push_back(last_armor_.target_pos.y);
                 toolsgobal::armor_z_log_.push_back(last_armor_.target_pos.z);
-                toolsgobal::ypd_y_log_.push_back(last_ypd_y);
-                toolsgobal::ypd_p_log_.push_back(last_ypd_p);
+                toolsgobal::ypd_y_log_.push_back(last_ypd_y / M_PI * 180);
+                toolsgobal::ypd_p_log_.push_back(last_ypd_p / M_PI * 180);
                 toolsgobal::armor_dis_log_.push_back(last_distance);
             }
 
@@ -1293,6 +1288,12 @@ void WustVision::processImage(const ImageFrame& frame, Eigen::Matrix3d R_gimbal2
             rune_detector_->pushInput(img, frame.timestamp, T_camera_to_odom);
         } break;
         case AttackMode::BIG_RUNE: {
+            if (use_manual_r && !manual_r_init && !manual_r_runing) {
+                calculation_manual_r(img);
+                detect_finish_count_++;
+                infer_running_count_--;
+                return;
+            }
             rune_detector_->pushInput(img, frame.timestamp, T_camera_to_odom);
         }
         case AttackMode::UNKNOWN: {

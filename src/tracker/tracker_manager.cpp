@@ -20,7 +20,6 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     double max_match_yaw_diff = config_["max_match_yaw_diff"].as<double>(1.0);
     double max_match_z_diff = config_["max_match_z_diff"].as<double>(0.1);
     double jump_thresh = config_["jump_thresh"].as<double>(0.4);
-    use_ypd_tracker_ = config_["use_ypd_tracker"].as<bool>(false);
 
     tracker_ = std::make_unique<Tracker>(
         max_match_distance,
@@ -50,17 +49,6 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
 
     iteration_num_ = config_["ekf"]["iteration_num"].as<int>(1);
     // EKF 噪声参数
-    s2qx_ = config_["ekf"]["s2qx"].as<double>(20.0);
-    s2qy_ = config_["ekf"]["s2qy"].as<double>(20.0);
-    s2qz_ = config_["ekf"]["s2qz"].as<double>(20.0);
-    s2qyaw_ = config_["ekf"]["s2qyaw"].as<double>(100.0);
-    s2qr_ = config_["ekf"]["s2qr"].as<double>(800.0);
-    s2qd_zc_ = config_["ekf"]["s2qd_zc"].as<double>(800.0);
-
-    r_x_ = config_["ekf"]["r_x"].as<double>(0.05);
-    r_y_ = config_["ekf"]["r_y"].as<double>(0.05);
-    r_z_ = config_["ekf"]["r_z"].as<double>(0.05);
-    r_yaw_ = config_["ekf"]["r_yaw"].as<double>(0.02);
 
     ys2qx_ = config_["ekf"]["ys2qx"].as<double>(20.0);
     ys2qy_ = config_["ekf"]["ys2qy"].as<double>(20.0);
@@ -74,16 +62,6 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     yr_d_ = config_["ekf"]["yr_d"].as<double>(0.05);
     yr_yaw_ = config_["ekf"]["yr_yaw"].as<double>(0.02);
 
-    os2qx_ = config_["ekf"]["os2qx"].as<double>(20.0);
-    os2qy_ = config_["ekf"]["os2qy"].as<double>(20.0);
-    os2qz_ = config_["ekf"]["os2qz"].as<double>(20.0);
-    os2qyaw_ = config_["ekf"]["os2qyaw"].as<double>(100.0);
-
-    or_x_ = config_["ekf"]["or_x"].as<double>(0.05);
-    or_y_ = config_["ekf"]["or_y"].as<double>(0.05);
-    or_z_ = config_["ekf"]["or_z"].as<double>(0.05);
-    or_yaw_ = config_["ekf"]["or_yaw"].as<double>(0.02);
-
     oys2qx_ = config_["ekf"]["oys2qx"].as<double>(20.0);
     oys2qy_ = config_["ekf"]["oys2qy"].as<double>(20.0);
     oys2qz_ = config_["ekf"]["oys2qz"].as<double>(20.0);
@@ -94,56 +72,20 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     oyr_d_ = config_["ekf"]["oyr_d"].as<double>(0.05);
     oyr_yaw_ = config_["ekf"]["oyr_yaw"].as<double>(0.02);
 
-    ocas2qx_ = config_["ekf"]["ocas2qx"].as<double>(20.0);
-    ocas2qy_ = config_["ekf"]["ocas2qy"].as<double>(20.0);
-    ocas2qz_ = config_["ekf"]["ocas2qz"].as<double>(20.0);
-    ocas2qyaw_ = config_["ekf"]["ocas2qyaw"].as<double>(100.0);
-
-    ocar_x_ = config_["ekf"]["ocar_x"].as<double>(0.05);
-    ocar_y_ = config_["ekf"]["ocar_y"].as<double>(0.05);
-    ocar_z_ = config_["ekf"]["ocar_z"].as<double>(0.05);
-    ocar_yaw_ = config_["ekf"]["ocar_yaw"].as<double>(0.02);
-
     // EKF 状态预测函数
-    auto f = armor_motion_model::Predict(0.005); // dt 固定为 5ms
+
     auto yf = ypdarmor_motion_model::Predict(0.005);
-    auto of = onearmor_motion_model::Predict(0.005);
+
     auto oyf = oneypdarmor_motion_model::Predict(0.005);
-    auto ocaf = onecaarmor_motion_model::Predict(0.005);
 
     // EKF 观测函数
-    auto h = armor_motion_model::Measure();
-    auto yh = ypdarmor_motion_model::Measure();
-    auto oh = onearmor_motion_model::Measure();
-    auto oyh = oneypdarmor_motion_model::Measure();
-    auto ocah = onecaarmor_motion_model::Measure();
-    // EKF 过程噪声协方差 Q
-    auto u_q = [this]() {
-        Eigen::Matrix<double, armor_motion_model::X_N, armor_motion_model::X_N> q;
-        double t = dt_, x = s2qx_, y = s2qy_, z = s2qz_, yaw = s2qyaw_, r = s2qr_, d_zc = s2qd_zc_;
-        double q_x_x = pow(t, 4) / 4 * x, q_x_vx = pow(t, 3) / 2 * x, q_vx_vx = pow(t, 2) * x;
-        double q_y_y = pow(t, 4) / 4 * y, q_y_vy = pow(t, 3) / 2 * y, q_vy_vy = pow(t, 2) * y;
-        double q_z_z = pow(t, 4) / 4 * z, q_z_vz = pow(t, 3) / 2 * z, q_vz_vz = pow(t, 2) * z;
-        double q_yaw_yaw = pow(t, 4) / 4 * yaw, q_yaw_vyaw = pow(t, 3) / 2 * yaw,
-               q_vyaw_vyaw = pow(t, 2) * yaw;
-        double q_r = pow(t, 4) / 4 * r;
-        double q_d_zc = pow(t, 4) / 4 * d_zc;
-        // clang-format off
-      //    xc      v_xc    yc      v_yc    zc      v_zc    yaw         v_yaw       r       d_za
-      q <<  q_x_x,  q_x_vx, 0,      0,      0,      0,      0,          0,          0,      0,
-            q_x_vx, q_vx_vx,0,      0,      0,      0,      0,          0,          0,      0,
-            0,      0,      q_y_y,  q_y_vy, 0,      0,      0,          0,          0,      0,
-            0,      0,      q_y_vy, q_vy_vy,0,      0,      0,          0,          0,      0,
-            0,      0,      0,      0,      q_z_z,  q_z_vz, 0,          0,          0,      0,
-            0,      0,      0,      0,      q_z_vz, q_vz_vz,0,          0,          0,      0,
-            0,      0,      0,      0,      0,      0,      q_yaw_yaw,  q_yaw_vyaw, 0,      0,
-            0,      0,      0,      0,      0,      0,      q_yaw_vyaw, q_vyaw_vyaw,0,      0,
-            0,      0,      0,      0,      0,      0,      0,          0,          q_r,    0,
-            0,      0,      0,      0,      0,      0,      0,          0,          0,      q_d_zc;
 
-        // clang-format on
-        return q;
-    };
+    auto yh = ypdarmor_motion_model::Measure();
+
+    auto oyh = oneypdarmor_motion_model::Measure();
+
+    // EKF 过程噪声协方差 Q
+
     auto yu_q = [this]() {
         Eigen::Matrix<double, ypdarmor_motion_model::X_N, ypdarmor_motion_model::X_N> q;
         double t = dt_, x = ys2qx_, y = ys2qy_, z = ys2qz_, yaw = ys2qyaw_, r = ys2qr_,
@@ -171,29 +113,7 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
         // clang-format on
         return q;
     };
-    auto ou_q = [this]() {
-        Eigen::Matrix<double, onearmor_motion_model::X_N, onearmor_motion_model::X_N> q;
-        double t = dt_, x = os2qx_, y = os2qy_, z = os2qz_, yaw = os2qyaw_;
-        double q_x_x = pow(t, 4) / 4 * x, q_x_vx = pow(t, 3) / 2 * x, q_vx_vx = pow(t, 2) * x;
-        double q_y_y = pow(t, 4) / 4 * y, q_y_vy = pow(t, 3) / 2 * y, q_vy_vy = pow(t, 2) * y;
-        double q_z_z = pow(t, 4) / 4 * z, q_z_vz = pow(t, 3) / 2 * z, q_vz_vz = pow(t, 2) * z;
-        double q_yaw_yaw = pow(t, 4) / 4 * yaw, q_yaw_vyaw = pow(t, 3) / 2 * yaw,
-               q_vyaw_vyaw = pow(t, 2) * yaw;
 
-        // clang-format off
-      //    xc      v_xc    yc      v_yc    zc      v_zc    yaw         v_yaw       
-      q <<  q_x_x,  q_x_vx, 0,      0,      0,      0,      0,          0,         
-            q_x_vx, q_vx_vx,0,      0,      0,      0,      0,          0,         
-            0,      0,      q_y_y,  q_y_vy, 0,      0,      0,          0,          
-            0,      0,      q_y_vy, q_vy_vy,0,      0,      0,          0,          
-            0,      0,      0,      0,      q_z_z,  q_z_vz, 0,          0,          
-            0,      0,      0,      0,      q_z_vz, q_vz_vz,0,          0,          
-            0,      0,      0,      0,      0,      0,      q_yaw_yaw,  q_yaw_vyaw, 
-            0,      0,      0,      0,      0,      0,      q_yaw_vyaw, q_vyaw_vyaw;
-
-        // clang-format on
-        return q;
-    };
     auto oyu_q = [this]() {
         Eigen::Matrix<double, oneypdarmor_motion_model::X_N, oneypdarmor_motion_model::X_N> q;
         double t = dt_, x = oys2qx_, y = oys2qy_, z = oys2qz_, yaw = oys2qyaw_;
@@ -217,143 +137,64 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
         // clang-format on
         return q;
     };
-    auto ocau_q = [this]() {
-        using Mat =
-            Eigen::Matrix<double, onecaarmor_motion_model::X_N, onecaarmor_motion_model::X_N>;
-        Mat q = Mat::Zero();
-        double t = dt_;
 
-        double t2 = t * t;
-        double t3 = t2 * t;
-        double t4 = t3 * t;
-
-        // 白噪声强度
-        double qax = ocas2qx_;
-        double qay = ocas2qy_;
-        double qvz = ocas2qz_;
-        double qvyaw = ocas2qyaw_;
-
-        // clang-format off
-        q <<
-        // x,   vx,     ax,     y,     vy,     ay,     z,     vz,     yaw,   vyaw
-         t4/4*qax, t3/2*qax, t2/2*qax, 0,     0,     0,      0,     0,     0,     0,       // x
-         t3/2*qax, t2*qax,   t*qax,    0,     0,     0,      0,     0,     0,     0,       // vx
-         t2/2*qax, t*qax,    1.0*qax,  0,     0,     0,      0,     0,     0,     0,       // ax
-    
-         0,       0,        0,        t4/4*qay, t3/2*qay, t2/2*qay, 0,     0,     0,     0,  // y
-         0,       0,        0,        t3/2*qay, t2*qay,   t*qay,    0,     0,     0,     0,  // vy
-         0,       0,        0,        t2/2*qay, t*qay,    1.0*qay,  0,     0,     0,     0,  // ay
-    
-         0,       0,        0,        0,       0,        0,        t3/3*qvz, t2/2*qvz, 0,     0,  // z
-         0,       0,        0,        0,       0,        0,        t2/2*qvz, t*qvz,    0,     0,  // vz
-    
-         0,       0,        0,        0,       0,        0,        0,     0,     t3/3*qvyaw, t2/2*qvyaw, // yaw
-         0,       0,        0,        0,       0,        0,        0,     0,     t2/2*qvyaw, t*qvyaw;    // vyaw
-        // clang-format on
-
-        return q;
-    };
-
-    // EKF 观测噪声协方差 R（基于测量值调整）
-    auto u_r = [this](const Eigen::Matrix<double, armor_motion_model::Z_N, 1>& z) {
-        Eigen::Matrix<double, armor_motion_model::Z_N, armor_motion_model::Z_N> r;
-        // clang-format off
-      r << r_x_ * std::abs(z[0]), 0, 0, 0,
-           0, r_y_ * std::abs(z[1]), 0, 0,
-           0, 0, r_z_ * std::abs(z[2]), 0,
-           0, 0, 0, r_yaw_;
-        // clang-format on
-        return r;
-    };
     // EKF 观测噪声协方差 R（基于测量值调整）
     auto yu_r = [this](const Eigen::Matrix<double, ypdarmor_motion_model::Z_N, 1>& z) {
         Eigen::Matrix<double, ypdarmor_motion_model::Z_N, ypdarmor_motion_model::Z_N> r;
         // clang-format off
-      r << yr_y_      * std::abs(z[0]), 0, 0, 0,
-                0, yr_p_ * std::abs(z[1]), 0, 0,
-                0, 0, yr_d_ * std::abs(z[2]), 0,
-                0, 0, 0, yr_yaw_;
+        r << pow(yr_y_ * M_PI / 180.0, 2), 0, 0, 0,
+                0, pow(yr_p_ * M_PI / 180.0, 2) , 0, 0,
+                0, 0, yr_d_ * std::abs(z[2]) *std::abs(z[2]), 0,
+                0, 0, 0, pow(yr_yaw_ * M_PI / 180.0, 2);
         // clang-format on
         return r;
     };
 
-    auto ou_r = [this](const Eigen::Matrix<double, onearmor_motion_model::Z_N, 1>& z) {
-        Eigen::Matrix<double, onearmor_motion_model::Z_N, onearmor_motion_model::Z_N> r;
-        // clang-format off
-      r << or_x_ * std::abs(z[0]), 0, 0, 0,
-           0, or_y_ * std::abs(z[1]), 0, 0,
-           0, 0, or_z_ * std::abs(z[2]), 0,
-           0, 0, 0, or_yaw_;
-        // clang-format on
-        return r;
-    };
     auto oyu_r = [this](const Eigen::Matrix<double, oneypdarmor_motion_model::Z_N, 1>& z) {
         Eigen::Matrix<double, oneypdarmor_motion_model::Z_N, oneypdarmor_motion_model::Z_N> r;
         // clang-format off
-       r << oyr_y_* std::abs(z[0]), 0, 0, 0,
-                    0, oyr_p_ * std::abs(z[1]), 0, 0,
-                    0, 0, oyr_d_ * std::abs(z[2]), 0,
-                    0, 0, 0, oyr_yaw_;
+        r << pow(oyr_y_ * M_PI / 180.0, 2), 0, 0, 0,
+        0, pow(oyr_p_ * M_PI / 180.0, 2) , 0, 0,
+        0, 0, oyr_d_ * std::abs(z[2]) *std::abs(z[2]), 0,
+        0, 0, 0, pow(oyr_yaw_ * M_PI / 180.0, 2);
         // clang-format on
         return r;
     };
-    auto ocau_r = [this](const Eigen::Matrix<double, onecaarmor_motion_model::Z_N, 1>& z) {
-        Eigen::Matrix<double, onecaarmor_motion_model::Z_N, onecaarmor_motion_model::Z_N> r;
-        // clang-format off
-      r << or_x_ * std::abs(z[0]), 0, 0, 0,
-           0, or_y_ * std::abs(z[1]), 0, 0,
-           0, 0, or_z_ * std::abs(z[2]), 0,
-           0, 0, 0, or_yaw_;
-        // clang-format on
-        return r;
-    };
+
     // 初始协方差
-    Eigen::DiagonalMatrix<double, armor_motion_model::X_N> p0;
-    p0.setIdentity();
+
     Eigen::DiagonalMatrix<double, ypdarmor_motion_model::X_N> yp0;
     yp0.setIdentity();
-    Eigen::DiagonalMatrix<double, onearmor_motion_model::X_N> op0;
-    op0.setIdentity();
+
     Eigen::DiagonalMatrix<double, oneypdarmor_motion_model::X_N> oyp0;
     oyp0.setIdentity();
-    Eigen::DiagonalMatrix<double, onecaarmor_motion_model::X_N> ocap0;
-    ocap0.setIdentity();
 
-    // 初始化 EKF 滤波器
-    if (use_ypd_tracker_) {
-        tracker_->use_ypd = true;
-        tracker_->ekf_ypd =
-            std::make_unique<ypdarmor_motion_model::RobotStateEKF>(yf, yh, yu_q, yu_r, yp0);
-        tracker_->ekf_ypd->setAngleDims({ 0, 3 });
-        tracker_->ekf_ypd->setIterationNum(iteration_num_);
-        WUST_MAIN("tracker_manager") << "use_ypd_tracker_";
-    } else {
-        tracker_->use_ypd = false;
-        tracker_->ekf_xyz = std::make_unique<armor_motion_model::RobotStateEKF>(f, h, u_q, u_r, p0);
-        tracker_->ekf_xyz->setAngleDims({ 3 });
-        tracker_->ekf_xyz->setIterationNum(iteration_num_);
-        WUST_MAIN("tracker_manager") << "use_xyz_tracker_";
-    }
+    tracker_->use_ypd = true;
+    tracker_->ekf_ypd =
+        std::make_unique<ypdarmor_motion_model::RobotStateEKF>(yf, yh, yu_q, yu_r, yp0);
+    tracker_->ekf_ypd->setAngleDims({ 0, 3 });
+    tracker_->ekf_ypd->setIterationNum(iteration_num_);
+    // tracker_->ekf_ypd->enableAdaptiveQ(true);
+    // tracker_->ekf_ypd->enableAdaptiveR(true);
+    // tracker_->ekf_ypd->setResidualAlpha(0.1);
+    // tracker_->ekf_ypd->setInjectFunc(
+    //     [](const Eigen::Matrix<double, ypdarmor_motion_model::X_N, 1>& delta,
+    //        Eigen::Matrix<double, ypdarmor_motion_model::X_N, 1>& nominal) {
+    //         for (int i = 0; i < ypdarmor_motion_model::X_N; i++) {
+    //             if (i == 6)
+    //                 continue;
+    //             nominal[i] += delta[i];
+    //         }
+    //         nominal[6] = angles::normalize_angle(nominal[6] + delta[6]);
+    //     }
+    // );
 
     for (auto& o_tracker: one_trackers_) {
-        if (use_ypd_tracker_) {
-            o_tracker->use_ypd = true;
-            o_tracker->ekf_ypd = std::make_unique<oneypdarmor_motion_model::RobotStateEKF>(
-                oyf,
-                oyh,
-                oyu_q,
-                oyu_r,
-                oyp0
-            );
-            o_tracker->ekf_ypd->setAngleDims({ 0, 3 });
-            o_tracker->ekf_ypd->setIterationNum(iteration_num_);
-        } else {
-            o_tracker->use_ypd = false;
-            o_tracker->ekf_xyz =
-                std::make_unique<onearmor_motion_model::RobotStateEKF>(of, oh, ou_q, ou_r, op0);
-            o_tracker->ekf_xyz->setAngleDims({ 3 });
-            o_tracker->ekf_xyz->setIterationNum(iteration_num_);
-        }
+        o_tracker->use_ypd = true;
+        o_tracker->ekf_ypd =
+            std::make_unique<oneypdarmor_motion_model::RobotStateEKF>(oyf, oyh, oyu_q, oyu_r, oyp0);
+        o_tracker->ekf_ypd->setAngleDims({ 0, 3 });
+        o_tracker->ekf_ypd->setIterationNum(iteration_num_);
     }
 }
 
@@ -369,27 +210,15 @@ void TrackerManager::update(
     } else {
         dt_ = std::chrono::duration<double>(time - last_time_).count();
         tracker_->lost_thres = std::abs(static_cast<int>(lost_time_thres_ / dt_));
-        if (tracker_->use_ypd) {
-            if (tracker_->tracked_id == ArmorNumber::OUTPOST) {
-                tracker_->ekf_ypd->setPredictFunc(ypdarmor_motion_model::Predict {
-                    dt_,
-                    ypdarmor_motion_model::MotionModel::CONSTANT_ROTATION });
-            } else {
-                tracker_->ekf_ypd->setPredictFunc(ypdarmor_motion_model::Predict {
-                    dt_,
-                    ypdarmor_motion_model::MotionModel::CONSTANT_VEL_ROT });
-            }
 
+        if (tracker_->tracked_id == ArmorNumber::OUTPOST) {
+            tracker_->ekf_ypd->setPredictFunc(ypdarmor_motion_model::Predict {
+                dt_,
+                ypdarmor_motion_model::MotionModel::CONSTANT_ROTATION });
         } else {
-            if (tracker_->tracked_id == ArmorNumber::OUTPOST) {
-                tracker_->ekf_xyz->setPredictFunc(armor_motion_model::Predict {
-                    dt_,
-                    armor_motion_model::MotionModel::CONSTANT_ROTATION });
-            } else {
-                tracker_->ekf_xyz->setPredictFunc(armor_motion_model::Predict {
-                    dt_,
-                    armor_motion_model::MotionModel::CONSTANT_VEL_ROT });
-            }
+            tracker_->ekf_ypd->setPredictFunc(ypdarmor_motion_model::Predict {
+                dt_,
+                ypdarmor_motion_model::MotionModel::CONSTANT_VEL_ROT });
         }
 
         tracker_->update(armors_);
@@ -452,31 +281,18 @@ void TrackerManager::update(
             // 设置预测函数
             otracker->lost_thres = std::abs(static_cast<int>(one_lost_time_thres_ / dt_));
             Eigen::VectorXd ekf_prediction;
-            if (otracker->use_ypd) {
-                if (otracker->tracked_id == ArmorNumber::OUTPOST) {
-                    otracker->ekf_ypd->setPredictFunc(oneypdarmor_motion_model::Predict {
-                        dt_,
-                        oneypdarmor_motion_model::MotionModel::CONSTANT_ROTATION });
-                } else {
-                    otracker->ekf_ypd->setPredictFunc(oneypdarmor_motion_model::Predict {
-                        dt_,
-                        oneypdarmor_motion_model::MotionModel::CONSTANT_VEL_ROT });
-                }
 
-                ekf_prediction = otracker->ekf_ypd->predict();
+            if (otracker->tracked_id == ArmorNumber::OUTPOST) {
+                otracker->ekf_ypd->setPredictFunc(oneypdarmor_motion_model::Predict {
+                    dt_,
+                    oneypdarmor_motion_model::MotionModel::CONSTANT_ROTATION });
             } else {
-                if (otracker->tracked_id == ArmorNumber::OUTPOST) {
-                    otracker->ekf_xyz->setPredictFunc(onearmor_motion_model::Predict {
-                        dt_,
-                        onearmor_motion_model::MotionModel::CONSTANT_ROTATION });
-                } else {
-                    otracker->ekf_xyz->setPredictFunc(onearmor_motion_model::Predict {
-                        dt_,
-                        onearmor_motion_model::MotionModel::CONSTANT_VEL_ROT });
-                }
-
-                ekf_prediction = otracker->ekf_xyz->predict();
+                otracker->ekf_ypd->setPredictFunc(oneypdarmor_motion_model::Predict {
+                    dt_,
+                    oneypdarmor_motion_model::MotionModel::CONSTANT_VEL_ROT });
             }
+
+            ekf_prediction = otracker->ekf_ypd->predict();
 
             Eigen::Vector3d predicted_position =
                 otracker->getArmorPositionFromState(ekf_prediction);

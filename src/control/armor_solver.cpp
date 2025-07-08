@@ -16,6 +16,7 @@
 // limitations under the License.
 
 #include "control/armor_solver.hpp"
+#include "common/3rdparty/angles.h"
 #include "common/gobal.hpp"
 #include "common/logger.hpp"
 #include "yaml-cpp/yaml.h"
@@ -295,7 +296,7 @@ GimbalCmd ArmorSolver::solve(
     if (one_idx >= 0) {
         best_target = one_targets_[one_idx];
     }
-    bool use_single = (!target.tracking || std::abs(target.v_yaw) < 1.0) && best_target.tracking;
+    bool use_single = best_target.tracking;
     //  2. 预测目标位置与朝向
 
     if (!use_single) {
@@ -420,7 +421,7 @@ GimbalCmd ArmorSolver::solve(
                     distance = tmp.norm();
                 }
                 // fire_advice = true;
-                calcYawAndPitch(pos, rpy, raw_yaw, raw_pitch);
+                calcYawAndPitch(pos, rpy, raw_yaw, raw_pitch_);
                 distance = pos.norm();
                 offs = manual_compensator_->angleHardCorrect(distance, chosen.z());
                 yaw_off = offs[1] * M_PI / 180.0;
@@ -557,14 +558,24 @@ bool ArmorSolver::isOnTarget(
     const double target_pitch,
     const double distance
 ) const noexcept {
-    // Judge whether to shoot
-    double shooting_range_yaw = std::abs(atan2(shooting_range_w / 2, distance));
-    double shooting_range_pitch = std::abs(atan2(shooting_range_h / 2, distance));
-    // Limit the shooting area to 1 degree to avoid not shooting when distance is
-    // too large
-    shooting_range_yaw = std::max(shooting_range_yaw, 1.0 * M_PI / 180);
-    shooting_range_pitch = std::max(shooting_range_pitch, 1.0 * M_PI / 180);
-    if (std::abs(cur_yaw - target_yaw) < shooting_range_yaw
+    // 计算你与目标朝向之间的最短夹角
+    double yaw_diff = angles::shortest_angular_distance(target_yaw, cur_yaw);
+    double width_scale = std::abs(std::cos(yaw_diff)); // 角度越一致，目标越“宽”
+
+    // 缩放后的目标宽度
+    double dynamic_w = shooting_range_w * width_scale;
+
+    // 开火角容差
+    double shooting_range_yaw = std::abs(std::atan2(shooting_range_w / 2.0, distance));
+    double shooting_range_pitch = std::abs(std::atan2(shooting_range_h / 2.0, distance));
+
+    // 限制最小角度为 1°
+    constexpr double min_angle_rad = 1.0 * M_PI / 180.0;
+    shooting_range_yaw = std::max(shooting_range_yaw, min_angle_rad);
+    shooting_range_pitch = std::max(shooting_range_pitch, min_angle_rad);
+
+    // 判断是否命中窗口
+    if (std::abs(yaw_diff) < shooting_range_yaw
         && std::abs(cur_pitch - target_pitch) < shooting_range_pitch)
     {
         return true;
@@ -572,6 +583,7 @@ bool ArmorSolver::isOnTarget(
 
     return false;
 }
+
 std::vector<Eigen::Vector3d> ArmorSolver::getArmorPositions(
     const Eigen::Vector3d& target_center,
     const double target_yaw,

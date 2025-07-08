@@ -158,7 +158,7 @@ Eigen::Matrix3d BaSolver::solveBa(
 
     // 优化
     optimizer_.initializeOptimization();
-    optimizer_.optimize(100);
+    optimizer_.optimize(1000);
 
     double yaw_opt = v_yaw->estimate();
     if (std::isnan(yaw_opt)) {

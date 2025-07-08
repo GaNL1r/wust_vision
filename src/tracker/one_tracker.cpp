@@ -80,11 +80,9 @@ void OneTracker::init(const Armor& armor_msg) noexcept {
 
 void OneTracker::update(const Armors& armors_msg) noexcept {
     Eigen::VectorXd ekf_prediction;
-    if (use_ypd) {
-        ekf_prediction = ekf_ypd->predict();
-    } else {
-        ekf_prediction = ekf_xyz->predict();
-    }
+
+    ekf_prediction = ekf_ypd->predict();
+
     bool matched = false;
     target_state = ekf_prediction;
     std::vector<Armor> another_armors;
@@ -135,19 +133,14 @@ void OneTracker::update(const Armors& armors_msg) noexcept {
             matched = true;
             auto p = tracked_armor.target_pos;
             double measured_yaw = orientationToYaw(tracked_armor.target_ori);
-            if (use_ypd) {
-                double ypd_y = std::atan2(p.y, p.x);
-                ypd_y =
-                    this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
-                this->last_ypd_y = ypd_y;
-                double ypd_p = std::atan2(p.z, std::sqrt(p.x * p.x + p.y * p.y));
-                double ypd_d = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
-                measurement = Eigen::Vector4d(ypd_y, ypd_p, ypd_d, measured_yaw);
-                ekf_ypd->update(measurement);
-            } else {
-                measurement = Eigen::Vector4d(p.x, p.y, p.z, measured_yaw);
-                ekf_xyz->update(measurement);
-            }
+
+            double ypd_y = std::atan2(p.y, p.x);
+            ypd_y = this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
+            this->last_ypd_y = ypd_y;
+            double ypd_p = std::atan2(p.z, std::sqrt(p.x * p.x + p.y * p.y));
+            double ypd_d = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
+            measurement = Eigen::Vector4d(ypd_y, ypd_p, ypd_d, measured_yaw);
+            ekf_ypd->update(measurement);
 
         } else if (same_id_armors_count == 1 && yaw_diff > max_match_yaw_diff_ && min_z_diff < max_match_z_diff_)
         {
@@ -191,11 +184,9 @@ void OneTracker::update(const Armors& armors_msg) noexcept {
 
 void OneTracker::update(const Armor& armor_msg) noexcept {
     Eigen::VectorXd ekf_prediction;
-    if (use_ypd) {
-        ekf_prediction = ekf_ypd->predict();
-    } else {
-        ekf_prediction = ekf_xyz->predict();
-    }
+
+    ekf_prediction = ekf_ypd->predict();
+
     bool matched = false;
     target_state = ekf_prediction;
 
@@ -211,18 +202,15 @@ void OneTracker::update(const Armor& armor_msg) noexcept {
         auto p = tracked_armor.target_pos;
         double measured_yaw = orientationToYaw(tracked_armor.target_ori);
         measurement = Eigen::Vector4d(p.x, p.y, p.z, measured_yaw);
-        if (use_ypd) {
-            double ypd_y = std::atan2(p.y, p.x);
-            ypd_y = this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
-            this->last_ypd_y = ypd_y;
-            double ypd_p = std::atan2(p.z, std::sqrt(p.x * p.x + p.y * p.y));
-            double ypd_d = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
-            measurement = Eigen::Vector4d(ypd_y, ypd_p, ypd_d, measured_yaw);
-            ekf_ypd->update(measurement);
-        } else {
-            measurement = Eigen::Vector4d(p.x, p.y, p.z, measured_yaw);
-            ekf_xyz->update(measurement);
-        }
+
+        double ypd_y = std::atan2(p.y, p.x);
+        ypd_y = this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
+        this->last_ypd_y = ypd_y;
+        double ypd_p = std::atan2(p.z, std::sqrt(p.x * p.x + p.y * p.y));
+        double ypd_d = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
+        measurement = Eigen::Vector4d(ypd_y, ypd_p, ypd_d, measured_yaw);
+        ekf_ypd->update(measurement);
+
         distance_to_image_center = armor_msg.distance_to_image_center;
     } else {
         matched = false;
@@ -268,11 +256,8 @@ void OneTracker::initEKF(const Armor& a) noexcept {
 
     target_state = Eigen::VectorXd::Zero(onearmor_motion_model::X_N);
     target_state << xa, 0, ya, 0, za, 0, yaw, 0;
-    if (use_ypd) {
-        ekf_ypd->setState(target_state);
-    } else {
-        ekf_xyz->setState(target_state);
-    }
+
+    ekf_ypd->setState(target_state);
 }
 
 void OneTracker::handleArmorJump(const Armor& current_armor) noexcept {
@@ -305,11 +290,7 @@ void OneTracker::handleArmorJump(const Armor& current_armor) noexcept {
         target_state(5) = 0;
     }
 
-    if (use_ypd) {
-        ekf_ypd->setState(target_state);
-    } else {
-        ekf_xyz->setState(target_state);
-    }
+    ekf_ypd->setState(target_state);
 }
 
 double OneTracker::orientationToYaw(const tf::Quaternion& q) noexcept {

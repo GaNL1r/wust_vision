@@ -51,9 +51,11 @@ struct ReceiveAimINFO {
 
     float bullet_speed; // m/s
     float controller_delay; // s
-    //uint8_t mode;
+
     uint8_t manual_reset_count;
     uint8_t detect_color; // 0 red 1 blue
+    uint16_t checksum;
+
 } __attribute__((packed));
 // IMU 数据包
 struct ReceiveImuData {

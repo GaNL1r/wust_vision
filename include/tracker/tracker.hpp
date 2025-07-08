@@ -62,7 +62,7 @@ public:
         TEMP_LOST,
     } tracker_state;
 
-    std::unique_ptr<armor_motion_model::RobotStateEKF> ekf_xyz;
+    //std::unique_ptr<armor_motion_model::RobotStateEKF> ekf_xyz;
     std::unique_ptr<ypdarmor_motion_model::RobotStateEKF> ekf_ypd;
 
     bool use_ypd = true;

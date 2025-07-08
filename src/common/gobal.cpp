@@ -1,6 +1,7 @@
 #include "common/gobal.hpp"
 
 namespace gobal {
+std::atomic<bool> exit_flag(false);
 tf::TfTree tf_tree_;
 std::unique_ptr<MonoMeasureTool> measure_tool_;
 int detect_color_;

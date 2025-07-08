@@ -58,7 +58,7 @@ public:
     static Eigen::Vector3d getArmorPositionFromState(const Eigen::VectorXd& x) noexcept;
     double orientationToYaw(const tf::Quaternion& q) noexcept;
 
-    std::unique_ptr<onearmor_motion_model::RobotStateEKF> ekf_xyz;
+    // std::unique_ptr<onearmor_motion_model::RobotStateEKF> ekf_xyz;
     std::unique_ptr<oneypdarmor_motion_model::RobotStateEKF> ekf_ypd;
     bool use_ypd;
 

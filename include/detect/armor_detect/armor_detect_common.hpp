@@ -38,7 +38,7 @@ public:
 
     std::vector<ArmorObject>
     detectNet(const cv::Mat& src_img, std::vector<ArmorObject>& objs_result);
-    void extractNetImage(const cv::Mat& src, ArmorObject& armor);
+    bool extractNetImage(const cv::Mat& src, ArmorObject& armor);
     bool refineLightsFromArmorPts(ArmorObject& armor) const;
     LightParams light_params_;
     ArmorParams armor_params_;

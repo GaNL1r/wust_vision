@@ -188,7 +188,7 @@ public:
             // Innovation covariance S = H P_prior H^T + R
             MatrixZZ S = H * P_pri * H.transpose() + R;
             // Add small term for numerical stability
-            S += 1e-6 * MatrixZZ::Identity();
+            S += small_noise_ * MatrixZZ::Identity();
 
             // Compute Kalman gain K = P_prior H^T S^{-1}
             K = P_pri * H.transpose() * S.inverse();
@@ -250,4 +250,5 @@ private:
 
     std::vector<int> angle_dims_; // Indices of angular measurement dims
     int iteration_num_ = 1; // GN iterations in update
+    double small_noise_ = 1e-6;
 };

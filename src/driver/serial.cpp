@@ -137,12 +137,17 @@ void Serial::receiveData() {
             if (!driver_.receive(buffer)) {
                 continue;
             }
-            if (buffer.size() < sizeof(ReceiveAimINFO)) {
-                WUST_WARN(serial_logger) << "receive: buffer too small, skipping";
-                continue;
-            }
+            // if (buffer.size() != sizeof(ReceiveAimINFO)) {
+            //     WUST_WARN(serial_logger) << "receive: buffer too small, skipping";
+            //     continue;
+            // }
+            // std::cout << "receive: " << buffer.size() << std::endl;
+            // std::cout << "package"<<sizeof(ReceiveAimINFO)<<std::endl;
+
             auto aim = fromVector<ReceiveAimINFO>(buffer);
+            //if (verifyChecksum(aim)) {
             aim_cbk(aim);
+            //}
 
         } catch (const std::exception& ex) {
             WUST_ERROR(serial_logger) << "receiveData exception: " << ex.what();
@@ -173,14 +178,14 @@ void Serial::aim_cbk(ReceiveAimINFO& aim_data) {
     auto now = std::chrono::steady_clock::now();
     gobal::attitude_buffer.push(yaw, pitch, roll, now);
     int manual_reset_count = aim_data.manual_reset_count;
-    if (manual_reset_count != last_reset_count) {
-        WUST_INFO(serial_logger) << "Manual reset count changed: " << last_reset_count << " -> "
-                                 << manual_reset_count;
-        gobal::if_manual_reset = true;
-        last_reset_count = manual_reset_count;
-    } else {
-        gobal::if_manual_reset = false;
-    }
+    // if (manual_reset_count != last_reset_count) {
+    //     WUST_INFO(serial_logger) << "Manual reset count changed: " << last_reset_count << " -> "
+    //                              << manual_reset_count;
+    //     gobal::if_manual_reset = true;
+    //     last_reset_count = manual_reset_count;
+    // } else {
+    //     gobal::if_manual_reset = false;
+    // }
 
     tf::Quaternion q;
     q.setRPY(0, -pitch, yaw);
@@ -232,18 +237,22 @@ void Serial::transformGimbalCmd(GimbalCmd& gimbal_cmd, bool appear) {
     auto limit = [](double val, double max_change) {
         return std::clamp(val, -max_change, max_change);
     };
+    if (appear) {
+        double delta_yaw = gimbal_cmd.yaw - serial_last_yaw;
+        double delta_pitch = gimbal_cmd.pitch - serial_last_pitch;
 
-    double delta_yaw = gimbal_cmd.yaw - serial_last_yaw;
-    double delta_pitch = gimbal_cmd.pitch - serial_last_pitch;
+        delta_yaw = limit(delta_yaw, max_yaw_change);
+        delta_pitch = limit(delta_pitch, max_pitch_change);
 
-    delta_yaw = limit(delta_yaw, max_yaw_change);
-    delta_pitch = limit(delta_pitch, max_pitch_change);
+        send_robot_cmd_data_.yaw = serial_last_yaw + alpha_yaw * delta_yaw;
+        send_robot_cmd_data_.pitch = serial_last_pitch + alpha_pitch * delta_pitch;
 
-    send_robot_cmd_data_.yaw = serial_last_yaw + alpha_yaw * delta_yaw;
-    send_robot_cmd_data_.pitch = serial_last_pitch + alpha_pitch * delta_pitch;
-
-    serial_last_yaw = send_robot_cmd_data_.yaw;
-    serial_last_pitch = send_robot_cmd_data_.pitch;
+        serial_last_yaw = send_robot_cmd_data_.yaw;
+        serial_last_pitch = send_robot_cmd_data_.pitch;
+    } else {
+        send_robot_cmd_data_.yaw = gobal::last_yaw * 180 / M_PI;
+        send_robot_cmd_data_.pitch = gobal::last_pitch * 180 / M_PI;
+    }
 
     send_robot_cmd_data_.distance = gimbal_cmd.distance;
     send_robot_cmd_data_.pitch_diff = gimbal_cmd.pitch_diff;

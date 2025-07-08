@@ -20,11 +20,10 @@
 
 std::mutex mtx;
 std::condition_variable c;
-std::atomic<bool> exit_flag(false);
 
 void signalHandler(int signum) {
     WUST_MAIN("main") << "Interrupt signal (" << signum << ") received.";
-    exit_flag.store(true, std::memory_order_release);
+    gobal::exit_flag.store(true, std::memory_order_release);
 }
 
 int main() {
@@ -35,14 +34,14 @@ int main() {
     std::signal(SIGINT, signalHandler);
 
     std::thread wait_thread([] {
-        while (!exit_flag.load(std::memory_order_acquire)) {
+        while (!gobal::exit_flag.load(std::memory_order_acquire)) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
         c.notify_one();
     });
     {
         std::unique_lock<std::mutex> lk(mtx);
-        c.wait(lk, [] { return exit_flag.load(std::memory_order_acquire); });
+        c.wait(lk, [] { return gobal::exit_flag.load(std::memory_order_acquire); });
     }
 
     wait_thread.join();

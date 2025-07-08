@@ -91,7 +91,7 @@ public:
     Rune rune_gobal;
     std::mutex img_mutex_;
     imgframe imgframe_;
-
+    YAML::Node rune_detect_config;
     std::unique_ptr<RuneSolver> rune_solver_;
     bool detect_r_tag_;
     int rune_binary_thresh_;

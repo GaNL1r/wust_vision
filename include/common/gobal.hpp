@@ -6,6 +6,7 @@
 #include <optional>
 
 namespace gobal {
+extern std::atomic<bool> exit_flag;
 extern tf::TfTree tf_tree_;
 extern std::unique_ptr<MonoMeasureTool> measure_tool_;
 extern int detect_color_;
