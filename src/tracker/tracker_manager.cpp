@@ -174,9 +174,7 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
         std::make_unique<ypdarmor_motion_model::RobotStateEKF>(yf, yh, yu_q, yu_r, yp0);
     tracker_->ekf_ypd->setAngleDims({ 0, 3 });
     tracker_->ekf_ypd->setIterationNum(iteration_num_);
-    // tracker_->ekf_ypd->enableAdaptiveQ(true);
-    // tracker_->ekf_ypd->enableAdaptiveR(true);
-    // tracker_->ekf_ypd->setResidualAlpha(0.1);
+
     // tracker_->ekf_ypd->setInjectFunc(
     //     [](const Eigen::Matrix<double, ypdarmor_motion_model::X_N, 1>& delta,
     //        Eigen::Matrix<double, ypdarmor_motion_model::X_N, 1>& nominal) {
