@@ -319,7 +319,8 @@ inline Vector3 operator*(const Matrix3x3& m, const Vector3& v) {
 
 struct Position {
     double x, y, z;
-    Position(): x(0.0f), y(0.0f), z(0.0f) {}
+
+    Position(): x(0.0), y(0.0), z(0.0) {}
     Position(double x_, double y_, double z_): x(x_), y(y_), z(z_) {}
 
     Position operator+(const Position& other) const {
@@ -334,9 +335,14 @@ struct Position {
         return Position(x * scalar, y * scalar, z * scalar);
     }
 
+    double norm() const {
+        return std::sqrt(x * x + y * y + z * z);
+    }
+
     Eigen::Vector3d toEigen() const {
         return { x, y, z };
     }
+
     static Position fromEigen(const Eigen::Vector3d& v) {
         return { v.x(), v.y(), v.z() };
     }

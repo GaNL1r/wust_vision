@@ -511,7 +511,7 @@ void WustVision::initTF() {
     t_gimbal_to_camera = Eigen::Vector3d(gimbal2camera_x_, gimbal2camera_y_, gimbal2camera_z_);
 
     // 转换为旋转矩阵使用
-    R_gimbal_camera << 0, 0, 1, -1, 0, 0, 0, -1, 0;
+    R_camera_gimabl << 0, 0, 1, -1, 0, 0, 0, -1, 0;
 
     // camera_optical_frame 相对于 camera，设置 camera -> camera_optical_frame
     // 的旋转变换
@@ -578,7 +578,11 @@ void WustVision::runeTargetCallback(const Rune rune_target, Eigen::Matrix4d T_ca
     toolsgobal::latency_ms = static_cast<double>(latency_nano) / 1e6;
 }
 
-void WustVision::armorsCallback(Armors armors_, const cv::Mat& src_img) {
+void WustVision::armorsCallback(
+    Armors armors_,
+    const cv::Mat& src_img,
+    Eigen::Matrix3d R_gimbal2odom
+) {
     if (armors_.timestamp <= tracker_manager_->last_time_) {
         // WUST_WARN(vision_logger) << "Received out-of-order armor data,
         // discarded.";
@@ -598,9 +602,8 @@ void WustVision::armorsCallback(Armors armors_, const cv::Mat& src_img) {
     Target target_;
     std::vector<OneTarget> one_targets_;
     auto time = armors_.timestamp;
-    target_.timestamp = time;
-    target_.frame_id = "gimbal_odom";
-    tracker_manager_->update(target_, one_targets_, armors_, time);
+
+    tracker_manager_->update(target_, one_targets_, armors_, time, R_gimbal2odom);
 
     armor_target = target_;
     one_armor_targets = one_targets_;
@@ -748,8 +751,23 @@ void WustVision::ArmorDetectCallback(
             }
         }
     }
+    Eigen::Matrix3d R_camera_to_gimbal = R_camera_gimabl;
+    Eigen::Vector3d t_camera_to_gimbal = -R_camera_to_gimbal * t_gimbal_to_camera;
 
-    armorsCallback(armors, src_img);
+    Eigen::Matrix4d T_camera_to_gimbal = Eigen::Matrix4d::Identity();
+    T_camera_to_gimbal.block<3, 3>(0, 0) = R_camera_to_gimbal;
+    T_camera_to_gimbal.block<3, 1>(0, 3) = t_camera_to_gimbal;
+    // 求逆矩阵：T_camera_to_gimbal⁻¹
+    Eigen::Matrix4d T_gimbal_to_camera = T_camera_to_gimbal.inverse();
+
+    // 推导 T_gimbal_to_odom
+    Eigen::Matrix4d T_gimbal_to_odom = T_camera_to_odom * T_gimbal_to_camera;
+
+    // 提取旋转部分
+    Eigen::Matrix3d R_gimbal2odom = T_gimbal_to_odom.block<3, 3>(0, 0);
+
+    armorsCallback(armors, src_img, R_gimbal2odom);
+    T_camera_to_odom_ = T_camera_to_odom;
 }
 void WustVision::RuneDetectCallback(
     std::vector<RuneObject>& objs,
@@ -867,6 +885,7 @@ void WustVision::RuneDetectCallback(
     }
 
     runeTargetCallback(rune_target, T_camera_to_odom);
+    T_camera_to_odom_ = T_camera_to_odom;
     auto now = std::chrono::steady_clock::now();
 
     auto latency_nano =
@@ -1259,7 +1278,7 @@ void WustVision::processImage(const ImageFrame& frame, Eigen::Matrix3d R_gimbal2
     T_gimbal_to_odom.block<3, 3>(0, 0) = R_gimbal2odom;
 
     // Step 2: camera → gimbal （取 R 的转置）
-    Eigen::Matrix3d R_camera_to_gimbal = R_gimbal_camera;
+    Eigen::Matrix3d R_camera_to_gimbal = R_camera_gimabl;
     Eigen::Vector3d t_camera_to_gimbal = -R_camera_to_gimbal * t_gimbal_to_camera;
 
     Eigen::Matrix4d T_camera_to_gimbal = Eigen::Matrix4d::Identity();
@@ -1268,7 +1287,6 @@ void WustVision::processImage(const ImageFrame& frame, Eigen::Matrix3d R_gimbal2
 
     // Step 3: camera → odom
     Eigen::Matrix4d T_camera_to_odom = T_gimbal_to_odom * T_camera_to_gimbal;
-    T_camera_to_odom_ = T_camera_to_odom;
 
     infer_running_count_++;
     printStats();

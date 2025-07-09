@@ -34,4 +34,6 @@ extern cv::Mat camera_intrinsic_;
 extern cv::Mat camera_distortion_;
 extern std::atomic<bool> ncnn_gpu_destroyed;
 
+extern enum AttackState { ATTACKONE, ATTACKWHOLECAR } attack_state;
+
 } // namespace gobal

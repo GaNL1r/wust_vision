@@ -190,7 +190,6 @@ void OneTracker::update(const Armor& armor_msg) noexcept {
 
     bool matched = false;
     target_state = ekf_prediction;
-    //std::cout<<target_state(0)<<std::endl;
     double dis = std::sqrt(
         armor_msg.target_pos.x * armor_msg.target_pos.x
         + armor_msg.target_pos.y * armor_msg.target_pos.y

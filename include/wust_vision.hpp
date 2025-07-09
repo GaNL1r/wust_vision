@@ -38,7 +38,7 @@ public:
         Eigen::Matrix4d T_camera_to_odom
     );
     void stop();
-    void armorsCallback(Armors armors_, const cv::Mat& src_img);
+    void armorsCallback(Armors armors_, const cv::Mat& src_img, Eigen::Matrix3d R_gimbal2odom);
     void initTF();
     void initSerial();
     void initTracker(const YAML::Node& config);
@@ -102,7 +102,7 @@ public:
     std::vector<RuneObject> rune_objects_;
     Eigen::Vector3d t_gimbal_to_camera;
     Eigen::Matrix4d T_camera_to_odom_;
-    Eigen::Matrix3d R_gimbal_camera;
+    Eigen::Matrix3d R_camera_gimabl;
 
     int timer_count_ = 0;
     std::mutex timer_mtx_;

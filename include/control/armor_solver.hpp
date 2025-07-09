@@ -125,4 +125,14 @@ private:
     int overflow_count_ = 0;
     std::array<double, 3> rpy_ { 0, 0, 0 }; // roll, pitch, yaw
     std::string solver_logger = "armor_solver";
+    mutable OneTarget last_target_;
+    mutable bool has_last_target_ = false;
+
+    mutable OneTarget pending_target_;
+    mutable std::chrono::steady_clock::time_point pending_target_start_time_;
+    mutable bool has_pending_target_ = false;
+
+    double oneswitch_position_thres_ = 0.3;
+    double oneswitch_angle_thres_ = 30.0;
+    double oneswitch_hold_time_ = 1.5;
 };

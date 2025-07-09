@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "tracker/tracker_manager.hpp"
+#include "common/gobal.hpp"
 
 TrackerManager::TrackerManager(const YAML::Node& config_) {
     track_one_num = config_["track_one_num"].as<int>(2);
-    // Tracker 基础参数
+
     double max_match_distance = config_["max_match_distance"].as<double>(0.2);
     double max_match_yaw_diff = config_["max_match_yaw_diff"].as<double>(1.0);
     double max_match_z_diff = config_["max_match_z_diff"].as<double>(0.1);
@@ -34,12 +35,12 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
             max_match_z_diff,
             jump_thresh
         );
-        o_tracker_->tracking_thres = config_["one_tracking_thres"].as<int>(0);
+        o_tracker_->tracking_thres = config_["one_tracking_thres"].as<int>(1);
         one_trackers_.push_back(std::move(o_tracker_));
     }
 
-    v_yaw_update_thres_ = config_["v_yaw_update_thres"].as<float>(0.01);
-    v_yaw_to_one_thres_ = config_["v_yaw_to_one_thres"].as<float>(0.01);
+    v_yaw_to_one_thres_high = config_["v_yaw_to_one_thres_high"].as<float>(1.0);
+    v_yaw_to_one_thres_low = config_["v_yaw_to_one_thres_low"].as<float>(0.7);
 
     tracker_->tracking_thres = config_["tracking_thres"].as<int>(5);
 
@@ -63,6 +64,8 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     yr_p_ = config_["ekf"]["yr_p"].as<double>(0.05);
     yr_d_ = config_["ekf"]["yr_d"].as<double>(0.05);
     yr_yaw_ = config_["ekf"]["yr_yaw"].as<double>(0.02);
+    yr_yaw_front_ = config_["ekf"]["yr_yaw_front"].as<double>(0.02);
+    yr_yaw_side_ = config_["ekf"]["yr_yaw_side"].as<double>(0.02);
 
     oys2qx_ = config_["ekf"]["oys2qx"].as<double>(20.0);
     oys2qy_ = config_["ekf"]["oys2qy"].as<double>(20.0);
@@ -139,13 +142,20 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     };
 
     // EKF 观测噪声协方差 R（基于测量值调整）
+
     auto yu_r = [this](const Eigen::Matrix<double, ypdarmor_motion_model::Z_N, 1>& z) {
         Eigen::Matrix<double, ypdarmor_motion_model::Z_N, ypdarmor_motion_model::Z_N> r;
+        Eigen::Vector3d dir_odom(std::cos(z[3]), std::sin(z[3]), 0.0);
+
+        Eigen::Vector3d dir_gimbal = this->R_gimbal2odom_.transpose() * dir_odom;
+
+        double camera_yaw = std::atan2(dir_gimbal.y(), dir_gimbal.x()) * 180.0 / M_PI;
+
         // clang-format off
         r <<pow(yr_y_ * M_PI / 180.0, 2), 0, 0, 0,
                 0, pow(yr_p_ * M_PI / 180.0, 2) , 0, 0,
-                0, 0, yr_d_ * std::abs(z[2]) *std::abs(z[2]), 0,
-                0, 0, 0, pow(yr_yaw_ * M_PI / 180.0, 2);
+                0, 0, yr_d_ * std::abs(z[2]) *std::abs(z[2]), 0,//pnp得到的distance的误差与distance的平方正相关
+                0, 0, 0, getYawNoiseVarFromCameraYaw(camera_yaw);//相机系下yaw正对误差大
         // clang-format on
         return r;
     };
@@ -162,7 +172,6 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     };
 
     // 初始协方差
-
     Eigen::DiagonalMatrix<double, ypdarmor_motion_model::X_N> yp0;
     yp0.setIdentity();
 
@@ -236,17 +245,29 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     for (auto& o_tracker: one_trackers_) {
         o_tracker->ekf_ypd =
             std::make_unique<oneypdarmor_motion_model::RobotStateEKF>(oyf, oyh, oyu_q, oyu_r, oyp0);
-        o_tracker->ekf_ypd->setAngleDims({ 0, 1, 3 });
+        o_tracker->ekf_ypd->setAngleDims({ 0, 3 });
         o_tracker->ekf_ypd->setIterationNum(iteration_num_);
     }
+
+    gobal::attack_state = gobal::AttackState::ATTACKONE;
+}
+double TrackerManager::getYawNoiseFromCameraYaw(double camera_yaw_deg) const {
+    double yaw_rad = camera_yaw_deg * M_PI / 180.0;
+    double cos2 = std::cos(yaw_rad);
+    cos2 *= cos2;
+    return cos2 * yr_yaw_front_ + (1.0 - cos2) * yr_yaw_side_;
+}
+double TrackerManager::getYawNoiseVarFromCameraYaw(double camera_yaw_deg) const {
+    double noise_deg = getYawNoiseFromCameraYaw(camera_yaw_deg);
+    return std::pow(noise_deg * M_PI / 180.0, 2);
 }
 
-void TrackerManager::update(
+void TrackerManager::updateTracker(
     Target& target_,
-    std::vector<OneTarget>& one_targets_,
     Armors armors_,
     std::chrono::steady_clock::time_point time
 ) {
+    target_.timestamp = time;
     if (tracker_->tracker_state == Tracker::LOST) {
         tracker_->init(armors_);
         target_.tracking = false;
@@ -295,113 +316,163 @@ void TrackerManager::update(
             target_.type = tracker_->type;
         }
     }
+}
+void TrackerManager::updateOneTrackers(
+    std::vector<OneTarget>& one_targets_,
+    Armors armors_,
+    std::chrono::steady_clock::time_point time
+) {
+    std::vector<bool> armor_assigned(armors_.armors.size(), false);
 
-    if (!target_.tracking || (std::abs(target_.v_yaw) < v_yaw_to_one_thres_)) {
-        std::vector<bool> armor_assigned(armors_.armors.size(), false);
+    for (auto& otracker: one_trackers_) {
+        OneTarget target;
 
-        for (auto& otracker: one_trackers_) {
-            OneTarget target;
-
-            if (otracker->tracker_state == Tracker::LOST) {
-                int best_i = -1;
-                double min_dist_center = std::numeric_limits<double>::max();
-                for (size_t i = 0; i < armors_.armors.size(); ++i) {
-                    if (!armor_assigned[i]) {
-                        double dist_center = armors_.armors[i].distance_to_image_center;
-                        if (dist_center < min_dist_center) {
-                            min_dist_center = dist_center;
-                            best_i = static_cast<int>(i);
-                        }
-                    }
-                }
-
-                if (best_i >= 0) {
-                    otracker->init({ armors_.armors[best_i] });
-                    armor_assigned[best_i] = true;
-                }
-
-                target.tracking = false;
-                one_targets_.push_back(target);
-                continue;
-            }
-
-            otracker->lost_thres = std::abs(static_cast<int>(one_lost_time_thres_ / dt_));
-            Eigen::VectorXd ekf_prediction;
-
-            if (otracker->tracked_id == ArmorNumber::OUTPOST) {
-                otracker->ekf_ypd->setPredictFunc(oneypdarmor_motion_model::Predict {
-                    dt_,
-                    oneypdarmor_motion_model::MotionModel::CONSTANT_ROTATION });
-            } else {
-                otracker->ekf_ypd->setPredictFunc(oneypdarmor_motion_model::Predict {
-                    dt_,
-                    oneypdarmor_motion_model::MotionModel::CONSTANT_VEL_ROT });
-            }
-
-            ekf_prediction = otracker->ekf_ypd->predict();
-
-            Eigen::Vector3d predicted_position =
-                otracker->getArmorPositionFromState(ekf_prediction);
-
+        if (otracker->tracker_state == Tracker::LOST) {
             int best_i = -1;
-            double min_dist = std::numeric_limits<double>::max();
-
+            double min_dist_center = std::numeric_limits<double>::max();
             for (size_t i = 0; i < armors_.armors.size(); ++i) {
-                if (armor_assigned[i])
-                    continue;
-
-                if (!isSameTarget(armors_.armors[i].number, otracker->tracked_id)) {
-                    continue;
-                }
-
-                const auto& armor = armors_.armors[i];
-                Eigen::Vector3d obs_pos(armor.target_pos.x, armor.target_pos.y, armor.target_pos.z);
-                double obs_yaw = otracker->orientationToYaw(armor.target_ori);
-
-                double pos_dist = (obs_pos - predicted_position).norm();
-                double yaw_diff = std::abs(normalizeAngle(obs_yaw - otracker->target_state(6)));
-                double z_diff = std::abs(obs_pos.z() - predicted_position.z());
-                if (pos_dist > otracker->max_match_distance_)
-                    continue;
-
-                if (yaw_diff > otracker->max_match_yaw_diff_)
-                    continue;
-                if (z_diff > otracker->max_match_z_diff_)
-                    continue;
-                if (pos_dist < min_dist) {
-                    min_dist = pos_dist;
-                    best_i = static_cast<int>(i);
+                if (!armor_assigned[i]) {
+                    double dist_center = armors_.armors[i].distance_to_image_center;
+                    if (dist_center < min_dist_center) {
+                        min_dist_center = dist_center;
+                        best_i = static_cast<int>(i);
+                    }
                 }
             }
 
             if (best_i >= 0) {
-                otracker->update({ armors_.armors[best_i] });
+                otracker->init({ armors_.armors[best_i] });
                 armor_assigned[best_i] = true;
-            } else {
-                Armor empty_armor;
-                otracker->update(empty_armor);
             }
-            if (otracker->tracker_state == Tracker::TRACKING
-                || otracker->tracker_state == Tracker::TEMP_LOST) {
-                const auto& state = otracker->target_state;
-                target.tracking = true;
-                target.id = otracker->tracked_id;
-                target.position_.x = state(0);
-                target.velocity_.x = state(1);
-                target.position_.y = state(2);
-                target.velocity_.y = state(3);
-                target.position_.z = state(4);
-                target.velocity_.z = state(5);
-                target.yaw = state(6);
-                target.v_yaw = state(7);
-                target.type = otracker->type;
-                target.distance_to_image_center = otracker->distance_to_image_center;
-            } else {
-                target.tracking = false;
-            }
-            target.timestamp = time;
+
+            target.tracking = false;
             one_targets_.push_back(target);
+            continue;
         }
+
+        otracker->lost_thres = std::abs(static_cast<int>(one_lost_time_thres_ / dt_));
+        Eigen::VectorXd ekf_prediction;
+
+        if (otracker->tracked_id == ArmorNumber::OUTPOST) {
+            otracker->ekf_ypd->setPredictFunc(oneypdarmor_motion_model::Predict {
+                dt_,
+                oneypdarmor_motion_model::MotionModel::CONSTANT_ROTATION });
+        } else {
+            otracker->ekf_ypd->setPredictFunc(oneypdarmor_motion_model::Predict {
+                dt_,
+                oneypdarmor_motion_model::MotionModel::CONSTANT_VEL_ROT });
+        }
+
+        ekf_prediction = otracker->ekf_ypd->predict();
+
+        Eigen::Vector3d predicted_position = otracker->getArmorPositionFromState(ekf_prediction);
+
+        int best_i = -1;
+        double min_dist = std::numeric_limits<double>::max();
+
+        for (size_t i = 0; i < armors_.armors.size(); ++i) {
+            if (armor_assigned[i])
+                continue;
+
+            if (!isSameTarget(armors_.armors[i].number, otracker->tracked_id)) {
+                continue;
+            }
+
+            const auto& armor = armors_.armors[i];
+            Eigen::Vector3d obs_pos(armor.target_pos.x, armor.target_pos.y, armor.target_pos.z);
+            double obs_yaw = otracker->orientationToYaw(armor.target_ori);
+
+            double pos_dist = (obs_pos - predicted_position).norm();
+            double yaw_diff = std::abs(normalizeAngle(obs_yaw - otracker->target_state(6)));
+            double z_diff = std::abs(obs_pos.z() - predicted_position.z());
+            if (pos_dist > otracker->max_match_distance_)
+                continue;
+
+            if (yaw_diff > otracker->max_match_yaw_diff_)
+                continue;
+            if (z_diff > otracker->max_match_z_diff_)
+                continue;
+            if (pos_dist < min_dist) {
+                min_dist = pos_dist;
+                best_i = static_cast<int>(i);
+            }
+        }
+
+        if (best_i >= 0) {
+            otracker->update({ armors_.armors[best_i] });
+            armor_assigned[best_i] = true;
+        } else {
+            Armor empty_armor;
+            otracker->update(empty_armor);
+        }
+        if (otracker->tracker_state == Tracker::TRACKING
+            || otracker->tracker_state == Tracker::TEMP_LOST) {
+            const auto& state = otracker->target_state;
+            target.tracking = true;
+            target.id = otracker->tracked_id;
+            target.position_.x = state(0);
+            target.velocity_.x = state(1);
+            target.position_.y = state(2);
+            target.velocity_.y = state(3);
+            target.position_.z = state(4);
+            target.velocity_.z = state(5);
+            target.yaw = state(6);
+            target.v_yaw = state(7);
+            target.type = otracker->type;
+            target.distance_to_image_center = otracker->distance_to_image_center;
+        } else {
+            target.tracking = false;
+        }
+        target.timestamp = time;
+        one_targets_.push_back(target);
+    }
+}
+void TrackerManager::updateAttackState(const double& v_yaw_abs) {
+    switch (gobal::attack_state) {
+        case gobal::AttackState::ATTACKONE:
+            if (v_yaw_abs > v_yaw_to_one_thres_high || tracker_->tracker_state == Tracker::LOST) {
+                gobal::attack_state = gobal::AttackState::ATTACKWHOLECAR;
+            }
+            break;
+
+        case gobal::AttackState::ATTACKWHOLECAR:
+            if (v_yaw_abs < v_yaw_to_one_thres_low) {
+                gobal::attack_state = gobal::AttackState::ATTACKONE;
+            }
+            break;
+
+        default:
+            if (v_yaw_abs > v_yaw_to_one_thres_high) {
+                gobal::attack_state = gobal::AttackState::ATTACKWHOLECAR;
+            } else {
+                gobal::attack_state = gobal::AttackState::ATTACKONE;
+            }
+
+            break;
+    }
+}
+
+void TrackerManager::update(
+    Target& target_,
+    std::vector<OneTarget>& one_targets_,
+    Armors armors_,
+    std::chrono::steady_clock::time_point time,
+    Eigen::Matrix3d R_gimbal2odom
+) {
+    this->R_gimbal2odom_ = R_gimbal2odom;
+
+    updateTracker(target_, armors_, time);
+    updateAttackState(std::abs(target_.v_yaw));
+
+    Armors armors_empty;
+    switch (gobal::attack_state) {
+        case gobal::AttackState::ATTACKONE: {
+            updateOneTrackers(one_targets_, armors_, time);
+        } break;
+        case gobal::AttackState::ATTACKWHOLECAR: {
+            std::vector<OneTarget> one_targets_fake;
+            updateOneTrackers(one_targets_fake, armors_empty, time);
+        } break;
     }
 
     last_time_ = time;

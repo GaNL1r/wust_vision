@@ -25,4 +25,6 @@ AttitudeBuffer attitude_buffer;
 cv::Mat camera_intrinsic_;
 cv::Mat camera_distortion_;
 std::atomic<bool> ncnn_gpu_destroyed = false;
+AttackState attack_state;
+
 } // namespace gobal

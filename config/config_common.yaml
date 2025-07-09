@@ -79,18 +79,21 @@ armor_solver:
   shooting_range_h: 0.12
   shooting_range_w: 0.12
   side_angle: 20
+  oneswitch_position_thres: 0.5
+  oneswitch_angle_thres: 30
+  oneswitch_hold_time: 1.5
   trajectory_offset:
     - d_max: 4
       d_min: 0
       h_max: 0.4
       h_min: -1
-      pitch_off: -1.2
+      pitch_off: -1.5
       yaw_off: 0
-    - d_max: 6
+    - d_max: 7
       d_min: 4
       h_max: 0.4
       h_min: -1
-      pitch_off: -0.5
+      pitch_off: -1.3
       yaw_off: 0
 
 armor_tracker:
@@ -101,31 +104,33 @@ armor_tracker:
     oyr_d: 0.0005 #1m处
     oyr_p: 1 #角度
     oyr_y: 1 #角度
-    oyr_yaw: 3 #角度
-    oys2qx: 30
-    oys2qy: 30
-    oys2qyaw: 20
+    oyr_yaw: 7 #角度
+    oys2qx: 40
+    oys2qy: 40
+    oys2qyaw: 30
     oys2qz: 5
     yr_d: 0.005 #1m处
     yr_p: 10 #角度
     yr_y: 7 #角度
-    yr_yaw: 6 #角度
+    #yr_yaw: 6 #角度
+    yr_yaw_front: 8
+    yr_yaw_side: 5
     ys2qd_zc: 700
     ys2qr: 70
-    ys2qx: 10
-    ys2qy: 10
-    ys2qyaw: 20
-    ys2qz: 1.5
+    ys2qx: 22
+    ys2qy: 22
+    ys2qyaw: 35
+    ys2qz: 1.0
   jump_thresh: 0.4
   lost_time_thres: 0.9
   max_match_distance: 0.5
   max_match_yaw_diff: 0.5
   max_match_z_diff: 0.1
-  one_lost_time_thres: 0.5
+  one_lost_time_thres: 0.1
   tracking_thres: 5
   one_tracking_thres: 1
-  v_yaw_to_one_thres: 1.0
-  v_yaw_update_thres: 1.5
+  v_yaw_to_one_thres_high: 1.0
+  v_yaw_to_one_thres_low: 0.5
   track_one_num: 2
 
 rune_solver:

@@ -45,6 +45,10 @@ void ArmorSolver::init(const YAML::Node& config) {
     gravity = s["gravity"].as<double>(10.0);
     resistance = s["resistance"].as<double>(0.092);
     iteration_times = s["iteration_times"].as<int>(20);
+    oneswitch_position_thres_ = s["oneswitch_position_thres"].as<double>(0.2);
+    oneswitch_angle_thres_ = s["oneswitch_angle_thres"].as<double>(0.2);
+    ;
+    oneswitch_hold_time_ = s["oneswitch_hold_time"].as<double>(0.5);
 
     std::string comp_type = s["compenstator_type"].as<std::string>("ideal");
 
@@ -84,29 +88,9 @@ ArmorSolver::solve(const Target& target, std::chrono::steady_clock::time_point c
     // 1. 获取最新的云台 RPY
     std::array<double, 3> rpy {};
 
-    if (gobal::communication_delay_μs != 0) {
-        std::chrono::microseconds delay =
-            std::chrono::microseconds(static_cast<int64_t>(std::round(gobal::communication_delay_μs)
-            ));
-        auto t_query = std::chrono::steady_clock::now() - delay;
-        auto past_att = gobal::attitude_buffer.get_interpolated(t_query);
-        if (past_att) {
-            double delay_yaw = past_att->yaw;
-            double delay_pitch = past_att->pitch;
-            double delay_roll = past_att->roll;
-            rpy[0] = delay_roll + gobal::gimbal2camera_roll;
-            rpy[1] = delay_pitch + gobal::gimbal2camera_pitch;
-            rpy[2] = delay_yaw + gobal::gimbal2camera_yaw;
-        } else {
-            rpy[0] = gobal::last_roll + gobal::gimbal2camera_roll;
-            rpy[1] = gobal::last_pitch + gobal::gimbal2camera_pitch;
-            rpy[2] = gobal::last_yaw + gobal::gimbal2camera_yaw;
-        }
-    } else {
-        rpy[0] = gobal::last_roll + gobal::gimbal2camera_roll;
-        rpy[1] = gobal::last_pitch + gobal::gimbal2camera_pitch;
-        rpy[2] = gobal::last_yaw + gobal::gimbal2camera_yaw;
-    }
+    rpy[0] = gobal::last_roll + gobal::gimbal2camera_roll;
+    rpy[1] = gobal::last_pitch + gobal::gimbal2camera_pitch;
+    rpy[2] = gobal::last_yaw + gobal::gimbal2camera_yaw;
 
     //  2. 预测目标位置与朝向
     Eigen::Vector3d pos(target.position_.x, target.position_.y, target.position_.z);
@@ -266,29 +250,10 @@ GimbalCmd ArmorSolver::solve(
     // 1. 获取最新的云台 RPY
     std::array<double, 3> rpy {};
 
-    if (gobal::communication_delay_μs != 0) {
-        std::chrono::microseconds delay =
-            std::chrono::microseconds(static_cast<int64_t>(std::round(gobal::communication_delay_μs)
-            ));
-        auto t_query = std::chrono::steady_clock::now() - delay;
-        auto past_att = gobal::attitude_buffer.get_interpolated(t_query);
-        if (past_att) {
-            double delay_yaw = past_att->yaw;
-            double delay_pitch = past_att->pitch;
-            double delay_roll = past_att->roll;
-            rpy[0] = delay_roll + gobal::gimbal2camera_roll;
-            rpy[1] = delay_pitch + gobal::gimbal2camera_pitch;
-            rpy[2] = delay_yaw + gobal::gimbal2camera_yaw;
-        } else {
-            rpy[0] = gobal::last_roll + gobal::gimbal2camera_roll;
-            rpy[1] = gobal::last_pitch + gobal::gimbal2camera_pitch;
-            rpy[2] = gobal::last_yaw + gobal::gimbal2camera_yaw;
-        }
-    } else {
-        rpy[0] = gobal::last_roll + gobal::gimbal2camera_roll;
-        rpy[1] = gobal::last_pitch + gobal::gimbal2camera_pitch;
-        rpy[2] = gobal::last_yaw + gobal::gimbal2camera_yaw;
-    }
+    rpy[0] = gobal::last_roll + gobal::gimbal2camera_roll;
+    rpy[1] = gobal::last_pitch + gobal::gimbal2camera_pitch;
+    rpy[2] = gobal::last_yaw + gobal::gimbal2camera_yaw;
+
     int one_idx = selectBestTarget(one_targets_);
     int target_armor_num = target.armors_num;
     // 2. 选择最佳单目标
@@ -679,33 +644,83 @@ int ArmorSolver::selectBestArmor(
 }
 int ArmorSolver::selectBestTarget(const std::vector<OneTarget>& targets) const noexcept {
     int best_idx = -1;
+    auto current_time = std::chrono::steady_clock::now();
     double min_angle_diff = std::numeric_limits<double>::max();
+    const OneTarget* best_target_ptr = nullptr;
 
     for (int i = 0; i < targets.size(); ++i) {
         const auto& tgt = targets[i];
         if (!tgt.tracking)
             continue;
 
-        // α: 从原点指向目标中心的方向
         double alpha = std::atan2(tgt.position_.y, tgt.position_.x);
         double beta = tgt.yaw;
-        // 构造二维旋转矩阵
-        Eigen::Matrix2d R_odom2target, R_odom2armor;
-        R_odom2target << std::cos(alpha), std::sin(alpha), -std::sin(alpha), std::cos(alpha);
-        R_odom2armor << std::cos(beta), std::sin(beta), -std::sin(beta), std::cos(beta);
 
-        // 转换到目标中心参考系下看其朝向
-        Eigen::Matrix2d R_target2armor = R_odom2target.transpose() * R_odom2armor;
+        Eigen::Matrix2d Ra, Rb;
+        Ra << std::cos(alpha), std::sin(alpha), -std::sin(alpha), std::cos(alpha);
+        Rb << std::cos(beta), std::sin(beta), -std::sin(beta), std::cos(beta);
 
-        // 装甲板的朝向与“面对自己”的角度差
-        double decision_angle = -std::asin(R_target2armor(0, 1)); // ≈ beta - alpha
+        double decision_angle = -std::asin((Ra.transpose() * Rb)(0, 1));
 
-        // 越朝你（即 decision_angle 越接近 0）越优
         if (std::abs(decision_angle) < min_angle_diff) {
             min_angle_diff = std::abs(decision_angle);
             best_idx = i;
+            best_target_ptr = &tgt;
         }
     }
 
-    return best_idx; // -1 表示没有合法目标
+    if (best_idx == -1 || best_target_ptr == nullptr)
+        return -1;
+
+    const OneTarget& best_target = *best_target_ptr;
+
+    // 没有上一个目标，首次选择
+    if (!has_last_target_) {
+        last_target_ = best_target;
+        has_last_target_ = true;
+        return best_idx;
+    }
+
+    // 判断是否是相同目标
+    double dist = (best_target.position_ - last_target_.position_).norm();
+    bool same_id = best_target.id == last_target_.id;
+    bool same_target = same_id && dist < oneswitch_position_thres_;
+
+    // 计算 last 的角度差
+    double alpha_last = std::atan2(last_target_.position_.y, last_target_.position_.x);
+    double beta_last = last_target_.yaw;
+    Eigen::Matrix2d Ral, Rbl;
+    Ral << std::cos(alpha_last), std::sin(alpha_last), -std::sin(alpha_last), std::cos(alpha_last);
+    Rbl << std::cos(beta_last), std::sin(beta_last), -std::sin(beta_last), std::cos(beta_last);
+    double last_angle_diff = std::abs(std::asin((Ral.transpose() * Rbl)(0, 1)));
+
+    // 判断是否需要切换
+    if (!same_target
+        && std::abs(last_angle_diff - min_angle_diff) > oneswitch_angle_thres_ * M_PI / 180.0)
+    {
+        // 满足潜在切换条件
+
+        if (!has_pending_target_ || (best_target.id != pending_target_.id)) {
+            // 新的候选目标，开始计时
+            pending_target_ = best_target;
+            pending_target_start_time_ = current_time;
+            has_pending_target_ = true;
+        } else {
+            // 候选目标存在足够长时间，执行切换
+            double hold_time =
+                std::chrono::duration<double>(current_time - pending_target_start_time_).count();
+            if (hold_time > oneswitch_hold_time_) {
+                last_target_ = pending_target_;
+                return best_idx;
+            }
+        }
+
+        // 维持旧目标
+        return -1;
+    }
+
+    // 当前目标仍为最佳
+    last_target_ = best_target;
+    has_pending_target_ = false;
+    return best_idx;
 }
