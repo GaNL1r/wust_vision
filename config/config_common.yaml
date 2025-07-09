@@ -104,7 +104,8 @@ armor_tracker:
     oyr_d: 0.0005 #1m处
     oyr_p: 1 #角度
     oyr_y: 1 #角度
-    oyr_yaw: 7 #角度
+    oyr_yaw_front: 8
+    oyr_yaw_side: 5
     oys2qx: 40
     oys2qy: 40
     oys2qyaw: 30
@@ -112,7 +113,6 @@ armor_tracker:
     yr_d: 0.005 #1m处
     yr_p: 10 #角度
     yr_y: 7 #角度
-    #yr_yaw: 6 #角度
     yr_yaw_front: 8
     yr_yaw_side: 5
     ys2qd_zc: 700

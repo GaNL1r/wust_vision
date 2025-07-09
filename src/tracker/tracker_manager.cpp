@@ -63,7 +63,6 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     yr_y_ = config_["ekf"]["yr_y"].as<double>(0.05);
     yr_p_ = config_["ekf"]["yr_p"].as<double>(0.05);
     yr_d_ = config_["ekf"]["yr_d"].as<double>(0.05);
-    yr_yaw_ = config_["ekf"]["yr_yaw"].as<double>(0.02);
     yr_yaw_front_ = config_["ekf"]["yr_yaw_front"].as<double>(0.02);
     yr_yaw_side_ = config_["ekf"]["yr_yaw_side"].as<double>(0.02);
 
@@ -75,7 +74,8 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     oyr_y_ = config_["ekf"]["oyr_y"].as<double>(0.05);
     oyr_p_ = config_["ekf"]["oyr_p"].as<double>(0.05);
     oyr_d_ = config_["ekf"]["oyr_d"].as<double>(0.05);
-    oyr_yaw_ = config_["ekf"]["oyr_yaw"].as<double>(0.02);
+    oyr_yaw_front_ = config_["ekf"]["oyr_yaw_front"].as<double>(0.02);
+    oyr_yaw_side_ = config_["ekf"]["oyr_yaw_side"].as<double>(0.02);
 
     // EKF 状态预测函数
 
@@ -155,18 +155,23 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
         r <<pow(yr_y_ * M_PI / 180.0, 2), 0, 0, 0,
                 0, pow(yr_p_ * M_PI / 180.0, 2) , 0, 0,
                 0, 0, yr_d_ * std::abs(z[2]) *std::abs(z[2]), 0,//pnp得到的distance的误差与distance的平方正相关
-                0, 0, 0, getYawNoiseVarFromCameraYaw(camera_yaw);//相机系下yaw正对误差大
+                0, 0, 0, getYawNoiseVarFromCameraYaw(camera_yaw ,yr_yaw_front_ , yr_yaw_side_);//相机系下yaw正对误差大
         // clang-format on
         return r;
     };
 
     auto oyu_r = [this](const Eigen::Matrix<double, oneypdarmor_motion_model::Z_N, 1>& z) {
         Eigen::Matrix<double, oneypdarmor_motion_model::Z_N, oneypdarmor_motion_model::Z_N> r;
+        Eigen::Vector3d dir_odom(std::cos(z[3]), std::sin(z[3]), 0.0);
+
+        Eigen::Vector3d dir_gimbal = this->R_gimbal2odom_.transpose() * dir_odom;
+
+        double camera_yaw = std::atan2(dir_gimbal.y(), dir_gimbal.x()) * 180.0 / M_PI;
         // clang-format off
             r <<pow(oyr_y_ * M_PI / 180.0, 2), 0, 0, 0,
                 0, pow(oyr_p_ * M_PI / 180.0, 2) , 0, 0,
                 0, 0, oyr_d_ * std::abs(z[2]) *std::abs(z[2]), 0,
-                0, 0, 0, pow(oyr_yaw_ * M_PI / 180.0, 2);
+                0, 0, 0, getYawNoiseVarFromCameraYaw(camera_yaw ,oyr_yaw_front_ , oyr_yaw_side_);
         // clang-format on
         return r;
     };
@@ -251,14 +256,22 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
 
     gobal::attack_state = gobal::AttackState::ATTACKONE;
 }
-double TrackerManager::getYawNoiseFromCameraYaw(double camera_yaw_deg) const {
+double TrackerManager::getYawNoiseFromCameraYaw(
+    double camera_yaw_deg,
+    double r_yaw_front,
+    double r_yaw_side
+) const {
     double yaw_rad = camera_yaw_deg * M_PI / 180.0;
     double cos2 = std::cos(yaw_rad);
     cos2 *= cos2;
-    return cos2 * yr_yaw_front_ + (1.0 - cos2) * yr_yaw_side_;
+    return cos2 * r_yaw_front + (1.0 - cos2) * r_yaw_side;
 }
-double TrackerManager::getYawNoiseVarFromCameraYaw(double camera_yaw_deg) const {
-    double noise_deg = getYawNoiseFromCameraYaw(camera_yaw_deg);
+double TrackerManager::getYawNoiseVarFromCameraYaw(
+    double camera_yaw_deg,
+    double r_yaw_front,
+    double r_yaw_side
+) const {
+    double noise_deg = getYawNoiseFromCameraYaw(camera_yaw_deg, r_yaw_front, r_yaw_side);
     return std::pow(noise_deg * M_PI / 180.0, 2);
 }
 
