@@ -36,10 +36,8 @@ public:
         Armors armors_,
         std::chrono::steady_clock::time_point time
     );
-    double
-    getYawNoiseFromCameraYaw(double camera_yaw_deg, double r_yaw_front, double r_yaw_side) const;
-    double
-    getYawNoiseVarFromCameraYaw(double camera_yaw_deg, double r_yaw_front, double r_yaw_side) const;
+    double getNoiseFromCameraYaw(double camera_yaw_deg, double r_front, double r_side) const;
+    double getNoiseVarFromCameraYaw(double camera_yaw_deg, double r_front, double r_side) const;
 
     enum State {
         LOST,
@@ -57,8 +55,8 @@ public:
 
     double ys2qx_, ys2qy_, ys2qz_, ys2qyaw_, ys2qr_, ys2qd_zc_;
     double oys2qx_, oys2qy_, oys2qz_, oys2qyaw_;
-    double yr_y_, yr_p_, yr_d_, yr_yaw_front_, yr_yaw_side_;
-    double oyr_y_, oyr_p_, oyr_d_, oyr_yaw_front_, oyr_yaw_side_;
+    double yr_y_, yr_p_, yr_d_front_, yr_d_side_, yr_yaw_front_, yr_yaw_side_;
+    double oyr_y_, oyr_p_, oyr_d_front_, oyr_d_side_, oyr_yaw_front_, oyr_yaw_side_;
     double lost_time_thres_;
     double one_lost_time_thres_;
     std::chrono::steady_clock::time_point last_time_;

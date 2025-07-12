@@ -33,8 +33,10 @@ void ArmorSolver::init(const YAML::Node& config) {
     }
     auto s = config["armor_solver"];
 
-    shooting_range_w = s["shooting_range_w"].as<double>(0.12);
-    shooting_range_h = s["shooting_range_h"].as<double>(0.12);
+    small_shooting_range_w = s["small_shooting_range_w"].as<double>(0.12);
+    small_shooting_range_h = s["small_shooting_range_h"].as<double>(0.12);
+    big_shooting_range_w = s["big_shooting_range_w"].as<double>(0.12);
+    big_shooting_range_h = s["big_shooting_range_h"].as<double>(0.12);
     max_tracking_v_yaw = s["max_tracking_v_yaw"].as<double>(60.0);
     prediction_delay = s["prediction_delay"].as<double>(0.0);
     gobal::controller_delay = s["controller_delay"].as<double>(0.0);
@@ -134,6 +136,7 @@ ArmorSolver::solve(const Target& target, std::chrono::steady_clock::time_point c
     double raw_yaw_, raw_pitch_;
     // 4. 状态机逻辑
     bool fire_advice = false;
+    bool is_large;
     switch (state_) {
         case TRACKING_ARMOR:
             if (std::abs(target.v_yaw) > max_tracking_v_yaw) {
@@ -171,7 +174,8 @@ ArmorSolver::solve(const Target& target, std::chrono::steady_clock::time_point c
             pitch_off = offs[0] * M_PI / 180.0;
             fire_yaw = raw_yaw + yaw_off;
             fire_pitch = raw_pitch + pitch_off;
-            fire_advice = isOnTarget(rpy[2], rpy[1], fire_yaw, fire_pitch, distance);
+            is_large = (target.id == ArmorNumber::NO1 || target.id == ArmorNumber::BASE);
+            fire_advice = isOnTarget(rpy[2], rpy[1], fire_yaw, fire_pitch, distance, is_large);
             break;
 
         case TRACKING_CENTER:
@@ -215,7 +219,8 @@ ArmorSolver::solve(const Target& target, std::chrono::steady_clock::time_point c
 
             fire_yaw = raw_yaw_ + yaw_off;
             fire_pitch = raw_pitch + pitch_off;
-            fire_advice = isOnTarget(rpy[2], rpy[1], fire_yaw, fire_pitch, distance);
+            is_large = (target.id == ArmorNumber::NO1 || target.id == ArmorNumber::BASE);
+            fire_advice = isOnTarget(rpy[2], rpy[1], fire_yaw, fire_pitch, distance, is_large);
             break;
     }
 
@@ -305,6 +310,7 @@ GimbalCmd ArmorSolver::solve(
         double raw_yaw_, raw_pitch_;
         // 4. 状态机逻辑
         bool fire_advice = false;
+        bool is_large;
         switch (state_) {
             case TRACKING_ARMOR:
                 if (std::abs(target.v_yaw) > max_tracking_v_yaw) {
@@ -346,7 +352,8 @@ GimbalCmd ArmorSolver::solve(
                 pitch_off = offs[0] * M_PI / 180.0;
                 fire_yaw = raw_yaw + yaw_off;
                 fire_pitch = raw_pitch + pitch_off;
-                fire_advice = isOnTarget(rpy[2], rpy[1], fire_yaw, fire_pitch, distance);
+                is_large = (target.id == ArmorNumber::NO1 || target.id == ArmorNumber::BASE);
+                fire_advice = isOnTarget(rpy[2], rpy[1], fire_yaw, fire_pitch, distance, is_large);
                 break;
 
             case TRACKING_CENTER:
@@ -394,7 +401,8 @@ GimbalCmd ArmorSolver::solve(
 
                 fire_yaw = raw_yaw_ + yaw_off;
                 fire_pitch = raw_pitch + pitch_off;
-                fire_advice = isOnTarget(rpy[2], rpy[1], fire_yaw, fire_pitch, distance);
+                is_large = (target.id == ArmorNumber::NO1 || target.id == ArmorNumber::BASE);
+                fire_advice = isOnTarget(rpy[2], rpy[1], fire_yaw, fire_pitch, distance, is_large);
                 break;
         }
 
@@ -473,7 +481,8 @@ GimbalCmd ArmorSolver::solve(
 
         fire_yaw = raw_yaw + yaw_off;
         fire_pitch = raw_pitch + pitch_off;
-        fire_advice = isOnTarget(rpy[2], rpy[1], fire_yaw, fire_pitch, distance);
+        bool is_large = (best_target.id == ArmorNumber::NO1 || best_target.id == ArmorNumber::BASE);
+        fire_advice = isOnTarget(rpy[2], rpy[1], fire_yaw, fire_pitch, distance, is_large);
         double cmd_pitch = raw_pitch + pitch_off;
         double cmd_yaw = normalize_angle(raw_yaw + yaw_off);
 
@@ -529,18 +538,28 @@ bool ArmorSolver::isOnTarget(
     const double cur_pitch,
     const double target_yaw,
     const double target_pitch,
-    const double distance
+    const double distance,
+    const bool is_large_armor
 ) const noexcept {
     // 计算你与目标朝向之间的最短夹角
-    double yaw_diff = angles::shortest_angular_distance(target_yaw, cur_yaw);
+    double yaw_diff = angles::shortest_angular_distance(std::abs(target_yaw), std::abs(cur_yaw));
     double width_scale = std::abs(std::cos(yaw_diff)); // 角度越一致，目标越“宽”
+    double shooting_range_yaw, shooting_range_pitch;
+    if (is_large_armor) {
+        // 缩放后的目标宽度
+        double dynamic_w = big_shooting_range_w * width_scale;
 
-    // 缩放后的目标宽度
-    double dynamic_w = shooting_range_w * width_scale;
+        // 开火角容差
+        shooting_range_yaw = std::abs(std::atan2(big_shooting_range_w / 2.0, distance));
+        shooting_range_pitch = std::abs(std::atan2(big_shooting_range_h / 2.0, distance));
+    } else {
+        // 缩放后的目标宽度
+        double dynamic_w = small_shooting_range_w * width_scale;
 
-    // 开火角容差
-    double shooting_range_yaw = std::abs(std::atan2(shooting_range_w / 2.0, distance));
-    double shooting_range_pitch = std::abs(std::atan2(shooting_range_h / 2.0, distance));
+        // 开火角容差
+        shooting_range_yaw = std::abs(std::atan2(small_shooting_range_w / 2.0, distance));
+        shooting_range_pitch = std::abs(std::atan2(small_shooting_range_h / 2.0, distance));
+    }
 
     // 限制最小角度为 1°
     constexpr double min_angle_rad = 1.0 * M_PI / 180.0;
@@ -598,7 +617,6 @@ void ArmorSolver::calcYawAndPitch(
     if (double temp_pitch = pitch; trajectory_compensator_->compensate(p, temp_pitch)) {
         pitch = temp_pitch;
     }
-    // std::cout << "yaw: " << yaw << " pitch: " << pitch << std::endl;
 }
 int ArmorSolver::selectBestArmor(
     const std::vector<Eigen::Vector3d>& armor_positions,
@@ -674,19 +692,16 @@ int ArmorSolver::selectBestTarget(const std::vector<OneTarget>& targets) const n
 
     const OneTarget& best_target = *best_target_ptr;
 
-    // 没有上一个目标，首次选择
     if (!has_last_target_) {
         last_target_ = best_target;
         has_last_target_ = true;
         return best_idx;
     }
 
-    // 判断是否是相同目标
     double dist = (best_target.position_ - last_target_.position_).norm();
     bool same_id = best_target.id == last_target_.id;
     bool same_target = same_id && dist < oneswitch_position_thres_;
 
-    // 计算 last 的角度差
     double alpha_last = std::atan2(last_target_.position_.y, last_target_.position_.x);
     double beta_last = last_target_.yaw;
     Eigen::Matrix2d Ral, Rbl;
@@ -694,19 +709,14 @@ int ArmorSolver::selectBestTarget(const std::vector<OneTarget>& targets) const n
     Rbl << std::cos(beta_last), std::sin(beta_last), -std::sin(beta_last), std::cos(beta_last);
     double last_angle_diff = std::abs(std::asin((Ral.transpose() * Rbl)(0, 1)));
 
-    // 判断是否需要切换
     if (!same_target
         && std::abs(last_angle_diff - min_angle_diff) > oneswitch_angle_thres_ * M_PI / 180.0)
     {
-        // 满足潜在切换条件
-
         if (!has_pending_target_ || (best_target.id != pending_target_.id)) {
-            // 新的候选目标，开始计时
             pending_target_ = best_target;
             pending_target_start_time_ = current_time;
             has_pending_target_ = true;
         } else {
-            // 候选目标存在足够长时间，执行切换
             double hold_time =
                 std::chrono::duration<double>(current_time - pending_target_start_time_).count();
             if (hold_time > oneswitch_hold_time_) {
@@ -715,11 +725,9 @@ int ArmorSolver::selectBestTarget(const std::vector<OneTarget>& targets) const n
             }
         }
 
-        // 维持旧目标
         return -1;
     }
 
-    // 当前目标仍为最佳
     last_target_ = best_target;
     has_pending_target_ = false;
     return best_idx;

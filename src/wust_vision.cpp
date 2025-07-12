@@ -416,7 +416,12 @@ void WustVision::initRune(const std::string& camera_info_path) {
     auto yu_r = [yr_vec](const Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>& z) {
         Eigen::Matrix<double, ypdrune_motion_model::Z_N, ypdrune_motion_model::Z_N> r =
             Eigen::MatrixXd::Zero(4, 4);
-        r.diagonal() << yr_vec[0], yr_vec[1], yr_vec[2], yr_vec[3];
+        // clang-format off
+            r <<pow(yr_vec[0] * M_PI / 180.0, 2), 0, 0, 0,
+            0, pow(yr_vec[1] * M_PI / 180.0, 2) , 0, 0,
+            0, 0, yr_vec[2] * std::abs(z[2]) *std::abs(z[2]), 0,
+            0, 0, 0, yr_vec[3];
+        // clang-format on
         return r;
     };
     // P - error estimate covariance matrix

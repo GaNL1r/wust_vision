@@ -30,7 +30,7 @@ control:
   alpha_pitch: 0.7
   alpha_yaw: 0.5
   control_rate: 2000
-  communication_delay: 1
+  communication_delay: 1000
   device_name: /dev/ttyACM0
   max_pitch_change: 5
   max_yaw_change: 10
@@ -76,8 +76,10 @@ armor_solver:
   max_tracking_v_yaw: 180
   prediction_delay: 0.0
   resistance: 0.092
-  shooting_range_h: 0.12
-  shooting_range_w: 0.12
+  small_shooting_range_h: 0.12
+  small_shooting_range_w: 0.09
+  big_shooting_range_h: 0.2
+  big_shooting_range_w: 0.15
   side_angle: 20
   oneswitch_position_thres: 0.5
   oneswitch_angle_thres: 30
@@ -101,7 +103,8 @@ armor_tracker:
     use_esekf: false
     fusion_esekf_ekf: true
     iteration_num: 2
-    oyr_d: 0.0005 #1m处
+    oyr_d_front: 0.0002 #1m处
+    oyr_d_side: 0.0007 #1m处
     oyr_p: 1 #角度
     oyr_y: 1 #角度
     oyr_yaw_front: 8
@@ -110,7 +113,8 @@ armor_tracker:
     oys2qy: 40
     oys2qyaw: 30
     oys2qz: 5
-    yr_d: 0.005 #1m处
+    yr_d_front: 0.002 #1m处
+    yr_d_side: 0.007 #1m处
     yr_p: 10 #角度
     yr_y: 7 #角度
     yr_yaw_front: 8
@@ -156,10 +160,10 @@ rune_solver:
       - 1e-4
       - 1e-4
     r_ypdyaw:
-      - 1e-4
-      - 1e-4
-      - 5e-2
-      - 1e-2
+      - 1
+      - 1
+      - 0.0005
+      - 5
   gravity: 9.8
   lost_time_thres: 0.5
   predict_offset: 0.1

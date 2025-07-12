@@ -78,7 +78,8 @@ private:
         double cur_pitch,
         double target_yaw,
         double target_pitch,
-        double distance
+        double distance,
+        bool is_large_armor
     ) const noexcept;
     void calcYawAndPitch(
         const Eigen::Vector3d& p,
@@ -105,11 +106,12 @@ private:
     ) const noexcept;
     int selectBestTarget(const std::vector<OneTarget>& targets) const noexcept;
 
-    double shooting_range_w = 0.135;
-    double shooting_range_h = 0.135;
+    double small_shooting_range_w = 0.135;
+    double small_shooting_range_h = 0.135;
+    double big_shooting_range_w = 0.135;
+    double big_shooting_range_h = 0.135;
     double max_tracking_v_yaw = 6.0;
     double prediction_delay = 0.0;
-    // double controller_delay        = 0.0;
     double side_angle = 15.0; // degrees
     double min_switching_v_yaw = 1.0;
     int transfer_thresh = 5;
