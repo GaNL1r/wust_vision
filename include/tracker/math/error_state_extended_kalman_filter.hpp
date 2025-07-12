@@ -104,6 +104,13 @@ public:
     }
 
     /**
+    * @brief Get the L2 norm of the last measurement residual (after update).
+    */
+    double getResidualNorm() const noexcept {
+        return last_residual_.norm();
+    }
+
+    /**
       * @brief Prediction step: propagate nominal state and error covariance.
       * @return Predicted nominal state.
       */
@@ -184,6 +191,7 @@ public:
             delta_iter += K * residual;
             P_iter = (MatrixXX::Identity() - K * H) * P_iter;
             P_iter = 0.5 * (P_iter + P_iter.transpose());
+            last_residual_ = residual;
         }
 
         // Final injection
@@ -210,6 +218,8 @@ private:
     MatrixX1 delta_x = MatrixX1::Zero();
     MatrixXX P_delta = MatrixXX::Identity();
     MatrixXX P_delta_pri = MatrixXX::Identity();
+
+    MatrixZ1 last_residual_ = MatrixZ1::Zero();
 
     std::vector<int> angle_dims_;
     int iteration_num_ = 1;

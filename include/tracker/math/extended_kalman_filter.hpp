@@ -128,6 +128,14 @@ public:
     const MatrixXX& getPosteriorCovariance() const noexcept {
         return P_post;
     }
+
+    /**
+    * @brief Get the L2 norm of the last measurement residual (after update).
+    */
+    double getResidualNorm() const noexcept {
+        return last_residual_.norm();
+    }
+
     /**
       * @brief Perform the prediction step of EKF.
       * @return Predicted state vector (x_prior).
@@ -227,6 +235,7 @@ public:
             }
 
             x_iter = x_new;
+            last_residual_ = residual;
         }
 
         // Final posterior state
@@ -240,6 +249,7 @@ public:
         P_post = (MatrixXX::Identity() - K * H) * P_pri;
         // Symmetrize
         P_post = 0.5 * (P_post + P_post.transpose());
+
         return x_post;
     }
 
@@ -260,6 +270,8 @@ private:
 
     MatrixX1 x_pri = MatrixX1::Zero(); // Prior state
     MatrixX1 x_post = MatrixX1::Zero(); // Posterior state
+
+    MatrixZ1 last_residual_ = MatrixZ1::Zero();
 
     std::vector<int> angle_dims_; // Indices of angular measurement dims
     int iteration_num_ = 1; // GN iterations in update

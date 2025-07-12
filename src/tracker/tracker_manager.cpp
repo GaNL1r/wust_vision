@@ -191,14 +191,18 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
             Eigen::VectorXd x2 = esekf->predict();
 
             if (fusion_esekf_ekf) {
+                const double eps = 1e-6;
                 Eigen::MatrixXd P1 = ekf->getPriorCovariance();
                 Eigen::MatrixXd P2 = esekf->getPriorCovariance();
                 Eigen::MatrixXd info1 = P1.inverse();
                 Eigen::MatrixXd info2 = P2.inverse();
-                Eigen::MatrixXd info_fused = info1 + info2;
+                double norm1 = ekf->getResidualNorm();
+                double norm2 = esekf->getResidualNorm();
+                double w1 = 1.0 / (norm1 + eps);
+                double w2 = 1.0 / (norm2 + eps);
+                Eigen::MatrixXd info_fused = w1 * info1 + w2 * info2;
                 Eigen::MatrixXd P_fused = info_fused.inverse();
-                Eigen::VectorXd x_fused = P_fused * (info1 * x1 + info2 * x2);
-
+                Eigen::VectorXd x_fused = P_fused * (w1 * info1 * x1 + w2 * info2 * x2);
                 return x_fused;
             } else {
                 return use_esekf ? x2 : x1;
