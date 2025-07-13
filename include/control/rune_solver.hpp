@@ -91,8 +91,7 @@ public:
     std::unique_ptr<PnPSolver> pnp_solver;
     std::unique_ptr<TrajectoryCompensator> trajectory_compensator;
     std::unique_ptr<CurveFitter> curve_fitter;
-    bool use_ypd;
-    std::unique_ptr<rune_motion_model::RuneCenterEKF> ekf_xyz;
+
     std::unique_ptr<ypdrune_motion_model::RuneCenterEKF> ekf_ypd;
     std::unique_ptr<ManualCompensator> manual_compensator;
 

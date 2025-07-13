@@ -36,8 +36,6 @@ public:
         Armors armors_,
         std::chrono::steady_clock::time_point time
     );
-    double getNoiseFromCameraYaw(double camera_yaw_deg, double r_front, double r_side) const;
-    double getNoiseVarFromCameraYaw(double camera_yaw_deg, double r_front, double r_side) const;
 
     enum State {
         LOST,

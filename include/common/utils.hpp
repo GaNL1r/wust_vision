@@ -180,5 +180,15 @@ inline void transformArmorData(Armor& armor, Eigen::Matrix4d T_camera_to_odom) {
         return;
     }
 }
+inline double getNoiseFromCameraYaw(double camera_yaw_deg, double r_front, double r_side) {
+    double yaw_rad = camera_yaw_deg * M_PI / 180.0;
+    double cos2 = std::cos(yaw_rad);
+    cos2 *= cos2;
+    return cos2 * r_front + (1.0 - cos2) * r_side;
+}
+inline double getNoiseVarFromCameraYaw(double camera_yaw_deg, double r_front, double r_side) {
+    double noise_deg = getNoiseFromCameraYaw(camera_yaw_deg, r_front, r_side);
+    return std::pow(noise_deg * M_PI / 180.0, 2);
+}
 
 } // namespace utils

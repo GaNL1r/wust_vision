@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "tracker/tracker_manager.hpp"
 #include "common/gobal.hpp"
+#include "common/utils.hpp"
 
 TrackerManager::TrackerManager(const YAML::Node& config_) {
     track_one_num = config_["track_one_num"].as<int>(2);
@@ -156,8 +157,8 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
         // clang-format off
         r <<pow(yr_y_ * M_PI / 180.0, 2), 0, 0, 0,
                 0, pow(yr_p_ * M_PI / 180.0, 2) , 0, 0,
-                0, 0, getNoiseVarFromCameraYaw(camera_yaw ,yr_d_front_ , yr_d_side_) * std::abs(z[2]) *std::abs(z[2]), 0,//pnp得到的distance的误差与distance的平方正相关
-                0, 0, 0, getNoiseVarFromCameraYaw(camera_yaw ,yr_yaw_front_ , yr_yaw_side_);//相机系下yaw正对误差大
+                0, 0, utils::getNoiseVarFromCameraYaw(camera_yaw ,yr_d_front_ , yr_d_side_) * std::abs(z[2]) *std::abs(z[2]), 0,//pnp得到的distance的误差与distance的平方正相关
+                0, 0, 0, utils::getNoiseVarFromCameraYaw(camera_yaw ,yr_yaw_front_ , yr_yaw_side_);//相机系下yaw正对误差大
         // clang-format on
         return r;
     };
@@ -172,8 +173,8 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
         // clang-format off
             r <<pow(oyr_y_ * M_PI / 180.0, 2), 0, 0, 0,
                 0, pow(oyr_p_ * M_PI / 180.0, 2) , 0, 0,
-                0, 0, getNoiseVarFromCameraYaw(camera_yaw ,oyr_d_front_ , oyr_d_side_) * std::abs(z[2]) *std::abs(z[2]), 0,
-                0, 0, 0, getNoiseVarFromCameraYaw(camera_yaw ,oyr_yaw_front_ , oyr_yaw_side_);
+                0, 0, utils::getNoiseVarFromCameraYaw(camera_yaw ,oyr_d_front_ , oyr_d_side_) * std::abs(z[2]) *std::abs(z[2]), 0,
+                0, 0, 0, utils::getNoiseVarFromCameraYaw(camera_yaw ,oyr_yaw_front_ , oyr_yaw_side_);
         // clang-format on
         return r;
     };
@@ -200,6 +201,9 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
                 double norm2 = esekf->getResidualNorm();
                 double w1 = 1.0 / (norm1 + eps);
                 double w2 = 1.0 / (norm2 + eps);
+                double sum_w = w1 + w2;
+                w1 /= sum_w;
+                w2 /= sum_w;
                 Eigen::MatrixXd info_fused = w1 * info1 + w2 * info2;
                 Eigen::MatrixXd P_fused = info_fused.inverse();
                 Eigen::VectorXd x_fused = P_fused * (w1 * info1 * x1 + w2 * info2 * x2);
@@ -261,19 +265,6 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     }
 
     gobal::attack_state = gobal::AttackState::ATTACKONE;
-}
-double
-TrackerManager::getNoiseFromCameraYaw(double camera_yaw_deg, double r_front, double r_side) const {
-    double yaw_rad = camera_yaw_deg * M_PI / 180.0;
-    double cos2 = std::cos(yaw_rad);
-    cos2 *= cos2;
-    return cos2 * r_front + (1.0 - cos2) * r_side;
-}
-double
-TrackerManager::getNoiseVarFromCameraYaw(double camera_yaw_deg, double r_front, double r_side)
-    const {
-    double noise_deg = getNoiseFromCameraYaw(camera_yaw_deg, r_front, r_side);
-    return std::pow(noise_deg * M_PI / 180.0, 2);
 }
 
 void TrackerManager::updateTracker(

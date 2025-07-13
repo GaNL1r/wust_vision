@@ -142,18 +142,7 @@ rune_solver:
   bullet_speet: 20
   compensator_type: resistance
   ekf:
-    use_ypd: true
     iteration_num: 1
-    q_xyzyaw:
-      - 2e-4
-      - 1e-4
-      - 1e-4
-      - 1e-4
-    r_xyzyaw:
-      - 4e-2
-      - 1e-2
-      - 1e-2
-      - 1e-2
     q_ypdyaw:
       - 2e-4
       - 1e-4

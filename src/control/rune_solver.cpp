@@ -65,11 +65,8 @@ double RuneSolver::init(const Rune received_target, Eigen::Matrix4d T_camera_to_
             WUST_ERROR(rune_solver_logger) << "Is not valid";
             return 0;
         }
-        if (use_ypd) {
-            ekf_ypd->setState(ekf_state_);
-        } else {
-            ekf_xyz->setState(ekf_state_);
-        }
+
+        ekf_ypd->setState(ekf_state_);
 
     } catch (...) {
         WUST_ERROR(rune_solver_logger) << "Init failed";
@@ -116,22 +113,17 @@ double RuneSolver::update(const Rune received_target, Eigen::Matrix4d T_camera_t
             }
 
             Eigen::Vector4d measurement = getStateFromTransform(T_odom_2_rune);
-            if (use_ypd) {
-                ekf_ypd->predict();
-                tf::Position p(measurement[0], measurement[1], measurement[2]);
-                double ypd_y = std::atan2(p.y, p.x);
-                ypd_y =
-                    this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
-                this->last_ypd_y = ypd_y;
-                double ypd_p = std::atan2(p.z, std::sqrt(p.x * p.x + p.y * p.y));
-                double ypd_d = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
-                Eigen::Vector4d state;
-                state << ypd_y, ypd_p, ypd_d, measurement[3];
-                ekf_state_ = ekf_ypd->update(state);
-            } else {
-                ekf_xyz->predict();
-                ekf_xyz->update(measurement);
-            }
+
+            ekf_ypd->predict();
+            tf::Position p(measurement[0], measurement[1], measurement[2]);
+            double ypd_y = std::atan2(p.y, p.x);
+            ypd_y = this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
+            this->last_ypd_y = ypd_y;
+            double ypd_p = std::atan2(p.z, std::sqrt(p.x * p.x + p.y * p.y));
+            double ypd_d = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
+            Eigen::Vector4d state;
+            state << ypd_y, ypd_p, ypd_d, measurement[3];
+            ekf_state_ = ekf_ypd->update(state);
 
         } catch (...) {
             WUST_ERROR(rune_solver_logger) << "EKF update failed";

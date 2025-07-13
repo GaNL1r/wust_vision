@@ -356,8 +356,6 @@ void WustVision::initRune(const std::string& camera_info_path) {
         .auto_type_determined = gobal::config["rune_solver"]["auto_type_determined"].as<bool>(true),
     };
     rune_solver_ = std::make_unique<RuneSolver>(rune_solver_params);
-    bool use_ypd = gobal::config["rune_solver"]["ekf"]["use_ypd"].as<bool>();
-    rune_solver_->use_ypd = use_ypd;
     rune_solver_->predict_offset_ = gobal::config["rune_solver"]["predict_offset"].as<double>(0.0);
     rune_solver_->pnp_solver = std::make_unique<PnPSolver>();
     rune_solver_->pnp_solver->setObjectPoints("rune", RUNE_OBJECT_POINTS);
@@ -376,24 +374,14 @@ void WustVision::initRune(const std::string& camera_info_path) {
     }
     rune_solver_->manual_compensator->updateMapFlow(entries);
     // EKF for filtering the position of R tag
-    // state: x, y, z, yaw
+    // state: yaw, pitch, distance, orientation_yaw
     // measurement: x, y, z, yaw
     // f - Process function
-    auto f = rune_motion_model::Predict();
     auto yf = ypdrune_motion_model::Predict();
     // h - Observation function
-    auto h = rune_motion_model::Measure();
     auto yh = ypdrune_motion_model::Measure();
     // update_Q - process noise covariance matrix
-    std::vector<double> q_vec =
-        gobal::config["rune_solver"]["ekf"]["q_xyzyaw"].as<std::vector<double>>();
 
-    auto u_q = [q_vec]() {
-        Eigen::Matrix<double, rune_motion_model::X_N, rune_motion_model::X_N> q =
-            Eigen::MatrixXd::Zero(4, 4);
-        q.diagonal() << q_vec[0], q_vec[1], q_vec[2], q_vec[3];
-        return q;
-    };
     std::vector<double> yq_vec =
         gobal::config["rune_solver"]["ekf"]["q_ypdyaw"].as<std::vector<double>>();
     auto yu_q = [yq_vec]() {
@@ -403,14 +391,7 @@ void WustVision::initRune(const std::string& camera_info_path) {
         return q;
     };
     // update_R - measurement noise covariance matrix
-    std::vector<double> r_vec =
-        gobal::config["rune_solver"]["ekf"]["r_xyzyaw"].as<std::vector<double>>();
-    auto u_r = [r_vec](const Eigen::Matrix<double, rune_motion_model::Z_N, 1>& z) {
-        Eigen::Matrix<double, rune_motion_model::Z_N, rune_motion_model::Z_N> r =
-            Eigen::MatrixXd::Zero(4, 4);
-        r.diagonal() << r_vec[0], r_vec[1], r_vec[2], r_vec[3];
-        return r;
-    };
+
     std::vector<double> yr_vec =
         gobal::config["rune_solver"]["ekf"]["r_ypdyaw"].as<std::vector<double>>();
     auto yu_r = [yr_vec](const Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>& z) {
@@ -428,17 +409,11 @@ void WustVision::initRune(const std::string& camera_info_path) {
     Eigen::MatrixXd p0 = Eigen::MatrixXd::Identity(4, 4);
     Eigen::MatrixXd yp0 = Eigen::MatrixXd::Identity(4, 4);
     int iteration_num = gobal::config["rune_solver"]["ekf"]["iteration_num"].as<int>(1);
-    if (use_ypd) {
-        rune_solver_->ekf_ypd =
-            std::make_unique<ypdrune_motion_model::RuneCenterEKF>(yf, yh, yu_q, yu_r, yp0);
-        rune_solver_->ekf_ypd->setAngleDims({ 0, 3 });
-        rune_solver_->ekf_ypd->setIterationNum(iteration_num);
-    } else {
-        rune_solver_->ekf_xyz =
-            std::make_unique<rune_motion_model::RuneCenterEKF>(f, h, u_q, u_r, p0);
-        rune_solver_->ekf_xyz->setAngleDims({ 3 });
-        rune_solver_->ekf_xyz->setIterationNum(iteration_num);
-    }
+
+    rune_solver_->ekf_ypd =
+        std::make_unique<ypdrune_motion_model::RuneCenterEKF>(yf, yh, yu_q, yu_r, yp0);
+    rune_solver_->ekf_ypd->setAngleDims({ 0, 3 });
+    rune_solver_->ekf_ypd->setIterationNum(iteration_num);
 }
 
 void WustVision::startTimer() {
