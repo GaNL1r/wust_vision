@@ -397,6 +397,8 @@ struct GimbalCmd {
     float yaw = 0;
     float yaw_diff = 0;
     float pitch_diff = 0;
+    float v_yaw = 0;
+    float v_pitch = 0;
     float distance = -1;
     bool fire_advice = false;
     int select_id = -1;

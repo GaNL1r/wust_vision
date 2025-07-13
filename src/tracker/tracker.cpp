@@ -80,11 +80,7 @@ void Tracker::init(const Armors& armors_msg) noexcept {
 
 void Tracker::update(const Armors& armors_msg) noexcept {
     Eigen::VectorXd ekf_prediction;
-    // if (use_esekf) {
-    //     ekf_prediction = esekf_ypd->predict();
-    // } else {
-    //     ekf_prediction = ekf_ypd->predict();
-    // }
+
     ekf_prediction = predict_func(ekf_ypd, esekf_ypd);
 
     bool matched = false;

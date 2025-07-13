@@ -399,9 +399,9 @@ void WustVision::initRune(const std::string& camera_info_path) {
             Eigen::MatrixXd::Zero(4, 4);
         // clang-format off
             r <<pow(yr_vec[0] * M_PI / 180.0, 2), 0, 0, 0,
-            0, pow(yr_vec[1] * M_PI / 180.0, 2) , 0, 0,
-            0, 0, yr_vec[2] * std::abs(z[2]) *std::abs(z[2]), 0,
-            0, 0, 0, yr_vec[3];
+                0, pow(yr_vec[1] * M_PI / 180.0, 2) , 0, 0,
+                0, 0, yr_vec[2] * std::abs(z[2]) *std::abs(z[2]), 0,
+                0, 0, 0, yr_vec[3];
         // clang-format on
         return r;
     };
@@ -520,15 +520,7 @@ void WustVision::initSerial() {
     serial_->max_yaw_change = gobal::config["control"]["max_yaw_change"].as<double>();
     serial_->max_pitch_change = gobal::config["control"]["max_pitch_change"].as<double>();
     gobal::communication_delay_μs = gobal::config["control"]["communication_delay"].as<double>();
-    int order;
-    double alpha, kff, jump;
-    order = gobal::config["control"]["control_filter"]["poly_order"].as<int>();
-    future_window = gobal::config["control"]["control_filter"]["future_window"].as<int>();
-    alpha = gobal::config["control"]["control_filter"]["base_alpha"].as<double>();
-    kff = gobal::config["control"]["control_filter"]["base_k_ff"].as<double>();
-    jump = gobal::config["control"]["control_filter"]["jump_threshold"].as<double>();
-    control_filter_ = std::make_unique<ControlFilter>(order, future_window, alpha, kff, jump);
-    use_control_filter_ = gobal::config["control"]["control_filter"]["use"].as<bool>();
+    jump_yaw = gobal::config["control"]["jump_yaw"].as<double>();
 }
 
 void WustVision::initTracker(const YAML::Node& config) {
@@ -683,15 +675,12 @@ void WustVision::ArmorDetectCallback(
     Eigen::Matrix4d T_camera_to_odom
 ) {
     std::lock_guard<std::mutex> lock(callback_mutex_);
-    detect_finish_count_++;
+
     if (objs.size() >= max_detect_armors_) {
         WUST_WARN(vision_logger) << "Detected " << objs.size() << " objects"
                                  << "too much";
+        detect_finish_count_++;
         infer_running_count_--;
-        return;
-    }
-    if (gobal::measure_tool_ == nullptr) {
-        WUST_WARN(vision_logger) << "NO camera info";
         return;
     }
     Armors armors;
@@ -737,17 +726,14 @@ void WustVision::ArmorDetectCallback(
     Eigen::Matrix4d T_camera_to_gimbal = Eigen::Matrix4d::Identity();
     T_camera_to_gimbal.block<3, 3>(0, 0) = R_camera_to_gimbal;
     T_camera_to_gimbal.block<3, 1>(0, 3) = t_camera_to_gimbal;
-    // 求逆矩阵：T_camera_to_gimbal⁻¹
     Eigen::Matrix4d T_gimbal_to_camera = T_camera_to_gimbal.inverse();
-
-    // 推导 T_gimbal_to_odom
     Eigen::Matrix4d T_gimbal_to_odom = T_camera_to_odom * T_gimbal_to_camera;
-
-    // 提取旋转部分
     Eigen::Matrix3d R_gimbal2odom = T_gimbal_to_odom.block<3, 3>(0, 0);
 
     armorsCallback(armors, src_img, R_gimbal2odom);
     T_camera_to_odom_ = T_camera_to_odom;
+    detect_finish_count_++;
+    infer_running_count_--;
 }
 void WustVision::RuneDetectCallback(
     std::vector<RuneObject>& objs,
@@ -757,7 +743,7 @@ void WustVision::RuneDetectCallback(
 ) {
     std::lock_guard<std::mutex> lock(callback_mutex_);
     static bool last_rune_big = false; //Always small rune first
-    detect_finish_count_++;
+
     // Used to draw debug info
     cv::Mat debug_img;
     if (gobal::debug_mode_) {
@@ -845,7 +831,7 @@ void WustVision::RuneDetectCallback(
         // All runes are not the target color
         rune_target.is_lost = true;
     }
-    infer_running_count_--;
+
     AttackMode mode = toAttackMode(gobal::attack_mode);
     switch (mode) {
         case AttackMode::ARMOR: {
@@ -879,6 +865,8 @@ void WustVision::RuneDetectCallback(
         rune_gobal = rune_target;
         rune_objects_ = objs;
     }
+    detect_finish_count_++;
+    infer_running_count_--;
 }
 void WustVision::calculation_manual_r(const cv::Mat& src_img) {
     manual_r_runing = true;
@@ -1013,28 +1001,14 @@ void WustVision::timerCallback(double dt_ms) {
             switch (mode) {
                 case AttackMode::ARMOR: {
                     auto cmd = armor_solver_->solve(target, one_targets, now);
-
-                    if (use_control_filter_) {
-                        auto cmds =
-                            armor_solver_
-                                ->solve_vector(target, one_targets, now, future_window, dt_ms);
-                        std::vector<double> future_yaw;
-                        std::vector<double> future_pitch;
-                        for (auto cmd: cmds) {
-                            future_yaw.push_back(cmd.yaw);
-                            future_pitch.push_back(cmd.pitch);
-                        }
-
-                        double raw_pitch, raw_yaw;
-                        raw_pitch = cmd.pitch;
-                        raw_yaw = cmd.yaw;
-                        auto [filtered_yaw, filtered_pitch] =
-                            control_filter_
-                                ->update(raw_yaw, raw_pitch, future_yaw, future_pitch, now);
-                        cmd.pitch = filtered_pitch;
-                        cmd.yaw = filtered_yaw;
+                    double us_interval = 1e6 / static_cast<double>(gobal::control_rate);
+                    auto interval = std::chrono::microseconds(static_cast<int64_t>(us_interval));
+                    auto next_time = now + interval;
+                    auto next_cmd = armor_solver_->solve(target, one_targets, next_time);
+                    if (std::abs(cmd.yaw - next_cmd.yaw) > jump_yaw
+                        || std::abs(cmd.yaw - last_cmd_.yaw) > jump_yaw) {
+                        cmd.fire_advice = false;
                     }
-
                     gimbal_cmd = cmd;
 
                 } break;
@@ -1293,7 +1267,7 @@ void WustVision::processImage(const ImageFrame& frame, Eigen::Matrix3d R_gimbal2
                 return;
             }
             rune_detector_->pushInput(img, frame.timestamp, T_camera_to_odom);
-        }
+        } break;
         case AttackMode::UNKNOWN: {
             armor_detector_->pushInput(img, frame.timestamp, T_camera_to_odom);
         } break;

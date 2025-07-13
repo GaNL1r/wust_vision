@@ -87,6 +87,12 @@ private:
         double& yaw,
         double& pitch
     ) const noexcept;
+    void calcVYawAndVPitch(
+        const Eigen::Vector3d& v,
+        const std::array<double, 3>& rpy,
+        double& vyaw,
+        double& vpitch
+    ) const noexcept;
 
     std::vector<Eigen::Vector3d> getArmorPositions(
         const Eigen::Vector3d& center,
@@ -96,6 +102,17 @@ private:
         double d_zc,
         double d_za,
         size_t num
+    ) const noexcept;
+    std::vector<Eigen::Vector3d> getArmorVelocities(
+        const Eigen::Vector3d& target_center,
+        const double target_yaw,
+        const Eigen::Vector3d& target_velocity,
+        const double target_yaw_rate,
+        const double r1,
+        const double r2,
+        const double d_zc,
+        const double d_za,
+        const size_t armors_num
     ) const noexcept;
     int selectBestArmor(
         const std::vector<Eigen::Vector3d>& armors,

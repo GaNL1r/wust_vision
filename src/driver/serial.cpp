@@ -249,9 +249,13 @@ void Serial::transformGimbalCmd(GimbalCmd& gimbal_cmd, bool appear) {
 
         serial_last_yaw = send_robot_cmd_data_.yaw;
         serial_last_pitch = send_robot_cmd_data_.pitch;
+        send_robot_cmd_data_.v_yaw = gimbal_cmd.v_yaw;
+        send_robot_cmd_data_.v_pitch = gimbal_cmd.v_pitch;
     } else {
         send_robot_cmd_data_.yaw = gobal::last_yaw * 180 / M_PI;
         send_robot_cmd_data_.pitch = gobal::last_pitch * 180 / M_PI;
+        send_robot_cmd_data_.v_yaw = 0;
+        send_robot_cmd_data_.v_pitch = 0;
     }
 
     send_robot_cmd_data_.distance = gimbal_cmd.distance;

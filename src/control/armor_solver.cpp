@@ -29,7 +29,7 @@ ArmorSolver::ArmorSolver(const YAML::Node& config) {
 }
 void ArmorSolver::init(const YAML::Node& config) {
     if (!config["armor_solver"]) {
-        throw std::runtime_error("Missing 'solver' node in config");
+        throw std::runtime_error("Missing 'armor_solver' node in config");
     }
     auto s = config["armor_solver"];
 
@@ -49,7 +49,7 @@ void ArmorSolver::init(const YAML::Node& config) {
     iteration_times = s["iteration_times"].as<int>(20);
     oneswitch_position_thres_ = s["oneswitch_position_thres"].as<double>(0.2);
     oneswitch_angle_thres_ = s["oneswitch_angle_thres"].as<double>(0.2);
-    ;
+
     oneswitch_hold_time_ = s["oneswitch_hold_time"].as<double>(0.5);
 
     std::string comp_type = s["compenstator_type"].as<std::string>("ideal");
@@ -119,14 +119,31 @@ ArmorSolver::solve(const Target& target, std::chrono::steady_clock::time_point c
         target.d_za,
         target.armors_num
     );
+    auto center_v = Eigen::Vector3d(target.velocity_.x, target.velocity_.y, target.velocity_.z);
+    auto v_armors = getArmorVelocities(
+        pos,
+        yaw,
+        center_v,
+        target.v_yaw,
+        target.radius_1,
+        target.radius_2,
+        target.d_zc,
+        target.d_za,
+        target.armors_num
+    );
     int idx = selectBestArmor(armors, pos, yaw, target.v_yaw, target.armors_num);
 
     Eigen::Vector3d chosen = armors.at(idx);
+    Eigen::Vector3d v_chosen = v_armors.at(idx);
     if (chosen.norm() < 0.1) {
         throw std::runtime_error("No valid armor to shoot");
     }
     double raw_yaw, raw_pitch;
+    double v_yaw, v_pitch;
+    double v_yaw_ = 0;
+    double v_pitch_ = 0;
     calcYawAndPitch(chosen, rpy, raw_yaw, raw_pitch);
+    calcVYawAndVPitch(v_chosen, rpy, v_yaw, v_pitch);
     double distance = chosen.norm();
     std::vector<double> offs;
     double pitch_off;
@@ -212,6 +229,7 @@ ArmorSolver::solve(const Target& target, std::chrono::steady_clock::time_point c
             }
             // fire_advice = true;
             calcYawAndPitch(pos, rpy, raw_yaw, raw_pitch_);
+            calcVYawAndVPitch(center_v, rpy, v_yaw, v_pitch_);
             distance = pos.norm();
             offs = manual_compensator_->angleHardCorrect(distance, chosen.z());
             yaw_off = offs[1] * M_PI / 180.0;
@@ -244,6 +262,8 @@ ArmorSolver::solve(const Target& target, std::chrono::steady_clock::time_point c
         cmd.yaw_diff += 360;
     }
     cmd.pitch_diff = (cmd_pitch - rpy[1]) * 180.0 / M_PI;
+    cmd.v_yaw = v_yaw * 180.0 / M_PI;
+    cmd.v_pitch = v_pitch * 180.0 / M_PI;
     cmd.select_id = idx;
     return cmd;
 }
@@ -293,14 +313,31 @@ GimbalCmd ArmorSolver::solve(
             target.d_za,
             target.armors_num
         );
+        auto center_v = Eigen::Vector3d(target.velocity_.x, target.velocity_.y, target.velocity_.z);
+        auto v_armors = getArmorVelocities(
+            pos,
+            yaw,
+            center_v,
+            target.v_yaw,
+            target.radius_1,
+            target.radius_2,
+            target.d_zc,
+            target.d_za,
+            target.armors_num
+        );
         int idx = selectBestArmor(armors, pos, yaw, target.v_yaw, target.armors_num);
 
         Eigen::Vector3d chosen = armors.at(idx);
+        Eigen::Vector3d v_chosen = v_armors.at(idx);
         if (chosen.norm() < 0.1) {
             throw std::runtime_error("No valid armor to shoot");
         }
         double raw_yaw, raw_pitch;
+        double v_yaw, v_pitch;
+        double v_yaw_ = 0;
+        double v_pitch_ = 0;
         calcYawAndPitch(chosen, rpy, raw_yaw, raw_pitch);
+        calcVYawAndVPitch(v_chosen, rpy, v_yaw, v_pitch);
         double distance = chosen.norm();
         std::vector<double> offs;
         double pitch_off;
@@ -308,7 +345,6 @@ GimbalCmd ArmorSolver::solve(
         double fire_yaw;
         double fire_pitch;
         double raw_yaw_, raw_pitch_;
-        // 4. 状态机逻辑
         bool fire_advice = false;
         bool is_large;
         switch (state_) {
@@ -394,6 +430,7 @@ GimbalCmd ArmorSolver::solve(
                 }
                 // fire_advice = true;
                 calcYawAndPitch(pos, rpy, raw_yaw, raw_pitch_);
+                calcVYawAndVPitch(center_v, rpy, v_yaw, v_pitch_);
                 distance = pos.norm();
                 offs = manual_compensator_->angleHardCorrect(distance, chosen.z());
                 yaw_off = offs[1] * M_PI / 180.0;
@@ -426,6 +463,8 @@ GimbalCmd ArmorSolver::solve(
             cmd.yaw_diff += 360;
         }
         cmd.pitch_diff = (cmd_pitch - rpy[1]) * 180.0 / M_PI;
+        cmd.v_yaw = v_yaw * 180.0 / M_PI;
+        cmd.v_pitch = v_pitch * 180.0 / M_PI;
         cmd.select_id = idx;
         return cmd;
     } else {
@@ -450,6 +489,13 @@ GimbalCmd ArmorSolver::solve(
                    best_target.velocity_.z
             );
         yaw += dt_seconds_double * best_target.v_yaw;
+        auto armor_v = Eigen::Vector3d(
+            best_target.velocity_.x,
+            best_target.velocity_.y,
+            best_target.velocity_.z
+        );
+        double v_yaw, v_pitch;
+        calcVYawAndVPitch(armor_v, rpy, v_yaw, v_pitch);
         double raw_yaw, raw_pitch;
         calcYawAndPitch(pos, rpy, raw_yaw, raw_pitch);
         double distance = pos.norm();
@@ -500,6 +546,8 @@ GimbalCmd ArmorSolver::solve(
             cmd.yaw_diff += 360;
         }
         cmd.pitch_diff = (cmd_pitch - rpy[1]) * 180.0 / M_PI;
+        cmd.v_yaw = v_yaw * 180.0 / M_PI;
+        cmd.v_pitch = v_pitch * 180.0 / M_PI;
         cmd.select_id = one_idx + target_armor_num;
         return cmd;
     }
@@ -618,6 +666,35 @@ void ArmorSolver::calcYawAndPitch(
         pitch = temp_pitch;
     }
 }
+void ArmorSolver::calcVYawAndVPitch(
+    const Eigen::Vector3d& v,
+    const std::array<double, 3>& rpy,
+    double& vyaw,
+    double& vpitch
+) const noexcept {
+    Eigen::Vector3d p = v.normalized();
+
+    const double x = p.x(), y = p.y(), z = p.z();
+    const double vx = v.x(), vy = v.y(), vz = v.z();
+
+    const double xy_sq = x * x + y * y;
+    const double d_norm_xy = std::sqrt(xy_sq);
+    const double d_norm_xyz = std::sqrt(xy_sq + z * z);
+    const double eps = 1e-6;
+    const double denom_yaw = xy_sq + eps;
+    const double denom_pitch = (xy_sq + z * z) * d_norm_xy + eps;
+
+    vyaw = (x * vy - y * vx) / denom_yaw;
+    vpitch = ((xy_sq)*vz - z * (x * vx + y * vy)) / denom_pitch;
+
+    // if (trajectory_compensator_) {
+    //     double compensated = vpitch;
+    //     if (trajectory_compensator_->compensateVelocity(p, v, compensated)) {
+    //         vpitch = compensated;
+    //     }
+    // }
+}
+
 int ArmorSolver::selectBestArmor(
     const std::vector<Eigen::Vector3d>& armor_positions,
     const Eigen::Vector3d& target_center,
@@ -731,4 +808,46 @@ int ArmorSolver::selectBestTarget(const std::vector<OneTarget>& targets) const n
     last_target_ = best_target;
     has_pending_target_ = false;
     return best_idx;
+}
+std::vector<Eigen::Vector3d> ArmorSolver::getArmorVelocities(
+    const Eigen::Vector3d& target_center,
+    const double target_yaw,
+    const Eigen::Vector3d& target_velocity,
+    const double target_yaw_rate,
+    const double r1,
+    const double r2,
+    const double d_zc,
+    const double d_za,
+    const size_t armors_num
+) const noexcept {
+    std::vector<Eigen::Vector3d> velocities;
+    velocities.reserve(armors_num);
+
+    bool is_current_pair = true;
+    for (size_t i = 0; i < armors_num; ++i) {
+        double temp_yaw = target_yaw + i * (2 * M_PI / armors_num);
+
+        // 选择当前装甲的半径和高度
+        double r = (armors_num == 4 && !is_current_pair) ? r2 : r1;
+        double target_dz = d_zc + ((armors_num == 4 && !is_current_pair) ? d_za : 0.0);
+        is_current_pair = !is_current_pair;
+
+        // 装甲板相对于中心的偏移向量
+        Eigen::Vector3d offset(-r * cos(temp_yaw), -r * sin(temp_yaw), target_dz);
+        Eigen::Vector3d armor_pos = target_center + offset;
+        Eigen::Vector3d r_vec = armor_pos - target_center;
+
+        // 角速度矢量（仅绕 z）
+        Eigen::Vector3d omega(0, 0, target_yaw_rate);
+
+        // 切向速度
+        Eigen::Vector3d v_rot = omega.cross(r_vec);
+
+        // 总速度 = 平动 + 切向
+        Eigen::Vector3d v_total = target_velocity + v_rot;
+
+        velocities.push_back(v_total);
+    }
+
+    return velocities;
 }

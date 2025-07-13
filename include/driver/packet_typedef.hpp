@@ -91,6 +91,8 @@ struct SendRobotCmdData {
     uint8_t fire;
     float yaw_diff;
     float pitch_diff;
+    float v_yaw;
+    float v_pitch;
 
     uint8_t detect_color; // 0 red 1 blue
 } __attribute__((packed));

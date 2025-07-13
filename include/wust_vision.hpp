@@ -2,7 +2,6 @@
 
 #include "common/gobal.hpp"
 #include "control/armor_solver.hpp"
-#include "control/control_filter.hpp"
 #include "control/rune_solver.hpp"
 #include "detect/armor_detect/armor_pose_estimator.hpp"
 #include "detect/detector_factory.hpp"
@@ -119,9 +118,6 @@ public:
     double last_ypd_y;
     double last_ypd_p;
     double last_armor_yaw;
-    std::unique_ptr<ControlFilter> control_filter_;
-    bool use_control_filter_;
-    int future_window;
 
     std::unique_ptr<ArmorDetectorBase> armor_detector_;
     std::unique_ptr<RuneDetectorBase> rune_detector_;
@@ -135,4 +131,5 @@ public:
     Eigen::Matrix4d T_r;
     bool use_rune_detect_ncnn;
     bool use_armor_detect_ncnn;
+    double jump_yaw;
 };

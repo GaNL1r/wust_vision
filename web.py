@@ -5,7 +5,7 @@ import logging
 
 app = Flask(__name__)
 
-# 配置路径和视频帧共享路径
+
 shared_frame_path = "/dev/shm/debug_frame.jpg"
 
 

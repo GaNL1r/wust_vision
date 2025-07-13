@@ -1,6 +1,6 @@
 common:
-  detect_color: 0
-  init_attack_mode: 0
+  detect_color: 1
+  init_attack_mode: 2
   max_infer_running: 7
   only_nav_enable: false
   use_armor_detect_ncnn: false
@@ -24,7 +24,7 @@ camera:
     loop: true
     path: /home/hy/6.11/output.mp4
     start_frame: 500
-    use: false
+    use: true
 
 control:
   alpha_pitch: 0.7
@@ -34,15 +34,9 @@ control:
   device_name: /dev/ttyACM0
   max_pitch_change: 5
   max_yaw_change: 10
+  jump_yaw: 1.0
   use_nav: false
-  use_serial: true
-  control_filter:
-    poly_order: 3
-    future_window: 10
-    base_alpha: 0.4
-    base_k_ff: 0.7
-    jump_threshold: 1
-    use: false
+  use_serial: false
 
 tf:
   gimbal2camera_pitch: 0
@@ -60,7 +54,7 @@ debug:
   debug_fps: 60
 
 logger:
-  log_level: DEBUG
+  log_level: INFO
   log_path: /home/hy/wust_log
   use_logcli: true
   use_logfile: true
