@@ -59,6 +59,9 @@ struct Predict {
             x1[3] = T(0);
             x1[5] = T(0);
         }
+        x1[0] -= T(vrx) * T(dt);
+        x1[2] -= T(vry) * T(dt);
+        x1[4] -= T(vrz) * T(dt);
 
         if (model == MotionModel::CONSTANT_ROTATION || model == MotionModel::CONSTANT_VEL_ROT) {
             x1[6] += x0[7] * dt; // yaw += yaw_rate * dt
