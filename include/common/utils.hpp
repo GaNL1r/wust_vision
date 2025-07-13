@@ -92,26 +92,6 @@ inline Eigen::MatrixXd cvToEigen(const cv::Mat& cv_mat) noexcept {
     return eigen_mat;
 }
 
-inline void transformArmorData(Armors& armors, std::string target_frame_) {
-    for (auto& armor: armors.armors) {
-        try {
-            tf::Transform tf(armor.pos, armor.ori, armors.timestamp);
-            auto pose_in_target_frame =
-                gobal::tf_tree_.transform(tf, armors.frame_id, target_frame_, armors.timestamp);
-
-            armor.target_pos = pose_in_target_frame.position;
-            armor.target_ori = pose_in_target_frame.orientation;
-
-            armor.yaw = getRPYFromQuaternion(armor.target_ori).yaw;
-            double yaw = armor.yaw * 180 / M_PI;
-
-        } catch (const std::exception& e) {
-            WUST_ERROR("tf") << "Can't find transform from " << armors.frame_id << " to "
-                             << target_frame_ << ": " << e.what();
-            return;
-        }
-    }
-}
 inline void transformArmorData(Armors& armors, Eigen::Matrix4d T_camera_to_odom) {
     for (auto& armor: armors.armors) {
         try {
@@ -135,8 +115,6 @@ inline void transformArmorData(Armors& armors, Eigen::Matrix4d T_camera_to_odom)
             armor.target_ori.x = q_odom.x();
             armor.target_ori.y = q_odom.y();
             armor.target_ori.z = q_odom.z();
-            // std::cout << "x" << armor.target_pos.x<< "y"<< armor.target_pos.y <<
-            // "z"<< armor.target_pos.z << std::endl;
 
             // Step 3: Extract yaw (assuming you have a function like this)
             Eigen::Vector3d euler = R_ori_odom.eulerAngles(2, 1, 0); // ZYX

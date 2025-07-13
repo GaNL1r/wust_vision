@@ -463,31 +463,6 @@ void WustVision::initTF() {
     gimbal2camera_roll_ = gobal::config["tf"]["gimbal2camera_roll"].as<double>(0.0);
     gimbal2camera_pitch_ = gobal::config["tf"]["gimbal2camera_pitch"].as<double>(0.0);
     gimbal2camera_yaw_ = gobal::config["tf"]["gimbal2camera_yaw"].as<double>(0.0);
-    // odom 是世界坐标系的根节点
-    gobal::tf_tree_.setTransform("", "odom", createTf(0, 0, 0, tf::Quaternion(0, 0, 0, 1)), true);
-
-    // camera 相对于 odom，设置 odom -> camera 的变换
-    gobal::tf_tree_
-        .setTransform("odom", "gimbal_odom", createTf(0, 0, 0, tf::Quaternion(0, 0, 0, 1)), true);
-
-    gobal::tf_tree_.setTransform(
-        "gimbal_odom",
-        "gimbal_link",
-        createTf(0, 0, 0, tf::Quaternion(0, 0, 0, 1)),
-        false
-    );
-    gobal::gimbal2camera_roll = gimbal2camera_roll_ * M_PI / 180;
-    gobal::gimbal2camera_pitch = gimbal2camera_pitch_ * M_PI / 180;
-    gobal::gimbal2camera_yaw = gimbal2camera_yaw_ * M_PI / 180;
-    tf::Quaternion origimbal2camera;
-    origimbal2camera
-        .setRPY(gobal::gimbal2camera_roll, gobal::gimbal2camera_pitch, gobal::gimbal2camera_yaw);
-    gobal::tf_tree_.setTransform(
-        "gimbal_link",
-        "camera",
-        createTf(gimbal2camera_x_, gimbal2camera_y_, gimbal2camera_z_, origimbal2camera),
-        true
-    );
 
     t_gimbal_to_camera = Eigen::Vector3d(gimbal2camera_x_, gimbal2camera_y_, gimbal2camera_z_);
 
@@ -502,9 +477,6 @@ void WustVision::initTF() {
 
     tf::Quaternion orientation;
     orientation.setRPY(roll, pitch, yaw);
-
-    gobal::tf_tree_
-        .setTransform("camera", "camera_optical_frame", createTf(0, 0, 0, orientation), true);
 }
 void WustVision::initSerial() {
     SerialPortConfig cfg { /*baud*/ 115200,

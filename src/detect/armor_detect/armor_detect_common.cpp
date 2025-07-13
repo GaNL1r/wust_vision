@@ -45,7 +45,7 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, ArmorObject& armor) 
 
     // === Step 1: 初始检查 ===
     if (src.empty() || src.cols < 10 || src.rows < 10) {
-        std::cerr << "[extractImage] Source image is empty or too small!" << std::endl;
+        //std::cerr << "[extractImage] Source image is empty or too small!" << std::endl;
         return false;
     }
 
@@ -55,7 +55,7 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, ArmorObject& armor) 
     // pts 数量检查
     std::vector<cv::Point2f> pts_vec(std::begin(armor.pts), std::end(armor.pts));
     if (pts_vec.size() != 4) {
-        std::cerr << "[extractImage] Armor points must be 4!" << std::endl;
+        //std::cerr << "[extractImage] Armor points must be 4!" << std::endl;
         return false;
     }
 
@@ -90,13 +90,13 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, ArmorObject& armor) 
         || expanded_rect.y + expanded_rect.height > src.rows || expanded_rect.width <= 0
         || expanded_rect.height <= 0)
     {
-        std::cerr << "[extractImage] Expanded rect invalid: " << expanded_rect << std::endl;
+        //std::cerr << "[extractImage] Expanded rect invalid: " << expanded_rect << std::endl;
         return false;
     }
 
     const int MIN_SIZE = 10;
     if (expanded_rect.width < MIN_SIZE || expanded_rect.height < MIN_SIZE) {
-        std::cerr << "[extractImage] expanded_rect too small: " << expanded_rect << std::endl;
+        //std::cerr << "[extractImage] expanded_rect too small: " << expanded_rect << std::endl;
         return false;
     }
 
@@ -108,7 +108,7 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, ArmorObject& armor) 
     try {
         cv::cvtColor(litroi_color, litroi_gray, cv::COLOR_RGB2GRAY);
     } catch (const cv::Exception& e) {
-        std::cerr << "[extractImage] cvtColor failed: " << e.what() << std::endl;
+        //std::cerr << "[extractImage] cvtColor failed: " << e.what() << std::endl;
         return false;
     }
 
@@ -124,7 +124,7 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, ArmorObject& armor) 
             cv::THRESH_BINARY | cv::THRESH_OTSU
         );
     } catch (...) {
-        std::cerr << "[extractImage] Thresholding failed." << std::endl;
+        //std::cerr << "[extractImage] Thresholding failed." << std::endl;
         return false;
     }
 
@@ -147,7 +147,7 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, ArmorObject& armor) 
         warp_mat = cv::getPerspectiveTransform(lights_vertices, target_vertices);
         cv::warpPerspective(src, number_image, warp_mat, cv::Size(warp_width, warp_height));
     } catch (const cv::Exception& e) {
-        std::cerr << "[extractImage] warpPerspective failed: " << e.what() << std::endl;
+        //std::cerr << "[extractImage] warpPerspective failed: " << e.what() << std::endl;
         return false;
     }
 
@@ -155,7 +155,7 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, ArmorObject& armor) 
     if (number_image.empty() || number_image.cols < roi_size.width
         || number_image.rows < roi_size.height)
     {
-        std::cerr << "[extractImage] number_image is too small!" << std::endl;
+        //std::cerr << "[extractImage] number_image is too small!" << std::endl;
         return false;
     }
 
@@ -167,7 +167,7 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, ArmorObject& armor) 
         cv::cvtColor(number_image, number_image, cv::COLOR_RGB2GRAY);
         cv::threshold(number_image, number_image, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
     } catch (...) {
-        std::cerr << "[extractImage] post-warp threshold or color conversion failed." << std::endl;
+        //std::cerr << "[extractImage] post-warp threshold or color conversion failed." << std::endl;
         return false;
     }
 
@@ -176,7 +176,7 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, ArmorObject& armor) 
     try {
         cv::flip(number_image, flipped_image, 0);
     } catch (...) {
-        std::cerr << "[extractImage] flip failed." << std::endl;
+        //std::cerr << "[extractImage] flip failed." << std::endl;
         return false;
     }
 

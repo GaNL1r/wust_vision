@@ -389,22 +389,6 @@ struct Transform {
         return { pos, q };
     }
 
-    //   static Transform compose(const Transform &a, const Transform &b) {
-    //   cv::Matx44d result = a.toMatrix() * b.toMatrix();
-    //   Transform t = fromMatrix(result);
-    //   t.timestamp = a.timestamp;  // 或者其他策略
-    //   return t;
-    // }
-    // Eigen::Isometry3d toEigenIso() const {
-    //   Eigen::Isometry3d iso = Eigen::Isometry3d::Identity();
-    //   iso.translate(position.toEigen());
-    //   iso.rotate(Eigen::Quaterniond(
-    //       orientation.w, orientation.x,
-    //       orientation.y, orientation.z
-    //   ));
-    //   return iso;
-    // }
-
     static Transform fromEigen(const Eigen::Isometry3d& iso) {
         Eigen::Vector3d pos = iso.translation();
         Eigen::Quaterniond q(iso.rotation());

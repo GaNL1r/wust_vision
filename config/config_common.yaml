@@ -24,7 +24,7 @@ camera:
     loop: true
     path: /home/hy/wust_data/video/1749800971.avi
     start_frame: 500
-    use: true
+    use: false
 
 control:
   alpha_pitch: 0.7

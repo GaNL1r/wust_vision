@@ -187,12 +187,6 @@ void Serial::aim_cbk(ReceiveAimINFO& aim_data) {
     //     gobal::if_manual_reset = false;
     // }
 
-    tf::Quaternion q;
-    q.setRPY(0, -pitch, yaw);
-
-    tf::Transform gimbal_tf(tf::Position(0, 0, 0), q);
-    gobal::tf_tree_.setTransform("gimbal_odom", "gimbal_link", gimbal_tf, false);
-
     //gobal::detect_color_ = aim_data.detect_color;
     //gobal::velocity = aim_data.bullet_speed;
 
