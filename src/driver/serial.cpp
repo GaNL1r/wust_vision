@@ -170,13 +170,19 @@ void Serial::aim_cbk(ReceiveAimINFO& aim_data) {
     double roll = -(aim_data.roll) * M_PI / 180.0;
     double pitch = (aim_data.pitch) * M_PI / 180.0;
     double yaw = (aim_data.yaw) * M_PI / 180.0;
+    double v_x = aim_data.v_x;
+    double v_y = aim_data.v_y;
+    double v_z = aim_data.v_z;
 
     gobal::last_pitch = pitch;
     gobal::last_roll = roll;
     gobal::last_yaw = yaw;
+    gobal::last_v_x = v_x;
+    gobal::last_v_y = v_y;
+    gobal::last_v_z = v_z;
 
     auto now = std::chrono::steady_clock::now();
-    gobal::attitude_buffer.push(yaw, pitch, roll, now);
+    gobal::attitude_buffer.push(yaw, pitch, roll, v_x, v_y, v_z, now);
     int manual_reset_count = aim_data.manual_reset_count;
     // if (manual_reset_count != last_reset_count) {
     //     WUST_INFO(serial_logger) << "Manual reset count changed: " << last_reset_count << " -> "

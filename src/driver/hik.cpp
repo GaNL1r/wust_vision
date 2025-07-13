@@ -296,6 +296,7 @@ void HikCamera::hikCaptureLoop() {
                         double yaw = past_att->yaw;
                         double pitch = past_att->pitch;
                         double roll = past_att->roll;
+                        Eigen::Vector3d v(past_att->vx, past_att->vy, past_att->vz);
                         Eigen::Matrix3d R_gimbal2odom;
                         R_gimbal2odom = Eigen::AngleAxisd(
                                             yaw + gobal::gimbal2camera_yaw,
@@ -309,7 +310,7 @@ void HikCamera::hikCaptureLoop() {
                                             roll + gobal::gimbal2camera_roll,
                                             Eigen::Vector3d::UnitX()
                             );
-                        on_frame_callback_(frame, R_gimbal2odom);
+                        on_frame_callback_(frame, R_gimbal2odom, v);
 
                     } else {
                         Eigen::Matrix3d R_gimbal2odom;
@@ -325,7 +326,8 @@ void HikCamera::hikCaptureLoop() {
                                             gobal::last_roll + gobal::gimbal2camera_roll,
                                             Eigen::Vector3d::UnitX()
                             );
-                        on_frame_callback_(frame, R_gimbal2odom);
+                        Eigen::Vector3d v(gobal::last_v_x, gobal::last_v_y, gobal::last_v_z);
+                        on_frame_callback_(frame, R_gimbal2odom, v);
                     }
                 }
                 if (recorder_ != nullptr) {

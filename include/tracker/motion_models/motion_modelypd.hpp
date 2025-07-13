@@ -31,9 +31,18 @@ enum class MotionModel {
 constexpr int X_N = 10, Z_N = 4;
 
 struct Predict {
-    explicit Predict(double dt, MotionModel model = MotionModel::CONSTANT_VEL_ROT):
+    explicit Predict(
+        double dt,
+        MotionModel model = MotionModel::CONSTANT_VEL_ROT,
+        double vrx = 0.0,
+        double vry = 0.0,
+        double vrz = 0.0
+    ):
         dt(dt),
-        model(model) {}
+        model(model),
+        vrx(vrx),
+        vry(vry),
+        vrz(vrz) {}
 
     template<typename T>
     void operator()(const T x0[X_N], T x1[X_N]) {
@@ -53,7 +62,9 @@ struct Predict {
             x1[3] *= T(0.);
             x1[5] *= T(0.);
         }
-
+        x1[0] -= T(vrx) * T(dt);
+        x1[2] -= T(vry) * T(dt);
+        x1[4] -= T(vrz) * T(dt);
         // v_yaw
         if (model == MotionModel::CONSTANT_VEL_ROT || model == MotionModel::CONSTANT_ROTATION) {
             // angular velocity
@@ -66,6 +77,7 @@ struct Predict {
 
     double dt;
     MotionModel model;
+    double vrx, vry, vrz;
 };
 
 struct Measure {

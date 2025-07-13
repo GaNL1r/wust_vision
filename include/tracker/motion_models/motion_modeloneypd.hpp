@@ -32,9 +32,18 @@ constexpr int Z_N = 4;
 
 /// 状态预测器
 struct Predict {
-    explicit Predict(double dt, MotionModel model = MotionModel::CONSTANT_VEL_ROT):
+    explicit Predict(
+        double dt,
+        MotionModel model = MotionModel::CONSTANT_VEL_ROT,
+        double vrx = 0.0,
+        double vry = 0.0,
+        double vrz = 0.0
+    ):
         dt(dt),
-        model(model) {}
+        model(model),
+        vrx(vrx),
+        vry(vry),
+        vrz(vrz) {}
 
     template<typename T>
     void operator()(const T x0[X_N], T x1[X_N]) {
@@ -60,6 +69,7 @@ struct Predict {
 
     double dt;
     MotionModel model;
+    double vrx, vry, vrz;
 };
 
 /// 观测器

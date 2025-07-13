@@ -829,41 +829,48 @@ struct fmt::formatter<tf::Quaternion> {
         return fmt::format_to(ctx.out(), "{:.3f}, {:.3f}, {:.3f}, {:.3f}", q.w, q.x, q.y, q.z);
     }
 };
-class AttitudeBuffer {
+class MotionBuffer {
 public:
-    struct AttitudeStamped {
+    struct MotionStamped {
         double yaw, pitch, roll;
+        double vx, vy, vz;
         std::chrono::steady_clock::time_point stamp;
     };
 
     static constexpr size_t BUFFER_SIZE = 512;
 
-    // 推入一组新的姿态
-    void push(double yaw, double pitch, double roll, std::chrono::steady_clock::time_point stamp) {
+    // 推入一组新的姿态+速度
+    void push(
+        double yaw,
+        double pitch,
+        double roll,
+        double vx,
+        double vy,
+        double vz,
+        std::chrono::steady_clock::time_point stamp
+    ) {
         std::unique_lock lock(mutex_);
 
-        // unwrap
+        // unwrap 角度
         if (has_last_) {
-            yaw = unwrap_angle(last_yaw_, yaw);
-            pitch = unwrap_angle(last_pitch_, pitch);
-            roll = unwrap_angle(last_roll_, roll);
+            yaw = unwrap_angle(last_.yaw, yaw);
+            pitch = unwrap_angle(last_.pitch, pitch);
+            roll = unwrap_angle(last_.roll, roll);
         }
 
-        buffer_[head_] = { yaw, pitch, roll, stamp };
+        buffer_[head_] = { yaw, pitch, roll, vx, vy, vz, stamp };
         time_buffer_[head_] = stamp;
 
         head_ = (head_ + 1) % BUFFER_SIZE;
         if (size_ < BUFFER_SIZE)
             ++size_;
 
-        last_yaw_ = yaw;
-        last_pitch_ = pitch;
-        last_roll_ = roll;
+        last_ = buffer_[head_ == 0 ? BUFFER_SIZE - 1 : head_ - 1];
         has_last_ = true;
     }
 
     // 返回距离 t_query 最近的线性插值结果
-    std::optional<AttitudeStamped> get_interpolated(std::chrono::steady_clock::time_point t_query) {
+    std::optional<MotionStamped> get_interpolated(std::chrono::steady_clock::time_point t_query) {
         std::shared_lock lock(mutex_);
         if (size_ < 2)
             return std::nullopt;
@@ -871,9 +878,7 @@ public:
         // 1) 计算当前有效区间的起点
         size_t begin = (head_ + BUFFER_SIZE - size_) % BUFFER_SIZE;
 
-        // 2) 拉平成连续数组
-        //    注意：如果没有环绕（begin + size_ <= BUFFER_SIZE），可直接用指针，
-        //          否则分两段拷贝。为了保持代码简洁，这里总是拷贝到临时 vector。
+        // 2) 拉平成连续时间戳数组
         std::vector<std::chrono::steady_clock::time_point> times;
         times.reserve(size_);
         for (size_t i = 0; i < size_; ++i) {
@@ -883,7 +888,7 @@ public:
         // 3) 二分查找第一个 >= t_query 的位置
         auto it_hi = std::lower_bound(times.begin(), times.end(), t_query);
         if (it_hi == times.begin() || it_hi == times.end()) {
-            // query 在区域之外，无法插值
+            // query 在缓存区间之外
             return std::nullopt;
         }
 
@@ -894,31 +899,36 @@ public:
         const auto& lo = buffer_[(begin + idx_lo) % BUFFER_SIZE];
         const auto& hi = buffer_[(begin + idx_hi) % BUFFER_SIZE];
         double span = std::chrono::duration<double>(hi.stamp - lo.stamp).count();
-        if (span <= 0)
-            return lo; // 去重或时间相同
+        if (span <= 0.0)
+            return lo; // 时间重叠或相同
 
         double t = std::chrono::duration<double>(t_query - lo.stamp).count() / span;
 
-        AttitudeStamped res;
+        MotionStamped res;
+        // 线性插值角度和速度
         res.yaw = lo.yaw + t * (hi.yaw - lo.yaw);
         res.pitch = lo.pitch + t * (hi.pitch - lo.pitch);
         res.roll = lo.roll + t * (hi.roll - lo.roll);
+        res.vx = lo.vx + t * (hi.vx - lo.vx);
+        res.vy = lo.vy + t * (hi.vy - lo.vy);
+        res.vz = lo.vz + t * (hi.vz - lo.vz);
         res.stamp = t_query;
         return res;
     }
 
 private:
     // 环形缓存
-    std::array<AttitudeStamped, BUFFER_SIZE> buffer_;
+    std::array<MotionStamped, BUFFER_SIZE> buffer_;
     std::array<std::chrono::steady_clock::time_point, BUFFER_SIZE> time_buffer_;
     size_t head_ = 0, size_ = 0;
 
-    // 用于unwrap
+    // 解包上一次角度，防抖动
     bool has_last_ = false;
-    double last_yaw_, last_pitch_, last_roll_;
+    MotionStamped last_;
 
     mutable std::shared_mutex mutex_;
 
+    // unwrap 角度到连续区间
     double unwrap_angle(double prev, double curr) {
         double d = curr - prev;
         if (d > M_PI)

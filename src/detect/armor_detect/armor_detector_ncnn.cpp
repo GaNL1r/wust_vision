@@ -319,7 +319,8 @@ bool ArmorDetectNCNN::processCallback(
     Eigen::Matrix3f transform_matrix,
     std::chrono::steady_clock::time_point timestamp,
     const cv::Mat& src_img,
-    Eigen::Matrix4d T_camera_to_odom
+    const Eigen::Matrix4d& T_camera_to_odom,
+    const Eigen::Vector3d& v
 ) {
     ncnn::Mat in =
         ncnn::Mat::from_pixels(resized_img.data, ncnn::Mat::PIXEL_BGR2RGB, INPUT_W, INPUT_H);
@@ -382,7 +383,7 @@ bool ArmorDetectNCNN::processCallback(
 
     // Call callback function
     if (this->infer_callback_) {
-        this->infer_callback_(armors, timestamp, src_img, T_camera_to_odom);
+        this->infer_callback_(armors, timestamp, src_img, T_camera_to_odom, v);
         return true;
     }
 
@@ -391,9 +392,10 @@ bool ArmorDetectNCNN::processCallback(
 void ArmorDetectNCNN::pushInput(
     const cv::Mat& rgb_img,
     std::chrono::steady_clock::time_point timestamp,
-    Eigen::Matrix4d T_camera_to_odom
+    const Eigen::Matrix4d& T_camera_to_odom,
+    const Eigen::Vector3d& v
 ) {
     Eigen::Matrix3f transform_matrix;
     cv::Mat resized_img = letterbox(rgb_img, transform_matrix);
-    processCallback(resized_img, transform_matrix, timestamp, rgb_img, T_camera_to_odom);
+    processCallback(resized_img, transform_matrix, timestamp, rgb_img, T_camera_to_odom, v);
 }

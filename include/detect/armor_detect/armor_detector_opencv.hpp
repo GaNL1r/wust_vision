@@ -37,7 +37,8 @@ public:
         const std::vector<ArmorObject>&,
         std::chrono::steady_clock::time_point,
         const cv::Mat&,
-        Eigen::Matrix4d
+        Eigen::Matrix4d,
+        Eigen::Vector3d
     )>;
 
     ArmorDetectOpenCV(
@@ -53,7 +54,8 @@ public:
     void pushInput(
         const cv::Mat& rgb_img,
         std::chrono::steady_clock::time_point timestamp,
-        Eigen::Matrix4d T_camera_to_odom
+        const Eigen::Matrix4d& T_camera_to_odom,
+        const Eigen::Vector3d& v
     );
 
     cv::Mat preprocessImage(const cv::Mat& input, cv::Mat& gray_img_) noexcept;

@@ -21,23 +21,33 @@ public:
 
     void init();
     void run();
-    void processImage(const ImageFrame& frame, Eigen::Matrix3d R_gimbal2odom);
+    void processImage(
+        const ImageFrame& frame,
+        const Eigen::Matrix3d& R_gimbal2odom,
+        const Eigen::Vector3d& v
+    );
 
     void printStats();
     void ArmorDetectCallback(
         const std::vector<ArmorObject>& objs,
         std::chrono::steady_clock::time_point timestamp,
         const cv::Mat& src_img,
-        Eigen::Matrix4d T_camera_to_odom
+        const Eigen::Matrix4d& T_camera_to_odom,
+        const Eigen::Vector3d& v
     );
     void RuneDetectCallback(
         std::vector<RuneObject>& rune_objects,
         std::chrono::steady_clock::time_point timestamp,
         const cv::Mat& img,
-        Eigen::Matrix4d T_camera_to_odom
+        const Eigen::Matrix4d& T_camera_to_odom
     );
     void stop();
-    void armorsCallback(Armors armors_, const cv::Mat& src_img, Eigen::Matrix3d R_gimbal2odom);
+    void armorsCallback(
+        Armors armors_,
+        const cv::Mat& src_img,
+        const Eigen::Matrix3d& R_gimbal2odom,
+        const Eigen::Vector3d& v
+    );
     void initTF();
     void initSerial();
     void initTracker(const YAML::Node& config);

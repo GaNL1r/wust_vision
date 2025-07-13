@@ -49,6 +49,10 @@ struct ReceiveAimINFO {
     float pitch_vel; // rad/s
     float roll_vel; // rad/s
 
+    float v_x;
+    float v_y;
+    float v_z;
+
     float bullet_speed; // m/s
     float controller_delay; // s
 

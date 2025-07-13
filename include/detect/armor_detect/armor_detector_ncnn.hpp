@@ -27,12 +27,8 @@
 
 class ArmorDetectNCNN {
 public:
-    using DetectorCallback = std::function<void(
-        const std::vector<ArmorObject>&,
-        std::chrono::steady_clock::time_point,
-        const cv::Mat&,
-        Eigen::Matrix4d
-    )>;
+    using DetectorCallback = std::function<
+        void(const std::vector<ArmorObject>&, std::chrono::steady_clock::time_point, const cv::Mat&, const Eigen::Matrix4d&, const Eigen::Vector3d&)>;
     explicit ArmorDetectNCNN(
         const std::string& model_path_param_,
         const std::string& model_path_bin_,
@@ -58,14 +54,16 @@ public:
         Eigen::Matrix3f transform_matrix,
         std::chrono::steady_clock::time_point timestamp,
         const cv::Mat& src_img,
-        Eigen::Matrix4d T_camera_to_odom
+        const Eigen::Matrix4d& T_camera_to_odom,
+        const Eigen::Vector3d& v
     );
 
     void setCallback(DetectorCallback callback);
     void pushInput(
         const cv::Mat& rgb_img,
         std::chrono::steady_clock::time_point timestamp,
-        Eigen::Matrix4d T_camera_to_odom
+        const Eigen::Matrix4d& T_camera_to_odom,
+        const Eigen::Vector3d& v
     );
 
     std::unique_ptr<LightCornerCorrector> corner_corrector;

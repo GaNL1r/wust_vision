@@ -287,7 +287,8 @@ bool ArmorDetectTrt::processCallback(
     Eigen::Matrix3f transform_matrix,
     std::chrono::steady_clock::time_point timestamp,
     const cv::Mat& src_img,
-    Eigen::Matrix4d T_camera_to_odom
+    const Eigen::Matrix4d& T_camera_to_odom,
+    const Eigen::Vector3d& v
 ) {
     cv::Mat blob = cv::dnn::blobFromImage(
         resized_img,
@@ -322,7 +323,7 @@ bool ArmorDetectTrt::processCallback(
         postprocess(objs_tmp, scores, rects, output_buffer_, output_sz_ / 21, transform_matrix);
     if (objs_result.size() > 10) {
         if (this->infer_callback_) {
-            this->infer_callback_(objs_result, timestamp, src_img, T_camera_to_odom);
+            this->infer_callback_(objs_result, timestamp, src_img, T_camera_to_odom, v);
             return true;
         }
     }
@@ -330,7 +331,7 @@ bool ArmorDetectTrt::processCallback(
     std::vector<ArmorObject> armors = armor_detect_common_->detectNet(src_img, objs_result);
 
     if (this->infer_callback_) {
-        this->infer_callback_(armors, timestamp, src_img, T_camera_to_odom);
+        this->infer_callback_(armors, timestamp, src_img, T_camera_to_odom, v);
         return true;
     }
 
@@ -450,7 +451,8 @@ std::vector<ArmorObject> ArmorDetectTrt::postprocess(
 void ArmorDetectTrt::pushInput(
     const cv::Mat& rgb_img,
     std::chrono::steady_clock::time_point timestamp,
-    Eigen::Matrix4d T_camera_to_odom
+    const Eigen::Matrix4d& T_camera_to_odom,
+    const Eigen::Vector3d& v
 ) {
     if (rgb_img.empty()) {
         return;
@@ -458,5 +460,5 @@ void ArmorDetectTrt::pushInput(
 
     Eigen::Matrix3f transform_matrix;
     cv::Mat resized_img = letterbox(rgb_img, transform_matrix);
-    processCallback(resized_img, transform_matrix, timestamp, rgb_img, T_camera_to_odom);
+    processCallback(resized_img, transform_matrix, timestamp, rgb_img, T_camera_to_odom, v);
 }

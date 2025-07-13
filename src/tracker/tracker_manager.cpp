@@ -290,7 +290,8 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
 void TrackerManager::updateTracker(
     Target& target_,
     Armors armors_,
-    std::chrono::steady_clock::time_point time
+    std::chrono::steady_clock::time_point time,
+    const Eigen::Vector3d& v
 ) {
     target_.timestamp = time;
     if (tracker_->tracker_state == Tracker::LOST) {
@@ -301,21 +302,34 @@ void TrackerManager::updateTracker(
     } else {
         dt_ = std::chrono::duration<double>(time - last_time_).count();
         tracker_->lost_thres = std::abs(static_cast<int>(lost_time_thres_ / dt_));
+        double vx = v.x(), vy = v.y(), vz = v.z();
 
         if (tracker_->tracked_id == ArmorNumber::OUTPOST) {
             tracker_->ekf_ypd->setPredictFunc(ypdarmor_motion_model::Predict {
                 dt_,
-                ypdarmor_motion_model::MotionModel::CONSTANT_ROTATION });
+                ypdarmor_motion_model::MotionModel::CONSTANT_ROTATION,
+                vx,
+                vy,
+                vz });
             tracker_->esekf_ypd->setPredictFunc(ypdarmor_motion_model::Predict {
                 dt_,
-                ypdarmor_motion_model::MotionModel::CONSTANT_ROTATION });
+                ypdarmor_motion_model::MotionModel::CONSTANT_ROTATION,
+                vx,
+                vy,
+                vz });
         } else {
             tracker_->ekf_ypd->setPredictFunc(ypdarmor_motion_model::Predict {
                 dt_,
-                ypdarmor_motion_model::MotionModel::CONSTANT_VEL_ROT });
+                ypdarmor_motion_model::MotionModel::CONSTANT_VEL_ROT,
+                vx,
+                vy,
+                vz });
             tracker_->esekf_ypd->setPredictFunc(ypdarmor_motion_model::Predict {
                 dt_,
-                ypdarmor_motion_model::MotionModel::CONSTANT_VEL_ROT });
+                ypdarmor_motion_model::MotionModel::CONSTANT_VEL_ROT,
+                vx,
+                vy,
+                vz });
         }
         tracker_->acc_ekf->setPredictFunc(acc_model::Predict { dt_ });
         tracker_->update(armors_);
@@ -352,7 +366,8 @@ void TrackerManager::updateTracker(
 void TrackerManager::updateOneTrackers(
     std::vector<OneTarget>& one_targets_,
     Armors armors_,
-    std::chrono::steady_clock::time_point time
+    std::chrono::steady_clock::time_point time,
+    const Eigen::Vector3d& v
 ) {
     std::vector<bool> armor_assigned(armors_.armors.size(), false);
 
@@ -384,15 +399,21 @@ void TrackerManager::updateOneTrackers(
 
         otracker->lost_thres = std::abs(static_cast<int>(one_lost_time_thres_ / dt_));
         Eigen::VectorXd ekf_prediction;
-
+        double vx = v.x(), vy = v.y(), vz = v.z();
         if (otracker->tracked_id == ArmorNumber::OUTPOST) {
             otracker->ekf_ypd->setPredictFunc(oneypdarmor_motion_model::Predict {
                 dt_,
-                oneypdarmor_motion_model::MotionModel::CONSTANT_ROTATION });
+                oneypdarmor_motion_model::MotionModel::CONSTANT_ROTATION,
+                vx,
+                vy,
+                vz });
         } else {
             otracker->ekf_ypd->setPredictFunc(oneypdarmor_motion_model::Predict {
                 dt_,
-                oneypdarmor_motion_model::MotionModel::CONSTANT_VEL_ROT });
+                oneypdarmor_motion_model::MotionModel::CONSTANT_VEL_ROT,
+                vx,
+                vy,
+                vz });
         }
         otracker->acc_ekf->setPredictFunc(acc_model::Predict { dt_ });
         ekf_prediction = otracker->ekf_ypd->predict();
@@ -493,21 +514,22 @@ void TrackerManager::update(
     std::vector<OneTarget>& one_targets_,
     Armors armors_,
     std::chrono::steady_clock::time_point time,
-    Eigen::Matrix3d R_gimbal2odom
+    const Eigen::Matrix3d& R_gimbal2odom,
+    const Eigen::Vector3d& v
 ) {
     this->R_gimbal2odom_ = R_gimbal2odom;
 
-    updateTracker(target_, armors_, time);
+    updateTracker(target_, armors_, time, v);
     updateAttackState(std::abs(target_.v_yaw));
 
     Armors armors_empty;
     switch (gobal::attack_state) {
         case gobal::AttackState::ATTACKONE: {
-            updateOneTrackers(one_targets_, armors_, time);
+            updateOneTrackers(one_targets_, armors_, time, v);
         } break;
         case gobal::AttackState::ATTACKWHOLECAR: {
             std::vector<OneTarget> one_targets_fake;
-            updateOneTrackers(one_targets_fake, armors_empty, time);
+            updateOneTrackers(one_targets_fake, armors_empty, time, v);
         } break;
     }
 

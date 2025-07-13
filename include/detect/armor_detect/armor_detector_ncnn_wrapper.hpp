@@ -24,7 +24,8 @@ public:
     void pushInput(
         const cv::Mat& rgb_img,
         std::chrono::steady_clock::time_point timestamp,
-        Eigen::Matrix4d T_camera_to_odom
+        const Eigen::Matrix4d& T_camera_to_odom,
+        const Eigen::Vector3d& v
     ) override;
 
     void setCallback(DetectorCallback cb) override;

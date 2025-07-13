@@ -123,8 +123,9 @@ void WustVision::init() {
                     R_gimbal2odom = Eigen::AngleAxisd(gobal::last_yaw, Eigen::Vector3d::UnitZ())
                         * Eigen::AngleAxisd(gobal::last_pitch, Eigen::Vector3d::UnitY())
                         * Eigen::AngleAxisd(gobal::last_roll, Eigen::Vector3d::UnitX());
-                    thread_pool_->enqueue([frame = std::move(frame), R_gimbal2odom, this]() {
-                        processImage(frame, R_gimbal2odom);
+                    Eigen::Vector3d v(gobal::last_v_x, gobal::last_v_y, gobal::last_v_z);
+                    thread_pool_->enqueue([frame = std::move(frame), R_gimbal2odom, v, this]() {
+                        processImage(frame, R_gimbal2odom, v);
                     });
                 } else {
                     return;
@@ -147,12 +148,12 @@ void WustVision::init() {
                 gobal::config["camera"]["acquisitionFrameRateEnable"].as<bool>()
             );
             camera_->setFrameCallback(
-                [this](const ImageFrame& frame, Eigen::Matrix3d R_gimbal2odom) {
+                [this](const ImageFrame& frame, Eigen::Matrix3d R_gimbal2odom, Eigen::Vector3d v) {
                     static bool first_is_inited = false;
 
                     if (gobal::is_inited_) {
-                        thread_pool_->enqueue([frame = std::move(frame), R_gimbal2odom, this]() {
-                            processImage(frame, R_gimbal2odom);
+                        thread_pool_->enqueue([frame = std::move(frame), R_gimbal2odom, v, this]() {
+                            processImage(frame, R_gimbal2odom, v);
                         });
                     } else {
                         return;
@@ -297,7 +298,8 @@ void WustVision::init() {
             std::placeholders::_1,
             std::placeholders::_2,
             std::placeholders::_3,
-            std::placeholders::_4
+            std::placeholders::_4,
+            std::placeholders::_5
         ));
         rune_detector_->setCallback(std::bind(
             &WustVision::RuneDetectCallback,
@@ -526,7 +528,8 @@ void WustVision::runeTargetCallback(const Rune rune_target, Eigen::Matrix4d T_ca
 void WustVision::armorsCallback(
     Armors armors_,
     const cv::Mat& src_img,
-    Eigen::Matrix3d R_gimbal2odom
+    const Eigen::Matrix3d& R_gimbal2odom,
+    const Eigen::Vector3d& v
 ) {
     if (armors_.timestamp <= tracker_manager_->last_time_) {
         // WUST_WARN(vision_logger) << "Received out-of-order armor data,
@@ -548,7 +551,7 @@ void WustVision::armorsCallback(
     std::vector<OneTarget> one_targets_;
     auto time = armors_.timestamp;
 
-    tracker_manager_->update(target_, one_targets_, armors_, time, R_gimbal2odom);
+    tracker_manager_->update(target_, one_targets_, armors_, time, R_gimbal2odom, v);
 
     armor_target = target_;
     one_armor_targets = one_targets_;
@@ -645,7 +648,8 @@ void WustVision::ArmorDetectCallback(
     const std::vector<ArmorObject>& objs,
     std::chrono::steady_clock::time_point timestamp,
     const cv::Mat& src_img,
-    Eigen::Matrix4d T_camera_to_odom
+    const Eigen::Matrix4d& T_camera_to_odom,
+    const Eigen::Vector3d& v
 ) {
     std::lock_guard<std::mutex> lock(callback_mutex_);
 
@@ -703,7 +707,7 @@ void WustVision::ArmorDetectCallback(
     Eigen::Matrix4d T_gimbal_to_odom = T_camera_to_odom * T_gimbal_to_camera;
     Eigen::Matrix3d R_gimbal2odom = T_gimbal_to_odom.block<3, 3>(0, 0);
 
-    armorsCallback(armors, src_img, R_gimbal2odom);
+    armorsCallback(armors, src_img, R_gimbal2odom, v);
     T_camera_to_odom_ = T_camera_to_odom;
     detect_finish_count_++;
     infer_running_count_--;
@@ -712,7 +716,7 @@ void WustVision::RuneDetectCallback(
     std::vector<RuneObject>& objs,
     std::chrono::steady_clock::time_point timestamp,
     const cv::Mat& src_img,
-    Eigen::Matrix4d T_camera_to_odom
+    const Eigen::Matrix4d& T_camera_to_odom
 ) {
     std::lock_guard<std::mutex> lock(callback_mutex_);
     static bool last_rune_big = false; //Always small rune first
@@ -1188,7 +1192,11 @@ void WustVision::timerCallback(double dt_ms) {
         }
     }
 }
-void WustVision::processImage(const ImageFrame& frame, Eigen::Matrix3d R_gimbal2odom) {
+void WustVision::processImage(
+    const ImageFrame& frame,
+    const Eigen::Matrix3d& R_gimbal2odom,
+    const Eigen::Vector3d& v
+) {
     img_recv_count_++;
     if (infer_running_count_.load() >= max_infer_running_) {
         return;
@@ -1221,7 +1229,7 @@ void WustVision::processImage(const ImageFrame& frame, Eigen::Matrix3d R_gimbal2
     AttackMode mode = toAttackMode(gobal::attack_mode);
     switch (mode) {
         case AttackMode::ARMOR: {
-            armor_detector_->pushInput(img, frame.timestamp, T_camera_to_odom);
+            armor_detector_->pushInput(img, frame.timestamp, T_camera_to_odom, v);
         } break;
         case AttackMode::SMALL_RUNE: {
             if (use_manual_r && !manual_r_init && !manual_r_runing) {
@@ -1242,7 +1250,7 @@ void WustVision::processImage(const ImageFrame& frame, Eigen::Matrix3d R_gimbal2
             rune_detector_->pushInput(img, frame.timestamp, T_camera_to_odom);
         } break;
         case AttackMode::UNKNOWN: {
-            armor_detector_->pushInput(img, frame.timestamp, T_camera_to_odom);
+            armor_detector_->pushInput(img, frame.timestamp, T_camera_to_odom, v);
         } break;
     }
 }

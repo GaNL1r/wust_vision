@@ -28,14 +28,21 @@ public:
         std::vector<OneTarget>& one_targets_,
         Armors armors_,
         std::chrono::steady_clock::time_point time,
-        Eigen::Matrix3d R_gimbal2odom
+        const Eigen::Matrix3d& R_gimbal2odom,
+        const Eigen::Vector3d& v
     );
     void updateAttackState(const double& v_yaw_abs);
-    void updateTracker(Target& target_, Armors armors_, std::chrono::steady_clock::time_point time);
+    void updateTracker(
+        Target& target_,
+        Armors armors_,
+        std::chrono::steady_clock::time_point time,
+        const Eigen::Vector3d& v
+    );
     void updateOneTrackers(
         std::vector<OneTarget>& one_targets_,
         Armors armors_,
-        std::chrono::steady_clock::time_point time
+        std::chrono::steady_clock::time_point time,
+        const Eigen::Vector3d& v
     );
 
     enum State {
