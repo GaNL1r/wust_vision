@@ -1,6 +1,6 @@
 common:
   detect_color: 1
-  init_attack_mode: 2
+  init_attack_mode: 0
   max_infer_running: 7
   only_nav_enable: false
   use_armor_detect_ncnn: false
@@ -22,7 +22,7 @@ camera:
   video_player:
     fps: 90
     loop: true
-    path: /home/hy/6.11/output.mp4
+    path: /home/hy/wust_data/video/1749800971.avi
     start_frame: 500
     use: true
 
