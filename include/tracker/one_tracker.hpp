@@ -23,6 +23,7 @@
 
 // project
 #include "tracker/math/extended_kalman_filter.hpp"
+#include "tracker/motion_models/acc_model.hpp"
 #include "tracker/motion_models/motion_modelonea.hpp"
 #include "tracker/motion_models/motion_modeloneypd.hpp"
 #include "type/type.hpp"
@@ -63,7 +64,9 @@ public:
 
     int tracking_thres;
     int lost_thres;
-
+    Eigen::VectorXd center_velocity_measurement;
+    Eigen::VectorXd acc_state;
+    std::unique_ptr<acc_model::VelocityAccelEKF> acc_ekf;
     Armor tracked_armor;
 
     ArmorNumber tracked_id;

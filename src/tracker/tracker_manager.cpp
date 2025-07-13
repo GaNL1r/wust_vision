@@ -80,18 +80,27 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     oyr_yaw_front_ = config_["ekf"]["oyr_yaw_front"].as<double>(0.02);
     oyr_yaw_side_ = config_["ekf"]["oyr_yaw_side"].as<double>(0.02);
 
-    // EKF 状态预测函数
+    r_v = config_["ekf"]["r_v"].as<double>(0.01);
+    q_v = config_["ekf"]["q_v"].as<double>(0.01);
+    q_a = config_["ekf"]["q_a"].as<double>(0.01);
 
+    // EKF 状态预测函数
+    auto acc_f = acc_model::Predict(0.005);
     auto yf = ypdarmor_motion_model::Predict(0.005);
     auto oyf = oneypdarmor_motion_model::Predict(0.005);
 
     // EKF 观测函数
-
+    auto acc_h = acc_model::Measure();
     auto yh = ypdarmor_motion_model::Measure();
     auto oyh = oneypdarmor_motion_model::Measure();
 
     // EKF 过程噪声协方差 Q
-
+    auto acc_q = [this]() {
+        Eigen::Matrix<double, acc_model::X_N, acc_model::X_N> q;
+        q(0, 0) = q(2, 2) = q(4, 4) = q_v;
+        q(1, 1) = q(3, 3) = q(5, 5) = q_a;
+        return q;
+    };
     auto yu_q = [this]() {
         Eigen::Matrix<double, ypdarmor_motion_model::X_N, ypdarmor_motion_model::X_N> q;
         double t = dt_, x = ys2qx_, y = ys2qy_, z = ys2qz_, yaw = ys2qyaw_, r = ys2qr_,
@@ -145,7 +154,11 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     };
 
     // EKF 观测噪声协方差 R（基于测量值调整）
-
+    auto acc_r = [this](const Eigen::Matrix<double, acc_model::Z_N, 1>& z) {
+        Eigen::Matrix<double, acc_model::Z_N, acc_model::Z_N> r;
+        r *= r_v;
+        return r;
+    };
     auto yu_r = [this](const Eigen::Matrix<double, ypdarmor_motion_model::Z_N, 1>& z) {
         Eigen::Matrix<double, ypdarmor_motion_model::Z_N, ypdarmor_motion_model::Z_N> r;
         Eigen::Vector3d dir_odom(std::cos(z[3]), std::sin(z[3]), 0.0);
@@ -180,6 +193,9 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     };
 
     // 初始协方差
+    Eigen::DiagonalMatrix<double, acc_model::X_N> accp0;
+    accp0.setIdentity();
+
     Eigen::DiagonalMatrix<double, ypdarmor_motion_model::X_N> yp0;
     yp0.setIdentity();
 
@@ -256,12 +272,16 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
             nominal[6] = angles::normalize_angle(nominal[6] + delta[6]);
         }
     );
+    tracker_->acc_ekf =
+        std::make_unique<acc_model::VelocityAccelEKF>(acc_f, acc_h, acc_q, acc_r, accp0);
 
     for (auto& o_tracker: one_trackers_) {
         o_tracker->ekf_ypd =
             std::make_unique<oneypdarmor_motion_model::RobotStateEKF>(oyf, oyh, oyu_q, oyu_r, oyp0);
         o_tracker->ekf_ypd->setAngleDims({ 0, 3 });
         o_tracker->ekf_ypd->setIterationNum(iteration_num_);
+        o_tracker->acc_ekf =
+            std::make_unique<acc_model::VelocityAccelEKF>(acc_f, acc_h, acc_q, acc_r, accp0);
     }
 
     gobal::attack_state = gobal::AttackState::ATTACKONE;
@@ -275,7 +295,9 @@ void TrackerManager::updateTracker(
     target_.timestamp = time;
     if (tracker_->tracker_state == Tracker::LOST) {
         tracker_->init(armors_);
+
         target_.tracking = false;
+
     } else {
         dt_ = std::chrono::duration<double>(time - last_time_).count();
         tracker_->lost_thres = std::abs(static_cast<int>(lost_time_thres_ / dt_));
@@ -295,23 +317,28 @@ void TrackerManager::updateTracker(
                 dt_,
                 ypdarmor_motion_model::MotionModel::CONSTANT_VEL_ROT });
         }
-
+        tracker_->acc_ekf->setPredictFunc(acc_model::Predict { dt_ });
         tracker_->update(armors_);
 
         if (tracker_->tracker_state == Tracker::DETECTING) {
             target_.tracking = false;
+
         } else if (tracker_->tracker_state == Tracker::TRACKING || tracker_->tracker_state == Tracker::TEMP_LOST)
         {
             target_.tracking = true;
             const auto& state = tracker_->target_state;
+            const auto& acc_state = tracker_->acc_state;
             target_.id = tracker_->tracked_id;
             target_.armors_num = static_cast<int>(tracker_->tracked_armors_num);
             target_.position_.x = state(0);
             target_.velocity_.x = state(1);
+            target_.acceleration_.x = acc_state(1);
             target_.position_.y = state(2);
             target_.velocity_.y = state(3);
+            target_.acceleration_.y = acc_state(3);
             target_.position_.z = state(4);
             target_.velocity_.z = state(5);
+            target_.acceleration_.z = acc_state(5);
             target_.yaw = state(6);
             target_.v_yaw = state(7);
             target_.radius_1 = state(8);
@@ -367,7 +394,7 @@ void TrackerManager::updateOneTrackers(
                 dt_,
                 oneypdarmor_motion_model::MotionModel::CONSTANT_VEL_ROT });
         }
-
+        otracker->acc_ekf->setPredictFunc(acc_model::Predict { dt_ });
         ekf_prediction = otracker->ekf_ypd->predict();
 
         Eigen::Vector3d predicted_position = otracker->getArmorPositionFromState(ekf_prediction);
@@ -413,14 +440,18 @@ void TrackerManager::updateOneTrackers(
         if (otracker->tracker_state == Tracker::TRACKING
             || otracker->tracker_state == Tracker::TEMP_LOST) {
             const auto& state = otracker->target_state;
+            const auto& acc_state = otracker->acc_state;
             target.tracking = true;
             target.id = otracker->tracked_id;
             target.position_.x = state(0);
             target.velocity_.x = state(1);
+            target.acceleration_.x = acc_state(1);
             target.position_.y = state(2);
             target.velocity_.y = state(3);
+            target.acceleration_.y = acc_state(3);
             target.position_.z = state(4);
             target.velocity_.z = state(5);
+            target.acceleration_.z = acc_state(5);
             target.yaw = state(6);
             target.v_yaw = state(7);
             target.type = otracker->type;

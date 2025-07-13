@@ -105,8 +105,10 @@ ArmorSolver::solve(const Target& target, std::chrono::steady_clock::time_point c
     auto dt = duration_cast<steady_clock::duration>(dt_seconds);
     auto total_dt = (current_time - target.timestamp) + dt;
     double dt_seconds_double = duration<double>(total_dt).count();
-    pos += dt_seconds_double
-        * Eigen::Vector3d(target.velocity_.x, target.velocity_.y, target.velocity_.z);
+    auto center_v = Eigen::Vector3d(target.velocity_.x, target.velocity_.y, target.velocity_.z);
+    center_v += dt_seconds_double
+        * Eigen::Vector3d(target.acceleration_.x, target.acceleration_.y, target.acceleration_.z);
+    pos += dt_seconds_double * center_v;
     yaw += dt_seconds_double * target.v_yaw;
 
     // 3. 选装甲板并计算原始 yaw/pitch
@@ -119,7 +121,7 @@ ArmorSolver::solve(const Target& target, std::chrono::steady_clock::time_point c
         target.d_za,
         target.armors_num
     );
-    auto center_v = Eigen::Vector3d(target.velocity_.x, target.velocity_.y, target.velocity_.z);
+
     auto v_armors = getArmorVelocities(
         pos,
         yaw,
@@ -166,8 +168,13 @@ ArmorSolver::solve(const Target& target, std::chrono::steady_clock::time_point c
             }
             // 如果一直没对上，也加 controller_delay 预测
             if (gobal::controller_delay != 0.0) {
-                pos += gobal::controller_delay
-                    * Eigen::Vector3d(target.velocity_.x, target.velocity_.y, target.velocity_.z);
+                center_v += gobal::controller_delay
+                    * Eigen::Vector3d(
+                                target.acceleration_.x,
+                                target.acceleration_.y,
+                                target.acceleration_.z
+                    );
+                pos += gobal::controller_delay * center_v;
                 yaw += gobal::controller_delay * target.v_yaw;
                 auto tmp = getArmorPositions(
                                pos,
@@ -208,8 +215,13 @@ ArmorSolver::solve(const Target& target, std::chrono::steady_clock::time_point c
 
             calcYawAndPitch(chosen, rpy, raw_yaw_, raw_pitch);
             if (gobal::controller_delay != 0.0) {
-                pos += gobal::controller_delay
-                    * Eigen::Vector3d(target.velocity_.x, target.velocity_.y, target.velocity_.z);
+                center_v += gobal::controller_delay
+                    * Eigen::Vector3d(
+                                target.acceleration_.x,
+                                target.acceleration_.y,
+                                target.acceleration_.z
+                    );
+                pos += gobal::controller_delay * center_v;
                 yaw += gobal::controller_delay * target.v_yaw;
                 auto tmp = getArmorPositions(
                                pos,
@@ -300,8 +312,14 @@ GimbalCmd ArmorSolver::solve(
         auto dt = duration_cast<steady_clock::duration>(dt_seconds);
         auto total_dt = (current_time - target.timestamp) + dt;
         double dt_seconds_double = duration<double>(total_dt).count();
-        pos += dt_seconds_double
-            * Eigen::Vector3d(target.velocity_.x, target.velocity_.y, target.velocity_.z);
+        auto center_v = Eigen::Vector3d(target.velocity_.x, target.velocity_.y, target.velocity_.z);
+        center_v += dt_seconds_double
+            * Eigen::Vector3d(
+                        target.acceleration_.x,
+                        target.acceleration_.y,
+                        target.acceleration_.z
+            );
+        pos += dt_seconds_double * center_v;
         yaw += dt_seconds_double * target.v_yaw;
         // 3. 选装甲板并计算原始 yaw/pitch
         auto armors = getArmorPositions(
@@ -313,7 +331,6 @@ GimbalCmd ArmorSolver::solve(
             target.d_za,
             target.armors_num
         );
-        auto center_v = Eigen::Vector3d(target.velocity_.x, target.velocity_.y, target.velocity_.z);
         auto v_armors = getArmorVelocities(
             pos,
             yaw,
@@ -359,12 +376,13 @@ GimbalCmd ArmorSolver::solve(
                 }
                 // 如果一直没对上，也加 controller_delay 预测
                 if (gobal::controller_delay != 0.0) {
-                    pos += gobal::controller_delay
+                    center_v += gobal::controller_delay
                         * Eigen::Vector3d(
-                               target.velocity_.x,
-                               target.velocity_.y,
-                               target.velocity_.z
+                                    target.acceleration_.x,
+                                    target.acceleration_.y,
+                                    target.acceleration_.z
                         );
+                    pos += gobal::controller_delay * center_v;
                     yaw += gobal::controller_delay * target.v_yaw;
                     auto tmp = getArmorPositions(
                                    pos,
@@ -405,12 +423,13 @@ GimbalCmd ArmorSolver::solve(
 
                 calcYawAndPitch(chosen, rpy, raw_yaw_, raw_pitch);
                 if (gobal::controller_delay != 0.0) {
-                    pos += gobal::controller_delay
+                    center_v += gobal::controller_delay
                         * Eigen::Vector3d(
-                               target.velocity_.x,
-                               target.velocity_.y,
-                               target.velocity_.z
+                                    target.acceleration_.x,
+                                    target.acceleration_.y,
+                                    target.acceleration_.z
                         );
+                    pos += gobal::controller_delay * center_v;
                     yaw += gobal::controller_delay * target.v_yaw;
                     auto tmp = getArmorPositions(
                                    pos,
@@ -482,18 +501,19 @@ GimbalCmd ArmorSolver::solve(
         auto dt = duration_cast<steady_clock::duration>(dt_seconds);
         auto total_dt = (current_time - best_target.timestamp) + dt;
         double dt_seconds_double = duration<double>(total_dt).count();
-        pos += dt_seconds_double
-            * Eigen::Vector3d(
-                   best_target.velocity_.x,
-                   best_target.velocity_.y,
-                   best_target.velocity_.z
-            );
-        yaw += dt_seconds_double * best_target.v_yaw;
         auto armor_v = Eigen::Vector3d(
             best_target.velocity_.x,
             best_target.velocity_.y,
             best_target.velocity_.z
         );
+        armor_v += dt_seconds_double
+            * Eigen::Vector3d(
+                       best_target.acceleration_.x,
+                       best_target.acceleration_.y,
+                       best_target.acceleration_.z
+            );
+        pos += dt_seconds_double * armor_v;
+        yaw += dt_seconds_double * best_target.v_yaw;
         double v_yaw, v_pitch;
         calcVYawAndVPitch(armor_v, rpy, v_yaw, v_pitch);
         double raw_yaw, raw_pitch;
@@ -507,12 +527,13 @@ GimbalCmd ArmorSolver::solve(
         double raw_yaw_, raw_pitch_;
         bool fire_advice = false;
         if (gobal::controller_delay != 0.0) {
-            pos += gobal::controller_delay
+            armor_v += gobal::controller_delay
                 * Eigen::Vector3d(
-                       best_target.velocity_.x,
-                       best_target.velocity_.y,
-                       best_target.velocity_.z
+                           best_target.acceleration_.x,
+                           best_target.acceleration_.y,
+                           best_target.acceleration_.z
                 );
+            pos += gobal::controller_delay * armor_v;
             yaw += gobal::controller_delay * best_target.v_yaw;
 
             if (pos.norm() < 0.1) {

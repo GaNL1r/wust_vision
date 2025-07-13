@@ -190,5 +190,31 @@ inline double getNoiseVarFromCameraYaw(double camera_yaw_deg, double r_front, do
     double noise_deg = getNoiseFromCameraYaw(camera_yaw_deg, r_front, r_side);
     return std::pow(noise_deg * M_PI / 180.0, 2);
 }
+inline cv::Point2f computeCenter(const std::vector<cv::Point2f>& points) {
+    if (points.empty()) {
+        return cv::Point2f(0.f, 0.f);
+    }
 
+    float sum_x = 0.f;
+    float sum_y = 0.f;
+    for (const auto& pt: points) {
+        sum_x += pt.x;
+        sum_y += pt.y;
+    }
+    return cv::Point2f(sum_x / points.size(), sum_y / points.size());
+}
+inline bool isStateValid(const Eigen::VectorXd& state) {
+    return state.allFinite(); // 所有元素都不是 NaN 或 Inf
+}
+inline double clamp_pm_pi(auto&& angle) {
+    while (angle >= M_PI)
+        angle -= M_PI;
+    while (angle <= -M_PI)
+        angle += M_PI;
+
+    return angle;
+}
+inline double ratio(const auto& point) {
+    return atan2(point.y, point.x);
+}
 } // namespace utils

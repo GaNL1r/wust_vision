@@ -119,6 +119,9 @@ armor_tracker:
     ys2qy: 22
     ys2qyaw: 35
     ys2qz: 1.0
+    r_v: 0.05
+    q_v: 0.01
+    q_a: 0.01
   jump_thresh: 0.4
   lost_time_thres: 0.9
   max_match_distance: 0.5

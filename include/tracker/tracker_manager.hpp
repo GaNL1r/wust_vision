@@ -14,6 +14,7 @@
 
 #pragma once
 #include "common/3rdparty/angles.h"
+#include "tracker/motion_models/acc_model.hpp"
 #include "tracker/one_ca_tracker.hpp"
 #include "tracker/one_tracker.hpp"
 #include "tracker/tracker.hpp"
@@ -55,6 +56,7 @@ public:
     double oys2qx_, oys2qy_, oys2qz_, oys2qyaw_;
     double yr_y_, yr_p_, yr_d_front_, yr_d_side_, yr_yaw_front_, yr_yaw_side_;
     double oyr_y_, oyr_p_, oyr_d_front_, oyr_d_side_, oyr_yaw_front_, oyr_yaw_side_;
+    double r_v, q_a, q_v;
     double lost_time_thres_;
     double one_lost_time_thres_;
     std::chrono::steady_clock::time_point last_time_;

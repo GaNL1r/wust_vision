@@ -31,6 +31,7 @@
 
 // project
 #include "tracker/math/extended_kalman_filter.hpp"
+#include "tracker/motion_models/acc_model.hpp"
 #include "tracker/motion_models/motion_modela.hpp"
 #include "tracker/motion_models/motion_modelypd.hpp"
 #include "type/type.hpp"
@@ -75,7 +76,9 @@ public:
     std::unique_ptr<ypdarmor_motion_model::RobotStateEKF> ekf_ypd;
     std::unique_ptr<ypdarmor_motion_model::RobotStateESEKF> esekf_ypd;
     bool use_esekf;
-
+    Eigen::VectorXd center_velocity_measurement;
+    Eigen::VectorXd acc_state;
+    std::unique_ptr<acc_model::VelocityAccelEKF> acc_ekf;
     int tracking_thres;
     int lost_thres;
 

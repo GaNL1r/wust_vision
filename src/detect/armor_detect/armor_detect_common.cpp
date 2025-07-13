@@ -291,14 +291,15 @@ ArmorDetectCommon::detectNet(const cv::Mat& src_img, std::vector<ArmorObject>& o
     std::vector<ArmorObject> armors;
 
     for (auto& armor: objs_result) {
-        if (armor.color == ArmorColor::NONE || armor.color == ArmorColor::PURPLE) {
+        // if (armor.color == ArmorColor::NONE || armor.color == ArmorColor::PURPLE) {
+        //     continue;
+        // }
+        if (gobal::detect_color_ == 0 && armor.color == ArmorColor::BLUE) {
+            continue;
+        } else if (gobal::detect_color_ == 1 && armor.color == ArmorColor::RED) {
             continue;
         }
-        if (gobal::detect_color_ == 0 && armor.color != ArmorColor::RED) {
-            continue;
-        } else if (gobal::detect_color_ == 1 && armor.color != ArmorColor::BLUE) {
-            continue;
-        }
+
         try {
             if (extractNetImage(src_img, armor)) {
                 number_classifier_->classifyNumber(armor);

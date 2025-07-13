@@ -326,6 +326,7 @@ struct Target {
 
     tf::Position position_ = tf::Position();
     tf::Position velocity_ = tf::Position();
+    tf::Position acceleration_ = tf::Position();
     float yaw = 0;
     float v_yaw = 0;
     float radius_1 = 0.24;
@@ -522,31 +523,4 @@ inline std::string armorTypeToString(const ArmorType& type) {
         default:
             return "invalid";
     }
-}
-inline cv::Point2f computeCenter(const std::vector<cv::Point2f>& points) {
-    if (points.empty()) {
-        return cv::Point2f(0.f, 0.f);
-    }
-
-    float sum_x = 0.f;
-    float sum_y = 0.f;
-    for (const auto& pt: points) {
-        sum_x += pt.x;
-        sum_y += pt.y;
-    }
-    return cv::Point2f(sum_x / points.size(), sum_y / points.size());
-}
-inline bool isStateValid(const Eigen::VectorXd& state) {
-    return state.allFinite(); // 所有元素都不是 NaN 或 Inf
-}
-inline double clamp_pm_pi(auto&& angle) {
-    while (angle >= M_PI)
-        angle -= M_PI;
-    while (angle <= -M_PI)
-        angle += M_PI;
-
-    return angle;
-}
-inline double ratio(const auto& point) {
-    return atan2(point.y, point.x);
 }

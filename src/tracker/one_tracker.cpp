@@ -86,6 +86,10 @@ void OneTracker::update(const Armors& armors_msg) noexcept {
 
     bool matched = false;
     target_state = ekf_prediction;
+    acc_state = acc_ekf->predict();
+    center_velocity_measurement =
+        Eigen::Vector3d(target_state(1), target_state(3), target_state(5));
+    acc_ekf->update(center_velocity_measurement);
     std::vector<Armor> another_armors;
     if (gobal::if_manual_reset) {
         tracker_state = LOST;
@@ -190,6 +194,10 @@ void OneTracker::update(const Armor& armor_msg) noexcept {
 
     bool matched = false;
     target_state = ekf_prediction;
+    acc_state = acc_ekf->predict();
+    center_velocity_measurement =
+        Eigen::Vector3d(target_state(1), target_state(3), target_state(5));
+    acc_ekf->update(center_velocity_measurement);
     double dis = std::sqrt(
         armor_msg.target_pos.x * armor_msg.target_pos.x
         + armor_msg.target_pos.y * armor_msg.target_pos.y
@@ -255,10 +263,13 @@ void OneTracker::initEKF(const Armor& a) noexcept {
     last_yaw_ = 0;
     double yaw = orientationToYaw(a.target_ori);
 
-    target_state = Eigen::VectorXd::Zero(onearmor_motion_model::X_N);
+    target_state = Eigen::VectorXd::Zero(oneypdarmor_motion_model::X_N);
     target_state << xa, 0, ya, 0, za, 0, yaw, 0;
 
     ekf_ypd->setState(target_state);
+    acc_state = Eigen::VectorXd::Zero(acc_model::X_N);
+    acc_state << 0, 0, 0, 0, 0, 0;
+    acc_ekf->setState(acc_state);
 }
 
 void OneTracker::handleArmorJump(const Armor& current_armor) noexcept {

@@ -85,7 +85,11 @@ void Tracker::update(const Armors& armors_msg) noexcept {
 
     bool matched = false;
     target_state = ekf_prediction;
-    std::vector<Armor> another_armors;
+    acc_state = acc_ekf->predict();
+    center_velocity_measurement =
+        Eigen::Vector3d(target_state(1), target_state(3), target_state(5));
+    acc_ekf->update(center_velocity_measurement);
+
     if (gobal::if_manual_reset) {
         tracker_state = LOST;
         return;
@@ -95,6 +99,7 @@ void Tracker::update(const Armors& armors_msg) noexcept {
         Armor same_id_armor;
         int same_id_armors_count = 0;
         auto predicted_position = getArmorPositionFromState(ekf_prediction);
+
         double min_position_diff = DBL_MAX;
         double min_z_diff = DBL_MAX;
         double yaw_diff = DBL_MAX;
@@ -128,7 +133,6 @@ void Tracker::update(const Armors& armors_msg) noexcept {
                         tracked_armors_num = ArmorsNum::NORMAL_4;
                     }
                 } else {
-                    another_armors.push_back(armor);
                     position_diff_ = position_diff;
                 }
             }
@@ -211,7 +215,7 @@ void Tracker::initEKF(const Armor& a) noexcept {
     last_yaw_ = 0;
     double yaw = orientationToYaw(a.target_ori);
 
-    target_state = Eigen::VectorXd::Zero(armor_motion_model::X_N);
+    target_state = Eigen::VectorXd::Zero(ypdarmor_motion_model::X_N);
     double r = 0.24;
     double xc = xa + r * cos(yaw);
     double yc = ya + r * sin(yaw);
@@ -223,6 +227,9 @@ void Tracker::initEKF(const Armor& a) noexcept {
 
     // ekf_ypd->setState(target_state);
     setstate_func(ekf_ypd, esekf_ypd, target_state);
+    acc_state = Eigen::VectorXd::Zero(acc_model::X_N);
+    acc_state << 0, 0, 0, 0, 0, 0;
+    acc_ekf->setState(acc_state);
 }
 
 void Tracker::handleArmorJump(const Armor& current_armor) noexcept {

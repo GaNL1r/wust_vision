@@ -19,6 +19,7 @@
 #include "common/gobal.hpp"
 #include "common/logger.hpp"
 #include "common/tf.hpp"
+#include "common/utils.hpp"
 #include "control/armor_solver.hpp"
 #include "type/type.hpp"
 #include <csignal>
@@ -764,7 +765,7 @@ void WustVision::RuneDetectCallback(
         cv::Mat binary_roi = cv::Mat::zeros(1, 1, CV_8UC3);
         if (use_manual_r && manual_r_init) {
             gobal::measure_tool_->projectRTargetToImage(T_r, T_camera_to_odom, manual_r_box);
-            manual_r_center = computeCenter(manual_r_box);
+            manual_r_center = utils::computeCenter(manual_r_box);
             r_tag = manual_r_center;
             if (detect_r_tag_ && !src_img.empty()) {
                 std::tie(r_tag, binary_roi) =
