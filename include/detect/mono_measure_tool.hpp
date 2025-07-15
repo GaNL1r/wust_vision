@@ -83,6 +83,14 @@ public:
         cv::Mat& rvec,
         std::string& armor_type
     );
+    bool calcArmorTargetOmni(
+        const ArmorObject& obj,
+        cv::Point3f& position,
+        cv::Mat& rvec,
+        std::string& armor_type,
+        const cv::Mat& camera_intrinsic_,
+        const cv::Mat& camera_distortion_
+    );
     bool projectRTargetToImage(
         const Eigen::Matrix4d& TRodom,
         const Eigen::Matrix4d& T_camera_to_odom,
@@ -95,6 +103,11 @@ public:
     );
 
     float calcDistanceToCenter(const ArmorObject& obj);
+    float calcDistanceToCenterOmni(
+        const ArmorObject& obj,
+        const cv::Mat& camera_intrinsic_,
+        const cv::Mat& camera_distortion_
+    );
 
     bool reprojectArmorsCorners(Armors& armors, Target_info& target_info);
 
@@ -105,6 +118,14 @@ public:
         int detect_color,
         Armors& armors_out,
         Eigen::Matrix4d T_camera_to_odom
+    );
+    void processDetectedArmorsOmni(
+        const std::vector<ArmorObject>& objs,
+        int detect_color,
+        Armors& armors_out,
+        Eigen::Matrix4d T_camera_to_odom,
+        const cv::Mat& camera_intrinsic_,
+        const cv::Mat& camera_distortion_
     );
 
     static std::vector<cv::Point3f> SMALL_ARMOR_3D_POINTS;

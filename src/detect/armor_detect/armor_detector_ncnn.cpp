@@ -229,7 +229,8 @@ ArmorDetectNCNN::ArmorDetectNCNN(
     int binary_thres_,
     bool use_gpu,
     int cpu_threads,
-    bool use_lightmode
+    bool use_lightmode,
+    bool use_armor_detect_common
 ):
     light_params_(l),
     armor_params_(a),
@@ -240,17 +241,20 @@ ArmorDetectNCNN::ArmorDetectNCNN(
     nms_threshold_(nms_threshold),
     use_gpu(use_gpu),
     cpu_threads(cpu_threads),
-    use_lightmode(use_lightmode) {
-    armor_detect_common_ = std::make_unique<ArmorDetectCommon>(
-        classify_model_path,
-        classify_label_path,
-        l,
-        a,
-        classifier_threshold,
-        expand_ratio_w,
-        expand_ratio_h,
-        binary_thres_
-    );
+    use_lightmode(use_lightmode),
+    use_armor_detect_common(use_armor_detect_common) {
+    if (use_armor_detect_common) {
+        armor_detect_common_ = std::make_unique<ArmorDetectCommon>(
+            classify_model_path,
+            classify_label_path,
+            l,
+            a,
+            classifier_threshold,
+            expand_ratio_w,
+            expand_ratio_h,
+            binary_thres_
+        );
+    }
 
     init();
 }
@@ -379,12 +383,18 @@ bool ArmorDetectNCNN::processCallback(
             }
         }
     }
-    std::vector<ArmorObject> armors = armor_detect_common_->detectNet(src_img, objs_result);
-
-    // Call callback function
-    if (this->infer_callback_) {
-        this->infer_callback_(armors, timestamp, src_img, T_camera_to_odom, v);
-        return true;
+    if (use_armor_detect_common) {
+        std::vector<ArmorObject> armors = armor_detect_common_->detectNet(src_img, objs_result);
+        // Call callback function
+        if (this->infer_callback_) {
+            this->infer_callback_(armors, timestamp, src_img, T_camera_to_odom, v);
+            return true;
+        }
+    } else {
+        if (this->infer_callback_) {
+            this->infer_callback_(objs_result, timestamp, src_img, T_camera_to_odom, v);
+            return true;
+        }
     }
 
     return false;

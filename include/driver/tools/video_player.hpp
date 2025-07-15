@@ -33,6 +33,8 @@ public:
     void setCallback(FrameCallback cb);
     bool start();
     void stop();
+    bool read();
+    void enableTriggerMode(bool enable);
     ~VideoPlayer();
 
 private:
@@ -45,5 +47,6 @@ private:
     std::atomic<bool> running_;
     cv::VideoCapture cap_;
     std::thread worker_;
+    bool trigger_mode_ = false;
     FrameCallback on_frame_callback_;
 };

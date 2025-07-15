@@ -18,7 +18,7 @@
 
 class ArmorDetectorOpenvinoWrapper: public ArmorDetectorBase {
 public:
-    ArmorDetectorOpenvinoWrapper(const YAML::Node& config);
+    ArmorDetectorOpenvinoWrapper(const YAML::Node& config, bool use_armor_detect_common = true);
     ~ArmorDetectorOpenvinoWrapper() override;
 
     void pushInput(

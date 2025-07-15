@@ -34,11 +34,14 @@
 #include "detect/armor_detect/armor_detector_opencv_wrapper.hpp"
 class DetectorFactory {
 public:
-    static std::unique_ptr<ArmorDetectorBase>
-    createArmorDetector(const std::string& backend, const YAML::Node& config) {
+    static std::unique_ptr<ArmorDetectorBase> createArmorDetector(
+        const std::string& backend,
+        const YAML::Node& config,
+        bool use_armor_detect_common
+    ) {
 #if defined(USE_OPENVINO)
         if (backend == "openvino") {
-            return std::make_unique<ArmorDetectorOpenvinoWrapper>(config);
+            return std::make_unique<ArmorDetectorOpenvinoWrapper>(config, use_armor_detect_common);
         }
         if (backend == "opencv") {
             return std::make_unique<ArmorDetectorOpencvWrapper>(config);
@@ -46,7 +49,7 @@ public:
 #endif
 #if defined(USE_TRT)
         if (backend == "tensorrt") {
-            return std::make_unique<ArmorDetectorTrtWrapper>(config);
+            return std::make_unique<ArmorDetectorTrtWrapper>(config, use_armor_detect_common);
         }
         if (backend == "opencv") {
             return std::make_unique<ArmorDetectorOpencvWrapper>(config);
@@ -54,7 +57,7 @@ public:
 #endif
 #ifdef USE_NCNN
         if (backend == "ncnn") {
-            return std::make_unique<ArmorDetectorNCNNWrapper>(config);
+            return std::make_unique<ArmorDetectorNCNNWrapper>(config, use_armor_detect_common);
         }
         if (backend == "opencv") {
             return std::make_unique<ArmorDetectorOpencvWrapper>(config);

@@ -45,7 +45,8 @@ public:
         int binary_thres_ = 85,
         bool use_gpu = false,
         int cpu_threads = 1,
-        bool use_lightmode = true
+        bool use_lightmode = true,
+        bool use_armor_detect_common = true
     );
     ~ArmorDetectNCNN();
     void init();
@@ -87,4 +88,5 @@ private:
     int cpu_threads;
     bool use_lightmode = true;
     std::unique_ptr<ArmorDetectCommon> armor_detect_common_;
+    bool use_armor_detect_common = true;
 };

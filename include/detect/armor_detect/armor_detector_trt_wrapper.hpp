@@ -18,7 +18,7 @@
 
 class ArmorDetectorTrtWrapper: public ArmorDetectorBase {
 public:
-    ArmorDetectorTrtWrapper(const YAML::Node& config);
+    ArmorDetectorTrtWrapper(const YAML::Node& config, bool use_armor_detect_common = true);
     ~ArmorDetectorTrtWrapper() override;
 
     void pushInput(

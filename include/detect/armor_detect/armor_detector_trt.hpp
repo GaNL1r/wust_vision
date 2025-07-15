@@ -59,7 +59,8 @@ public:
         ArmorParams armor_params,
         std::string classify_model_path,
         std::string classify_label_path,
-        double classifier_threshold
+        double classifier_threshold,
+        bool use_armor_detect_common = true
     );
 
     // 析构函数：释放资源
@@ -108,4 +109,5 @@ private:
     DetectorCallback infer_callback_;
     nvinfer1::IRuntime* runtime_ = nullptr;
     std::unique_ptr<ArmorDetectCommon> armor_detect_common_;
+    bool use_armor_detect_common = true;
 };

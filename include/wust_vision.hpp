@@ -10,6 +10,7 @@
 #include "driver/tools/labeler.hpp"
 #include "driver/tools/recorder.hpp"
 #include "driver/tools/video_player.hpp"
+#include "omni.hpp"
 #include "tracker/tracker_manager.hpp"
 #include "type/type.hpp"
 #include "yaml-cpp/yaml.h"
@@ -19,7 +20,7 @@ public:
     WustVision();
     ~WustVision();
 
-    void init();
+    bool init();
     void run();
     void processImage(
         const ImageFrame& frame,
@@ -63,7 +64,6 @@ public:
     Armors
     visualizeTargetProjection(Target armor_target_, std::vector<OneTarget> one_armor_targets_);
 
-    std::thread image_thread_;
     std::unique_ptr<ThreadPool> thread_pool_;
 
     std::unique_ptr<HikCamera> camera_;
@@ -83,7 +83,8 @@ public:
 #endif
     std::atomic<bool> timer_running_ { false };
     std::thread timer_thread_;
-
+    bool use_omni = false;
+    std::unique_ptr<OmniManager> omni_manager_;
     std::unique_ptr<TrackerManager> tracker_manager_;
     double gimbal2camera_x_, gimbal2camera_y_, gimbal2camera_z_;
     double gimbal2camera_yaw_, gimbal2camera_roll_, gimbal2camera_pitch_;
@@ -139,7 +140,6 @@ public:
     bool use_manual_r = false;
     std::atomic<bool> manual_r_runing = false;
     Eigen::Matrix4d T_r;
-    bool use_rune_detect_ncnn;
-    bool use_armor_detect_ncnn;
+
     double jump_yaw;
 };

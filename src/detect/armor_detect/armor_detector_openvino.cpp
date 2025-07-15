@@ -243,7 +243,8 @@ ArmorDetectOpenVino::ArmorDetectOpenVino(
     float expand_ratio_h,
     int binary_thres_,
     bool use_fp16_,
-    bool use_throughputmode
+    bool use_throughputmode,
+    bool use_armor_detect_common
 ):
 
     model_path_(model_path),
@@ -252,17 +253,20 @@ ArmorDetectOpenVino::ArmorDetectOpenVino(
     top_k_(top_k),
     nms_threshold_(nms_threshold),
     use_fp16_(use_fp16_),
-    use_throughputmode_(use_throughputmode) {
-    armor_detect_common_ = std::make_unique<ArmorDetectCommon>(
-        classify_model_path,
-        classify_label_path,
-        l,
-        a,
-        classifier_threshold,
-        expand_ratio_w,
-        expand_ratio_h,
-        binary_thres_
-    );
+    use_throughputmode_(use_throughputmode),
+    use_armor_detect_common(use_armor_detect_common) {
+    if (use_armor_detect_common) {
+        armor_detect_common_ = std::make_unique<ArmorDetectCommon>(
+            classify_model_path,
+            classify_label_path,
+            l,
+            a,
+            classifier_threshold,
+            expand_ratio_w,
+            expand_ratio_h,
+            binary_thres_
+        );
+    }
 
     init();
 }
@@ -389,12 +393,18 @@ bool ArmorDetectOpenVino::processCallback(
         }
     }
 
-    std::vector<ArmorObject> armors = armor_detect_common_->detectNet(src_img, objs_result);
-
-    // Call callback function
-    if (this->infer_callback_) {
-        this->infer_callback_(armors, timestamp, src_img, T_camera_to_odom, v);
-        return true;
+    if (use_armor_detect_common) {
+        std::vector<ArmorObject> armors = armor_detect_common_->detectNet(src_img, objs_result);
+        // Call callback function
+        if (this->infer_callback_) {
+            this->infer_callback_(armors, timestamp, src_img, T_camera_to_odom, v);
+            return true;
+        }
+    } else {
+        if (this->infer_callback_) {
+            this->infer_callback_(objs_result, timestamp, src_img, T_camera_to_odom, v);
+            return true;
+        }
     }
 
     return false;

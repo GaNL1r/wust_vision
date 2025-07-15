@@ -41,7 +41,7 @@ public:
         on_frame_callback_ = std::move(cb);
     }
 
-    bool initializeCamera();
+    bool initializeCamera(const std::string& target_sn);
     void setParameters(
         double acquisition_frame_rate,
         double exposure_time,
@@ -55,6 +55,7 @@ public:
     void stopCamera();
     bool enableTrigger(TriggerType type, const std::string& source, int64_t activation);
     void disableTrigger();
+    bool read();
 
 private:
     void hikCaptureLoop();
@@ -68,6 +69,7 @@ private:
     double last_frame_rate_, last_exposure_time_, last_gain_;
     bool last_acquisitionFrameRateEnable;
     std::string last_adc_bit_depth_, last_pixel_format_;
+    std::string last_target_sn_;
     bool in_low_frame_rate_state_;
     TriggerType trigger_type_ = TriggerType::None;
     std::string trigger_source_; // e.g. "Line0"、"Software"

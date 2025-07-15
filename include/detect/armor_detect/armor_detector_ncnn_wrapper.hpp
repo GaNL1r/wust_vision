@@ -18,7 +18,7 @@
 
 class ArmorDetectorNCNNWrapper: public ArmorDetectorBase {
 public:
-    ArmorDetectorNCNNWrapper(const YAML::Node& config);
+    ArmorDetectorNCNNWrapper(const YAML::Node& config, bool use_armor_detect_common = true);
     ~ArmorDetectorNCNNWrapper() override;
 
     void pushInput(

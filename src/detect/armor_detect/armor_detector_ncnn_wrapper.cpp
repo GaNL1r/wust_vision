@@ -13,7 +13,10 @@
 // limitations under the License.
 #include "detect/armor_detect/armor_detector_ncnn_wrapper.hpp"
 
-ArmorDetectorNCNNWrapper::ArmorDetectorNCNNWrapper(const YAML::Node& config) {
+ArmorDetectorNCNNWrapper::ArmorDetectorNCNNWrapper(
+    const YAML::Node& config,
+    bool use_armor_detect_common
+) {
     auto classify_model_path = config["armor_detect"]["classify"]["model_path"].as<std::string>();
     auto classify_label_path = config["armor_detect"]["classify"]["label_path"].as<std::string>();
     double classify_threshold = config["armor_detect"]["classify"]["threshold"].as<double>();
@@ -27,27 +30,32 @@ ArmorDetectorNCNNWrapper::ArmorDetectorNCNNWrapper(const YAML::Node& config) {
     float conf_threshold = config["armor_detect"]["model"]["conf_threshold"].as<float>();
     int top_k = config["armor_detect"]["model"]["top_k"].as<int>();
     float nms_threshold = config["armor_detect"]["model"]["nms_threshold"].as<float>();
-    float expand_ratio_w = config["armor_detect"]["light"]["expand_ratio_w"].as<float>();
-    float expand_ratio_h = config["armor_detect"]["light"]["expand_ratio_h"].as<float>();
-    int binary_thres = config["armor_detect"]["light"]["binary_thres"].as<int>();
+
     WUST_INFO("armor_detector") << "model_path_param: " << model_path_param
                                 << "model_path_bin: " << model_path_param;
-    LightParams l_params = { .min_ratio = config["armor_detect"]["light"]["min_ratio"].as<double>(),
-                             .max_ratio = config["armor_detect"]["light"]["max_ratio"].as<double>(),
-                             .max_angle =
-                                 config["armor_detect"]["light"]["max_angle"].as<double>() };
-    ArmorParams a_params = {
-        .min_light_ratio = config["armor_detect"]["armor"]["min_light_ratio"].as<double>(),
-        .min_small_center_distance =
-            config["armor_detect"]["armor"]["min_small_center_distance"].as<double>(),
-        .max_small_center_distance =
-            config["armor_detect"]["armor"]["max_small_center_distance"].as<double>(),
-        .min_large_center_distance =
-            config["armor_detect"]["armor"]["min_large_center_distance"].as<double>(),
-        .max_large_center_distance =
-            config["armor_detect"]["armor"]["max_large_center_distance"].as<double>(),
-        .max_angle = config["armor_detect"]["armor"]["max_angle"].as<double>()
-    };
+    int binary_thres;
+    float expand_ratio_w, expand_ratio_h;
+    LightParams l_params;
+    ArmorParams a_params;
+    if (use_armor_detect_common) {
+        binary_thres = config["armor_detect"]["light"]["binary_thres"].as<int>(85);
+        expand_ratio_w = config["armor_detect"]["light"]["expand_ratio_w"].as<float>(1.1);
+        expand_ratio_h = config["armor_detect"]["light"]["expand_ratio_h"].as<float>(1.1);
+        l_params = { .min_ratio = config["armor_detect"]["light"]["min_ratio"].as<double>(0.1),
+                     .max_ratio = config["armor_detect"]["light"]["max_ratio"].as<double>(3.0),
+                     .max_angle = config["armor_detect"]["light"]["max_angle"].as<double>(40) };
+        a_params = { .min_light_ratio =
+                         config["armor_detect"]["armor"]["min_light_ratio"].as<double>(1),
+                     .min_small_center_distance =
+                         config["armor_detect"]["armor"]["min_small_center_distance"].as<double>(1),
+                     .max_small_center_distance =
+                         config["armor_detect"]["armor"]["max_small_center_distance"].as<double>(1),
+                     .min_large_center_distance =
+                         config["armor_detect"]["armor"]["min_large_center_distance"].as<double>(1),
+                     .max_large_center_distance =
+                         config["armor_detect"]["armor"]["max_large_center_distance"].as<double>(1),
+                     .max_angle = config["armor_detect"]["armor"]["max_angle"].as<double>(1) };
+    }
 
     detector_ = std::make_unique<ArmorDetectNCNN>(
         model_path_param,
@@ -65,7 +73,8 @@ ArmorDetectorNCNNWrapper::ArmorDetectorNCNNWrapper(const YAML::Node& config) {
         binary_thres,
         use_gpu,
         cpu_threads,
-        use_lightmode
+        use_lightmode,
+        use_armor_detect_common
     );
 }
 

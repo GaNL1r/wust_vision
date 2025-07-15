@@ -175,13 +175,15 @@ ArmorDetectTrt::ArmorDetectTrt(
     ArmorParams armor_params,
     std::string classify_model_path,
     std::string classify_label_path,
-    double classify_threshold
+    double classify_threshold,
+    bool use_armor_detect_common
 ):
     params_(params),
     engine_(nullptr),
     context_(nullptr),
     output_buffer_(nullptr),
-    runtime_(nullptr) {
+    runtime_(nullptr),
+    use_armor_detect_common(use_armor_detect_common) {
     buildEngine(onnx_path);
     TRT_ASSERT(context_ = engine_->createExecutionContext());
     TRT_ASSERT((input_idx_ = engine_->getBindingIndex("images")) == 0);
@@ -195,16 +197,18 @@ ArmorDetectTrt::ArmorDetectTrt(
     TRT_ASSERT(cudaMalloc(&device_buffers_[output_idx_], output_sz_ * sizeof(float)) == 0);
     output_buffer_ = new float[output_sz_];
     TRT_ASSERT(cudaStreamCreate(&stream_) == 0);
-    armor_detect_common_ = std::make_unique<ArmorDetectCommon>(
-        classify_model_path,
-        classify_label_path,
-        light_params,
-        armor_params,
-        classify_threshold,
-        expand_ratio_w,
-        expand_ratio_h,
-        binary_thres
-    );
+    if (use_armor_detect_common) {
+        armor_detect_common_ = std::make_unique<ArmorDetectCommon>(
+            classify_model_path,
+            classify_label_path,
+            light_params,
+            armor_params,
+            classify_threshold,
+            expand_ratio_w,
+            expand_ratio_h,
+            binary_thres
+        );
+    }
 }
 
 ArmorDetectTrt::~ArmorDetectTrt() {
@@ -328,11 +332,18 @@ bool ArmorDetectTrt::processCallback(
         }
     }
 
-    std::vector<ArmorObject> armors = armor_detect_common_->detectNet(src_img, objs_result);
-
-    if (this->infer_callback_) {
-        this->infer_callback_(armors, timestamp, src_img, T_camera_to_odom, v);
-        return true;
+    if (use_armor_detect_common) {
+        std::vector<ArmorObject> armors = armor_detect_common_->detectNet(src_img, objs_result);
+        // Call callback function
+        if (this->infer_callback_) {
+            this->infer_callback_(armors, timestamp, src_img, T_camera_to_odom, v);
+            return true;
+        }
+    } else {
+        if (this->infer_callback_) {
+            this->infer_callback_(objs_result, timestamp, src_img, T_camera_to_odom, v);
+            return true;
+        }
     }
 
     return true;

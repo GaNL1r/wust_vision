@@ -46,47 +46,74 @@ HikCamera::~HikCamera() {
 }
 
 // 初始化相机：枚举设备、创建句柄、打开设备、获取图像信息等
-bool HikCamera::initializeCamera() {
-    MV_CC_DEVICE_INFO_LIST device_list;
-    while (true) {
-        int n_ret = MV_CC_EnumDevices(MV_USB_DEVICE, &device_list);
-        if (n_ret != MV_OK) {
-            WUST_WARN(hik_logger) << "Failed to enumerate devices, retrying...";
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-        } else if (device_list.nDeviceNum == 0) {
-            WUST_WARN(hik_logger) << "No camera found, retrying...";
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-        } else {
-            WUST_INFO(hik_logger) << "Found " << device_list.nDeviceNum << " cameras!";
-            break;
-        }
-    }
+bool HikCamera::initializeCamera(const std::string& target_sn) {
+    last_target_sn_ = target_sn;
+    MV_CC_DEVICE_INFO_LIST device_list = { 0 };
 
-    int n_ret = MV_CC_CreateHandle(&camera_handle_, device_list.pDeviceInfo[0]);
+    int n_ret = MV_CC_EnumDevices(MV_USB_DEVICE, &device_list);
     if (n_ret != MV_OK) {
-        WUST_ERROR(hik_logger) << "Failed to create camera handle!";
+        WUST_ERROR(hik_logger) << "MV_CC_EnumDevices failed, error code: " << n_ret;
+        return false;
+    }
+    if (device_list.nDeviceNum == 0) {
+        WUST_ERROR(hik_logger) << "No USB cameras found";
         return false;
     }
 
+    WUST_INFO(hik_logger) << "Found " << device_list.nDeviceNum << " USB camera(s):";
+    for (unsigned int i = 0; i < device_list.nDeviceNum; ++i) {
+        auto info = device_list.pDeviceInfo[i];
+        const char* sn =
+            reinterpret_cast<const char*>(info->SpecialInfo.stUsb3VInfo.chSerialNumber);
+        WUST_INFO(hik_logger) << "  [" << i << "] SN = " << sn;
+    }
+
+    int sel = -1;
+    for (unsigned int i = 0; i < device_list.nDeviceNum; ++i) {
+        auto info = device_list.pDeviceInfo[i];
+        const char* sn =
+            reinterpret_cast<const char*>(info->SpecialInfo.stUsb3VInfo.chSerialNumber);
+        if (target_sn == sn) {
+            sel = i;
+            break;
+        }
+    }
+    if (sel < 0) {
+        WUST_ERROR(hik_logger) << "Camera with serial " << target_sn << " not found";
+        return false;
+    }
+    WUST_INFO(hik_logger) << "Selecting camera at index " << sel << " (SN=" << target_sn << ")";
+
+    n_ret = MV_CC_CreateHandle(&camera_handle_, device_list.pDeviceInfo[sel]);
+    if (n_ret != MV_OK) {
+        WUST_ERROR(hik_logger) << "MV_CC_CreateHandle failed: " << n_ret;
+        return false;
+    }
     n_ret = MV_CC_OpenDevice(camera_handle_);
     if (n_ret != MV_OK) {
-        WUST_ERROR(hik_logger) << "Failed to open camera device!";
+        WUST_ERROR(hik_logger) << "MV_CC_OpenDevice failed: " << n_ret;
+        MV_CC_DestroyHandle(camera_handle_);
         return false;
     }
 
     n_ret = MV_CC_GetImageInfo(camera_handle_, &img_info_);
     if (n_ret != MV_OK) {
-        WUST_ERROR(hik_logger) << "Failed to get camera image info!";
+        WUST_ERROR(hik_logger) << "MV_CC_GetImageInfo failed: " << n_ret;
+        MV_CC_CloseDevice(camera_handle_);
+        MV_CC_DestroyHandle(camera_handle_);
         return false;
     }
 
-    // 为转换后的图像数据预留内存
     convert_param_.nWidth = img_info_.nWidthValue;
     convert_param_.nHeight = img_info_.nHeightValue;
     convert_param_.enDstPixelType = PixelType_Gvsp_RGB8_Packed;
+
     disableTrigger();
+
+    WUST_INFO(hik_logger) << "Camera initialized successfully";
     return true;
 }
+
 bool HikCamera::enableTrigger(TriggerType type, const std::string& source, int64_t activation) {
     trigger_type_ = type;
     trigger_source_ = source;
@@ -223,7 +250,7 @@ bool HikCamera::restartCamera() {
 
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    if (!initializeCamera()) {
+    if (!initializeCamera(last_target_sn_)) {
         WUST_ERROR(hik_logger) << "Failed to re-initialize camera.";
         return false;
     }
@@ -406,4 +433,81 @@ void HikCamera::hikCaptureLoop() {
 
 void HikCamera::stopCamera() {
     stop_signal_ = true;
+}
+bool HikCamera::read() {
+    if (trigger_type_ == TriggerType::None) {
+        WUST_WARN(hik_logger) << "read() called in non-trigger mode. Ignored.";
+        return false;
+    }
+
+    if (trigger_type_ == TriggerType::Software) {
+        MV_CC_SetCommandValue(camera_handle_, "TriggerSoftware");
+    }
+
+    MV_FRAME_OUT out_frame;
+    int n_ret = MV_CC_GetImageBuffer(camera_handle_, &out_frame, 1000); // 1s timeout
+    if (n_ret != MV_OK) {
+        WUST_ERROR(hik_logger) << "Failed to get image buffer in read()";
+        return false;
+    }
+
+    ImageFrame frame;
+    frame.width = out_frame.stFrameInfo.nWidth;
+    frame.height = out_frame.stFrameInfo.nHeight;
+    frame.step = frame.width * 3;
+    frame.data.resize(frame.width * frame.height * 3);
+
+    convert_param_.pDstBuffer = frame.data.data();
+    convert_param_.nDstBufferSize = static_cast<int>(frame.data.size());
+    convert_param_.pSrcData = out_frame.pBufAddr;
+    convert_param_.nSrcDataLen = out_frame.stFrameInfo.nFrameLen;
+    convert_param_.enSrcPixelType = out_frame.stFrameInfo.enPixelType;
+
+    MV_CC_ConvertPixelType(camera_handle_, &convert_param_);
+
+    frame.timestamp = std::chrono::steady_clock::now();
+
+    if (on_frame_callback_) {
+        std::chrono::microseconds delay = std::chrono::microseconds(static_cast<int64_t>(
+            std::round((last_exposure_time_ / 2.0) - gobal::communication_delay_μs)
+        ));
+        auto t_query = std::chrono::steady_clock::now() - delay;
+        auto past_att = gobal::attitude_buffer.get_interpolated(t_query);
+        if (past_att) {
+            double yaw = past_att->yaw;
+            double pitch = past_att->pitch;
+            double roll = past_att->roll;
+            Eigen::Vector3d v(past_att->vx, past_att->vy, past_att->vz);
+            Eigen::Matrix3d R_gimbal2odom;
+            R_gimbal2odom =
+                Eigen::AngleAxisd(yaw + gobal::gimbal2camera_yaw, Eigen::Vector3d::UnitZ())
+                * Eigen::AngleAxisd(-pitch - gobal::gimbal2camera_pitch, Eigen::Vector3d::UnitY())
+                * Eigen::AngleAxisd(roll + gobal::gimbal2camera_roll, Eigen::Vector3d::UnitX());
+            on_frame_callback_(frame, R_gimbal2odom, v);
+
+        } else {
+            Eigen::Matrix3d R_gimbal2odom;
+            R_gimbal2odom = Eigen::AngleAxisd(
+                                gobal::last_yaw + gobal::gimbal2camera_yaw,
+                                Eigen::Vector3d::UnitZ()
+                            )
+                * Eigen::AngleAxisd(
+                                -gobal::last_pitch - gobal::gimbal2camera_pitch,
+                                Eigen::Vector3d::UnitY()
+                )
+                * Eigen::AngleAxisd(
+                                gobal::last_roll + gobal::gimbal2camera_roll,
+                                Eigen::Vector3d::UnitX()
+                );
+            Eigen::Vector3d v(gobal::last_v_x, gobal::last_v_y, gobal::last_v_z);
+            on_frame_callback_(frame, R_gimbal2odom, v);
+        }
+
+        if (recorder_ != nullptr) {
+            recorder_->addFrame(frame.data);
+        }
+
+        MV_CC_FreeImageBuffer(camera_handle_, &out_frame);
+        return true;
+    }
 }

@@ -45,7 +45,8 @@ public:
         float expand_ratio_h = 1.1f,
         int binary_thres_ = 85,
         bool use_fp16_ = true,
-        bool use_throughputmode_ = false
+        bool use_throughputmode_ = false,
+        bool use_armor_detect_common = true
     );
 
     ~ArmorDetectOpenVino();
@@ -85,5 +86,5 @@ public:
     std::unique_ptr<ArmorDetectCommon> armor_detect_common_;
     bool use_fp16_ = true;
     bool use_throughputmode_ = false;
-    bool isinited_ = false;
+    bool use_armor_detect_common = true;
 };

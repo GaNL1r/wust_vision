@@ -46,6 +46,10 @@ void WustVision::stop() {
                 camera_.reset();
             }
         }
+        if (use_omni) {
+            omni_manager_->stop();
+            omni_manager_.reset();
+        }
 
         stopTimer();
         std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -53,7 +57,7 @@ void WustVision::stop() {
         armor_detector_.reset();
         rune_detector_.reset();
 #ifdef USE_NCNN
-        if (use_rune_detect_ncnn || use_armor_detect_ncnn) {
+        if (gobal::use_rune_detect_ncnn || gobal::use_armor_detect_ncnn_count > 0) {
             ncnn::destroy_gpu_instance();
         }
 #endif
@@ -84,7 +88,7 @@ void WustVision::stopTimer() {
         timer_thread_.join();
     }
 }
-void WustVision::init() {
+bool WustVision::init() {
     WUST_MAIN(vision_logger) << "WustVision init start";
     gobal::config = YAML::LoadFile("/home/hy/wust_vision/config/config_common.yaml");
 
@@ -134,9 +138,10 @@ void WustVision::init() {
 
         } else {
             camera_ = std::make_unique<HikCamera>();
-            if (!camera_->initializeCamera()) {
+            std::string target_sn = gobal::config["camera"]["target_sn"].as<std::string>();
+            if (!camera_->initializeCamera(target_sn)) {
                 WUST_ERROR(vision_logger) << "Camera initialization failed.";
-                return;
+                return false;
             }
 
             camera_->setParameters(
@@ -196,20 +201,23 @@ void WustVision::init() {
             gobal::config["common"]["use_armor_detect_opencv"].as<bool>(false);
         bool ncnn_runeinited = false;
         bool ncnn_armorinited = false;
-        use_armor_detect_ncnn = gobal::config["common"]["use_armor_detect_ncnn"].as<bool>(false);
-        use_rune_detect_ncnn = gobal::config["common"]["use_rune_detect_ncnn"].as<bool>(false);
+        bool use_armor_detect_ncnn =
+            gobal::config["common"]["use_armor_detect_ncnn"].as<bool>(false);
+        gobal::use_rune_detect_ncnn =
+            gobal::config["common"]["use_rune_detect_ncnn"].as<bool>(false);
 
 #ifdef USE_OPENVINO
     #ifdef USE_NCNN
 
         if (use_armor_detect_ncnn) {
+            gobal::use_armor_detect_ncnn_count++;
             auto ncnn_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_ncnn.yaml");
-            armor_detector_ = DetectorFactory::createArmorDetector("ncnn", ncnn_config);
+            armor_detector_ = DetectorFactory::createArmorDetector("ncnn", ncnn_config, true);
             ncnn_armorinited = true;
             WUST_MAIN(vision_logger) << "Using Armor Detector: ncnn";
         }
 
-        if (use_rune_detect_ncnn) {
+        if (gobal::use_rune_detect_ncnn) {
             rune_detect_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_ncnn.yaml");
             rune_detector_ = DetectorFactory::createRuneDetector("ncnn", rune_detect_config);
             ncnn_runeinited = true;
@@ -220,12 +228,14 @@ void WustVision::init() {
             if (use_armor_detect_opencv) {
                 auto opencv_config =
                     YAML::LoadFile("/home/hy/wust_vision/config/armor_detect_opencv.yaml");
-                armor_detector_ = DetectorFactory::createArmorDetector("opencv", opencv_config);
+                armor_detector_ =
+                    DetectorFactory::createArmorDetector("opencv", opencv_config, true);
                 WUST_MAIN(vision_logger) << "Using Armor Detector: opencv";
             } else {
                 auto openvino_config =
                     YAML::LoadFile("/home/hy/wust_vision/config/detect_openvino.yaml");
-                armor_detector_ = DetectorFactory::createArmorDetector("openvino", openvino_config);
+                armor_detector_ =
+                    DetectorFactory::createArmorDetector("openvino", openvino_config, true);
                 WUST_MAIN(vision_logger) << "Using Armor Detector: openvino";
             }
         }
@@ -239,13 +249,14 @@ void WustVision::init() {
     #ifdef USE_NCNN
 
         if (use_armor_detect_ncnn) {
+            gobal::use_armor_detect_ncnn_count++;
             auto ncnn_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_ncnn.yaml");
-            armor_detector_ = DetectorFactory::createArmorDetector("ncnn", ncnn_config);
+            armor_detector_ = DetectorFactory::createArmorDetector("ncnn", ncnn_config, true);
             ncnn_armorinited = true;
             WUST_MAIN(vision_logger) << "Using Armor Detector: ncnn";
         }
 
-        if (use_rune_detect_ncnn) {
+        if (gobal::use_rune_detect_ncnn) {
             rune_detect_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_ncnn.yaml");
             rune_detector_ = DetectorFactory::createRuneDetector("ncnn", rune_detect_config);
             ncnn_runeinited = true;
@@ -256,11 +267,13 @@ void WustVision::init() {
             if (use_armor_detect_opencv) {
                 auto opencv_config =
                     YAML::LoadFile("/home/hy/wust_vision/config/armor_detect_opencv.yaml");
-                armor_detector_ = DetectorFactory::createArmorDetector("opencv", opencv_config);
+                armor_detector_ =
+                    DetectorFactory::createArmorDetector("opencv", opencv_config, true);
                 WUST_MAIN(vision_logger) << "Using Armor Detector: opencv";
             } else {
                 auto trt_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_trt.yaml");
-                armor_detector_ = DetectorFactory::createArmorDetector("tensorrt", trt_config);
+                armor_detector_ =
+                    DetectorFactory::createArmorDetector("tensorrt", trt_config, true);
                 WUST_MAIN(vision_logger) << "Using Armor Detector: tensorrt";
             }
         }
@@ -274,17 +287,17 @@ void WustVision::init() {
         if (use_armor_detect_opencv) {
             auto opencv_config =
                 YAML::LoadFile("/home/hy/wust_vision/config/armor_detect_opencv.yaml");
-            armor_detector_ = DetectorFactory::createArmorDetector("opencv", opencv_config);
+            armor_detector_ = DetectorFactory::createArmorDetector("opencv", opencv_config, true);
             WUST_MAIN(vision_logger) << "Using Armor Detector: opencv";
         } else {
             auto ncnn_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_ncnn.yaml");
-            armor_detector_ = DetectorFactory::createArmorDetector("ncnn", ncnn_config);
+            armor_detector_ = DetectorFactory::createArmorDetector("ncnn", ncnn_config, true);
             WUST_MAIN(vision_logger) << "Using Armor Detector: ncnn";
             use_armor_detect_ncnn = true;
         }
         rune_detect_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_ncnn.yaml");
         rune_detector_ = DetectorFactory::createRuneDetector("ncnn", rune_detect_config);
-        use_rune_detect_ncnn = true;
+        gobal::use_rune_detect_ncnn = true;
 
         WUST_MAIN(vision_logger) << "Using Rune Detector: ncnn";
 
@@ -315,13 +328,18 @@ void WustVision::init() {
 
         thread_pool_ = std::make_unique<ThreadPool>(std::thread::hardware_concurrency(), 100);
         armor_solver_ = std::make_unique<ArmorSolver>(gobal::config);
-
+        use_omni = gobal::config["common"]["use_omni"].as<bool>(false);
+        if (use_omni) {
+            auto omni_config = YAML::LoadFile("/home/hy/wust_vision/config/omni_config.yaml");
+            omni_manager_ = std::make_unique<OmniManager>(omni_config);
+        }
     } else {
         WUST_MAIN(vision_logger) << "only nav mode";
     }
 
     gobal::is_inited_ = true;
     WUST_MAIN(vision_logger) << "WustVision init success";
+    return true;
 }
 void WustVision::run() {
     WUST_MAIN(vision_logger) << "WustVision run start";
@@ -338,6 +356,9 @@ void WustVision::run() {
             bool if_recorder = gobal::config["camera"]["recorder"].as<bool>(false);
 
             camera_->startCamera(if_recorder);
+        }
+        if (use_omni && omni_manager_) {
+            omni_manager_->startTimer();
         }
         startTimer();
         toolsgobal::robot_cmd_plot_thread_ = std::thread(&robotCmdLoggerThread);
@@ -470,15 +491,6 @@ void WustVision::initTF() {
 
     // 转换为旋转矩阵使用
     R_camera_gimabl << 0, 0, 1, -1, 0, 0, 0, -1, 0;
-
-    // camera_optical_frame 相对于 camera，设置 camera -> camera_optical_frame
-    // 的旋转变换
-    double yaw = M_PI / 2;
-    double roll = -M_PI / 2;
-    double pitch = 0.0;
-
-    tf::Quaternion orientation;
-    orientation.setRPY(roll, pitch, yaw);
 }
 void WustVision::initSerial() {
     SerialPortConfig cfg { /*baud*/ 115200,
@@ -669,7 +681,6 @@ void WustVision::ArmorDetectCallback(
     gobal::measure_tool_
         ->processDetectedArmors(objs, gobal::detect_color_, armors, T_camera_to_odom);
 
-    infer_running_count_--;
     if (use_auto_labeler) {
         static int save_counter = 0;
 

@@ -21,10 +21,14 @@ VideoPlayer::VideoPlayer(const std::string& video_path, int frame_rate, int star
     frame_rate_(frame_rate),
     start_frame_(start_frame),
     loop_(loop),
-    running_(false) {}
+    running_(false),
+    trigger_mode_(false) {}
 
 void VideoPlayer::setCallback(FrameCallback cb) {
     on_frame_callback_ = std::move(cb);
+}
+void VideoPlayer::enableTriggerMode(bool enable) {
+    trigger_mode_ = enable;
 }
 
 bool VideoPlayer::start() {
@@ -36,7 +40,43 @@ bool VideoPlayer::start() {
 
     cap_.set(cv::CAP_PROP_POS_FRAMES, start_frame_);
     running_ = true;
-    worker_ = std::thread(&VideoPlayer::run, this);
+
+    if (!trigger_mode_) {
+        worker_ = std::thread(&VideoPlayer::run, this);
+    }
+
+    return true;
+}
+bool VideoPlayer::read() {
+    if (!trigger_mode_ || !cap_.isOpened()) {
+        return false;
+    }
+
+    cv::Mat frame_bgr;
+    cap_ >> frame_bgr;
+
+    if (frame_bgr.empty()) {
+        if (loop_) {
+            cap_.set(cv::CAP_PROP_POS_FRAMES, start_frame_);
+            cap_ >> frame_bgr;
+            if (frame_bgr.empty())
+                return false;
+        } else {
+            return false;
+        }
+    }
+
+    ImageFrame frame;
+    frame.width = frame_bgr.cols;
+    frame.height = frame_bgr.rows;
+    frame.step = frame.width * 3;
+    frame.data.assign(frame_bgr.data, frame_bgr.data + frame.step * frame.height);
+    frame.timestamp = std::chrono::steady_clock::now();
+
+    if (on_frame_callback_) {
+        on_frame_callback_(frame);
+    }
+
     return true;
 }
 
