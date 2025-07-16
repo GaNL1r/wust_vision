@@ -10,6 +10,8 @@ common:
   use_calculation: false
   max_detect_armors: 10
   use_omni: true
+  hit_omni_dt: 5.0
+  receive_omni_dt: 1.0
 
 camera:
   target_sn: DA1094119
@@ -26,7 +28,7 @@ camera:
     loop: true
     path: /home/hy/wust_data/video/1749800971.avi
     start_frame: 500
-    use: false
+    use: true
 control:
   alpha_pitch: 0.7
   alpha_yaw: 0.5

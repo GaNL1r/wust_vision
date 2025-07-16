@@ -291,7 +291,7 @@ GimbalCmd ArmorSolver::solve(
     rpy[1] = gobal::last_pitch + gobal::gimbal2camera_pitch;
     rpy[2] = gobal::last_yaw + gobal::gimbal2camera_yaw;
 
-    int one_idx = selectBestTarget(one_targets_);
+    int one_idx = selectBestTarget(one_targets_, target.tracking);
     int target_armor_num = target.armors_num;
     // 2. 选择最佳单目标
     OneTarget best_target;
@@ -758,31 +758,46 @@ int ArmorSolver::selectBestArmor(
     int selected_id = static_cast<int>(temp_angle / (2 * M_PI / armors_num));
     return selected_id;
 }
-int ArmorSolver::selectBestTarget(const std::vector<OneTarget>& targets) const noexcept {
+int ArmorSolver::selectBestTarget(const std::vector<OneTarget>& targets, bool is_target_tracking)
+    const noexcept {
     int best_idx = -1;
     auto current_time = std::chrono::steady_clock::now();
     double min_angle_diff = std::numeric_limits<double>::max();
     const OneTarget* best_target_ptr = nullptr;
 
-    for (int i = 0; i < targets.size(); ++i) {
-        const auto& tgt = targets[i];
-        if (!tgt.tracking)
+    // Step 1: 优先选择 is_omni == false 的目标
+    for (int pass = 0; pass < 2; ++pass) {
+        bool require_omni = (pass == 1); // pass 0: 只选 false，pass 1: 选 true
+
+        // 如果目标已在跟踪中，不再考虑 is_omni == true 的目标
+        if (is_target_tracking && require_omni)
             continue;
 
-        double alpha = std::atan2(tgt.position_.y, tgt.position_.x);
-        double beta = tgt.yaw;
+        for (int i = 0; i < targets.size(); ++i) {
+            const auto& tgt = targets[i];
+            if (!tgt.tracking)
+                continue;
+            if (tgt.is_omni != require_omni)
+                continue;
 
-        Eigen::Matrix2d Ra, Rb;
-        Ra << std::cos(alpha), std::sin(alpha), -std::sin(alpha), std::cos(alpha);
-        Rb << std::cos(beta), std::sin(beta), -std::sin(beta), std::cos(beta);
+            double alpha = std::atan2(tgt.position_.y, tgt.position_.x);
+            double beta = tgt.yaw;
 
-        double decision_angle = -std::asin((Ra.transpose() * Rb)(0, 1));
+            Eigen::Matrix2d Ra, Rb;
+            Ra << std::cos(alpha), std::sin(alpha), -std::sin(alpha), std::cos(alpha);
+            Rb << std::cos(beta), std::sin(beta), -std::sin(beta), std::cos(beta);
 
-        if (std::abs(decision_angle) < min_angle_diff) {
-            min_angle_diff = std::abs(decision_angle);
-            best_idx = i;
-            best_target_ptr = &tgt;
+            double decision_angle = -std::asin((Ra.transpose() * Rb)(0, 1));
+
+            if (std::abs(decision_angle) < min_angle_diff) {
+                min_angle_diff = std::abs(decision_angle);
+                best_idx = i;
+                best_target_ptr = &tgt;
+            }
         }
+
+        if (best_target_ptr)
+            break; // 如果本轮找到合适目标，就退出
     }
 
     if (best_idx == -1 || best_target_ptr == nullptr)
@@ -830,6 +845,7 @@ int ArmorSolver::selectBestTarget(const std::vector<OneTarget>& targets) const n
     has_pending_target_ = false;
     return best_idx;
 }
+
 std::vector<Eigen::Vector3d> ArmorSolver::getArmorVelocities(
     const Eigen::Vector3d& target_center,
     const double target_yaw,

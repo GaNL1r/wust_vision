@@ -1,4 +1,5 @@
 #include "omni.hpp"
+#include "common/debug/tools.hpp"
 OmniVision::OmniVision() {
     // Constructor implementation
 }
@@ -7,6 +8,8 @@ OmniVision::~OmniVision() {}
 void OmniVision::stop() {
     is_inited_ = false;
     video_player_->stop();
+    video_player_.reset();
+    camera_.reset();
 }
 
 bool OmniVision::init(
@@ -275,12 +278,31 @@ void OmniManager::ArmorDetectCallback(
         camera_intrinsic_,
         camera_distortion_
     );
+    gobal::omni_targets = buildOneTargetsfromOmni(armors);
     cv::Mat debug_img;
     debug_img = src_img.clone();
-    cv::imshow("Debug Image", debug_img);
-    cv::waitKey(1);
+    imgframe debug_img_frame;
+    debug_img_frame.img = debug_img;
+    debug_img_frame.timestamp = timestamp;
+    drawresult(debug_img_frame, armors);
     detect_finish_count_++;
     infer_running_count_--;
+}
+std::vector<OneTarget> OmniManager::buildOneTargetsfromOmni(const Armors& armors) {
+    std::vector<OneTarget> one_targets;
+    for (const auto& armor: armors.armors) {
+        OneTarget target;
+        target.type = armor.type;
+        target.id = armor.number;
+        target.position_ = armor.target_pos;
+        target.yaw = armor.yaw;
+        target.distance_to_image_center = armor.distance_to_image_center;
+        target.timestamp = armors.timestamp;
+        target.tracking = true;
+        target.is_omni = true;
+        one_targets.push_back(target);
+    }
+    return one_targets;
 }
 void OmniManager::processImage(
     const ImageFrame& frame,

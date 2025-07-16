@@ -360,16 +360,14 @@ struct OneTarget {
     std::string type;
     bool tracking = false;
     ArmorNumber id = ArmorNumber::UNKNOWN;
-
     tf::Position position_ = tf::Position();
     tf::Position velocity_ = tf::Position();
     tf::Position acceleration_ = tf::Position();
     float yaw = 0;
     float v_yaw = 0;
     float distance_to_image_center = 0;
-    float yaw_diff;
-    float position_diff;
     int count = 0;
+    bool is_omni = false;
 
     void clear() {
         id = ArmorNumber::UNKNOWN;
@@ -380,8 +378,6 @@ struct OneTarget {
         velocity_ = tf::Position();
         yaw = 0.0;
         v_yaw = 0.0;
-        yaw_diff = 0.0;
-        position_diff = 0.0;
     }
 };
 struct imgframe {

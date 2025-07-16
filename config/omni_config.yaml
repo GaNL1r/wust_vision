@@ -94,4 +94,4 @@ omni_vision:
     tf:
       gimbal2camera_pitch: 0
       gimbal2camera_roll: 0
-      gimbal2camera_yaw: 0.5
+      gimbal2camera_yaw: 90

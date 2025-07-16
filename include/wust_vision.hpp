@@ -142,4 +142,7 @@ public:
     Eigen::Matrix4d T_r;
 
     double jump_yaw;
+    double receive_omni_dt_;
+    double hit_omni_dt_;
+    std::chrono::steady_clock::time_point last_track_target;
 };

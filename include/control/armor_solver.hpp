@@ -121,7 +121,8 @@ private:
         double v_yaw,
         size_t num
     ) const noexcept;
-    int selectBestTarget(const std::vector<OneTarget>& targets) const noexcept;
+    int
+    selectBestTarget(const std::vector<OneTarget>& targets, bool is_target_tracking) const noexcept;
 
     double small_shooting_range_w = 0.135;
     double small_shooting_range_h = 0.135;

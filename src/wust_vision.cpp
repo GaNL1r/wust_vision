@@ -330,6 +330,8 @@ bool WustVision::init() {
         armor_solver_ = std::make_unique<ArmorSolver>(gobal::config);
         use_omni = gobal::config["common"]["use_omni"].as<bool>(false);
         if (use_omni) {
+            hit_omni_dt_ = gobal::config["common"]["hit_omni_dt"].as<double>(0.1);
+            receive_omni_dt_ = gobal::config["common"]["receive_omni_dt"].as<double>(0.1);
             auto omni_config = YAML::LoadFile("/home/hy/wust_vision/config/omni_config.yaml");
             omni_manager_ = std::make_unique<OmniManager>(omni_config);
         }
@@ -951,6 +953,8 @@ void WustVision::onMouse(int event, int x, int y, int, void*) {
 void WustVision::timerCallback(double dt_ms) {
     if (!gobal::is_inited_)
         return;
+
+    auto now = std::chrono::steady_clock::now();
     timer_count_++;
 
     Target target;
@@ -959,6 +963,15 @@ void WustVision::timerCallback(double dt_ms) {
 
     std::vector<OneTarget> one_targets;
     one_targets = one_armor_targets;
+    double track_dt = std::chrono::duration<double>(now - last_track_target).count();
+    if (track_dt > hit_omni_dt_) {
+        for (const auto& omni: gobal::omni_targets) {
+            double dt = std::chrono::duration<double>(now - omni.timestamp).count();
+            if (std::abs(dt) <= receive_omni_dt_) {
+                one_targets.push_back(omni);
+            }
+        }
+    }
 
     Rune rune;
 
@@ -975,11 +988,12 @@ void WustVision::timerCallback(double dt_ms) {
         appear = true;
         state = Tracker::TRACKING;
 
+        last_track_target = now;
+
     } else {
         appear = false;
         state = Tracker::LOST;
     }
-    auto now = std::chrono::steady_clock::now();
     AttackMode mode = toAttackMode(gobal::attack_mode);
 
     GimbalCmd gimbal_cmd;

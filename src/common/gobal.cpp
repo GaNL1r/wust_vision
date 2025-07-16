@@ -32,4 +32,5 @@ std::atomic<bool> ncnn_gpu_destroyed = false;
 AttackState attack_state;
 bool use_rune_detect_ncnn = false;
 int use_armor_detect_ncnn_count = 0;
+std::vector<OneTarget> omni_targets;
 } // namespace gobal

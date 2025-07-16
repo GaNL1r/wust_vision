@@ -481,6 +481,7 @@ void TrackerManager::updateOneTrackers(
             target.tracking = false;
         }
         target.timestamp = time;
+        target.is_omni = false;
         one_targets_.push_back(target);
     }
 }

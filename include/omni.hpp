@@ -61,6 +61,7 @@ public:
         const Eigen::Matrix4d& T_camera_to_odom,
         const Eigen::Vector3d& v
     );
+    std::vector<OneTarget> buildOneTargetsfromOmni(const Armors& armors);
     void startTimer();
     void stopTimer();
     void timerCallback(double dt_ms);
