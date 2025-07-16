@@ -48,7 +48,9 @@ public:
         double gain,
         const std::string& adc_bit_depth,
         const std::string& pixel_format,
-        bool acquisitionFrameRateEnable
+        bool acquisitionFrameRateEnable,
+        bool reverse_x,
+        bool reverse_y
     );
     void startCamera(bool if_recorder);
     bool restartCamera();
@@ -71,6 +73,7 @@ private:
     std::string last_adc_bit_depth_, last_pixel_format_;
     std::string last_target_sn_;
     bool in_low_frame_rate_state_;
+    bool last_reverse_x_, last_reverse_y_;
     TriggerType trigger_type_ = TriggerType::None;
     std::string trigger_source_; // e.g. "Line0"、"Software"
     int64_t trigger_activation_; // 0=FallingEdge, 1=RisingEdge

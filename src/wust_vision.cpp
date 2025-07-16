@@ -117,6 +117,8 @@ bool WustVision::init() {
             int video_play_fps = gobal::config["camera"]["video_player"]["fps"].as<int>(30);
             int start_frame = gobal::config["camera"]["video_player"]["start_frame"].as<int>(0);
             bool loop = gobal::config["camera"]["video_player"]["loop"].as<bool>(false);
+            video_alpha = gobal::config["camera"]["video_player"]["alpha"].as<double>(1.0);
+            video_beta = gobal::config["camera"]["video_player"]["beta"].as<int>(0);
             video_player_ =
                 std::make_unique<VideoPlayer>(video_play_path, video_play_fps, start_frame, loop);
             video_player_->setCallback([this](const ImageFrame& frame) {
@@ -150,7 +152,9 @@ bool WustVision::init() {
                 gobal::config["camera"]["gain"].as<double>(),
                 gobal::config["camera"]["adc_bit_depth"].as<std::string>(),
                 gobal::config["camera"]["pixel_format"].as<std::string>(),
-                gobal::config["camera"]["acquisitionFrameRateEnable"].as<bool>()
+                gobal::config["camera"]["acquisitionFrameRateEnable"].as<bool>(),
+                gobal::config["camera"]["reverse_x"].as<bool>(false),
+                gobal::config["camera"]["reverse_y"].as<bool>(false)
             );
             camera_->setFrameCallback(
                 [this](const ImageFrame& frame, Eigen::Matrix3d R_gimbal2odom, Eigen::Vector3d v) {
@@ -1134,7 +1138,7 @@ void WustVision::timerCallback(double dt_ms) {
             if (!armors.armors.empty()) {
                 std::vector<Armor> ok_armors;
                 for (const auto& armor: armors.armors) {
-                    if (armor.is_ok && armor.number != ArmorNumber::OUTPOST) {
+                    if (armor.number != ArmorNumber::OUTPOST) {
                         ok_armors.push_back(armor);
                     }
                 }
@@ -1231,6 +1235,7 @@ void WustVision::processImage(
         img = convertToMatrgb(frame);
     } else {
         img = convertToMatbgr(frame);
+        img.convertTo(img, -1, video_alpha, video_beta);
     }
 
     // Step 1: gimbal → odom

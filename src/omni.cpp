@@ -26,6 +26,8 @@ bool OmniVision::init(
         int video_play_fps = config["camera"]["video_player"]["fps"].as<int>(30);
         int start_frame = config["camera"]["video_player"]["start_frame"].as<int>(0);
         bool loop = config["camera"]["video_player"]["loop"].as<bool>(false);
+        video_alpha = config["camera"]["video_player"]["alpha"].as<double>(1.0);
+        video_beta = config["camera"]["video_player"]["beta"].as<int>(0);
         video_player_ =
             std::make_unique<VideoPlayer>(video_play_path, video_play_fps, start_frame, loop);
         video_player_->enableTriggerMode(true);
@@ -58,7 +60,9 @@ bool OmniVision::init(
             config["camera"]["gain"].as<double>(),
             config["camera"]["adc_bit_depth"].as<std::string>(),
             config["camera"]["pixel_format"].as<std::string>(),
-            config["camera"]["acquisitionFrameRateEnable"].as<bool>()
+            config["camera"]["acquisitionFrameRateEnable"].as<bool>(),
+            config["camera"]["reverse_x"].as<bool>(false),
+            config["camera"]["reverse_y"].as<bool>(false)
         );
         camera_->enableTrigger(TriggerType::Software, "Software", 0);
         camera_->setFrameCallback(
@@ -318,6 +322,7 @@ void OmniManager::processImage(
         img = convertToMatrgb(frame);
     } else {
         img = convertToMatbgr(frame);
+        img.convertTo(img, -1, omni_visions_[v.x()]->video_alpha, omni_visions_[v.x()]->video_beta);
     }
 
     // Step 1: gimbal → odom

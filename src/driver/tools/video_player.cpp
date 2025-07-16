@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "driver/tools/video_player.hpp"
+#include "common/logger.hpp"
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -34,9 +35,10 @@ void VideoPlayer::enableTriggerMode(bool enable) {
 bool VideoPlayer::start() {
     cap_.open(path_);
     if (!cap_.isOpened()) {
-        std::cerr << "Failed to open video: " << path_ << std::endl;
+        WUST_ERROR("video") << "Failed to open video: " << path_;
         return false;
     }
+    WUST_INFO("video") << "Video opened successfully: " << path_;
 
     cap_.set(cv::CAP_PROP_POS_FRAMES, start_frame_);
     running_ = true;

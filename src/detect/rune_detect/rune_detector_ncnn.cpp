@@ -254,7 +254,8 @@ RuneDetectorNCNN::RuneDetectorNCNN(
     float nms_threshold,
     bool use_gpu,
     int cpu_threads,
-    bool use_lightmode
+    bool use_lightmode,
+    int device_id
 ):
     model_path_param_(model_path_param),
     model_path_bin_(model_path_bin),
@@ -264,18 +265,21 @@ RuneDetectorNCNN::RuneDetectorNCNN(
     use_gpu(use_gpu),
     cpu_threads(cpu_threads),
     use_lightmode(use_lightmode) {
-    init();
+    init(device_id);
 }
 RuneDetectorNCNN::~RuneDetectorNCNN() {
     net_.clear();
 }
 
-void RuneDetectorNCNN::init() {
+void RuneDetectorNCNN::init(int device_id) {
     if (use_gpu) {
         ncnn::create_gpu_instance();
         opt_.use_vulkan_compute = true;
-        net_.set_vulkan_device(0);
-        WUST_INFO("rune_ncnn") << "ncnn: use gpu";
+        ncnn::VulkanDevice* vkdev = ncnn::get_gpu_device(device_id);
+        if (vkdev) {
+            net_.set_vulkan_device(vkdev);
+        }
+        WUST_INFO("armor_ncnn") << "ncnn: use gpu";
     } else {
         opt_.use_vulkan_compute = false;
         WUST_INFO("rune_ncnn") << "ncnn: use cpu";

@@ -46,10 +46,11 @@ public:
         bool use_gpu = false,
         int cpu_threads = 1,
         bool use_lightmode = true,
-        bool use_armor_detect_common = true
+        bool use_armor_detect_common = true,
+        int device_id = 0
     );
     ~ArmorDetectNCNN();
-    void init();
+    void init(int device_id);
     bool processCallback(
         const cv::Mat resized_img,
         Eigen::Matrix3f transform_matrix,

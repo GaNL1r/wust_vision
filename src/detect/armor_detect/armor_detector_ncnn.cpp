@@ -230,7 +230,8 @@ ArmorDetectNCNN::ArmorDetectNCNN(
     bool use_gpu,
     int cpu_threads,
     bool use_lightmode,
-    bool use_armor_detect_common
+    bool use_armor_detect_common,
+    int device_id
 ):
     light_params_(l),
     armor_params_(a),
@@ -256,7 +257,7 @@ ArmorDetectNCNN::ArmorDetectNCNN(
         );
     }
 
-    init();
+    init(device_id);
 }
 ArmorDetectNCNN::~ArmorDetectNCNN() {
     net_.clear();
@@ -269,11 +270,14 @@ ArmorDetectNCNN::~ArmorDetectNCNN() {
     // }
 }
 
-void ArmorDetectNCNN::init() {
+void ArmorDetectNCNN::init(int device_id) {
     if (use_gpu) {
         ncnn::create_gpu_instance();
         opt_.use_vulkan_compute = true;
-        net_.set_vulkan_device(0);
+        ncnn::VulkanDevice* vkdev = ncnn::get_gpu_device(device_id);
+        if (vkdev) {
+            net_.set_vulkan_device(vkdev);
+        }
         WUST_INFO("armor_ncnn") << "ncnn: use gpu";
     } else {
         opt_.use_vulkan_compute = false;

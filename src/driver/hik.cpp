@@ -144,7 +144,9 @@ void HikCamera::setParameters(
     double gain,
     const std::string& adc_bit_depth,
     const std::string& pixel_format,
-    bool acquisitionFrameRateEnable
+    bool acquisitionFrameRateEnable,
+    bool reverse_x,
+    bool reverse_y
 ) {
     MVCC_FLOATVALUE f_value;
 
@@ -180,12 +182,20 @@ void HikCamera::setParameters(
     if (!acquisitionFrameRateEnable) {
         MV_CC_SetBoolValue(camera_handle_, "AcquisitionFrameRateEnable", false);
     }
+    MV_CC_SetBoolValue(camera_handle_, "ReverseX", reverse_x);
+    WUST_INFO(hik_logger) << "ReverseX set to " << reverse_x;
+
+    MV_CC_SetBoolValue(camera_handle_, "ReverseY", reverse_y);
+    WUST_INFO(hik_logger) << "ReverseY set to " << reverse_y;
     last_frame_rate_ = acquisition_frame_rate;
     last_exposure_time_ = exposure_time;
     last_gain_ = gain;
     last_adc_bit_depth_ = adc_bit_depth;
     last_pixel_format_ = pixel_format;
     last_acquisitionFrameRateEnable = acquisitionFrameRateEnable;
+    last_reverse_x_ = reverse_x;
+    last_reverse_y_ = reverse_y;
+    WUST_INFO(hik_logger) << "Camera parameters set successfully!";
 }
 
 // 启动图像采集，采集线程不断获取图像帧并推入队列
@@ -261,7 +271,9 @@ bool HikCamera::restartCamera() {
         last_gain_,
         last_adc_bit_depth_,
         last_pixel_format_,
-        last_acquisitionFrameRateEnable
+        last_acquisitionFrameRateEnable,
+        last_reverse_x_,
+        last_reverse_y_
     );
 
     int n_ret = MV_CC_StartGrabbing(camera_handle_);

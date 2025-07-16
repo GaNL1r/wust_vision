@@ -35,6 +35,8 @@ public:
 
     bool use_video = false;
     bool is_inited_ = false;
+    double video_alpha = 1.0;
+    double video_beta = 0.0;
     size_t index;
     cv::Mat camera_intrinsic_;
     cv::Mat camera_distortion_;

@@ -68,6 +68,8 @@ public:
 
     std::unique_ptr<HikCamera> camera_;
     std::unique_ptr<VideoPlayer> video_player_;
+    double video_alpha;
+    double video_beta;
     int max_infer_running_;
     std::mutex callback_mutex_;
     std::atomic<int> infer_running_count_ { 0 };

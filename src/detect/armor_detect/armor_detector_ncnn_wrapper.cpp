@@ -30,7 +30,7 @@ ArmorDetectorNCNNWrapper::ArmorDetectorNCNNWrapper(
     float conf_threshold = config["armor_detect"]["model"]["conf_threshold"].as<float>();
     int top_k = config["armor_detect"]["model"]["top_k"].as<int>();
     float nms_threshold = config["armor_detect"]["model"]["nms_threshold"].as<float>();
-
+    int device_id = config["armor_detect"]["model"]["device_id"].as<int>();
     WUST_INFO("armor_detector") << "model_path_param: " << model_path_param
                                 << "model_path_bin: " << model_path_param;
     int binary_thres;
@@ -74,7 +74,8 @@ ArmorDetectorNCNNWrapper::ArmorDetectorNCNNWrapper(
         use_gpu,
         cpu_threads,
         use_lightmode,
-        use_armor_detect_common
+        use_armor_detect_common,
+        device_id
     );
 }
 

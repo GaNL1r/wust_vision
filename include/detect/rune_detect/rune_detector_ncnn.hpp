@@ -49,11 +49,12 @@ public:
         float nms_threshold = 0.3,
         bool use_gpu = false,
         int cpu_threads = 1,
-        bool use_lightmode = true
+        bool use_lightmode = true,
+        int device_id = 0
     );
     ~RuneDetectorNCNN();
 
-    void init();
+    void init(int device_id);
 
     // Push an inference request to the detector
     void pushInput(

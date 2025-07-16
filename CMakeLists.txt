@@ -1,60 +1,47 @@
 cmake_minimum_required(VERSION 3.14)
 project(wust_vision LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# === 构建选项 ===
-option(BUILD_WITH_TRT "Build TensorRT version" ON)
-option(BUILD_WITH_OPENVINO "Build OpenVINO version" ON)
-option(BUILD_WITH_NCNN "Build NCNN version" ON)
+# C++ 标准设置
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_BUILD_TYPE "Release")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w")
-message(STATUS "BUILD_WITH_TRT: ${BUILD_WITH_TRT}")
-message(STATUS "BUILD_WITH_OPENVINO: ${BUILD_WITH_OPENVINO}")
-message(STATUS "BUILD_WITH_NCNN: ${BUILD_WITH_NCNN}")
 
+# 构建选项
+option(BUILD_WITH_TRT      "Enable TensorRT backend"   ON)
+option(BUILD_WITH_OPENVINO "Enable OpenVINO backend"   ON)
+option(BUILD_WITH_NCNN     "Enable NCNN backend"       ON)
 
-
-
+message(STATUS "Options: TRT=${BUILD_WITH_TRT}  OpenVINO=${BUILD_WITH_OPENVINO}  NCNN=${BUILD_WITH_NCNN}")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake_modules)
-set(EXTERNAL_INCLUDE_DIRS ${G2O_INCLUDE_DIR})
-set(EXTERNAL_LIBS ${G2O_LIBRARIES})
+# ----------------------------------------------------------------------------
+# 公共依赖
+# ----------------------------------------------------------------------------
+find_package(OpenCV      REQUIRED)
+find_package(Python3     REQUIRED COMPONENTS Interpreter Development)
+find_package(Eigen3      REQUIRED)
+find_package(fmt         REQUIRED)
+find_package(yaml-cpp    REQUIRED)
+find_package(G2O         REQUIRED)
+find_package(OpenGL      REQUIRED)
+find_package(Ceres       REQUIRED)
+find_package(HikSDK      REQUIRED)
 
-
-find_package(OpenCV REQUIRED)
-find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
-find_package(Eigen3 REQUIRED)
-find_package(fmt REQUIRED)
-find_package(yaml-cpp REQUIRED)
-find_package(G2O REQUIRED)
-find_package(OpenGL REQUIRED)
-find_package(Ceres REQUIRED)
-
-if(BUILD_WITH_OPENVINO)
-find_package(OpenVINO REQUIRED COMPONENTS Runtime ONNX)
+if (BUILD_WITH_OPENVINO)
+  find_package(OpenVINO REQUIRED COMPONENTS Runtime ONNX)
 endif()
-if(BUILD_WITH_TRT)
-find_package(CUDAToolkit REQUIRED)
+if (BUILD_WITH_TRT)
+  set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};/usr/local/cuda-11.8")
+  find_package(CUDAToolkit REQUIRED)
+  set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};/home/hy/TensorRT-8.5.2.2")
+  find_package(TensorRT REQUIRED)
 endif()
-if(BUILD_WITH_NCNN)
-find_package(ncnn REQUIRED) 
+if (BUILD_WITH_NCNN)
+  find_package(ncnn REQUIRED)
 endif()
 
-# === TensorRT 库路径（手动指定）===
-set(TENSORRT_INCLUDE_DIR /home/hy/TensorRT-8.5.2.2/include)
-set(TENSORRT_LIB_DIR /home/hy/TensorRT-8.5.2.2/lib)
-set(TENSORRT_LIBS
-  ${TENSORRT_LIB_DIR}/libnvinfer.so
-  ${TENSORRT_LIB_DIR}/libnvinfer_plugin.so
-  ${TENSORRT_LIB_DIR}/libnvonnxparser.so
-  ${TENSORRT_LIB_DIR}/libnvparsers.so
-)
-
-# === 公共源文件 ===
+# ----------------------------------------------------------------------------
+# 源文件列表
+# ----------------------------------------------------------------------------
 set(COMMON_SOURCES
   src/main.cpp
   src/wust_vision.cpp
@@ -93,20 +80,15 @@ set(COMMON_SOURCES
   src/tracker/math/adaptive_extended_kalman_filter.cpp
   src/tracker/math/unscented_kalman_filter.cpp
   src/omni.cpp
-  
 )
-set(NCNN_SOURCES
-  src/detect/armor_detect/armor_detector_ncnn.cpp
-  src/detect/armor_detect/armor_detector_ncnn_wrapper.cpp
-  src/detect/rune_detect/rune_detector_ncnn.cpp
-  src/detect/rune_detect/rune_detector_ncnn_wrapper.cpp
-)
+
 set(OPENVINO_SOURCES
   src/detect/armor_detect/armor_detector_openvino.cpp
   src/detect/armor_detect/armor_detector_openvino_wrapper.cpp
   src/detect/rune_detect/rune_detector_openvino.cpp
   src/detect/rune_detect/rune_detector_openvino_wrapper.cpp
 )
+
 set(TRT_SOURCES
   src/detect/armor_detect/armor_detector_trt.cpp
   src/detect/armor_detect/armor_detector_trt_wrapper.cpp
@@ -114,147 +96,93 @@ set(TRT_SOURCES
   src/detect/rune_detect/rune_detector_trt_wrapper.cpp
 )
 
-# === include 路径 ===
-include_directories(
-  ${PROJECT_SOURCE_DIR}/include
-  ${PROJECT_SOURCE_DIR}/hikSDK/include
-  ${OpenCV_INCLUDE_DIRS}
-  ${OpenVINO_INCLUDE_DIRS}
-  ${EIGEN3_INCLUDE_DIRS}
-  ${Python3_INCLUDE_DIRS}
-  ${G2O_INCLUDE_DIRS}
-  ${CERES_INCLUDE_DIRS}
-  /home/hy/TensorRT-8.5.2.2/include
-  /usr/local/cuda-11.8/include
-  ${ncnn_INCLUDE_DIRS}
-  
+set(NCNN_SOURCES
+  src/detect/armor_detect/armor_detector_ncnn.cpp
+  src/detect/armor_detect/armor_detector_ncnn_wrapper.cpp
+  src/detect/rune_detect/rune_detector_ncnn.cpp
+  src/detect/rune_detect/rune_detector_ncnn_wrapper.cpp
 )
 
-# === link 路径 ===
-link_directories(
-  ${TENSORRT_LIB_DIR}
-  /usr/local/cuda-11.8/lib64
-)
+# ----------------------------------------------------------------------------
+# 函数：创建 wust_vision 可执行目标
+# ----------------------------------------------------------------------------
+function(add_wust_target suffix srcs defs libs)
+  set(target_name "${PROJECT_NAME}_${suffix}")
+  add_executable(${target_name} ${COMMON_SOURCES} ${srcs})
 
-# === OpenVINO 版本 ===
-if(BUILD_WITH_OPENVINO)
-  set(SOURCES
-    ${COMMON_SOURCES}
+  target_include_directories(${target_name} PRIVATE
+    ${PROJECT_SOURCE_DIR}/include
+    ${OpenCV_INCLUDE_DIRS}
+    ${Python3_INCLUDE_DIRS}
+    ${EIGEN3_INCLUDE_DIRS}
+    ${G2O_INCLUDE_DIRS}
+    ${CERES_INCLUDE_DIRS}
+    ${HikSDK_INCLUDE_DIR}
+    # 可选 include
+    $<$<BOOL:${BUILD_WITH_OPENVINO}>:${OpenVINO_INCLUDE_DIRS}>
+    $<$<BOOL:${BUILD_WITH_TRT}>:${TensorRT_INCLUDE_DIR}>
+    # 如果该目标是 openvino 并启用了 NCNN
+    $<$<AND:$<BOOL:${BUILD_WITH_NCNN}>,$<STREQUAL:${suffix},openvino>>:${ncnn_INCLUDE_DIRS}>
+    # 如果该目标是 trt 并启用了 NCNN
+    $<$<AND:$<BOOL:${BUILD_WITH_NCNN}>,$<STREQUAL:${suffix},trt>>:${ncnn_INCLUDE_DIRS}>
+    # 如果该目标是 ncnn
+    $<$<AND:$<BOOL:${BUILD_WITH_NCNN}>,$<STREQUAL:${suffix},ncnn>>:${ncnn_INCLUDE_DIRS}>
   )
-  list(APPEND SOURCES ${OPENVINO_SOURCES})
 
-  if(BUILD_WITH_NCNN)
-    list(APPEND SOURCES ${NCNN_SOURCES})
-  endif()
-  add_executable(${PROJECT_NAME}_openvino ${SOURCES})
-  if(BUILD_WITH_NCNN)
-    target_compile_definitions(${PROJECT_NAME}_openvino PRIVATE USE_OPENVINO USE_NCNN)
-  else()
-    target_compile_definitions(${PROJECT_NAME}_openvino PRIVATE USE_OPENVINO)
-  endif()
-
-  if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
-    target_link_directories(${PROJECT_NAME}_openvino PUBLIC hikSDK/lib/amd64)
-  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
-    target_link_directories(${PROJECT_NAME}_openvino PUBLIC hikSDK/lib/arm64)
-  endif()
-
-  target_link_libraries(${PROJECT_NAME}_openvino
+  target_compile_options(${target_name} PRIVATE -w)
+  target_compile_definitions(${target_name} PRIVATE ${defs})
+  target_link_libraries(${target_name} PRIVATE
     ${OpenCV_LIBS}
-    openvino::runtime
-    openvino::frontend::onnx
-    ${OpenVINO_LIBRARIES}
-    ${OpenVINO_RUNTIME_LIBRARIES}
-    ${OpenVINO_ONNX_LIBRARIES}
     fmt::fmt
     yaml-cpp
     ${Python3_LIBRARIES}
     g2o_core g2o_stuff g2o_solver_csparse g2o_types_sba g2o_types_slam3d g2o_solver_dense
     ${OPENGL_gl_LIBRARY}
     ${CERES_LIBRARIES}
-    FormatConversion MediaProcess MvCameraControl MVRender MvUsb3vTL
+    ${HikSDK_LIB}
     GL
     tbb
+    ${libs}
   )
-  if(BUILD_WITH_NCNN)
-    target_link_libraries(${PROJECT_NAME}_openvino
-    ncnn
-  )
+endfunction()
+
+# ----------------------------------------------------------------------------
+# OpenVINO 变体（可选 NCNN）
+# ----------------------------------------------------------------------------
+if (BUILD_WITH_OPENVINO)
+  set(openvino_defs USE_OPENVINO)
+  set(openvino_libs openvino::runtime;openvino::frontend::onnx)
+  set(openvino_srcs ${OPENVINO_SOURCES})
+  if (BUILD_WITH_NCNN)
+    list(APPEND openvino_defs USE_NCNN)
+    list(APPEND openvino_libs ncnn)
+    list(APPEND openvino_srcs ${NCNN_SOURCES})
   endif()
+  string(JOIN ";" openvino_defs_str ${openvino_defs})
+  string(JOIN ";" openvino_libs_str ${openvino_libs})
+  add_wust_target(openvino "${openvino_srcs}" "${openvino_defs_str}" "${openvino_libs_str}")
 endif()
 
-# === TensorRT 版本 ===
-if(BUILD_WITH_TRT)
-  set(SOURCES
-    ${COMMON_SOURCES}
-  )
-  list(APPEND SOURCES ${TRT_SOURCES})
-
-  if(BUILD_WITH_NCNN)
-    list(APPEND SOURCES ${NCNN_SOURCES})
+# ----------------------------------------------------------------------------
+# TensorRT 变体（可选 NCNN）
+# ----------------------------------------------------------------------------
+if (BUILD_WITH_TRT)
+  set(trt_defs USE_TRT)
+  set(trt_libs TensorRT::TensorRT;CUDA::cudart;/home/hy/TensorRT-8.5.2.2/lib/libnvonnxparser.so)
+  set(trt_srcs ${TRT_SOURCES})
+  if (BUILD_WITH_NCNN)
+    list(APPEND trt_defs USE_NCNN)
+    list(APPEND trt_libs ncnn)
+    list(APPEND trt_srcs ${NCNN_SOURCES})
   endif()
-  add_executable(${PROJECT_NAME}_trt ${SOURCES})
-  
-  if(BUILD_WITH_NCNN)
-    target_compile_definitions(${PROJECT_NAME}_trt PRIVATE USE_TRT USE_NCNN)
-  else()
-    target_compile_definitions(${PROJECT_NAME}_trt PRIVATE USE_TRT)
-  endif()
-
-  if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
-    target_link_directories(${PROJECT_NAME}_trt PUBLIC hikSDK/lib/amd64)
-  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
-    target_link_directories(${PROJECT_NAME}_trt PUBLIC hikSDK/lib/arm64)
-  endif()
-
-  target_link_libraries(${PROJECT_NAME}_trt
-    ${OpenCV_LIBS}
-    ${TENSORRT_LIBS}
-    /usr/local/cuda-11.8/lib64/libcudart.so
-    fmt::fmt
-    yaml-cpp
-    ${Python3_LIBRARIES}
-    g2o_core g2o_stuff g2o_solver_csparse g2o_types_sba g2o_types_slam3d g2o_solver_dense
-    ${OPENGL_gl_LIBRARY}
-    ${CERES_LIBRARIES}
-    FormatConversion MediaProcess MvCameraControl MVRender MvUsb3vTL
-    GL
-    tbb 
-  )
-  if(BUILD_WITH_NCNN)
-    target_link_libraries(${PROJECT_NAME}_trt
-    ncnn
-  )
+  string(JOIN ";" trt_defs_str ${trt_defs})
+  string(JOIN ";" trt_libs_str ${trt_libs})
+  add_wust_target(trt "${trt_srcs}" "${trt_defs_str}" "${trt_libs_str}")
 endif()
-endif()
-# === NCNN only 版本 ===
-if(BUILD_WITH_NCNN)
-  set(SOURCES
-    ${COMMON_SOURCES}
-  )
-  list(APPEND SOURCES ${NCNN_SOURCES})
-  add_executable(${PROJECT_NAME}_ncnn ${SOURCES})
-  target_compile_definitions(${PROJECT_NAME}_ncnn PRIVATE USE_NCNN_ONLY USE_NCNN)
 
-
-  if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
-    target_link_directories(${PROJECT_NAME}_ncnn PUBLIC hikSDK/lib/amd64)
-  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
-    target_link_directories(${PROJECT_NAME}_ncnn PUBLIC hikSDK/lib/arm64)
-  endif()
-
-  target_link_libraries(${PROJECT_NAME}_ncnn
-    ${OpenCV_LIBS}
-    fmt::fmt
-    yaml-cpp
-    ${Python3_LIBRARIES}
-    g2o_core g2o_stuff g2o_solver_csparse g2o_types_sba g2o_types_slam3d g2o_solver_dense
-    ${OPENGL_gl_LIBRARY}
-    ${CERES_LIBRARIES}
-    FormatConversion MediaProcess MvCameraControl MVRender MvUsb3vTL
-    GL
-    tbb 
-    ncnn
-  )
-  
+# ----------------------------------------------------------------------------
+# 纯 NCNN 版本
+# ----------------------------------------------------------------------------
+if (BUILD_WITH_NCNN AND NOT BUILD_WITH_OPENVINO AND NOT BUILD_WITH_TRT)
+  add_wust_target(ncnn "${NCNN_SOURCES}" "USE_NCNN_ONLY" "ncnn")
 endif()
