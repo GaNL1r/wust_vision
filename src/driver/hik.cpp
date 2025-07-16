@@ -48,70 +48,83 @@ HikCamera::~HikCamera() {
 // 初始化相机：枚举设备、创建句柄、打开设备、获取图像信息等
 bool HikCamera::initializeCamera(const std::string& target_sn) {
     last_target_sn_ = target_sn;
-    MV_CC_DEVICE_INFO_LIST device_list = { 0 };
 
-    int n_ret = MV_CC_EnumDevices(MV_USB_DEVICE, &device_list);
-    if (n_ret != MV_OK) {
-        WUST_ERROR(hik_logger) << "MV_CC_EnumDevices failed, error code: " << n_ret;
-        return false;
-    }
-    if (device_list.nDeviceNum == 0) {
-        WUST_ERROR(hik_logger) << "No USB cameras found";
-        return false;
-    }
+    while (true) {
+        MV_CC_DEVICE_INFO_LIST device_list = { 0 };
 
-    WUST_INFO(hik_logger) << "Found " << device_list.nDeviceNum << " USB camera(s):";
-    for (unsigned int i = 0; i < device_list.nDeviceNum; ++i) {
-        auto info = device_list.pDeviceInfo[i];
-        const char* sn =
-            reinterpret_cast<const char*>(info->SpecialInfo.stUsb3VInfo.chSerialNumber);
-        WUST_INFO(hik_logger) << "  [" << i << "] SN = " << sn;
-    }
-
-    int sel = -1;
-    for (unsigned int i = 0; i < device_list.nDeviceNum; ++i) {
-        auto info = device_list.pDeviceInfo[i];
-        const char* sn =
-            reinterpret_cast<const char*>(info->SpecialInfo.stUsb3VInfo.chSerialNumber);
-        if (target_sn == sn) {
-            sel = i;
-            break;
+        int n_ret = MV_CC_EnumDevices(MV_USB_DEVICE, &device_list);
+        if (n_ret != MV_OK) {
+            WUST_ERROR(hik_logger) << "MV_CC_EnumDevices failed, error code: " << n_ret;
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            continue;
         }
-    }
-    if (sel < 0) {
-        WUST_ERROR(hik_logger) << "Camera with serial " << target_sn << " not found";
-        return false;
-    }
-    WUST_INFO(hik_logger) << "Selecting camera at index " << sel << " (SN=" << target_sn << ")";
 
-    n_ret = MV_CC_CreateHandle(&camera_handle_, device_list.pDeviceInfo[sel]);
-    if (n_ret != MV_OK) {
-        WUST_ERROR(hik_logger) << "MV_CC_CreateHandle failed: " << n_ret;
-        return false;
+        if (device_list.nDeviceNum == 0) {
+            WUST_ERROR(hik_logger) << "No USB cameras found";
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            continue;
+        }
+
+        WUST_INFO(hik_logger) << "Found " << device_list.nDeviceNum << " USB camera(s):";
+        for (unsigned int i = 0; i < device_list.nDeviceNum; ++i) {
+            auto info = device_list.pDeviceInfo[i];
+            const char* sn =
+                reinterpret_cast<const char*>(info->SpecialInfo.stUsb3VInfo.chSerialNumber);
+            WUST_INFO(hik_logger) << "  [" << i << "] SN = " << sn;
+        }
+
+        int sel = -1;
+        for (unsigned int i = 0; i < device_list.nDeviceNum; ++i) {
+            auto info = device_list.pDeviceInfo[i];
+            const char* sn =
+                reinterpret_cast<const char*>(info->SpecialInfo.stUsb3VInfo.chSerialNumber);
+            if (target_sn == sn) {
+                sel = i;
+                break;
+            }
+        }
+
+        if (sel < 0) {
+            WUST_ERROR(hik_logger) << "Camera with serial " << target_sn << " not found";
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            continue;
+        }
+
+        WUST_INFO(hik_logger) << "Selecting camera at index " << sel << " (SN=" << target_sn << ")";
+
+        n_ret = MV_CC_CreateHandle(&camera_handle_, device_list.pDeviceInfo[sel]);
+        if (n_ret != MV_OK) {
+            WUST_ERROR(hik_logger) << "MV_CC_CreateHandle failed: " << n_ret;
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            continue;
+        }
+
+        n_ret = MV_CC_OpenDevice(camera_handle_);
+        if (n_ret != MV_OK) {
+            WUST_ERROR(hik_logger) << "MV_CC_OpenDevice failed: " << n_ret;
+            MV_CC_DestroyHandle(camera_handle_);
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            continue;
+        }
+
+        n_ret = MV_CC_GetImageInfo(camera_handle_, &img_info_);
+        if (n_ret != MV_OK) {
+            WUST_ERROR(hik_logger) << "MV_CC_GetImageInfo failed: " << n_ret;
+            MV_CC_CloseDevice(camera_handle_);
+            MV_CC_DestroyHandle(camera_handle_);
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            continue;
+        }
+
+        convert_param_.nWidth = img_info_.nWidthValue;
+        convert_param_.nHeight = img_info_.nHeightValue;
+        convert_param_.enDstPixelType = PixelType_Gvsp_RGB8_Packed;
+
+        disableTrigger();
+
+        WUST_INFO(hik_logger) << "Camera initialized successfully";
+        return true;
     }
-    n_ret = MV_CC_OpenDevice(camera_handle_);
-    if (n_ret != MV_OK) {
-        WUST_ERROR(hik_logger) << "MV_CC_OpenDevice failed: " << n_ret;
-        MV_CC_DestroyHandle(camera_handle_);
-        return false;
-    }
-
-    n_ret = MV_CC_GetImageInfo(camera_handle_, &img_info_);
-    if (n_ret != MV_OK) {
-        WUST_ERROR(hik_logger) << "MV_CC_GetImageInfo failed: " << n_ret;
-        MV_CC_CloseDevice(camera_handle_);
-        MV_CC_DestroyHandle(camera_handle_);
-        return false;
-    }
-
-    convert_param_.nWidth = img_info_.nWidthValue;
-    convert_param_.nHeight = img_info_.nHeightValue;
-    convert_param_.enDstPixelType = PixelType_Gvsp_RGB8_Packed;
-
-    disableTrigger();
-
-    WUST_INFO(hik_logger) << "Camera initialized successfully";
-    return true;
 }
 
 bool HikCamera::enableTrigger(TriggerType type, const std::string& source, int64_t activation) {

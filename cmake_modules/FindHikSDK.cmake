@@ -113,3 +113,6 @@ find_package_handle_standard_args(
   HikSDK
   REQUIRED_VARS HikSDK_LIB HikSDK_INCLUDE_DIR
 )
+if (HikSDK_FOUND)
+  message(STATUS "Found HikSDK ${HikSDK_VERSION_STRING} at ${HikSDK_INCLUDE_DIR}")
+endif()
