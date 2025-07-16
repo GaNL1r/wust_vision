@@ -257,7 +257,6 @@ RuneDetectorOpenvino::RuneDetectorOpenvino(
     float conf_threshold,
     int top_k,
     float nms_threshold,
-    bool use_fp16_,
     bool use_throughputmode_
 ):
     model_path_(model_path),
@@ -265,33 +264,52 @@ RuneDetectorOpenvino::RuneDetectorOpenvino(
     conf_threshold_(conf_threshold),
     top_k_(top_k),
     nms_threshold_(nms_threshold),
-    use_fp16_(use_fp16_),
     use_throughputmode_(use_throughputmode_) {
     init();
 }
 
 void RuneDetectorOpenvino::init() {
-    if (ov_core_ == nullptr) {
+    // 1) Core／Model 读取
+    if (!ov_core_) {
         ov_core_ = std::make_unique<ov::Core>();
     }
+    // load IR
+    model_ = ov_core_->read_model(model_path_);
 
-    auto model = ov_core_->read_model(model_path_);
+    // 2) PrePostProcessor 配置
+    ov::preprocess::PrePostProcessor ppp(model_);
 
-    // Set infer type
-    ov::preprocess::PrePostProcessor ppp(model);
-    // Set input output precision
-    auto elem_type = use_fp16_ ? ov::element::f16 : ov::element::f32;
-    auto perf_mode = use_throughputmode_
-        ? ov::hint::performance_mode(ov::hint::PerformanceMode::THROUGHPUT)
-        : ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY);
-    ppp.input().tensor().set_element_type(elem_type);
-    ppp.output().tensor().set_element_type(elem_type);
+    // 告诉引擎：输入 tensor 是 u8、NHWC、BGR
+    ppp.input()
+        .tensor()
+        .set_element_type(ov::element::u8)
+        .set_layout("NHWC")
+        .set_color_format(ov::preprocess::ColorFormat::BGR);
 
-    // Compile model
-    compiled_model_ =
-        std::make_unique<ov::CompiledModel>(ov_core_->compile_model(model, device_name_, perf_mode)
-        );
+    // 预处理管线：u8→f32、BGR→RGB、除以 255
+    ppp.input()
+        .preprocess()
+        .convert_element_type(ov::element::f32)
+        .convert_color(ov::preprocess::ColorFormat::RGB)
+        .scale({ 1.0f, 1.0f, 1.0f });
 
+    // 告诉引擎：模型内部期望的布局是 NCHW
+    ppp.input().model().set_layout("NCHW");
+
+    // 输出也要 f32
+    ppp.output().tensor().set_element_type(ov::element::f32);
+
+    // 把预处理节点「贴」到模型里
+    model_ = ppp.build();
+
+    // 3) 编译模型（可以带 performance_mode hint）
+    ov::hint::PerformanceMode mode = use_throughputmode_ ? ov::hint::PerformanceMode::THROUGHPUT
+                                                         : ov::hint::PerformanceMode::LATENCY;
+    compiled_model_ = std::make_unique<ov::CompiledModel>(
+        ov_core_->compile_model(model_, device_name_, ov::hint::performance_mode(mode))
+    );
+
+    // 4) 生成 grid_strides、ThreadPool 等
     strides_ = { 8, 16, 32 };
     generateGridsAndStride(INPUT_W, INPUT_H, strides_, grid_strides_);
 }
@@ -320,20 +338,25 @@ bool RuneDetectorOpenvino::processCallback(
 ) {
     // BGR->RGB, u8(0-255)->f32(0.0-1.0), HWC->NCHW
     // note: TUP's model no need to normalize
-    cv::Mat blob = cv::dnn::blobFromImage(
-        resized_img,
-        1.,
-        cv::Size(INPUT_W, INPUT_H),
-        cv::Scalar(0, 0, 0),
-        true
-    );
+    // cv::Mat blob = cv::dnn::blobFromImage(
+    //     resized_img,
+    //     1.,
+    //     cv::Size(INPUT_W, INPUT_H),
+    //     cv::Scalar(0, 0, 0),
+    //     true
+    // );
 
-    // Feed blob into input
-    auto input_port = compiled_model_->input();
-    ov::Tensor input_tensor(
-        input_port.get_element_type(),
-        ov::Shape(std::vector<size_t> { 1, 3, INPUT_W, INPUT_H }),
-        blob.ptr(0)
+    // // Feed blob into input
+    // auto input_port = compiled_model_->input();
+    // ov::Tensor input_tensor(
+    //     input_port.get_element_type(),
+    //     ov::Shape(std::vector<size_t> { 1, 3, INPUT_W, INPUT_H }),
+    //     blob.ptr(0)
+    // );
+    ov::Tensor input_tensor = ov::Tensor(
+        compiled_model_->input().get_element_type(), // u8
+        compiled_model_->input().get_shape(), // {1, H, W, 3}
+        resized_img.data // 原始 BGR 数据
     );
 
     // Start inference

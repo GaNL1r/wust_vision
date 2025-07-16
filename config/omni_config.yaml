@@ -1,5 +1,5 @@
 common:
-  omni_num: 1
+  omni_num: 4
   total_fps: 30
   use_armor_detect_opencv: false
   use_armor_detect_ncnn: false
@@ -90,6 +90,69 @@ omni_vision:
         loop: true
         path: /home/hy/wust_data/video/1749800971.avi
         start_frame: 500
+        use: true
+    tf:
+      gimbal2camera_pitch: 0
+      gimbal2camera_roll: 0
+      gimbal2camera_yaw: 90
+  1:
+    camera:
+      target_sn: DA1094119
+      acquisition_frame_rate: 140
+      adc_bit_depth: Bits_8
+      camera_info_path: /home/hy/wust_vision/config/camera_info.yaml
+      exposure_time: 1000
+      gain: 16
+      pixel_format: BayerRG8
+      acquisitionFrameRateEnable: true
+      recorder: false
+      video_player:
+        fps: 90
+        loop: true
+        path: /home/hy/wust_data/video/1749800971.avi
+        start_frame: 0
+        use: true
+    tf:
+      gimbal2camera_pitch: 0
+      gimbal2camera_roll: 0
+      gimbal2camera_yaw: 90
+  2:
+    camera:
+      target_sn: DA1094119
+      acquisition_frame_rate: 140
+      adc_bit_depth: Bits_8
+      camera_info_path: /home/hy/wust_vision/config/camera_info.yaml
+      exposure_time: 1000
+      gain: 16
+      pixel_format: BayerRG8
+      acquisitionFrameRateEnable: true
+      recorder: false
+      video_player:
+        fps: 90
+        loop: true
+        path: /home/hy/wust_data/video/1749800971.avi
+        start_frame: 1000
+        use: true
+    tf:
+      gimbal2camera_pitch: 0
+      gimbal2camera_roll: 0
+      gimbal2camera_yaw: 90
+  3:
+    camera:
+      target_sn: DA1094119
+      acquisition_frame_rate: 140
+      adc_bit_depth: Bits_8
+      camera_info_path: /home/hy/wust_vision/config/camera_info.yaml
+      exposure_time: 1000
+      gain: 16
+      pixel_format: BayerRG8
+      acquisitionFrameRateEnable: true
+      recorder: false
+      video_player:
+        fps: 90
+        loop: true
+        path: /home/hy/wust_data/video/1749800971.avi
+        start_frame: 2000
         use: true
     tf:
       gimbal2camera_pitch: 0

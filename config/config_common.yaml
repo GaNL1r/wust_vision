@@ -1,6 +1,6 @@
 common:
   detect_color: 1
-  init_attack_mode: 0
+  init_attack_mode: 1
   max_infer_running: 7
   only_nav_enable: false
   use_armor_detect_ncnn: false
@@ -9,7 +9,7 @@ common:
   use_auto_labeler: false
   use_calculation: false
   max_detect_armors: 10
-  use_omni: true
+  use_omni: false
   hit_omni_dt: 5.0
   receive_omni_dt: 1.0
 
@@ -26,9 +26,12 @@ camera:
   video_player:
     fps: 90
     loop: true
-    path: /home/hy/wust_data/video/1749800971.avi
+    #path: /home/hy/wust_data/video/1749800971.avi
+    path: /home/hy/6.11/output.mp4
     start_frame: 500
     use: true
+
+
 control:
   alpha_pitch: 0.7
   alpha_yaw: 0.5

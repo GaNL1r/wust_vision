@@ -51,7 +51,6 @@ public:
         float conf_threshold = 0.25,
         int top_k = 128,
         float nms_threshold = 0.3,
-        bool use_fp16_ = true,
         bool use_throughputmode_ = false
     );
 
@@ -92,6 +91,7 @@ private:
     CallbackType infer_callback_;
     std::unique_ptr<ov::Core> ov_core_;
     std::unique_ptr<ov::CompiledModel> compiled_model_;
-    bool use_fp16_ = true;
+    std::shared_ptr<ov::Model> model_;
+    ov::preprocess::PrePostProcessor* ppp_;
     bool use_throughputmode_ = false;
 };

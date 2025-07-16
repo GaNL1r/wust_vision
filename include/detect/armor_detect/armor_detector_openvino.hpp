@@ -44,7 +44,6 @@ public:
         float expand_ratio_w = 1.1f,
         float expand_ratio_h = 1.1f,
         int binary_thres_ = 85,
-        bool use_fp16_ = true,
         bool use_throughputmode_ = false,
         bool use_armor_detect_common = true
     );
@@ -79,12 +78,12 @@ public:
     float nms_threshold_;
     std::unique_ptr<ov::Core> ov_core_;
     std::unique_ptr<ov::CompiledModel> compiled_model_;
+    std::shared_ptr<ov::Model> model_;
+    ov::preprocess::PrePostProcessor* ppp_;
     std::vector<int> strides_;
     std::vector<GridAndStride> grid_strides_;
-    std::unique_ptr<ThreadPool> thread_pool_;
     DetectorCallback infer_callback_;
     std::unique_ptr<ArmorDetectCommon> armor_detect_common_;
-    bool use_fp16_ = true;
     bool use_throughputmode_ = false;
     bool use_armor_detect_common = true;
 };
