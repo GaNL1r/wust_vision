@@ -224,7 +224,9 @@ void HikCamera::startCamera(bool if_recorder) {
     if (MV_CC_GetIntValue(camera_handle_, "Height", &stParam) == MV_OK) {
         expected_height_ = stParam.nCurValue;
     }
-    capture_thread_ = std::thread(&HikCamera::hikCaptureLoop, this);
+    if (trigger_type_ != TriggerType::Software) {
+        capture_thread_ = std::thread(&HikCamera::hikCaptureLoop, this);
+    }
 
     if (if_recorder) {
         const char* home = nullptr;
@@ -312,9 +314,6 @@ void HikCamera::hikCaptureLoop() {
 
     try {
         while (!stop_signal_) {
-            if (trigger_type_ == TriggerType::Software) {
-                MV_CC_SetCommandValue(camera_handle_, "TriggerSoftware");
-            }
             int n_ret = MV_CC_GetImageBuffer(camera_handle_, &out_frame, 1);
             if (n_ret == MV_OK) {
                 in_fail_state = false;
@@ -535,4 +534,40 @@ bool HikCamera::read() {
         MV_CC_FreeImageBuffer(camera_handle_, &out_frame);
         return true;
     }
+}
+ImageFrame HikCamera::readImage() {
+    if (trigger_type_ == TriggerType::None) {
+        WUST_WARN(hik_logger) << "read() called in non-trigger mode. Ignored.";
+        return ImageFrame();
+    }
+
+    if (trigger_type_ == TriggerType::Software) {
+        MV_CC_SetCommandValue(camera_handle_, "TriggerSoftware");
+    }
+
+    MV_FRAME_OUT out_frame;
+    int n_ret = MV_CC_GetImageBuffer(camera_handle_, &out_frame, 1000); // 1s timeout
+    if (n_ret != MV_OK) {
+        WUST_ERROR(hik_logger) << "Failed to get image buffer in read()";
+        return ImageFrame();
+    }
+
+    ImageFrame frame;
+    frame.width = out_frame.stFrameInfo.nWidth;
+    frame.height = out_frame.stFrameInfo.nHeight;
+    frame.step = frame.width * 3;
+    frame.data.resize(frame.width * frame.height * 3);
+
+    convert_param_.pDstBuffer = frame.data.data();
+    convert_param_.nDstBufferSize = static_cast<int>(frame.data.size());
+    convert_param_.pSrcData = out_frame.pBufAddr;
+    convert_param_.nSrcDataLen = out_frame.stFrameInfo.nFrameLen;
+    convert_param_.enSrcPixelType = out_frame.stFrameInfo.enPixelType;
+
+    MV_CC_ConvertPixelType(camera_handle_, &convert_param_);
+
+    frame.timestamp = std::chrono::steady_clock::now();
+
+    MV_CC_FreeImageBuffer(camera_handle_, &out_frame);
+    return frame;
 }

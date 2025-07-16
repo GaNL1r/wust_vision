@@ -8,6 +8,7 @@ common:
   use_rune_detect_ncnn: false
   use_auto_labeler: false
   use_calculation: false
+  use_ba: false
   max_detect_armors: 10
   use_omni: false
   hit_omni_dt: 5.0
@@ -15,10 +16,10 @@ common:
 
 camera:
   target_sn: DA1094119
-  acquisition_frame_rate: 160
+  acquisition_frame_rate: 100
   adc_bit_depth: Bits_8
   camera_info_path: /home/hy/wust_vision/config/camera_info.yaml
-  exposure_time: 2000
+  exposure_time: 3000
   gain: 16
   pixel_format: BayerRG8
   acquisitionFrameRateEnable: true
@@ -26,14 +27,14 @@ camera:
   reverse_y: false
   recorder: false
   video_player:
-    fps: 20
+    fps: 30
     loop: true
     #path: /home/hy/wust_data/video/1749800971.avi
-    path: /home/hy/wust_data/video/222.MP4
+    path: /home/hy/wust_data/video/jiao.avi
     #path: /home/hy/6.11/output.mp4
-    start_frame: 0
-    alpha: 0.8
-    beta: 0
+    start_frame: 1500
+    alpha: 1.0
+    beta: -20
     use: false
 
 control:

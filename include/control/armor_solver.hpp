@@ -64,6 +64,10 @@ public:
         int step,
         double dt
     );
+    GimbalCmd returndefaultCmd() {
+        gobal::last_cmd_.fire_advice = false;
+        return gobal::last_cmd_;
+    }
 
     // Retrieve a compensated trajectory (same API as before)
     std::vector<std::pair<double, double>> getTrajectory() const noexcept;

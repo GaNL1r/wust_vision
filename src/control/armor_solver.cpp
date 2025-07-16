@@ -301,7 +301,7 @@ GimbalCmd ArmorSolver::solve(
     bool use_single = best_target.tracking;
     //  2. 预测目标位置与朝向
 
-    if (!use_single) {
+    if (!use_single || target.tracking) {
         Eigen::Vector3d pos(target.position_.x, target.position_.y, target.position_.z);
         double yaw = target.yaw;
 
@@ -344,8 +344,13 @@ GimbalCmd ArmorSolver::solve(
         );
         int idx = selectBestArmor(armors, pos, yaw, target.v_yaw, target.armors_num);
 
-        Eigen::Vector3d chosen = armors.at(idx);
-        Eigen::Vector3d v_chosen = v_armors.at(idx);
+        if (idx < 0 || idx >= static_cast<int>(armors.size())) {
+            return returndefaultCmd();
+        }
+
+        Eigen::Vector3d chosen = armors[idx];
+
+        Eigen::Vector3d v_chosen = v_armors[idx];
         if (chosen.norm() < 0.1) {
             throw std::runtime_error("No valid armor to shoot");
         }
@@ -486,7 +491,7 @@ GimbalCmd ArmorSolver::solve(
         cmd.v_pitch = v_pitch * 180.0 / M_PI;
         cmd.select_id = idx;
         return cmd;
-    } else {
+    } else if (best_target.tracking) {
         Eigen::Vector3d pos(
             best_target.position_.x,
             best_target.position_.y,
@@ -571,6 +576,8 @@ GimbalCmd ArmorSolver::solve(
         cmd.v_pitch = v_pitch * 180.0 / M_PI;
         cmd.select_id = one_idx + target_armor_num;
         return cmd;
+    } else {
+        return returndefaultCmd();
     }
 }
 std::vector<GimbalCmd> ArmorSolver::solve_vector(
@@ -723,6 +730,8 @@ int ArmorSolver::selectBestArmor(
     const double target_v_yaw,
     const size_t armors_num
 ) const noexcept {
+    if (armor_positions.empty())
+        return -1;
     // Angle between the car's center and the X-axis
     double alpha = std::atan2(target_center.y(), target_center.x());
     // Angle between the front of observed armor and the X-axis

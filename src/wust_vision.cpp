@@ -197,6 +197,10 @@ bool WustVision::init() {
 
         gobal::measure_tool_ = std::make_unique<MonoMeasureTool>();
         armor_pose_estimator_ = std::make_unique<ArmorPoseEstimator>();
+        bool use_ba = gobal::config["common"]["use_ba"].as<bool>(false);
+        if (use_ba) {
+            armor_pose_estimator_->enableBA(true);
+        }
         initTF();
         initTracker(gobal::config["armor_tracker"]);
         gobal::detect_color_ = gobal::config["common"]["detect_color"].as<int>(0);
@@ -1012,7 +1016,8 @@ void WustVision::timerCallback(double dt_ms) {
                     auto next_time = now + interval;
                     auto next_cmd = armor_solver_->solve(target, one_targets, next_time);
                     if (std::abs(cmd.yaw - next_cmd.yaw) > jump_yaw
-                        || std::abs(cmd.yaw - last_cmd_.yaw) > jump_yaw) {
+                        || std::abs(cmd.yaw - gobal::last_cmd_.yaw) > jump_yaw)
+                    {
                         cmd.fire_advice = false;
                     }
                     gimbal_cmd = cmd;
@@ -1028,17 +1033,17 @@ void WustVision::timerCallback(double dt_ms) {
                     gimbal_cmd = armor_solver_->solve(target, one_targets, now);
                 } break;
             }
-            last_cmd_ = gimbal_cmd;
+            gobal::last_cmd_ = gimbal_cmd;
             if (gimbal_cmd.fire_advice) {
                 fire_count_++;
             }
             serial_->transformGimbalCmd(gimbal_cmd, appear);
-        } catch (...) {
-            WUST_ERROR(vision_logger) << "solver error";
-            serial_->transformGimbalCmd(last_cmd_, appear);
+        } catch (std::exception& e) {
+            WUST_ERROR(vision_logger) << "solver error: " << e.what();
+            serial_->transformGimbalCmd(gobal::last_cmd_, appear);
         }
     } else {
-        serial_->transformGimbalCmd(last_cmd_, appear);
+        serial_->transformGimbalCmd(gobal::last_cmd_, appear);
     }
 
     if (gobal::debug_mode_) {
@@ -1099,7 +1104,7 @@ void WustVision::timerCallback(double dt_ms) {
                     &target_info,
                     &target,
                     state,
-                    last_cmd_
+                    gobal::last_cmd_
                 );
             } catch (const std::exception& e) {
                 std::cerr << "draw_debug_overlaywrite failed: " << e.what() << '\n';
@@ -1115,7 +1120,7 @@ void WustVision::timerCallback(double dt_ms) {
                     rune_objects_,
                     imgframe_.timestamp,
                     predict_angle,
-                    last_cmd_,
+                    gobal::last_cmd_,
                     manual_r_box
                 );
             } catch (const std::exception& e) {
@@ -1129,8 +1134,8 @@ void WustVision::timerCallback(double dt_ms) {
         {
             std::lock_guard<std::mutex> lock(toolsgobal::robot_cmd_mutex_);
             toolsgobal::time_log_.push_back(t);
-            toolsgobal::cmd_yaw_log_.push_back(last_cmd_.yaw);
-            toolsgobal::cmd_pitch_log_.push_back(last_cmd_.pitch);
+            toolsgobal::cmd_yaw_log_.push_back(gobal::last_cmd_.yaw);
+            toolsgobal::cmd_pitch_log_.push_back(gobal::last_cmd_.pitch);
             double rune_obs = rune_solver_->last_observed_angle_;
             double rune_pre = rune_solver_->last_pre_angle;
             toolsgobal::rune_obs_log_.push_back(rune_obs);

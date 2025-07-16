@@ -336,7 +336,7 @@ void TrackerManager::updateTracker(
 
         if (tracker_->tracker_state == Tracker::DETECTING) {
             target_.tracking = false;
-
+            target_.armors_num = static_cast<int>(tracker_->tracked_armors_num);
         } else if (tracker_->tracker_state == Tracker::TRACKING || tracker_->tracker_state == Tracker::TEMP_LOST)
         {
             target_.tracking = true;

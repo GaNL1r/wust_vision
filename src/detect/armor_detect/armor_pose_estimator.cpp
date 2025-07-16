@@ -91,7 +91,7 @@ std::vector<Armor> ArmorPoseEstimator::extractArmorPoses(
             double armor_roll = rotationMatrixToRPY(R_gimbal_camera_ * R)[0] * 180 / M_PI;
             Eigen::Quaterniond q1(R);
 
-            if (std::abs(armor_roll) < 30) {
+            if (std::abs(armor_roll) < 30 && use_ba_) {
                 // Use BA alogorithm to optimize the pose from PnP
                 // solveBa() will modify the rotation_matrix
                 Eigen::Matrix3d tmp_R = R;

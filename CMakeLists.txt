@@ -5,7 +5,7 @@ project(wust_vision LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
+set(CMAKE_BUILD_TYPE "Release")
 # 构建选项
 option(BUILD_WITH_TRT      "Enable TensorRT backend"   ON)
 option(BUILD_WITH_OPENVINO "Enable OpenVINO backend"   ON)
@@ -30,7 +30,6 @@ if (BUILD_WITH_OPENVINO)
   find_package(OpenVINO REQUIRED COMPONENTS Runtime ONNX)
 endif()
 if (BUILD_WITH_TRT)
-  set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};/usr/local/cuda-11.8")
   find_package(CUDAToolkit REQUIRED)
   set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};/home/hy/TensorRT-8.5.2.2")
   find_package(TensorRT REQUIRED)
@@ -45,6 +44,7 @@ endif()
 set(COMMON_SOURCES
   src/main.cpp
   src/wust_vision.cpp
+  src/omni.cpp
   src/common/debug/tools.cpp
   src/common/gobal.cpp
   src/common/debug/toolsgobal.cpp
@@ -60,6 +60,10 @@ set(COMMON_SOURCES
   src/detect/armor_detect/light_corner_corrector.cpp
   src/detect/mono_measure_tool.cpp
   src/detect/pnp_solver.cpp
+  src/detect/armor_detect/armor_detector_opencv.cpp
+  src/detect/armor_detect/armor_detector_opencv_wrapper.cpp
+  src/detect/armor_detect/armor_detect_common.cpp
+  src/detect/armor_detect/number_classifier.cpp
   src/driver/crc8_crc16.cpp
   src/driver/hik.cpp
   src/driver/tools/labeler.cpp
@@ -73,13 +77,10 @@ set(COMMON_SOURCES
   src/tracker/one_tracker.cpp
   src/tracker/tracker.cpp
   src/tracker/tracker_manager.cpp
-  src/detect/armor_detect/armor_detector_opencv.cpp
-  src/detect/armor_detect/armor_detector_opencv_wrapper.cpp
-  src/detect/armor_detect/armor_detect_common.cpp
-  src/detect/armor_detect/number_classifier.cpp
   src/tracker/math/adaptive_extended_kalman_filter.cpp
   src/tracker/math/unscented_kalman_filter.cpp
-  src/omni.cpp
+  src/common/camera_calibrator.cpp
+  
 )
 
 set(OPENVINO_SOURCES
@@ -186,3 +187,24 @@ endif()
 if (BUILD_WITH_NCNN AND NOT BUILD_WITH_OPENVINO AND NOT BUILD_WITH_TRT)
   add_wust_target(ncnn "${NCNN_SOURCES}" "USE_NCNN_ONLY" "ncnn")
 endif()
+add_executable(camera_calibrator
+  src/camera_calibrator_main.cpp
+  src/driver/hik.cpp
+  src/common/camera_calibrator.cpp
+  src/common/gobal.cpp
+  src/driver/tools/recorder.cpp )
+target_include_directories(
+  camera_calibrator PRIVATE
+  ${HikSDK_INCLUDE_DIR}
+  ${OpenCV_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIRS}
+  ${Python3_INCLUDE_DIRS}
+  ${PROJECT_SOURCE_DIR}/include
+)
+target_link_libraries(
+  camera_calibrator PRIVATE
+  ${HikSDK_LIB}
+  ${OpenCV_LIBS}
+  ${Python3_LIBRARIES}
+  yaml-cpp
+)

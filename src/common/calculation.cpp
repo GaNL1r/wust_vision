@@ -166,9 +166,12 @@ void command_callbacka(const Armors& armors) {
 }
 
 void command_callbackypd(const Armors& armors) {
-    std::ofstream log_file("/tmp/calculation.txt", std::ios::trunc);
-    log_file << "已经收集了" << datas.size() << "个数据" << std::endl;
-    // 记录数据
+    // 第一次写入（覆盖）
+    if (datas.empty()) {
+        std::ofstream log_file("/tmp/calculation.txt", std::ios::trunc);
+        log_file << "开始收集数据..." << std::endl;
+    }
+
     datas.push_back(armors);
 
     auto current_time = std::chrono::steady_clock::now();
@@ -193,7 +196,7 @@ void command_callbackypd(const Armors& armors) {
             double v_z = (pos.z - last_z_) / delta_time;
             double v_yaw = (yaw - last_yaw_) / delta_time;
 
-            // 结合 EKF 状态维度，对过程噪声进行自适应估计
+            // 对应 EKF 的过程噪声估计
             s2qx = std::exp(-(std::abs(v_x) + 0.5 * std::abs(v_yaw))) * (s2qx_max - s2qx_min)
                 + s2qx_min;
             ex(s2qx, s2qx_min, s2qx_max);
@@ -227,15 +230,14 @@ void command_callbackypd(const Armors& armors) {
                 const auto& armor = data.armors[0];
                 double ori_yaw = orientationToYaw(armor.target_ori);
 
-                // 按测量模型，计算yaw,pitch和distance
-                double armor_x = armor.target_pos.x;
-                double armor_y = armor.target_pos.y;
-                double armor_z = armor.target_pos.z;
+                double x = armor.target_pos.x;
+                double y = armor.target_pos.y;
+                double z = armor.target_pos.z;
 
-                double xy_dist = std::sqrt(armor_x * armor_x + armor_y * armor_y);
-                double dist = std::sqrt(xy_dist * xy_dist + armor_z * armor_z);
-                double pitch = std::atan2(armor_z, xy_dist);
-                double yaw = std::atan2(armor_y, armor_x);
+                double xy_dist = std::sqrt(x * x + y * y);
+                double dist = std::sqrt(xy_dist * xy_dist + z * z);
+                double pitch = std::atan2(z, xy_dist);
+                double yaw = std::atan2(y, x);
 
                 all_yaw += yaw;
                 all_pitch += pitch;
@@ -254,20 +256,21 @@ void command_callbackypd(const Armors& armors) {
         for (const auto& data: datas) {
             if (!data.armors.empty()) {
                 const auto& armor = data.armors[0];
-                double yaw = orientationToYaw(armor.target_ori);
+                double ori_yaw = orientationToYaw(armor.target_ori);
 
-                double armor_x = armor.target_pos.x;
-                double armor_y = armor.target_pos.y;
-                double armor_z = armor.target_pos.z;
+                double x = armor.target_pos.x;
+                double y = armor.target_pos.y;
+                double z = armor.target_pos.z;
 
-                double xy_dist = std::sqrt(armor_x * armor_x + armor_y * armor_y);
-                double dist = std::sqrt(xy_dist * xy_dist + armor_z * armor_z);
-                double pitch = std::atan2(armor_z, xy_dist);
+                double xy_dist = std::sqrt(x * x + y * y);
+                double dist = std::sqrt(xy_dist * xy_dist + z * z);
+                double pitch = std::atan2(z, xy_dist);
+                double yaw = std::atan2(y, x);
 
                 var_yaw += std::pow(yaw - mean_yaw, 2);
                 var_pitch += std::pow(pitch - mean_pitch, 2);
                 var_dist += std::pow(dist - mean_dist, 2);
-                var_ori_yaw += std::pow(yaw - mean_ori_yaw, 2);
+                var_ori_yaw += std::pow(ori_yaw - mean_ori_yaw, 2);
             }
         }
 

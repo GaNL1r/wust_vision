@@ -58,6 +58,7 @@ public:
     bool enableTrigger(TriggerType type, const std::string& source, int64_t activation);
     void disableTrigger();
     bool read();
+    ImageFrame readImage();
 
 private:
     void hikCaptureLoop();

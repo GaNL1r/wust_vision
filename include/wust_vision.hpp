@@ -125,7 +125,7 @@ public:
     size_t fire_count_ = 0;
     std::chrono::steady_clock::time_point last_stat_time_steady_;
     double debug_show_dt_;
-    GimbalCmd last_cmd_;
+
     Armor last_armor_;
     double last_distance;
     double last_ypd_y;

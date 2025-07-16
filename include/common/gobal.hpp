@@ -40,5 +40,6 @@ extern enum AttackState { ATTACKONE, ATTACKWHOLECAR } attack_state;
 extern bool use_rune_detect_ncnn;
 extern int use_armor_detect_ncnn_count;
 extern std::vector<OneTarget> omni_targets;
+extern GimbalCmd last_cmd_;
 
 } // namespace gobal

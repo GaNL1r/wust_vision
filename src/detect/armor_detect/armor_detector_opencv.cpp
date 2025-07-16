@@ -49,13 +49,10 @@ ArmorDetectOpenCV::ArmorDetectOpenCV(
     binary_thres(bin_thres),
     light_params(l),
     armor_params(a),
-    // classify_model_path_(classify_model_path),
-    // classify_label_path_(classify_label_path),
     classifier_threshold_(classifier_threshold) {
     corner_corrector = std::make_unique<LightCornerCorrector>();
     number_classifier_ =
         std::make_unique<NumberClassifier>(classify_model_path, classify_label_path);
-    //initNumberClassifier();
 }
 
 std::vector<ArmorObject> ArmorDetectOpenCV::detect(const cv::Mat& input) noexcept {
@@ -64,6 +61,8 @@ std::vector<ArmorObject> ArmorDetectOpenCV::detect(const cv::Mat& input) noexcep
     cv::Mat gray_img_;
     std::vector<Light> lights_;
     cv::Mat binary_img = preprocessImage(input, gray_img_);
+    // cv::imshow("binary_img", binary_img);
+    // cv::waitKey(1);
 
     lights_ = findLights(input, binary_img);
     std::vector<ArmorObject> armors = matchLights(lights_);
