@@ -74,15 +74,8 @@ public:
     std::mutex callback_mutex_;
     std::atomic<int> infer_running_count_ { 0 };
 
-#ifdef USE_OPENVINO
-    std::string vision_logger = "openvino_vision";
-#elif defined(USE_TRT)
-    std::string vision_logger = "trt_vision";
-#elif defined(USE_NCNN_ONLY)
-    std::string vision_logger = "ncnn_vision";
-#else
-    static_assert(false, "No backend defined: USE_OPENVINO or USE_TRT");
-#endif
+    std::string vision_logger = "wust_vision";
+
     std::atomic<bool> timer_running_ { false };
     std::thread timer_thread_;
     bool use_omni = false;

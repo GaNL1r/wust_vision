@@ -57,7 +57,7 @@ void WustVision::stop() {
         armor_detector_.reset();
         rune_detector_.reset();
 #ifdef USE_NCNN
-        if (gobal::use_rune_detect_ncnn || gobal::use_armor_detect_ncnn_count > 0) {
+        if (gobal::use_detect_ncnn_count > 0) {
             ncnn::destroy_gpu_instance();
         }
 #endif
@@ -205,113 +205,78 @@ bool WustVision::init() {
         initTracker(gobal::config["armor_tracker"]);
         gobal::detect_color_ = gobal::config["common"]["detect_color"].as<int>(0);
         max_infer_running_ = gobal::config["common"]["max_infer_running"].as<int>(4);
-        bool use_armor_detect_opencv =
-            gobal::config["common"]["use_armor_detect_opencv"].as<bool>(false);
-        bool ncnn_runeinited = false;
-        bool ncnn_armorinited = false;
-        bool use_armor_detect_ncnn =
-            gobal::config["common"]["use_armor_detect_ncnn"].as<bool>(false);
-        gobal::use_rune_detect_ncnn =
-            gobal::config["common"]["use_rune_detect_ncnn"].as<bool>(false);
+        std::string armor_detect_backend =
+            gobal::config["common"]["armor_detect_backend"].as<std::string>("");
+        std::string rune_detect_backend =
+            gobal::config["common"]["rune_detect_backend"].as<std::string>("");
 
+        auto isBackendEnabled = [](const std::string& backend) -> bool {
 #ifdef USE_OPENVINO
-    #ifdef USE_NCNN
-
-        if (use_armor_detect_ncnn) {
-            gobal::use_armor_detect_ncnn_count++;
-            auto ncnn_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_ncnn.yaml");
-            armor_detector_ = DetectorFactory::createArmorDetector("ncnn", ncnn_config, true);
-            ncnn_armorinited = true;
-            WUST_MAIN(vision_logger) << "Using Armor Detector: ncnn";
-        }
-
-        if (gobal::use_rune_detect_ncnn) {
-            rune_detect_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_ncnn.yaml");
-            rune_detector_ = DetectorFactory::createRuneDetector("ncnn", rune_detect_config);
-            ncnn_runeinited = true;
-            WUST_MAIN(vision_logger) << "Using Rune Detector: ncnn";
-        }
-    #endif
-        if (!ncnn_armorinited) {
-            if (use_armor_detect_opencv) {
-                auto opencv_config =
-                    YAML::LoadFile("/home/hy/wust_vision/config/armor_detect_opencv.yaml");
-                armor_detector_ =
-                    DetectorFactory::createArmorDetector("opencv", opencv_config, true);
-                WUST_MAIN(vision_logger) << "Using Armor Detector: opencv";
-            } else {
-                auto openvino_config =
-                    YAML::LoadFile("/home/hy/wust_vision/config/detect_openvino.yaml");
-                armor_detector_ =
-                    DetectorFactory::createArmorDetector("openvino", openvino_config, true);
-                WUST_MAIN(vision_logger) << "Using Armor Detector: openvino";
-            }
-        }
-        if (!ncnn_runeinited) {
-            rune_detect_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_openvino.yaml");
-            rune_detector_ = DetectorFactory::createRuneDetector("openvino", rune_detect_config);
-            WUST_MAIN(vision_logger) << "Using Rune Detector: openvino";
-        }
-
-#elif defined(USE_TRT)
-    #ifdef USE_NCNN
-
-        if (use_armor_detect_ncnn) {
-            gobal::use_armor_detect_ncnn_count++;
-            auto ncnn_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_ncnn.yaml");
-            armor_detector_ = DetectorFactory::createArmorDetector("ncnn", ncnn_config, true);
-            ncnn_armorinited = true;
-            WUST_MAIN(vision_logger) << "Using Armor Detector: ncnn";
-        }
-
-        if (gobal::use_rune_detect_ncnn) {
-            rune_detect_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_ncnn.yaml");
-            rune_detector_ = DetectorFactory::createRuneDetector("ncnn", rune_detect_config);
-            ncnn_runeinited = true;
-            WUST_MAIN(vision_logger) << "Using Rune Detector: ncnn";
-        }
-    #endif
-        if (!ncnn_armorinited) {
-            if (use_armor_detect_opencv) {
-                auto opencv_config =
-                    YAML::LoadFile("/home/hy/wust_vision/config/armor_detect_opencv.yaml");
-                armor_detector_ =
-                    DetectorFactory::createArmorDetector("opencv", opencv_config, true);
-                WUST_MAIN(vision_logger) << "Using Armor Detector: opencv";
-            } else {
-                auto trt_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_trt.yaml");
-                armor_detector_ =
-                    DetectorFactory::createArmorDetector("tensorrt", trt_config, true);
-                WUST_MAIN(vision_logger) << "Using Armor Detector: tensorrt";
-            }
-        }
-        if (!ncnn_runeinited) {
-            rune_detect_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_trt.yaml");
-            rune_detector_ = DetectorFactory::createRuneDetector("tensorrt", rune_detect_config);
-            WUST_MAIN(vision_logger) << "Using Rune Detector: tensorrt";
-        }
-
-#elif defined(USE_NCNN_ONLY)
-        if (use_armor_detect_opencv) {
-            auto opencv_config =
-                YAML::LoadFile("/home/hy/wust_vision/config/armor_detect_opencv.yaml");
-            armor_detector_ = DetectorFactory::createArmorDetector("opencv", opencv_config, true);
-            WUST_MAIN(vision_logger) << "Using Armor Detector: opencv";
-        } else {
-            auto ncnn_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_ncnn.yaml");
-            armor_detector_ = DetectorFactory::createArmorDetector("ncnn", ncnn_config, true);
-            WUST_MAIN(vision_logger) << "Using Armor Detector: ncnn";
-            use_armor_detect_ncnn = true;
-        }
-        rune_detect_config = YAML::LoadFile("/home/hy/wust_vision/config/detect_ncnn.yaml");
-        rune_detector_ = DetectorFactory::createRuneDetector("ncnn", rune_detect_config);
-        gobal::use_rune_detect_ncnn = true;
-
-        WUST_MAIN(vision_logger) << "Using Rune Detector: ncnn";
-
-#else
-        static_assert(false, "No backend defined: USE_OPENVINO or USE_TRT");
+            if (backend == "openvino")
+                return true;
 #endif
+#ifdef USE_TRT
+            if (backend == "tensorrt")
+                return true;
+#endif
+#ifdef USE_NCNN
+            if (backend == "ncnn") {
+                gobal::use_detect_ncnn_count++;
+                return true;
+            }
+
+#endif
+#ifdef USE_ORT
+            if (backend == "onnxruntime")
+                return true;
+#endif
+            if (backend == "opencv")
+                return true;
+            return false;
+        };
+
+        auto getConfigPath = [](const std::string& backend) -> std::string {
+            if (backend == "openvino")
+                return "/home/hy/wust_vision/config/detect_openvino.yaml";
+            if (backend == "tensorrt")
+                return "/home/hy/wust_vision/config/detect_trt.yaml";
+            if (backend == "ncnn")
+                return "/home/hy/wust_vision/config/detect_ncnn.yaml";
+            if (backend == "onnxruntime")
+                return "/home/hy/wust_vision/config/detect_ort.yaml";
+            if (backend == "opencv")
+                return "/home/hy/wust_vision/config/armor_detect_opencv.yaml";
+            return "";
+        };
+
+        auto loadArmorDetectorBackend = [&](const std::string& backend) {
+            if (!isBackendEnabled(backend)) {
+                throw std::runtime_error("Backend " + backend + " is not enabled at compile time.");
+            }
+            std::string config_path = getConfigPath(backend);
+            if (config_path.empty()) {
+                throw std::runtime_error("No config path for backend: " + backend);
+            }
+            return DetectorFactory::createArmorDetector(backend, YAML::LoadFile(config_path), true);
+        };
+
+        auto loadRuneDetectorBackend = [&](const std::string& backend) {
+            if (!isBackendEnabled(backend)) {
+                throw std::runtime_error("Backend " + backend + " is not enabled at compile time.");
+            }
+            std::string config_path = getConfigPath(backend);
+            if (config_path.empty()) {
+                throw std::runtime_error("No config path for backend: " + backend);
+            }
+            rune_detect_config = YAML::LoadFile(config_path);
+            return DetectorFactory::createRuneDetector(backend, rune_detect_config);
+        };
+
+        if (armor_detect_backend.empty()) {
+            throw std::runtime_error("armor_detect_backend not set in config.");
+        }
+        armor_detector_ = loadArmorDetectorBackend(armor_detect_backend);
+        WUST_MAIN(vision_logger) << "Using Armor Detector: " << armor_detect_backend;
 
         armor_detector_->setCallback(std::bind(
             &WustVision::ArmorDetectCallback,
@@ -322,6 +287,12 @@ bool WustVision::init() {
             std::placeholders::_4,
             std::placeholders::_5
         ));
+#ifdef USE_RUNE
+        if (rune_detect_backend.empty()) {
+            throw std::runtime_error("rune_detect_backend not set in config.");
+        }
+        rune_detector_ = loadRuneDetectorBackend(rune_detect_backend);
+        WUST_MAIN(vision_logger) << "Using Rune Detector: " << rune_detect_backend;
         rune_detector_->setCallback(std::bind(
             &WustVision::RuneDetectCallback,
             this,
@@ -330,10 +301,10 @@ bool WustVision::init() {
             std::placeholders::_3,
             std::placeholders::_4
         ));
+
+#endif
+        initRune(camera_info_path); //仍然初始化rune_solver
         max_detect_armors_ = gobal::config["common"]["max_detect_armors"].as<int>(10);
-
-        initRune(camera_info_path);
-
         thread_pool_ = std::make_unique<ThreadPool>(std::thread::hardware_concurrency(), 100);
         armor_solver_ = std::make_unique<ArmorSolver>(gobal::config);
         use_omni = gobal::config["common"]["use_omni"].as<bool>(false);
@@ -378,9 +349,11 @@ void WustVision::run() {
 }
 
 void WustVision::initRune(const std::string& camera_info_path) {
+#ifdef USE_RUNE
     detect_r_tag_ = rune_detect_config["rune_detector"]["detect_r_tag"].as<bool>();
     use_manual_r = rune_detect_config["rune_detector"]["use_manual_r"].as<bool>();
     rune_binary_thresh_ = rune_detect_config["rune_detector"]["min_lightness"].as<int>();
+#endif
     auto rune_solver_params = RuneSolver::RuneSolverParams {
         .compensator_type = gobal::config["rune_solver"]["compensator_type"].as<std::string>(),
         .gravity = gobal::config["rune_solver"]["gravity"].as<double>(9.8),

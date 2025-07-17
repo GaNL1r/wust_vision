@@ -534,6 +534,7 @@ bool HikCamera::read() {
         MV_CC_FreeImageBuffer(camera_handle_, &out_frame);
         return true;
     }
+    return false;
 }
 ImageFrame HikCamera::readImage() {
     if (trigger_type_ == TriggerType::None) {

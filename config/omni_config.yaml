@@ -5,74 +5,7 @@ common:
   use_armor_detect_ncnn: false
   max_infer_running: 5
   max_detect_armors: 15
-
-armor_detect_openvino:
-  armor_detect:
-    classify:
-      label_path: /home/hy/wust_vision/model/label.txt
-      model_path: /home/hy/wust_vision/model/mlp.onnx
-      threshold: 0.7
-    model:
-      conf_threshold: 0.7
-      device_type: GPU
-      model_path: /home/hy/wust_vision/model/opt-1208-001.onnx
-      nms_threshold: 0.3
-      top_k: 128
-      use_fp16: true
-      use_throughputmode: false
-
-armor_detect_trt:
-  armor_detect:
-    classify:
-      label_path: /home/hy/wust_vision/model/label.txt
-      model_path: /home/hy/wust_vision/model/reborn_number_classifier.onnx
-      threshold: 0.7
-    model:
-      conf_threshold: 0.25
-      input_h: 416
-      input_w: 416
-      model_path: /home/hy/wust_vision/model/opt-1208-001.onnx
-      nms_threshold: 0.3
-      num_classes: 8
-      num_colors: 4
-      top_k: 128
-
-armor_detect_ncnn:
-  armor_detect:
-    classify:
-      label_path: /home/hy/wust_vision/model/label.txt
-      model_path: /home/hy/wust_vision/model/mlp.onnx
-      threshold: 0.5
-    model:
-      conf_threshold: 0.7
-      model_path_param: /home/hy/wust_vision/model/opt-1208-001.param
-      model_path_bin: /home/hy/wust_vision/model/opt-1208-001.bin
-      use_gpu: true
-      use_lightmode: true
-      device_id: 1
-      cpu_threads: 1
-      nms_threshold: 0.3
-      top_k: 128
-
-armor_detect_opencv:
-  armor_detect_opencv:
-    light:
-      binary_thres: 90
-      max_angle: 40
-      max_ratio: 0.45
-      min_ratio: 0.001
-      color_diff_thresh: 20
-    armor:
-      min_light_ratio: 0.8
-      min_small_center_distance: 0.8
-      max_small_center_distance: 3.5
-      min_large_center_distance: 3.5
-      max_large_center_distance: 8.0
-      max_angle: 30.0
-    classify:
-      label_path: /home/hy/wust_vision/model/label.txt
-      model_path: /home/hy/wust_vision/model/mlp.onnx
-      threshold: 0.5
+  armor_detect_backend: onnxruntime
 
 omni_vision:
   0:

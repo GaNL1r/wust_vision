@@ -11,16 +11,12 @@ CameraCalibrator::CameraCalibrator(
     Size boardSize,
     float squareSize,
     int requiredViews,
-    float minShift,
-    const std::string& saveDir
+    float minShift
 ):
     boardSize_(boardSize),
     squareSize_(squareSize),
     requiredViews_(requiredViews),
-    minCornerShift_(minShift),
-    saveDir_(saveDir) {
-    std::filesystem::create_directories(saveDir_);
-}
+    minCornerShift_(minShift) {}
 
 std::vector<Point3f> CameraCalibrator::generate3DPoints() const {
     std::vector<Point3f> objp;
@@ -167,7 +163,7 @@ bool CameraCalibrator::processFrame(const Mat& frame) {
     return true;
 }
 
-void CameraCalibrator::saveToFile(const std::string& filename) const {
+void CameraCalibrator::saveToFile(const std::filesystem::path& filename) const {
     if (!calibrated_) {
         std::cerr << "尚未完成标定，无法保存参数。" << std::endl;
         return;
@@ -218,7 +214,7 @@ void CameraCalibrator::saveToFile(const std::string& filename) const {
     out << YAML::Key << "projection_matrix" << YAML::Value << YAML::BeginMap;
     out << YAML::Key << "rows" << YAML::Value << 3;
     out << YAML::Key << "cols" << YAML::Value << 4;
-    out << YAML::Key << "data" << YAML::Value << YAML::Flow;
+
     std::vector<double> proj = { cameraMatrix_.at<double>(0, 0),
                                  0,
                                  cameraMatrix_.at<double>(0, 2),

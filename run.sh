@@ -12,15 +12,23 @@ blue="\033[1;34m"
 yellow="\033[1;33m"
 reset="\033[0m"
 red="\033[1;31m"
-rm /dev/shm/debug_frame.jpg  /dev/shm/cmd_log.json /dev/shm/aim_log.json /dev/shm/target_log.json
+
+rm /dev/shm/debug_frame.jpg /dev/shm/cmd_log.json /dev/shm/aim_log.json /dev/shm/target_log.json
+
+# 如果参数为 rebuild，则删除 build 文件夹
+if [ "$1" == "rebuild" ]; then
+    echo -e "${yellow}<--- Rebuilding: Removing build directory --->${reset}"
+    rm -rf build
+fi
+
 if [ ! -d "build" ]; then 
     mkdir build
 fi
 
 echo -e "${yellow}<--- Start CMake --->${reset}"
 cd build
-cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=YES ..  -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang \
-  -DCMAKE_CXX_COMPILER=clang++ \
+cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=YES .. \
+  -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_CXX_FLAGS="--gcc-toolchain=/usr"
 if [ $? -ne 0 ]; then
@@ -35,6 +43,7 @@ if [ $? -ne 0 ]; then
     echo -e "${red}\n--- Make Failed ---${reset}"
     exit 1
 fi
+
 echo -e "${yellow}\n<--- Total Lines --->${reset}"
 total=$(find .. \
     -type d \( \
@@ -58,80 +67,37 @@ total=$(find .. \
     \) -exec wc -l {} + | awk 'END{print $1}')
 echo -e "${blue}        $total${reset}"
 
-if [ "$1" == "build" ]; then
-    echo -e "${yellow}\n<--- Only building and copying both executables --->${reset}"
-    # Copy the executables to /usr/local/bin
-    sudo cp ./wust_vision_trt /usr/local/bin/
+# Only build
+if [ "$1" == "build" ] || [ "$1" == "rebuild" ]; then
+    echo -e "${yellow}\n<--- Only building and copying executable --->${reset}"
+    sudo cp ./wust_vision /usr/local/bin/
     if [ $? -ne 0 ]; then
-        echo -e "${red}\n--- Failed to copy wust_vision_trt to /usr/local/bin ---${reset}"
+        echo -e "${red}\n--- Failed to copy wust_vision to /usr/local/bin ---${reset}"
         exit 1
     fi
-    sudo cp ./wust_vision_openvino /usr/local/bin/
-    if [ $? -ne 0 ]; then
-        echo -e "${red}\n--- Failed to copy wust_vision_openvino to /usr/local/bin ---${reset}"
-        exit 1
-    fi
-    sudo cp ./wust_vision_ncnn /usr/local/bin/
-    if [ $? -ne 0 ]; then
-        echo -e "${red}\n--- Failed to copy wust_vision_ncnn to /usr/local/bin ---${reset}"
-        exit 1
-    fi
-    echo -e "${blue}\n----- Both executables copied to /usr/local/bin -----${reset}"
     exit 0
 fi
 
-sudo cp ./wust_vision_trt /usr/local/bin/
+sudo cp ./wust_vision /usr/local/bin/
 if [ $? -ne 0 ]; then
-    echo -e "${red}\n--- Failed to copy wust_vision_trt to /usr/local/bin ---${reset}"
+    echo -e "${red}\n--- Failed to copy wust_vision to /usr/local/bin ---${reset}"
     exit 1
 fi
-sudo cp ./wust_vision_openvino /usr/local/bin/
-if [ $? -ne 0 ]; then
-    echo -e "${red}\n--- Failed to copy wust_vision_openvino to /usr/local/bin ---${reset}"
-    exit 1
-fi
-sudo cp ./wust_vision_ncnn /usr/local/bin/
-if [ $? -ne 0 ]; then
-    echo -e "${red}\n--- Failed to copy wust_vision_ncnn to /usr/local/bin ---${reset}"
-    exit 1
-fi
-echo -e "${blue}\n----- Both executables copied to /usr/local/bin -----${reset}"
 
-
-
-# Check input argument to decide which program to run
-if [ "$1" == "trt" ]; then
-    echo -e "${yellow}\n<--- Running TensorRT version --->${reset}"
-    echo -e "${blue}\n-----WUST-VISION-TENSORRT-----${reset}"
-    ./wust_vision_trt
-    program_name="wust_vision_trt"
+# Run mode
+if [ "$1" == "run" ]; then
+    echo -e "${yellow}\n<--- Running WUST_VISION --->${reset}"
+    ./wust_vision
     if [ $? -ne 0 ]; then
-        echo -e "${red}\n--- TensorRT program crashed, running guard_trt.sh ---${reset}"
-        ./congig/guard_trt.sh
+        echo -e "${red}\n--- Program crashed, running guard.sh ---${reset}"
+        ./config/guard.sh
         exit 1
     fi
-elif [ "$1" == "openvino" ]; then
-    echo -e "${yellow}\n<--- Running OpenVINO version --->${reset}"
-    echo -e "${blue}\n-----WUST-VISION-OPENVINO-----${reset}"
-    ./wust_vision_openvino
-    program_name="wust_vision_openvino"
-    if [ $? -ne 0 ]; then
-        echo -e "${red}\n--- OpenVINO program crashed, running guard_openvino.sh ---${reset}"
-        ./config/guard_openvino.sh
-        exit 1
-    fi
-elif [ "$1" == "ncnn" ]; then
-    echo -e "${yellow}\n<--- Running NCNN version --->${reset}"
-    echo -e "${blue}\n-----WUST-VISION-NCNN-----${reset}"
-    ./wust_vision_ncnn
-    program_name="wust_vision_ncnn"
-    if [ $? -ne 0 ]; then
-        echo -e "${red}\n--- NCNN program crashed, running guard_ncnn.sh ---${reset}"
-        ./config/guard_ncnn.sh
-        exit 1
-    fi
+elif [ "$1" == "cal" ]; then
+    echo -e "${yellow}\n<--- Running camera_calibrator --->${reset}"
+    ./camera_calibrator
 else
-    echo -e "${red}\n--- Invalid argument: Please specify 'trt' or 'openvino' or 'ncnn' ---${reset}"
+    echo -e "${red}\n--- Invalid argument: Please specify 'run', 'build', 'cal' or 'rebuild' ---${reset}"
     exit 1
 fi
 

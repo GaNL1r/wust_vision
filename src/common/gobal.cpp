@@ -30,8 +30,7 @@ cv::Mat camera_intrinsic_;
 cv::Mat camera_distortion_;
 std::atomic<bool> ncnn_gpu_destroyed = false;
 AttackState attack_state;
-bool use_rune_detect_ncnn = false;
-int use_armor_detect_ncnn_count = 0;
+int use_detect_ncnn_count = 0;
 std::vector<OneTarget> omni_targets;
 GimbalCmd last_cmd_;
 } // namespace gobal

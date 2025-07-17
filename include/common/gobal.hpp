@@ -37,8 +37,8 @@ extern cv::Mat camera_distortion_;
 extern std::atomic<bool> ncnn_gpu_destroyed;
 
 extern enum AttackState { ATTACKONE, ATTACKWHOLECAR } attack_state;
-extern bool use_rune_detect_ncnn;
-extern int use_armor_detect_ncnn_count;
+
+extern int use_detect_ncnn_count;
 extern std::vector<OneTarget> omni_targets;
 extern GimbalCmd last_cmd_;
 

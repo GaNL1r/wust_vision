@@ -19,7 +19,7 @@ armor_detect:
     min_ratio: 0.02
   model:
     conf_threshold: 0.7
-    device_type: GPU
+    device_type: GPU.0
     model_path: /home/hy/wust_vision/model/opt-1208-001.onnx
     nms_threshold: 0.3
     top_k: 128

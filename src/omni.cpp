@@ -174,74 +174,62 @@ void OmniManager::stop() {
 void OmniManager::initdetector() {
     max_infer_running_ = config_["common"]["max_infer_running"].as<int>(10);
     max_detect_armors_ = config_["common"]["max_detect_armors"].as<int>(10);
-    bool use_armor_detect_opencv = config_["common"]["use_armor_detect_opencv"].as<bool>(false);
-    bool ncnn_runeinited = false;
-    bool ncnn_armorinited = false;
-    bool use_armor_detect_ncnn = config_["common"]["use_armor_detect_ncnn"].as<bool>(false);
+    std::string armor_detect_backend =
+        config_["common"]["armor_detect_backend"].as<std::string>("");
 
+    auto isBackendEnabled = [](const std::string& backend) -> bool {
 #ifdef USE_OPENVINO
-    #ifdef USE_NCNN
-
-    if (use_armor_detect_ncnn) {
-        gobal::use_armor_detect_ncnn_count++;
-        auto ncnn_config = config_["armor_detect_ncnn"];
-        armor_detector_ = DetectorFactory::createArmorDetector("ncnn", ncnn_config, false);
-        ncnn_armorinited = true;
-        WUST_MAIN(vision_logger) << "Using Armor Detector: ncnn";
-    }
-
-    #endif
-    if (!ncnn_armorinited) {
-        if (use_armor_detect_opencv) {
-            auto opencv_config = config_["armor_detect_opencv"];
-            armor_detector_ = DetectorFactory::createArmorDetector("opencv", opencv_config, false);
-            WUST_MAIN(vision_logger) << "Using Armor Detector: opencv";
-        } else {
-            auto openvino_config = config_["armor_detect_openvino"];
-            armor_detector_ =
-                DetectorFactory::createArmorDetector("openvino", openvino_config, false);
-            WUST_MAIN(vision_logger) << "Using Armor Detector: openvino";
-        }
-    }
-
-#elif defined(USE_TRT)
-    #ifdef USE_NCNN
-
-    if (use_armor_detect_ncnn) {
-        auto ncnn_config = config_["armor_detect_ncnn"];
-        armor_detector_ = DetectorFactory::createArmorDetector("ncnn", ncnn_config, false);
-        ncnn_armorinited = true;
-        WUST_MAIN(vision_logger) << "Using Armor Detector: ncnn";
-    }
-
-    #endif
-    if (!ncnn_armorinited) {
-        if (use_armor_detect_opencv) {
-            auto opencv_config = config_["armor_detect_opencv"];
-            armor_detector_ = DetectorFactory::createArmorDetector("opencv", opencv_config, false);
-            WUST_MAIN(vision_logger) << "Using Armor Detector: opencv";
-        } else {
-            auto trt_config = config_["armor_detect_trt"];
-            armor_detector_ = DetectorFactory::createArmorDetector("tensorrt", trt_config, false);
-            WUST_MAIN(vision_logger) << "Using Armor Detector: tensorrt";
-        }
-    }
-
-#elif defined(USE_NCNN_ONLY)
-    if (use_armor_detect_opencv) {
-        auto opencv_config = config_["armor_detect_opencv"];
-        armor_detector_ = DetectorFactory::createArmorDetector("opencv", opencv_config, false);
-        WUST_MAIN(vision_logger) << "Using Armor Detector: opencv";
-    } else {
-        auto ncnn_config = config_["armor_detect_ncnn"];
-        armor_detector_ = DetectorFactory::createArmorDetector("ncnn", ncnn_config, false);
-        WUST_MAIN(vision_logger) << "Using Armor Detector: ncnn";
-        use_armor_detect_ncnn = true;
-    }
-
-#else
-    static_assert(false, "No backend defined: USE_OPENVINO or USE_TRT");
+        if (backend == "openvino")
+            return true;
 #endif
+#ifdef USE_TRT
+        if (backend == "tensorrt")
+            return true;
+#endif
+#ifdef USE_NCNN
+        {
+            gobal::use_detect_ncnn_count++;
+            return true;
+        }
+#endif
+#ifdef USE_ORT
+        if (backend == "onnxruntime")
+            return true;
+#endif
+        if (backend == "opencv")
+            return true;
+        return false;
+    };
+
+    auto getConfigPath = [](const std::string& backend) -> std::string {
+        if (backend == "openvino")
+            return "/home/hy/wust_vision/config/detect_openvino.yaml";
+        if (backend == "tensorrt")
+            return "/home/hy/wust_vision/config/detect_trt.yaml";
+        if (backend == "ncnn")
+            return "/home/hy/wust_vision/config/detect_ncnn.yaml";
+        if (backend == "onnxruntime")
+            return "/home/hy/wust_vision/config/detect_ort.yaml";
+        if (backend == "opencv")
+            return "/home/hy/wust_vision/config/armor_detect_opencv.yaml";
+        return "";
+    };
+
+    auto loadArmorDetectorBackend = [&](const std::string& backend) {
+        if (!isBackendEnabled(backend)) {
+            throw std::runtime_error("Backend " + backend + " is not enabled at compile time.");
+        }
+        std::string config_path = getConfigPath(backend);
+        if (config_path.empty()) {
+            throw std::runtime_error("No config path for backend: " + backend);
+        }
+        return DetectorFactory::createArmorDetector(backend, YAML::LoadFile(config_path), false);
+    };
+    if (armor_detect_backend.empty()) {
+        throw std::runtime_error("armor_detect_backend not set in config.");
+    }
+    armor_detector_ = loadArmorDetectorBackend(armor_detect_backend);
+    WUST_MAIN(vision_logger) << "Using Armor Detector: " << armor_detect_backend;
 
     armor_detector_->setCallback(std::bind(
         &OmniManager::ArmorDetectCallback,

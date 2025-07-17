@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <filesystem>
 #include <opencv2/opencv.hpp>
 
 class CameraCalibrator {
@@ -8,8 +9,7 @@ public:
         cv::Size boardSize = { 9, 6 },
         float squareSize = 25.f,
         int requiredViews = 15,
-        float minShift = 20.f,
-        const std::string& saveDir = "./calib_imgs"
+        float minShift = 20.f
     );
 
     // 传入每帧图像，内部自动采集、显示和监听按键
@@ -19,14 +19,13 @@ public:
     bool isCalibrated() const {
         return calibrated_;
     }
-    void saveToFile(const std::string& filename) const;
+    void saveToFile(const std::filesystem::path& filename) const;
 
 private:
     cv::Size boardSize_;
     float squareSize_;
     int requiredViews_;
     float minCornerShift_;
-    std::string saveDir_;
     bool calibrated_ = false;
 
     std::vector<std::vector<cv::Point3f>> objectPoints_;

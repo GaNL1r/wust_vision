@@ -158,12 +158,18 @@ inline AttackMode toAttackMode(int value) {
     switch (value) {
         case 0:
             return AttackMode::ARMOR;
+#ifdef USE_RUNE
         case 1:
             return AttackMode::SMALL_RUNE;
         case 2:
             return AttackMode::BIG_RUNE;
+#endif
         default:
+#ifndef USE_RUNE
+            return AttackMode::ARMOR;
+#else
             return AttackMode::UNKNOWN;
+#endif
     }
 }
 

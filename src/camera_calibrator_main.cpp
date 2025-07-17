@@ -1,11 +1,19 @@
 #include "common/camera_calibrator.hpp"
 #include "driver/hik.hpp"
 #include "yaml-cpp/yaml.h"
-CameraCalibrator calibrator;
-HikCamera camera;
+#include <pwd.h>
+
 int main() {
-    calibrator = CameraCalibrator(cv::Size(9, 6), 25.0f, 15, 20.0f, "./calib_imgs");
-    auto config = YAML::LoadFile("/home/hy/wust_vision/config/config_common.yaml");
+    CameraCalibrator calibrator;
+    HikCamera camera;
+    auto config = YAML::LoadFile("/home/hy/wust_vision/config/camera_calibrator.yaml");
+    int size_w = config["calibrator"]["size_w"].as<int>();
+    int size_h = config["calibrator"]["size_h"].as<int>();
+    float square_size = config["calibrator"]["square_size"].as<float>();
+    int requiredViews = config["calibrator"]["requiredviews"].as<int>();
+    float minShift = config["calibrator"]["minshift"].as<float>();
+    calibrator = CameraCalibrator(cv::Size(size_w, size_h), square_size, requiredViews, minShift);
+
     std::string target_sn = config["camera"]["target_sn"].as<std::string>();
     if (!camera.initializeCamera(target_sn)) {
         WUST_ERROR("vision_logger") << "Camera initialization failed.";
@@ -24,6 +32,35 @@ int main() {
     );
     camera.enableTrigger(TriggerType::Software, "Software", 0);
     camera.startCamera(false);
+    const char* home = nullptr;
+
+    // 尝试从 SUDO_USER 获取真实用户 home
+    const char* sudo_user = std::getenv("SUDO_USER");
+    if (sudo_user) {
+        struct passwd* pw = getpwnam(sudo_user);
+        if (pw) {
+            home = pw->pw_dir;
+        }
+    }
+
+    // 如果不是 sudo，使用 getuid 获取 home
+    if (!home) {
+        struct passwd* pw = getpwuid(getuid());
+        if (pw) {
+            home = pw->pw_dir;
+        }
+    }
+
+    if (!home) {
+        throw std::runtime_error("HOME environment variable not set.");
+    }
+
+    namespace fs = std::filesystem;
+    std::filesystem::path save_path_ = fs::path(home) / "wust_data/calibrator/"
+        / std::string(std::to_string(std::time(nullptr)) + ".yaml");
+    if (!std::filesystem::exists(save_path_)) {
+        std::filesystem::create_directories(save_path_.parent_path());
+    }
     while (true) {
         ImageFrame frame = camera.readImage();
         if (frame.data.empty()) {
@@ -40,6 +77,6 @@ int main() {
             << std::chrono::duration_cast<std::chrono::milliseconds>(end - now).count() << "ms";
     }
     if (calibrator.isCalibrated()) {
-        calibrator.saveToFile("camera_intrinsic.yaml");
+        calibrator.saveToFile(save_path_);
     }
 }

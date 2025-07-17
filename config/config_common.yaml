@@ -1,11 +1,10 @@
 common:
-  detect_color: 0
+  armor_detect_backend: onnxruntime
+  rune_detect_backend: onnxruntime
+  detect_color: 1
   init_attack_mode: 0
   max_infer_running: 7
   only_nav_enable: false
-  use_armor_detect_ncnn: false
-  use_armor_detect_opencv: false
-  use_rune_detect_ncnn: false
   use_auto_labeler: false
   use_calculation: false
   use_ba: false
@@ -27,15 +26,15 @@ camera:
   reverse_y: false
   recorder: false
   video_player:
-    fps: 30
+    fps: 90
     loop: true
     #path: /home/hy/wust_data/video/1749800971.avi
     path: /home/hy/wust_data/video/jiao.avi
     #path: /home/hy/6.11/output.mp4
     start_frame: 1500
     alpha: 1.0
-    beta: -20
-    use: false
+    beta: 0
+    use: true
 
 control:
   alpha_pitch: 0.7
