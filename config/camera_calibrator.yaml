@@ -13,6 +13,6 @@ camera:
 calibrator:
   size_w: 9
   size_h: 6
-  square_size: 10  #mm
+  square_size: 10 #mm
   requiredviews: 10
   minshift: 5

@@ -20,11 +20,10 @@ armor_detect:
   model:
     conf_threshold: 0.7
     use_gpu: true
-    device_id: 1
+    device_id: 0
     model_path: /home/hy/wust_vision/model/opt-1208-001.onnx
     nms_threshold: 0.3
     top_k: 128
-
 
 rune_detector:
   confidence_threshold: 0.5
@@ -36,4 +35,3 @@ rune_detector:
   device_id: 1
   nms_threshold: 0.3
   top_k: 128
-
