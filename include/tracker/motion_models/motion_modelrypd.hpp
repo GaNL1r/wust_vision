@@ -16,7 +16,7 @@
 
 #include <ceres/ceres.h>
 
-#include "tracker/math/extended_kalman_filter.hpp"
+#include "KalmanHyLib/kalman_hybird_lib.hpp"
 
 namespace ypdrune_motion_model {
 
@@ -45,5 +45,5 @@ struct Measure {
     }
 };
 
-using RuneCenterEKF = ExtendedKalmanFilter<X_N, Z_N, Predict, Measure>;
+using RuneCenterEKF = kalman_hybird_lib::ExtendedKalmanFilter<X_N, Z_N, Predict, Measure>;
 } // namespace ypdrune_motion_model

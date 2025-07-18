@@ -1,4 +1,5 @@
 #include "common/camera_calibrator.hpp"
+#include "common/logger.hpp"
 #include "driver/hik.hpp"
 #include "yaml-cpp/yaml.h"
 #include <pwd.h>

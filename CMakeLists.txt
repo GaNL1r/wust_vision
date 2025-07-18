@@ -5,7 +5,7 @@ project(wust_vision LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_BUILD_TYPE "Debug")
+set(CMAKE_BUILD_TYPE "Release")
 
 option(BUILD_WITH_RUNE     "Enable RUNE"               ON)
 option(BUILD_WITH_TRT      "Enable TensorRT backend"   ON)
@@ -44,6 +44,7 @@ if(BUILD_WITH_ORT)
   find_package(Ort REQUIRED)
 endif()
 
+add_subdirectory(KalmanHyLib)
 # 公共源码
 set(COMMON_SOURCES
   src/main.cpp
@@ -74,15 +75,11 @@ set(COMMON_SOURCES
   src/driver/tools/recorder.cpp
   src/driver/serial.cpp
   src/driver/tools/video_player.cpp
-  src/tracker/math/curve_fitter.cpp
-  src/tracker/math/extended_kalman_filter.cpp
-  src/tracker/math/error_state_extended_kalman_filter.cpp
+  src/tracker/curve_fitter.cpp
   src/tracker/one_ca_tracker.cpp
   src/tracker/one_tracker.cpp
   src/tracker/tracker.cpp
   src/tracker/tracker_manager.cpp
-  src/tracker/math/adaptive_extended_kalman_filter.cpp
-  src/tracker/math/unscented_kalman_filter.cpp
   src/common/camera_calibrator.cpp
 )
 
@@ -157,6 +154,7 @@ set(BUILD_LIBS
   ${HikSDK_LIB}
   GL
   tbb
+  KalmanHyLib
 )
 if(BUILD_WITH_OPENVINO)
   list(APPEND BUILD_LIBS openvino::runtime openvino::frontend::onnx)

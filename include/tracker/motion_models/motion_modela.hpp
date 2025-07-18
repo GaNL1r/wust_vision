@@ -16,7 +16,7 @@
 // ceres
 #include <ceres/ceres.h>
 // project
-#include "tracker/math/extended_kalman_filter.hpp"
+#include "KalmanHyLib/kalman_hybird_lib.hpp"
 namespace armor_motion_model {
 
 enum class MotionModel {
@@ -76,5 +76,5 @@ struct Measure {
     }
 };
 
-using RobotStateEKF = ExtendedKalmanFilter<X_N, Z_N, Predict, Measure>;
+using RobotStateEKF = kalman_hybird_lib::ExtendedKalmanFilter<X_N, Z_N, Predict, Measure>;
 } // namespace armor_motion_model

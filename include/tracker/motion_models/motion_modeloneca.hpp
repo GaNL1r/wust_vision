@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #pragma once
-#include "tracker/math/extended_kalman_filter.hpp"
+#include "KalmanHyLib/kalman_hybird_lib.hpp"
 #include <ceres/ceres.h>
 
 namespace onecaarmor_motion_model {
@@ -69,6 +69,6 @@ struct Measure {
 };
 
 /// EKF 类型定义
-using RobotStateEKF = ExtendedKalmanFilter<X_N, Z_N, Predict, Measure>;
+using RobotStateEKF = kalman_hybird_lib::ExtendedKalmanFilter<X_N, Z_N, Predict, Measure>;
 
 } // namespace onecaarmor_motion_model

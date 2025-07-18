@@ -27,12 +27,12 @@
 
 // project
 
+#include "KalmanHyLib/kalman_hybird_lib.hpp"
 #include "common/logger.hpp"
 #include "control/manual_compensator.hpp"
 #include "control/trajectory_compensator.hpp"
 #include "detect/pnp_solver.hpp"
-#include "tracker/math/curve_fitter.hpp"
-#include "tracker/math/extended_kalman_filter.hpp"
+#include "tracker/curve_fitter.hpp"
 #include "tracker/motion_models/motion_modelr.hpp"
 #include "tracker/motion_models/motion_modelrypd.hpp"
 #include "type/type.hpp"

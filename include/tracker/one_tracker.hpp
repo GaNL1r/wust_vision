@@ -22,7 +22,6 @@
 #include <vector>
 
 // project
-#include "tracker/math/extended_kalman_filter.hpp"
 #include "tracker/motion_models/acc_model.hpp"
 #include "tracker/motion_models/motion_modelonea.hpp"
 #include "tracker/motion_models/motion_modeloneypd.hpp"

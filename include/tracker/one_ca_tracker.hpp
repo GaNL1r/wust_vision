@@ -23,7 +23,6 @@
 #include <vector>
 
 // project
-#include "tracker/math/extended_kalman_filter.hpp"
 #include "tracker/motion_models/motion_modeloneca.hpp"
 #include "type/type.hpp"
 

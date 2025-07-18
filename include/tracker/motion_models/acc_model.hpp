@@ -3,8 +3,7 @@
 // ceres
 #include <ceres/ceres.h>
 // project
-#include "tracker/math/error_state_extended_kalman_filter.hpp"
-#include "tracker/math/extended_kalman_filter.hpp"
+#include "KalmanHyLib/kalman_hybird_lib.hpp"
 
 namespace acc_model {
 
@@ -43,6 +42,6 @@ struct Measure {
     }
 };
 
-using VelocityAccelEKF = ExtendedKalmanFilter<X_N, Z_N, Predict, Measure>;
+using VelocityAccelEKF = kalman_hybird_lib::ExtendedKalmanFilter<X_N, Z_N, Predict, Measure>;
 
 } // namespace acc_model
