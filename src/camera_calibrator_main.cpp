@@ -25,6 +25,7 @@ int main() {
         config["camera"]["acquisition_frame_rate"].as<int>(),
         config["camera"]["exposure_time"].as<int>(),
         config["camera"]["gain"].as<double>(),
+        config["camera"]["gamma"].as<double>(),
         config["camera"]["adc_bit_depth"].as<std::string>(),
         config["camera"]["pixel_format"].as<std::string>(),
         config["camera"]["acquisitionFrameRateEnable"].as<bool>(),

@@ -150,6 +150,7 @@ bool WustVision::init() {
                 gobal::config["camera"]["acquisition_frame_rate"].as<int>(),
                 gobal::config["camera"]["exposure_time"].as<int>(),
                 gobal::config["camera"]["gain"].as<double>(),
+                gobal::config["camera"]["gamma"].as<double>(),
                 gobal::config["camera"]["adc_bit_depth"].as<std::string>(),
                 gobal::config["camera"]["pixel_format"].as<std::string>(),
                 gobal::config["camera"]["acquisitionFrameRateEnable"].as<bool>(),

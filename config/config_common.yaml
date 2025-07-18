@@ -15,12 +15,13 @@ common:
 
 camera:
   target_sn: DA1094119
-  acquisition_frame_rate: 100
+  acquisition_frame_rate: 200
   adc_bit_depth: Bits_8
   camera_info_path: /home/hy/wust_vision/config/camera_info.yaml
-  exposure_time: 3000
-  gain: 16
-  pixel_format: BayerRG8
+  exposure_time: 1000
+  gain: 16.9
+  gamma: 0.7
+  pixel_format: BayerRG8 #RGB8Packed 
   acquisitionFrameRateEnable: true
   reverse_x: false
   reverse_y: false
@@ -32,9 +33,9 @@ camera:
     path: /home/hy/wust_data/video/1.avi
     #path: /home/hy/6.11/output.mp4
     start_frame: 1500
-    alpha: 1.0
+    alpha: 1.5
     beta: 0
-    use: true
+    use: false
 
 control:
   alpha_pitch: 0.7
@@ -105,7 +106,7 @@ armor_solver:
 armor_tracker:
   ekf:
     use_esekf: false
-    fusion_esekf_ekf: true
+    fusion_esekf_ekf: false
     iteration_num: 2
     oyr_d_front: 0.0002 #1m处
     oyr_d_side: 0.0007 #1m处

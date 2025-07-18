@@ -15,6 +15,7 @@
 #include "common/gobal.hpp"
 #include "common/logger.hpp"
 #include <Eigen/Dense>
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <iostream>
@@ -155,6 +156,7 @@ void HikCamera::setParameters(
     double acquisition_frame_rate,
     double exposure_time,
     double gain,
+    double gamma,
     const std::string& adc_bit_depth,
     const std::string& pixel_format,
     bool acquisitionFrameRateEnable,
@@ -162,6 +164,21 @@ void HikCamera::setParameters(
     bool reverse_y
 ) {
     MVCC_FLOATVALUE f_value;
+    // 设置像素格式
+    int status = MV_CC_SetEnumValueByString(camera_handle_, "PixelFormat", pixel_format.c_str());
+    if (status == MV_OK) {
+        WUST_INFO(hik_logger) << "Pixel Format set to " << pixel_format;
+    } else {
+        WUST_ERROR(hik_logger) << "Failed to set Pixel Format, status = " << status;
+    }
+
+    // 设置 ADC 位深
+    status = MV_CC_SetEnumValueByString(camera_handle_, "ADCBitDepth", adc_bit_depth.c_str());
+    if (status == MV_OK) {
+        WUST_INFO(hik_logger) << "ADC Bit Depth set to " << adc_bit_depth;
+    } else {
+        WUST_ERROR(hik_logger) << "Failed to set ADC Bit Depth, status = " << status;
+    }
 
     // 设置采集帧率
     MV_CC_SetBoolValue(camera_handle_, "AcquisitionFrameRateEnable", true);
@@ -173,25 +190,32 @@ void HikCamera::setParameters(
     WUST_INFO(hik_logger) << "Exposure time: " << exposure_time;
 
     // 设置增益
-    MV_CC_GetFloatValue(camera_handle_, "Gain", &f_value);
-    MV_CC_SetFloatValue(camera_handle_, "Gain", gain);
-    WUST_INFO(hik_logger) << "Gain: " << gain;
-
-    // 设置 ADC 位深
-    int status = MV_CC_SetEnumValueByString(camera_handle_, "ADCBitDepth", adc_bit_depth.c_str());
-    if (status == MV_OK) {
-        WUST_INFO(hik_logger) << "ADC Bit Depth set to " << adc_bit_depth;
+    if (int ret = MV_CC_GetFloatValue(camera_handle_, "Gain", &f_value); ret == MV_OK) {
+        double clamped =
+            std::clamp(gain, static_cast<double>(f_value.fMin), static_cast<double>(f_value.fMax));
+        MV_CC_SetFloatValue(camera_handle_, "Gain", clamped);
+        WUST_INFO(hik_logger) << "Gain: " << clamped;
     } else {
-        WUST_ERROR(hik_logger) << "Failed to set ADC Bit Depth, status = " << status;
+        WUST_ERROR(hik_logger) << "Failed to set Gain, status = " << ret;
     }
 
-    // 设置像素格式
-    status = MV_CC_SetEnumValueByString(camera_handle_, "PixelFormat", pixel_format.c_str());
-    if (status == MV_OK) {
-        WUST_INFO(hik_logger) << "Pixel Format set to " << pixel_format;
+    int ret = MV_CC_SetBoolValue(camera_handle_, "GammaEnable", true);
+
+    if (ret == MV_OK) {
+        WUST_INFO(hik_logger) << "Set GammaEnable success";
     } else {
-        WUST_ERROR(hik_logger) << "Failed to set Pixel Format, status = " << status;
+        WUST_ERROR(hik_logger) << "Failed to set GammaEnable, status = " << ret;
     }
+    // 设置gamma
+    if (int ret = MV_CC_GetFloatValue(camera_handle_, "Gamma", &f_value); ret == MV_OK) {
+        double clamped =
+            std::clamp(gamma, static_cast<double>(f_value.fMin), static_cast<double>(f_value.fMax));
+        MV_CC_SetFloatValue(camera_handle_, "Gamma", clamped);
+        WUST_INFO(hik_logger) << "Set Gamma to " << clamped;
+    } else {
+        WUST_ERROR(hik_logger) << "Failed to set Gamma, status = " << ret;
+    }
+
     if (!acquisitionFrameRateEnable) {
         MV_CC_SetBoolValue(camera_handle_, "AcquisitionFrameRateEnable", false);
     }
@@ -203,6 +227,7 @@ void HikCamera::setParameters(
     last_frame_rate_ = acquisition_frame_rate;
     last_exposure_time_ = exposure_time;
     last_gain_ = gain;
+    last_gamma_ = gamma;
     last_adc_bit_depth_ = adc_bit_depth;
     last_pixel_format_ = pixel_format;
     last_acquisitionFrameRateEnable = acquisitionFrameRateEnable;
@@ -284,6 +309,7 @@ bool HikCamera::restartCamera() {
         last_frame_rate_,
         last_exposure_time_,
         last_gain_,
+        last_gamma_,
         last_adc_bit_depth_,
         last_pixel_format_,
         last_acquisitionFrameRateEnable,
