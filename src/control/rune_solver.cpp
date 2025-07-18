@@ -291,7 +291,7 @@ GimbalCmd RuneSolver::solveGimbalCmd(const Eigen::Vector3d& target) {
             std::chrono::microseconds(static_cast<int64_t>(std::round(gobal::communication_delay_μs)
             ));
         auto t_query = std::chrono::steady_clock::now() - delay;
-        auto past_att = gobal::attitude_buffer.get_interpolated(t_query);
+        auto past_att = gobal::motion_buffer.get_interpolated(t_query);
         if (past_att) {
             double delay_yaw = past_att->yaw;
             double delay_pitch = past_att->pitch;

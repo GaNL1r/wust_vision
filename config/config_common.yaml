@@ -1,5 +1,5 @@
 common:
-  armor_detect_backend: tensorrt
+  armor_detect_backend: openvino
   rune_detect_backend: tensorrt
   detect_color: 0
   init_attack_mode: 0
@@ -20,7 +20,7 @@ camera:
   camera_info_path: /home/hy/wust_vision/config/camera_info.yaml
   exposure_time: 1000
   gain: 16.9
-  gamma: 0.7
+  gamma: 0.7 #Bayer用不了
   pixel_format: BayerRG8 #RGB8Packed 
   acquisitionFrameRateEnable: true
   reverse_x: false
@@ -58,14 +58,14 @@ tf:
   gimbal2camera_z: 0.0
 
 debug:
-  debug_mode: true
+  debug_mode: false
   debug_h: 1080
   debug_w: 1440
   debug_show_dt: 0.01
   debug_fps: 60
 
 logger:
-  log_level: INFO
+  log_level: DEBUG
   log_path: /home/hy/wust_log
   use_logcli: true
   use_logfile: true

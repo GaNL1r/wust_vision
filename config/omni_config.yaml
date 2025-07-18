@@ -16,6 +16,7 @@ omni_vision:
       camera_info_path: /home/hy/wust_vision/config/camera_info.yaml
       exposure_time: 1000
       gain: 16
+      gamma: 0.7 #Bayer用不了
       pixel_format: BayerRG8
       acquisitionFrameRateEnable: true
       reverse_x: false
@@ -41,6 +42,7 @@ omni_vision:
       camera_info_path: /home/hy/wust_vision/config/camera_info.yaml
       exposure_time: 1000
       gain: 16
+      gamma: 0.7 #Bayer用不了
       pixel_format: BayerRG8
       acquisitionFrameRateEnable: true
       reverse_x: false
@@ -66,6 +68,7 @@ omni_vision:
       camera_info_path: /home/hy/wust_vision/config/camera_info.yaml
       exposure_time: 1000
       gain: 16
+      gamma: 0.7 #Bayer用不了
       pixel_format: BayerRG8
       acquisitionFrameRateEnable: true
       reverse_x: false
@@ -91,6 +94,7 @@ omni_vision:
       camera_info_path: /home/hy/wust_vision/config/camera_info.yaml
       exposure_time: 1000
       gain: 16
+      gamma: 0.7 #Bayer用不了
       pixel_format: BayerRG8
       acquisitionFrameRateEnable: true
       reverse_x: false

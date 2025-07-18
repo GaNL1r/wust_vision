@@ -368,7 +368,7 @@ void HikCamera::hikCaptureLoop() {
                             std::round((last_exposure_time_ / 2.0) - gobal::communication_delay_μs)
                         ));
                     auto t_query = std::chrono::steady_clock::now() - delay;
-                    auto past_att = gobal::attitude_buffer.get_interpolated(t_query);
+                    auto past_att = gobal::motion_buffer.get_interpolated(t_query);
                     if (past_att) {
                         double yaw = past_att->yaw;
                         double pitch = past_att->pitch;
@@ -412,7 +412,7 @@ void HikCamera::hikCaptureLoop() {
                 }
 
                 MV_CC_FreeImageBuffer(camera_handle_, &out_frame);
-                continue;
+
                 if (std::chrono::duration_cast<std::chrono::seconds>(
                         current_time - last_frame_rate_check
                     )
@@ -522,7 +522,7 @@ bool HikCamera::read() {
             std::round((last_exposure_time_ / 2.0) - gobal::communication_delay_μs)
         ));
         auto t_query = std::chrono::steady_clock::now() - delay;
-        auto past_att = gobal::attitude_buffer.get_interpolated(t_query);
+        auto past_att = gobal::motion_buffer.get_interpolated(t_query);
         if (past_att) {
             double yaw = past_att->yaw;
             double pitch = past_att->pitch;
