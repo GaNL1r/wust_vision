@@ -49,6 +49,7 @@ public:
         const Eigen::Matrix3d& R_gimbal2odom,
         const Eigen::Vector3d& v
     );
+    void initDetector();
     void initTF();
     void initSerial();
     void initTracker(const YAML::Node& config);
@@ -63,6 +64,20 @@ public:
     static void onMouse(int event, int x, int y, int, void* userdata);
     Armors
     visualizeTargetProjection(Target armor_target_, std::vector<OneTarget> one_armor_targets_);
+    GimbalCmd solveByMode(
+        AttackMode mode,
+        const Target& target,
+        const std::vector<OneTarget>& one_targets,
+        const std::chrono::steady_clock::time_point& now
+    );
+    void visualizeAndLog(
+        AttackMode mode,
+        const Target& target,
+        const std::vector<OneTarget>& one_targets,
+        const GimbalCmd& gimbal_cmd,
+        Tracker::State state,
+        const std::chrono::steady_clock::time_point& now
+    );
 
     std::unique_ptr<ThreadPool> thread_pool_;
 
@@ -107,7 +122,7 @@ public:
     std::vector<RuneObject> rune_objects_;
     Eigen::Vector3d t_gimbal_to_camera;
     Eigen::Matrix4d T_camera_to_odom_;
-    Eigen::Matrix3d R_camera_gimabl;
+    Eigen::Matrix3d R_camera2gimbal;
 
     int timer_count_ = 0;
     std::mutex timer_mtx_;

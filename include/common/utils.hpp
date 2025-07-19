@@ -195,4 +195,30 @@ inline double clamp_pm_pi(auto&& angle) {
 inline double ratio(const auto& point) {
     return atan2(point.y, point.x);
 }
+inline bool checkTargetAppear(const Target& target, const std::vector<OneTarget>& one_targets) {
+    if (target.tracking)
+        return true;
+    return std::any_of(one_targets.begin(), one_targets.end(), [](const OneTarget& t) {
+        return t.tracking;
+    });
+}
+inline Eigen::Matrix4d computeCameraToOdomTransform(
+    const Eigen::Matrix3d& R_gimbal2odom,
+    const Eigen::Matrix3d& R_camera_to_gimbal,
+    const Eigen::Vector3d& t_gimbal_to_camera
+) {
+    Eigen::Matrix4d T_gimbal_to_odom = Eigen::Matrix4d::Identity();
+    T_gimbal_to_odom.block<3, 3>(0, 0) = R_gimbal2odom;
+
+    Eigen::Vector3d t_camera_to_gimbal = -R_camera_to_gimbal * t_gimbal_to_camera;
+
+    Eigen::Matrix4d T_camera_to_gimbal = Eigen::Matrix4d::Identity();
+    T_camera_to_gimbal.block<3, 3>(0, 0) = R_camera_to_gimbal;
+    T_camera_to_gimbal.block<3, 1>(0, 3) = t_camera_to_gimbal;
+
+    Eigen::Matrix4d T_camera_to_odom = T_gimbal_to_odom * T_camera_to_gimbal;
+
+    return T_camera_to_odom;
+}
+
 } // namespace utils

@@ -1,5 +1,5 @@
 common:
-  armor_detect_backend: openvino
+  armor_detect_backend: tensorrt
   rune_detect_backend: tensorrt
   detect_color: 0
   init_attack_mode: 0
@@ -21,7 +21,7 @@ camera:
   exposure_time: 1000
   gain: 16.9
   gamma: 0.7 #Bayer用不了
-  pixel_format: BayerRG8 #RGB8Packed 
+  pixel_format: BayerRG8 #RGB8Packed
   acquisitionFrameRateEnable: true
   reverse_x: false
   reverse_y: false
@@ -35,7 +35,7 @@ camera:
     start_frame: 1500
     alpha: 1.5
     beta: 0
-    use: true
+    use: false
 
 control:
   alpha_pitch: 0.7
@@ -58,14 +58,14 @@ tf:
   gimbal2camera_z: 0.0
 
 debug:
-  debug_mode: false
+  debug_mode: true
   debug_h: 1080
   debug_w: 1440
   debug_show_dt: 0.01
-  debug_fps: 60
+  debug_fps: 30
 
 logger:
-  log_level: DEBUG
+  log_level: INFO
   log_path: /home/hy/wust_log
   use_logcli: true
   use_logfile: true
@@ -106,7 +106,7 @@ armor_solver:
 armor_tracker:
   ekf:
     use_esekf: false
-    fusion_esekf_ekf: false
+    fusion_esekf_ekf: true
     iteration_num: 2
     oyr_d_front: 0.0002 #1m处
     oyr_d_side: 0.0007 #1m处

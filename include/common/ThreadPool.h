@@ -20,6 +20,7 @@
 #include <future>
 #include <iostream>
 #include <mutex>
+#include <optional>
 #include <queue>
 #include <stop_token>
 #include <thread>
@@ -47,12 +48,10 @@ public:
     /// Construct thread pool with configurable parameters
     explicit ThreadPool(
         size_t num_threads, ///< Number of worker threads
-        size_t max_pending_tasks = 100, ///< Initial max queue capacity
-        int max_task_duration_ms = 100 ///< Timeout duration per task (ms)
+        size_t max_pending_tasks = 100 ///< Initial max queue capacity
     ):
         stop_(false),
-        max_pending_tasks_(max_pending_tasks),
-        max_task_duration_ms_(max_task_duration_ms) {
+        max_pending_tasks_(max_pending_tasks) {
         // Create worker threads
         for (size_t i = 0; i < num_threads; ++i) {
             workers_.emplace_back([this](std::stop_token st) { workerThread(st); });
@@ -73,7 +72,7 @@ public:
 
     /// Enqueue a task with optional priority
     template<class F>
-    std::future<void> enqueue(F&& f, bool high_priority = false) {
+    std::future<void> enqueue(F&& f, int timeout_ms = -1, bool high_priority = false) {
         // Create promise-future pair for task result
         auto prom = std::make_shared<std::promise<void>>();
         std::future<void> fut = prom->get_future();
@@ -105,7 +104,7 @@ public:
                 std::cerr << "[ThreadPool] Warning: Dropped oldest pending task\n";
             }
             // Add task to priority queue
-            tasks_.push(TaskItem { std::move(wrapped), high_priority, std::move(src) });
+            tasks_.push(TaskItem { std::move(wrapped), high_priority, std::move(src), timeout_ms });
         }
 
         cond_var_.notify_one(); // Wake one worker
@@ -130,6 +129,7 @@ private:
         std::function<void(std::stop_token)> func; ///< Wrapped task function
         bool high_priority; ///< Priority flag
         std::stop_source stop_src; ///< Task-specific stop source
+        int timeout_ms = 0;
 
         /// Priority comparison (high priority first)
         bool operator<(TaskItem const& o) const {
@@ -155,21 +155,22 @@ private:
                 tasks_.pop();
                 ++busy_workers_; // Update busy counter
             }
-
-            // Start timeout timer for this task
-            std::jthread timer([&, ms = max_task_duration_ms_](std::stop_token st) {
-                if (!st.stop_requested())
-                    std::this_thread::sleep_for(std::chrono::milliseconds(ms));
-                // Request task stop if timeout reached
-                if (!st.stop_requested())
-                    item.stop_src.request_stop();
-            });
+            std::optional<std::jthread> timer;
+            if (item.timeout_ms > 0) {
+                timer.emplace([&, ms = item.timeout_ms](std::stop_token st) {
+                    if (!st.stop_requested())
+                        std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+                    if (!st.stop_requested())
+                        item.stop_src.request_stop();
+                });
+            }
 
             // Execute task with its dedicated stop_token
             item.func(item.stop_src.get_token());
 
             // Stop timeout timer
-            timer.request_stop();
+            if (timer)
+                timer->request_stop();
 
             {
                 std::unique_lock lock(mutex_);
@@ -213,6 +214,5 @@ private:
     std::atomic<size_t> busy_workers_ { 0 }; ///< Count of active workers
     std::atomic<bool> stop_ { false }; ///< Global stop flag
     size_t max_pending_tasks_; ///< Current queue capacity
-    int max_task_duration_ms_; ///< Task timeout (ms)
     std::jthread controller_; ///< Control thread
 };

@@ -90,6 +90,7 @@ if [ "$1" == "run" ]; then
     ./wust_vision
     if [ $? -ne 0 ]; then
         echo -e "${red}\n--- Program crashed, running guard.sh ---${reset}"
+        cd ..
         ./config/guard.sh
         exit 1
     fi

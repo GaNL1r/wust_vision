@@ -1,5 +1,6 @@
 #include "omni.hpp"
 #include "common/debug/tools.hpp"
+#include "common/utils.hpp"
 OmniVision::OmniVision() {
     // Constructor implementation
 }
@@ -130,9 +131,12 @@ OmniManager::OmniManager(const YAML::Node& config) {
         static bool first_is_inited = false;
 
         if (gobal::is_inited_) {
-            thread_pool_->enqueue([frame = std::move(frame), R_gimbal2odom, v, this]() {
-                processImage(frame, R_gimbal2odom, v);
-            });
+            thread_pool_->enqueue(
+                [frame = std::move(frame), R_gimbal2odom, v, this]() {
+                    processImage(frame, R_gimbal2odom, v);
+                },
+                -1
+            );
         } else {
             return;
         }
@@ -313,23 +317,14 @@ void OmniManager::processImage(
         img = convertToMatbgr(frame);
         img.convertTo(img, -1, omni_visions_[v.x()]->video_alpha, omni_visions_[v.x()]->video_beta);
     }
-
-    // Step 1: gimbal → odom
-    Eigen::Matrix4d T_gimbal_to_odom = Eigen::Matrix4d::Identity();
-    T_gimbal_to_odom.block<3, 3>(0, 0) = R_gimbal2odom;
-
-    // Step 2: camera → gimbal （取 R 的转置）
     Eigen::Matrix3d R_camera_to_gimbal;
     R_camera_to_gimbal << 0, 0, 1, -1, 0, 0, 0, -1, 0;
-    Eigen::Vector3d t_gimbal_to_camera(0, 0, 0); // 假设相机在云台中心
-    Eigen::Vector3d t_camera_to_gimbal = -R_camera_to_gimbal * t_gimbal_to_camera;
 
-    Eigen::Matrix4d T_camera_to_gimbal = Eigen::Matrix4d::Identity();
-    T_camera_to_gimbal.block<3, 3>(0, 0) = R_camera_to_gimbal;
-    T_camera_to_gimbal.block<3, 1>(0, 3) = t_camera_to_gimbal;
-
-    // Step 3: camera → odom
-    Eigen::Matrix4d T_camera_to_odom = T_gimbal_to_odom * T_camera_to_gimbal;
+    Eigen::Matrix4d T_camera_to_odom = utils::computeCameraToOdomTransform(
+        R_gimbal2odom,
+        R_camera_to_gimbal,
+        Eigen::Vector3d(0, 0, 0)
+    );
 
     infer_running_count_++;
     armor_detector_->pushInput(img, frame.timestamp, T_camera_to_odom, v);
