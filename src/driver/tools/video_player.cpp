@@ -95,11 +95,15 @@ VideoPlayer::~VideoPlayer() {
 }
 
 void VideoPlayer::run() {
-    const int wait_ms = static_cast<int>(1000.0 / frame_rate_);
+    using namespace std::chrono;
+    const auto frame_interval = duration<double>(1.0 / frame_rate_);
 
     while (running_) {
+        const auto start_time = steady_clock::now();
+
         cv::Mat frame_bgr;
         cap_ >> frame_bgr;
+
         if (frame_bgr.empty()) {
             if (loop_) {
                 cap_.set(cv::CAP_PROP_POS_FRAMES, start_frame_);
@@ -114,12 +118,18 @@ void VideoPlayer::run() {
         frame.height = frame_bgr.rows;
         frame.step = frame.width * 3;
         frame.data.assign(frame_bgr.data, frame_bgr.data + frame.step * frame.height);
-        frame.timestamp = std::chrono::steady_clock::now();
+        frame.timestamp = steady_clock::now();
 
         if (on_frame_callback_) {
             on_frame_callback_(frame);
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(wait_ms));
+        const auto end_time = steady_clock::now();
+        auto elapsed = end_time - start_time;
+
+        if (elapsed < frame_interval) {
+            std::this_thread::sleep_for(frame_interval - elapsed);
+        } else {
+        }
     }
 }

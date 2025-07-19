@@ -130,12 +130,14 @@ bool WustVision::init() {
                         * Eigen::AngleAxisd(gobal::last_pitch, Eigen::Vector3d::UnitY())
                         * Eigen::AngleAxisd(gobal::last_roll, Eigen::Vector3d::UnitX());
                     Eigen::Vector3d v(gobal::last_v_x, gobal::last_v_y, gobal::last_v_z);
+                    ;
                     thread_pool_->enqueue(
                         [frame = std::move(frame), R_gimbal2odom, v, this]() {
                             processImage(frame, R_gimbal2odom, v);
                         },
                         -1
                     );
+
                 } else {
                     return;
                 }
@@ -171,6 +173,7 @@ bool WustVision::init() {
                             },
                             -1
                         );
+
                     } else {
                         return;
                     }
@@ -207,6 +210,8 @@ bool WustVision::init() {
         bool use_ba = gobal::config["common"]["use_ba"].as<bool>(false);
         if (use_ba) {
             armor_pose_estimator_->enableBA(true);
+        } else {
+            armor_pose_estimator_->enableBA(false);
         }
         initTF();
         initTracker(gobal::config["armor_tracker"]);
@@ -577,9 +582,14 @@ Armors WustVision::visualizeTargetProjection(
         float xc = armor_target_.position_.x, yc = armor_target_.position_.y,
               zc = armor_target_.position_.z;
         double d_za = armor_target_.d_za, d_zc = armor_target_.d_zc;
-        xc = xc + armor_target_.velocity_.x * debug_show_dt_;
-        yc = yc + armor_target_.velocity_.y * debug_show_dt_;
-        zc = zc + armor_target_.velocity_.z * debug_show_dt_;
+        double vx = armor_target_.velocity_.x, vy = armor_target_.velocity_.y,
+               vz = armor_target_.velocity_.z;
+        vx = vx + armor_target_.acceleration_.x * debug_show_dt_;
+        vy = vy + armor_target_.acceleration_.y * debug_show_dt_;
+        vz = vz + armor_target_.acceleration_.z * debug_show_dt_;
+        xc = xc + vx * debug_show_dt_;
+        yc = yc + vy * debug_show_dt_;
+        zc = zc + vz * debug_show_dt_;
         yaw = yaw + armor_target_.v_yaw * debug_show_dt_;
 
         bool is_current_pair = true;
@@ -625,9 +635,16 @@ Armors WustVision::visualizeTargetProjection(
     for (auto one_armor_target_: one_armor_targets_) {
         if (one_armor_target_.tracking) {
             tf::Position pos;
-            pos.x = one_armor_target_.position_.x + one_armor_target_.velocity_.x * debug_show_dt_;
-            pos.y = one_armor_target_.position_.y + one_armor_target_.velocity_.y * debug_show_dt_;
-            pos.z = one_armor_target_.position_.z + one_armor_target_.velocity_.z * debug_show_dt_;
+            tf::Position vol;
+            vol.x =
+                one_armor_target_.velocity_.x + one_armor_target_.acceleration_.x * debug_show_dt_;
+            vol.y =
+                one_armor_target_.velocity_.y + one_armor_target_.acceleration_.y * debug_show_dt_;
+            vol.z =
+                one_armor_target_.velocity_.z + one_armor_target_.acceleration_.z * debug_show_dt_;
+            pos.x = one_armor_target_.position_.x + vol.x * debug_show_dt_;
+            pos.y = one_armor_target_.position_.y + vol.y * debug_show_dt_;
+            pos.z = one_armor_target_.position_.z + vol.z * debug_show_dt_;
             double tmp_yaw = one_armor_target_.yaw + one_armor_target_.v_yaw * debug_show_dt_;
             tf::Quaternion ori;
             ori.setRPY(

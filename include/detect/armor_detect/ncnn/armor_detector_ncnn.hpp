@@ -70,8 +70,6 @@ public:
         const Eigen::Vector3d& v
     );
 
-    std::unique_ptr<LightCornerCorrector> corner_corrector;
-
 private:
     ncnn::Net net_;
     ncnn::Option opt_;

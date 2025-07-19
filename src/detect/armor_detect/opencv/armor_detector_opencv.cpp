@@ -18,7 +18,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "detect/armor_detect/armor_detector_opencv.hpp"
+#include "detect/armor_detect/opencv/armor_detector_opencv.hpp"
 // std
 #include <algorithm>
 #include <cmath>
@@ -61,8 +61,6 @@ std::vector<ArmorObject> ArmorDetectOpenCV::detect(const cv::Mat& input) noexcep
     cv::Mat gray_img_;
     std::vector<Light> lights_;
     cv::Mat binary_img = preprocessImage(input, gray_img_);
-    // cv::imshow("binary_img", binary_img);
-    // cv::waitKey(1);
 
     lights_ = findLights(input, binary_img);
     std::vector<ArmorObject> armors = matchLights(lights_);

@@ -36,7 +36,7 @@
     #include "detect/armor_detect/onnxruntime/armor_detector_ort_wrapper.hpp"
     #include "detect/rune_detect/onnxruntime/rune_detector_ort_wrapper.hpp"
 #endif
-#include "detect/armor_detect/armor_detector_opencv_wrapper.hpp"
+#include "detect/armor_detect/opencv/armor_detector_opencv_wrapper.hpp"
 class DetectorFactory {
 public:
     static std::unique_ptr<ArmorDetectorBase> createArmorDetector(

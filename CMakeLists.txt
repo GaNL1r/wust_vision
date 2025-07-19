@@ -65,8 +65,8 @@ set(COMMON_SOURCES
   src/detect/armor_detect/light_corner_corrector.cpp
   src/detect/mono_measure_tool.cpp
   src/detect/pnp_solver.cpp
-  src/detect/armor_detect/armor_detector_opencv.cpp
-  src/detect/armor_detect/armor_detector_opencv_wrapper.cpp
+  src/detect/armor_detect/opencv/armor_detector_opencv.cpp
+  src/detect/armor_detect/opencv/armor_detector_opencv_wrapper.cpp
   src/detect/armor_detect/armor_detect_common.cpp
   src/detect/armor_detect/number_classifier.cpp
   src/driver/crc8_crc16.cpp

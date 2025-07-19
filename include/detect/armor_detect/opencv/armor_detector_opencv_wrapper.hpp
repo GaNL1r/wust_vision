@@ -13,7 +13,7 @@
 // limitations under the License.
 #pragma once
 #include "detect/armor_detect/armor_detector_base.hpp"
-#include "detect/armor_detect/armor_detector_opencv.hpp"
+#include "detect/armor_detect/opencv/armor_detector_opencv.hpp"
 #include <yaml-cpp/yaml.h>
 
 class ArmorDetectorOpencvWrapper: public ArmorDetectorBase {

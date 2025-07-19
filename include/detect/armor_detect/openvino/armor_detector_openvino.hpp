@@ -71,6 +71,7 @@ public:
 
     void setCallback(DetectorCallback callback);
 
+private:
     std::string model_path_;
     std::string device_name_;
     float conf_threshold_;

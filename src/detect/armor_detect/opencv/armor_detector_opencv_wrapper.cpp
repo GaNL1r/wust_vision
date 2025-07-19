@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "detect/armor_detect/armor_detector_opencv_wrapper.hpp"
+#include "detect/armor_detect/opencv/armor_detector_opencv_wrapper.hpp"
 #include "common/logger.hpp"
 ArmorDetectorOpencvWrapper::ArmorDetectorOpencvWrapper(const YAML::Node& config) {
     auto classify_model_path =

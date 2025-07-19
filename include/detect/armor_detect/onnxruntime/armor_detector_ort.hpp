@@ -55,6 +55,7 @@ public:
 
     void setCallback(DetectorCallback callback);
 
+private:
     std::string model_path_;
     float conf_threshold_;
     int top_k_;

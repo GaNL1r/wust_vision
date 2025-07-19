@@ -1,5 +1,5 @@
 common:
-  armor_detect_backend: tensorrt
+  armor_detect_backend: opencv
   rune_detect_backend: tensorrt
   detect_color: 0
   init_attack_mode: 0
@@ -27,15 +27,15 @@ camera:
   reverse_y: false
   recorder: false
   video_player:
-    fps: 90
+    fps: 60
     loop: true
     #path: /home/hy/wust_data/video/1749800971.avi
-    path: /home/hy/wust_data/video/1.avi
-    #path: /home/hy/6.11/output.mp4
-    start_frame: 1500
-    alpha: 1.5
-    beta: 0
-    use: false
+    path: /home/hy/wust_data/video/jiao.avi
+    #path: /home/hy/wust_data/video/Sentry.mp4
+    start_frame: 0
+    alpha: 1.2
+    beta: 1
+    use: true
 
 control:
   alpha_pitch: 0.7
@@ -130,9 +130,9 @@ armor_tracker:
     ys2qy: 22
     ys2qyaw: 35
     ys2qz: 1.0
-    r_v: 0.05
-    q_v: 0.01
-    q_a: 0.01
+    r_v: 20
+    q_v: 5.0
+    q_a: 1.0
   jump_thresh: 0.4
   lost_time_thres: 0.9
   max_match_distance: 0.5

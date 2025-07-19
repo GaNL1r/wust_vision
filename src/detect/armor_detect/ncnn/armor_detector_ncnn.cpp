@@ -157,101 +157,6 @@ static void generate_proposals(
         output_objs.push_back(std::move(obj));
     }
 }
-static void generate_proposals_ncnn(
-    std::vector<ArmorObject>& output_objs,
-    std::vector<float>& scores,
-    std::vector<cv::Rect>& rects,
-    const ncnn::Mat& out, // 注意类型变更
-    const Eigen::Matrix<float, 3, 3>& transform_matrix,
-    float conf_threshold,
-    std::vector<GridAndStride> grid_strides
-) {
-    const int H = out.h;
-    const int W = out.w;
-    const int C = out.c;
-    const int num_anchors = grid_strides.size();
-
-    // 假设 out.c == num_anchors * (9 + NUM_COLORS + NUM_CLASSES)
-    // flat 单笔 anchor 数据
-    int per_anchor = C / num_anchors;
-
-    for (int anchor_idx = 0; anchor_idx < num_anchors; anchor_idx++) {
-        const int base_c = anchor_idx * per_anchor;
-
-        // 从对应通道读取 confidence
-        float confidence = out.channel(base_c + 8)[0]; // 第一个元素即可
-        if (confidence < conf_threshold)
-            continue;
-
-        // 获取 grid 与 stride（与 cv 版本一致）
-        int grid0 = grid_strides[anchor_idx].grid0;
-        int grid1 = grid_strides[anchor_idx].grid1;
-        int stride = grid_strides[anchor_idx].stride;
-
-        // 读取颜色与数字 scores
-        float color_score = out.channel(base_c + 9)[0];
-        int color_id = 9;
-        for (int k = 1; k < NUM_COLORS; k++) {
-            float v = out.channel(base_c + 9 + k)[0];
-            if (v > color_score) {
-                color_score = v;
-                color_id = 9 + k;
-            }
-        }
-        float num_score = out.channel(base_c + 9 + NUM_COLORS)[0];
-        int num_id = 9 + NUM_COLORS;
-        for (int k = 1; k < NUM_CLASSES; k++) {
-            float v = out.channel(base_c + 9 + NUM_COLORS + k)[0];
-            if (v > num_score) {
-                num_score = v;
-                num_id = 9 + NUM_COLORS + k;
-            }
-        }
-
-        // 读取 box 参数
-        float x1 = out.channel(base_c + 0)[0];
-        float y1 = out.channel(base_c + 1)[0];
-        float x2 = out.channel(base_c + 2)[0];
-        float y2 = out.channel(base_c + 3)[0];
-        float x3 = out.channel(base_c + 4)[0];
-        float y3 = out.channel(base_c + 5)[0];
-        float x4 = out.channel(base_c + 6)[0];
-        float y4 = out.channel(base_c + 7)[0];
-
-        Eigen::Matrix<float, 3, 4> apex_norm;
-        Eigen::Matrix<float, 3, 4> apex_dst;
-
-        /* clang-format off */
-        /* *INDENT-OFF* */
-        apex_norm << x1, x2, x3, x4,
-                    y1, y2, y3, y4,
-                    1,   1,   1,   1;
-        /* *INDENT-ON* */
-        /* clang-format on */
-
-        apex_dst = transform_matrix * apex_norm;
-
-        ArmorObject obj;
-
-        obj.pts.resize(4);
-
-        obj.pts[0] = cv::Point2f(apex_dst(0, 0), apex_dst(1, 0));
-        obj.pts[1] = cv::Point2f(apex_dst(0, 1), apex_dst(1, 1));
-        obj.pts[2] = cv::Point2f(apex_dst(0, 2), apex_dst(1, 2));
-        obj.pts[3] = cv::Point2f(apex_dst(0, 3), apex_dst(1, 3));
-
-        auto rect = cv::boundingRect(obj.pts);
-
-        obj.box = rect;
-        obj.color = static_cast<ArmorColor>(color_id);
-        obj.number = static_cast<ArmorNumber>(num_id);
-        obj.prob = confidence;
-
-        rects.push_back(rect);
-        scores.push_back(confidence);
-        output_objs.push_back(std::move(obj));
-    }
-}
 
 /**
  * @brief Calculate intersection area between two objects.
@@ -360,13 +265,6 @@ ArmorDetectNCNN::ArmorDetectNCNN(
 }
 ArmorDetectNCNN::~ArmorDetectNCNN() {
     net_.clear();
-
-    corner_corrector.reset();
-
-    // if (opt_.use_vulkan_compute&&!gobal::ncnn_gpu_destroyed) {
-    //     ncnn::destroy_gpu_instance();
-    //     gobal::ncnn_gpu_destroyed = true;
-    // }
 }
 
 void ArmorDetectNCNN::init(int device_id) {
@@ -415,7 +313,6 @@ void ArmorDetectNCNN::init(int device_id) {
 
     strides_ = { 8, 16, 32 };
     generate_grids_and_stride(INPUT_W, INPUT_H, strides_, grid_strides_);
-    corner_corrector = std::make_unique<LightCornerCorrector>();
 }
 
 void ArmorDetectNCNN::setCallback(DetectorCallback callback) {

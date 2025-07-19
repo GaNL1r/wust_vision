@@ -477,6 +477,7 @@ void TrackerManager::updateOneTrackers(
             target.v_yaw = state(7);
             target.type = otracker->type;
             target.distance_to_image_center = otracker->distance_to_image_center;
+
         } else {
             target.tracking = false;
         }
