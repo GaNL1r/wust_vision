@@ -35,7 +35,7 @@ camera:
     start_frame: 1500
     alpha: 1.5
     beta: 0
-    use: false
+    use: true
 
 control:
   alpha_pitch: 0.7

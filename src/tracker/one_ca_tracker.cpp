@@ -22,7 +22,6 @@
 #include <cfloat>
 #include <fmt/format.h>
 #include <iostream>
-
 #include <memory>
 #include <ostream>
 #include <string>
