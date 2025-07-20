@@ -87,7 +87,7 @@ private:
     // TensorRT 引擎初始化
     void buildEngine(const std::string& onnx_path);
     // 后处理：解析输出张量，生成检测框
-    std::vector<ArmorObject> postprocess(
+    std::vector<ArmorObject> postProcess(
         std::vector<ArmorObject>& output_objs,
         std::vector<float>& scores,
         std::vector<cv::Rect>& rects,
@@ -109,5 +109,5 @@ private:
     DetectorCallback infer_callback_;
     nvinfer1::IRuntime* runtime_ = nullptr;
     std::unique_ptr<ArmorDetectCommon> armor_detect_common_;
-    bool use_armor_detect_common = true;
+    bool use_armor_detect_common_ = true;
 };

@@ -11,9 +11,9 @@ int main() {
     int size_w = config["calibrator"]["size_w"].as<int>();
     int size_h = config["calibrator"]["size_h"].as<int>();
     float square_size = config["calibrator"]["square_size"].as<float>();
-    int requiredViews = config["calibrator"]["requiredviews"].as<int>();
-    float minShift = config["calibrator"]["minshift"].as<float>();
-    calibrator = CameraCalibrator(cv::Size(size_w, size_h), square_size, requiredViews, minShift);
+    int required_views = config["calibrator"]["requiredviews"].as<int>();
+    float min_shift = config["calibrator"]["minshift"].as<float>();
+    calibrator = CameraCalibrator(cv::Size(size_w, size_h), square_size, required_views, min_shift);
 
     std::string target_sn = config["camera"]["target_sn"].as<std::string>();
     if (!camera.initializeCamera(target_sn)) {

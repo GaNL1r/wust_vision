@@ -252,8 +252,8 @@ ArmorDetectOpenVino::ArmorDetectOpenVino(
     top_k_(top_k),
     nms_threshold_(nms_threshold),
     use_throughputmode_(use_throughputmode),
-    use_armor_detect_common(use_armor_detect_common) {
-    if (use_armor_detect_common) {
+    use_armor_detect_common_(use_armor_detect_common) {
+    if (use_armor_detect_common_) {
         armor_detect_common_ = std::make_unique<ArmorDetectCommon>(
             classify_model_path,
             classify_label_path,
@@ -416,7 +416,7 @@ bool ArmorDetectOpenVino::processCallback(
         }
     }
 
-    if (use_armor_detect_common) {
+    if (use_armor_detect_common_) {
         std::vector<ArmorObject> armors = armor_detect_common_->detectNet(src_img, objs_result);
         // Call callback function
         if (this->infer_callback_) {

@@ -6,5 +6,5 @@
 #include <thread>
 
 void plotRobotCmdThread();
-void write_cmd_log_to_json();
+void writeCmdLogToJson();
 void robotCmdLoggerThread();

@@ -66,12 +66,12 @@ public:
 
     void setCallback(DetectorCallback callback);
     // Parameters
-    int binary_thres;
+    int binary_thres_;
 
-    LightParams light_params;
-    ArmorParams armor_params;
+    LightParams light_params_;
+    ArmorParams armor_params_;
 
-    std::unique_ptr<LightCornerCorrector> corner_corrector;
+    std::unique_ptr<LightCornerCorrector> corner_corrector_;
 
     double classifier_threshold_ = 0.5;
 

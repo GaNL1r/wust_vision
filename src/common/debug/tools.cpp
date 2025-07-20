@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-void drawresult(
+void drawResult(
     const cv::Mat& src_img,
     const std::vector<ArmorObject>& objs,
     int64_t timestamp_nanosec
@@ -133,7 +133,7 @@ void drawresult(
     cv::imshow("debug_armorA", debug_img);
     cv::waitKey(1);
 }
-void drawresult(const imgframe& src_img, const Armors& armors) {
+void drawResult(const imgframe& src_img, const Armors& armors) {
     static auto last_show_time = std::chrono::steady_clock::now();
     static bool window_initialized = false;
     static int brightness_slider = 200;
@@ -171,7 +171,7 @@ void drawresult(const imgframe& src_img, const Armors& armors) {
         // std::cout<<"cc\n";
         std::vector<cv::Point2f> pts;
 
-        if (!gobal::measure_tool_->reprojectArmorCorners_raw(armor, pts))
+        if (!gobal::measure_tool->reprojectArmorCorners_raw(armor, pts))
             continue;
         for (size_t i = 0; i < 4; ++i) {
             cv::line(debug_img, pts[i], pts[(i + 1) % 4], cv::Scalar(255, 100, 0), 2);
@@ -280,7 +280,7 @@ void drawresult(const imgframe& src_img, const Armors& armors) {
     cv::waitKey(1);
 }
 
-void drawreprojec(
+void drawReprojec(
     const cv::Mat& src_img,
     const std::vector<std::vector<cv::Point2f>> all_pts,
     const Target target,
@@ -389,7 +389,7 @@ void drawreprojec(
     cv::waitKey(1);
 }
 
-void drawreprojec(
+void drawReprojec(
     const cv::Mat& src_img,
     const Target_info target_info,
     const Target target,
@@ -571,7 +571,7 @@ void drawreprojec(
     cv::waitKey(1);
 }
 
-void drawreprojec(
+void drawReprojec(
     const imgframe& src_img,
     const Target_info target_info,
     const Target target,
@@ -769,7 +769,7 @@ void drawreprojec(
     cv::imshow("debug_target", debug_img);
     cv::waitKey(1);
 }
-void drawreprojec(
+void drawReprojec(
     const imgframe& src_img,
     const Target_info target_info,
     const Target target,
@@ -1019,7 +1019,7 @@ void drawreprojec(
     cv::imshow("debug_target", debug_img);
     cv::waitKey(1);
 }
-void draw_debug_overlay(
+void drawDebugOverlay(
     const imgframe& src_img,
     const Armors* armors,
     const Target_info* target_info,
@@ -1061,7 +1061,7 @@ void draw_debug_overlay(
 
         for (const auto& armor: armors->armors) {
             std::vector<cv::Point2f> pts;
-            if (!gobal::measure_tool_->reprojectArmorCorners_raw(armor, pts))
+            if (!gobal::measure_tool->reprojectArmorCorners_raw(armor, pts))
                 continue;
 
             for (size_t i = 0; i < 4; ++i)
@@ -1366,7 +1366,7 @@ void draw_debug_overlay(
     cv::imshow("debug_overlay", debug_img);
     cv::waitKey(1);
 }
-void draw_debug_overlaywrite(
+void drawDebugOverlayWrite(
     const imgframe& src_img,
     const Armors* armors,
     const Target_info* target_info,
@@ -1402,7 +1402,7 @@ void draw_debug_overlaywrite(
 
         for (const auto& armor: armors->armors) {
             std::vector<cv::Point2f> pts;
-            if (!gobal::measure_tool_->reprojectArmorCorners_raw(armor, pts))
+            if (!gobal::measure_tool->reprojectArmorCorners_raw(armor, pts))
                 continue;
 
             for (size_t i = 0; i < 4; ++i) {
@@ -1722,7 +1722,7 @@ void draw_debug_overlaywrite(
     ofs.close();
     std::rename("/dev/shm/debug_frame.jpg.tmp", "/dev/shm/debug_frame.jpg");
 }
-cv::Mat draw_debug_overlayMat(
+cv::Mat drawDebugOverlayMat(
     const imgframe& src_img,
     const Armors* armors,
     const Target_info* target_info,
@@ -1759,7 +1759,7 @@ cv::Mat draw_debug_overlayMat(
 
         for (const auto& armor: armors->armors) {
             std::vector<cv::Point2f> pts;
-            if (!gobal::measure_tool_->reprojectArmorCorners_raw(armor, pts))
+            if (!gobal::measure_tool->reprojectArmorCorners_raw(armor, pts))
                 continue;
 
             for (size_t i = 0; i < 4; ++i)
@@ -2220,7 +2220,7 @@ void dumpAimToFile(const ReceiveAimINFO& aim, const std::string& path) {
         file.close();
     }
 }
-void write_aim_log_to_json(const ReceiveAimINFO& aim) {
+void writeAimLogToJson(const ReceiveAimINFO& aim) {
     nlohmann::json j;
 
     j["timestamp"] = aim.time_stamp;
@@ -2257,7 +2257,7 @@ void write_aim_log_to_json(const ReceiveAimINFO& aim) {
         file << j.dump(2);
     }
 }
-void write_target_log_to_json(const Target& target) {
+void writeTargetLogToJson(const Target& target) {
     nlohmann::json j;
 
     j["frame_id"] = target.frame_id;
@@ -2384,7 +2384,7 @@ void drawRune(
     cv::waitKey(1);
 }
 
-void drawRuneandpre(
+void drawRuneAndPre(
     cv::Mat& src_img,
     const std::vector<RuneObject>& objs,
     std::chrono::steady_clock::time_point timestamp,
@@ -2514,7 +2514,7 @@ void drawRuneandpre(
     cv::imshow("debug_rune", debug_img);
     cv::waitKey(1);
 }
-void drawRuneandprewrite(
+void drawRuneAndPrewrite(
     cv::Mat& src_img,
     const std::vector<RuneObject>& objs,
     std::chrono::steady_clock::time_point timestamp,

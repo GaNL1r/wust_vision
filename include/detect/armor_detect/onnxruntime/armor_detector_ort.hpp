@@ -44,7 +44,7 @@ public:
         const Eigen::Vector3d& v
     );
 
-    void drawresult(const cv::Mat& src_img, std::vector<ArmorObject>& armor_objects);
+    void drawResult(const cv::Mat& src_img, std::vector<ArmorObject>& armor_objects);
 
     void pushInput(
         const cv::Mat& rgb_img,

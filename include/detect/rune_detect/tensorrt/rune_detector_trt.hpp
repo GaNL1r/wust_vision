@@ -78,7 +78,7 @@ private:
         Eigen::Matrix4d T_camera_to_odom
     );
     void buildEngine(const std::string& onnx_path);
-    std::vector<RuneObject> postprocess(
+    std::vector<RuneObject> postProcess(
         std::vector<RuneObject>& output_objs,
         std::vector<float>& scores,
         std::vector<cv::Rect>& rects,

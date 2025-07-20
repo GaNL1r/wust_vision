@@ -85,9 +85,9 @@ private:
     float conf_threshold_;
     int top_k_;
     float nms_threshold_;
-    bool use_gpu;
-    int cpu_threads;
-    bool use_lightmode = true;
+    bool use_gpu_;
+    int cpu_threads_;
+    bool use_lightmode_ = true;
     std::unique_ptr<ArmorDetectCommon> armor_detect_common_;
-    bool use_armor_detect_common = true;
+    bool use_armor_detect_common_ = true;
 };

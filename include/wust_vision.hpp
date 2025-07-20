@@ -49,6 +49,7 @@ public:
         const Eigen::Matrix3d& R_gimbal2odom,
         const Eigen::Vector3d& v
     );
+    void runeTargetCallback(const Rune rune_target, Eigen::Matrix4d T_camera_to_odom);
     void initDetector();
     void initTF();
     void initSerial();
@@ -57,10 +58,9 @@ public:
     void startTimer();
     void stopTimer();
     void restartTimerThread();
-    void runeTargetCallback(const Rune rune_target, Eigen::Matrix4d T_camera_to_odom);
     void update();
     void initRune(const std::string& camera_info_path);
-    void calculation_manual_r(const cv::Mat& src_img);
+    void calculationManualR(const cv::Mat& src_img);
     static void onMouse(int event, int x, int y, int, void* userdata);
     Armors
     visualizeTargetProjection(Target armor_target_, std::vector<OneTarget> one_armor_targets_);
@@ -83,17 +83,17 @@ public:
 
     std::unique_ptr<HikCamera> camera_;
     std::unique_ptr<VideoPlayer> video_player_;
-    double video_alpha;
-    double video_beta;
+    double video_alpha_;
+    double video_beta_;
     int max_infer_running_;
     std::mutex callback_mutex_;
     std::atomic<int> infer_running_count_ { 0 };
 
-    std::string vision_logger = "wust_vision";
+    std::string vision_logger_ = "wust_vision";
 
     std::atomic<bool> timer_running_ { false };
     std::thread timer_thread_;
-    bool use_omni = false;
+    bool use_omni_ = false;
     std::unique_ptr<OmniManager> omni_manager_;
     std::unique_ptr<TrackerManager> tracker_manager_;
     double gimbal2camera_x_, gimbal2camera_y_, gimbal2camera_z_;
@@ -103,26 +103,26 @@ public:
     std::unique_ptr<ArmorSolver> armor_solver_;
     int max_detect_armors_;
     std::unique_ptr<ArmorPoseEstimator> armor_pose_estimator_;
-    bool only_nav_enable;
+    bool only_nav_enable_;
 
-    Target armor_target;
-    std::vector<OneTarget> one_armor_targets;
-    Armors armors_gobal;
-    Rune rune_gobal;
+    Target armor_target_;
+    std::vector<OneTarget> one_armor_targets_;
+    Armors armors_gobal_;
+    Rune rune_gobal_;
     std::mutex img_mutex_;
     imgframe imgframe_;
-    YAML::Node rune_detect_config;
+    YAML::Node rune_detect_config_;
     std::unique_ptr<RuneSolver> rune_solver_;
     bool detect_r_tag_;
     int rune_binary_thresh_;
     Rune last_rune_target_;
     std::unique_ptr<Labeler> auto_labeler_;
-    bool use_auto_labeler;
-    bool use_video;
+    bool use_auto_labeler_;
+    bool use_video_;
     std::vector<RuneObject> rune_objects_;
     Eigen::Vector3d t_gimbal_to_camera;
     Eigen::Matrix4d T_camera_to_odom_;
-    Eigen::Matrix3d R_camera2gimbal;
+    Eigen::Matrix3d R_camera2gimbal_;
 
     int timer_count_ = 0;
     std::mutex timer_mtx_;
@@ -135,24 +135,24 @@ public:
     double debug_show_dt_;
 
     Armor last_armor_;
-    double last_distance;
-    double last_ypd_y;
-    double last_ypd_p;
-    double last_armor_yaw;
+    double last_distance_;
+    double last_ypd_y_;
+    double last_ypd_p_;
+    double last_armor_yaw_;
 
     std::unique_ptr<ArmorDetectorBase> armor_detector_;
     std::unique_ptr<RuneDetectorBase> rune_detector_;
 
     static std::vector<cv::Point2f> clicked_points_;
-    bool manual_r_init = false;
-    cv::Point2f manual_r_center;
-    std::vector<cv::Point2f> manual_r_box;
-    bool use_manual_r = false;
-    std::atomic<bool> manual_r_runing = false;
-    Eigen::Matrix4d T_r;
+    bool manual_r_init_ = false;
+    cv::Point2f manual_r_center_;
+    std::vector<cv::Point2f> manual_r_box_;
+    bool use_manual_r_ = false;
+    std::atomic<bool> manual_r_runing_ = false;
+    Eigen::Matrix4d T_r_;
 
     double jump_yaw;
     double receive_omni_dt_;
     double hit_omni_dt_;
-    std::chrono::steady_clock::time_point last_track_target;
+    std::chrono::steady_clock::time_point last_track_target_;
 };

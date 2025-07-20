@@ -58,26 +58,26 @@ public:
     static Eigen::Vector3d getArmorPositionFromState(const Eigen::VectorXd& x) noexcept;
     double orientationToYaw(const tf::Quaternion& q) noexcept;
 
-    // std::unique_ptr<onearmor_motion_model::RobotStateEKF> ekf_xyz;
-    std::unique_ptr<oneypdarmor_motion_model::RobotStateEKF> ekf_ypd;
+    // std::unique_ptr<onearmor_motion_model::RobotStateEKF> ekf_xyz_;
+    std::unique_ptr<oneypdarmor_motion_model::RobotStateEKF> ekf_ypd_;
 
-    int tracking_thres;
-    int lost_thres;
-    Eigen::VectorXd center_velocity_measurement;
-    Eigen::VectorXd acc_state;
-    std::unique_ptr<acc_model::VelocityAccelEKF> acc_ekf;
-    Armor tracked_armor;
+    int tracking_thres_;
+    int lost_thres_;
+    Eigen::VectorXd center_velocity_measurement_;
+    Eigen::VectorXd acc_state_;
+    std::unique_ptr<acc_model::VelocityAccelEKF> acc_ekf_;
+    Armor tracked_armor_;
 
-    ArmorNumber tracked_id;
-    std::string type;
-    int retype;
-    Eigen::VectorXd measurement;
-    Eigen::VectorXd target_state;
+    ArmorNumber tracked_id_;
+    std::string type_;
+    int retype_;
+    Eigen::VectorXd measurement_;
+    Eigen::VectorXd target_state_;
 
-    double distance_to_image_center;
+    double distance_to_image_center_;
 
-    double d_za, another_r;
-    double d_zc;
+    double d_za_, another_r_;
+    double d_zc_;
     float yaw_diff_;
     float position_diff_;
     double max_match_distance_;
@@ -96,5 +96,5 @@ private:
     double last_yaw_;
     double last_ypd_y;
 
-    std::string tracker_logger = "onetracker";
+    std::string tracker_logger_ = "onetracker";
 };

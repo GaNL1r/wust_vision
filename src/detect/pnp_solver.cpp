@@ -27,8 +27,8 @@ void PnPSolver::setObjectPoints(
 }
 
 float PnPSolver::calculateDistanceToCenter(const cv::Point2f& image_point) const noexcept {
-    float cx = gobal::camera_intrinsic_.at<double>(0, 2);
-    float cy = gobal::camera_intrinsic_.at<double>(1, 2);
+    float cx = gobal::camera_intrinsic.at<double>(0, 2);
+    float cy = gobal::camera_intrinsic.at<double>(1, 2);
     return cv::norm(image_point - cv::Point2f(cx, cy));
 }
 
@@ -45,8 +45,8 @@ double PnPSolver::calculateReprojectionError(
             object_points,
             rvec,
             tvec,
-            gobal::camera_intrinsic_,
-            gobal::camera_distortion_,
+            gobal::camera_intrinsic,
+            gobal::camera_distortion,
             reprojected_points
         );
         double error = 0;

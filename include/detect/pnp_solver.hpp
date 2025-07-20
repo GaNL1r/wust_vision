@@ -48,8 +48,8 @@ public:
             int solutions = cv::solvePnPGeneric(
                 object_points,
                 image_points,
-                gobal::camera_intrinsic_,
-                gobal::camera_distortion_,
+                gobal::camera_intrinsic,
+                gobal::camera_distortion,
                 rvecs,
                 tvecs,
                 false,
@@ -76,8 +76,8 @@ public:
             return cv::solvePnP(
                 object_points,
                 image_points,
-                gobal::camera_intrinsic_,
-                gobal::camera_distortion_,
+                gobal::camera_intrinsic,
+                gobal::camera_distortion,
                 rvec,
                 tvec,
                 false,
@@ -99,8 +99,8 @@ public:
             object_points,
             rvec,
             tvec,
-            gobal::camera_intrinsic_,
-            gobal::camera_distortion_,
+            gobal::camera_intrinsic,
+            gobal::camera_distortion,
             image_points
         );
 

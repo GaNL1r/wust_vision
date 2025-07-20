@@ -46,11 +46,11 @@ ArmorDetectOpenCV::ArmorDetectOpenCV(
     const LightParams& l,
     const ArmorParams& a
 ):
-    binary_thres(bin_thres),
-    light_params(l),
-    armor_params(a),
+    binary_thres_(bin_thres),
+    light_params_(l),
+    armor_params_(a),
     classifier_threshold_(classifier_threshold) {
-    corner_corrector = std::make_unique<LightCornerCorrector>();
+    corner_corrector_ = std::make_unique<LightCornerCorrector>();
     number_classifier_ =
         std::make_unique<NumberClassifier>(classify_model_path, classify_label_path);
 }
@@ -86,8 +86,8 @@ std::vector<ArmorObject> ArmorDetectOpenCV::detect(const cv::Mat& input) noexcep
 
                 armor.whole_gray_img = gray_img_;
 
-                if (corner_corrector) {
-                    corner_corrector->correctCorners_nonmatch(armor);
+                if (corner_corrector_) {
+                    corner_corrector_->correctCorners_nonmatch(armor);
                 }
 
                 {
@@ -108,7 +108,7 @@ cv::Mat ArmorDetectOpenCV::preprocessImage(const cv::Mat& rgb_img, cv::Mat& gray
     cv::cvtColor(rgb_img, gray_img_, cv::COLOR_RGB2GRAY);
 
     cv::Mat binary_img;
-    cv::threshold(gray_img_, binary_img, binary_thres, 255, cv::THRESH_BINARY);
+    cv::threshold(gray_img_, binary_img, binary_thres_, 255, cv::THRESH_BINARY);
 
     return binary_img;
 }
@@ -135,7 +135,7 @@ ArmorDetectOpenCV::findLights(const cv::Mat& rgb_img, const cv::Mat& binary_img)
                 sum_b += rgb_img.at<cv::Vec3b>(point.y, point.x)[2];
             }
             if (std::abs(sum_r - sum_b) / static_cast<int>(contour.size())
-                > light_params.color_diff_thresh) {
+                > light_params_.color_diff_thresh) {
                 light.color = sum_r > sum_b ? 0 : 1;
             }
             lights.emplace_back(light);
@@ -150,9 +150,9 @@ ArmorDetectOpenCV::findLights(const cv::Mat& rgb_img, const cv::Mat& binary_img)
 bool ArmorDetectOpenCV::isLight(const Light& light) noexcept {
     // The ratio of light (short side / long side)
     float ratio = light.width / light.length;
-    bool ratio_ok = light_params.min_ratio < ratio && ratio < light_params.max_ratio;
+    bool ratio_ok = light_params_.min_ratio < ratio && ratio < light_params_.max_ratio;
 
-    bool angle_ok = light.tilt_angle < light_params.max_angle;
+    bool angle_ok = light.tilt_angle < light_params_.max_angle;
 
     bool is_light = ratio_ok && angle_ok;
 
@@ -164,12 +164,12 @@ std::vector<ArmorObject> ArmorDetectOpenCV::matchLights(const std::vector<Light>
 
     // Loop all the pairing of lights
     for (auto light_1 = lights.begin(); light_1 != lights.end(); light_1++) {
-        if (light_1->color != gobal::detect_color_)
+        if (light_1->color != gobal::detect_color)
             continue;
-        double max_iter_width = light_1->length * armor_params.max_large_center_distance;
+        double max_iter_width = light_1->length * armor_params_.max_large_center_distance;
 
         for (auto light_2 = light_1 + 1; light_2 != lights.end(); light_2++) {
-            if (light_2->color != gobal::detect_color_)
+            if (light_2->color != gobal::detect_color)
                 continue;
             if (containLight(light_1 - lights.begin(), light_2 - lights.begin(), lights)) {
                 continue;
@@ -181,7 +181,7 @@ std::vector<ArmorObject> ArmorDetectOpenCV::matchLights(const std::vector<Light>
             if (type != ArmorType::INVALID) {
                 // auto armor = Armor(*light_1, *light_2);
                 ArmorObject armor(*light_1, *light_2);
-                if (gobal::detect_color_ == 0) {
+                if (gobal::detect_color == 0) {
                     armor.color = ArmorColor::RED;
                 } else {
                     armor.color = ArmorColor::BLUE;
@@ -240,28 +240,28 @@ ArmorType ArmorDetectOpenCV::isArmor(const Light& light_1, const Light& light_2)
     // Ratio of the length of 2 lights (short side / long side)
     float light_length_ratio = light_1.length < light_2.length ? light_1.length / light_2.length
                                                                : light_2.length / light_1.length;
-    bool light_ratio_ok = light_length_ratio > armor_params.min_light_ratio;
+    bool light_ratio_ok = light_length_ratio > armor_params_.min_light_ratio;
 
     // Distance between the center of 2 lights (unit : light length)
     float avg_light_length = (light_1.length + light_2.length) / 2;
     float center_distance = cv::norm(light_1.center - light_2.center) / avg_light_length;
-    bool center_distance_ok = (armor_params.min_small_center_distance <= center_distance
-                               && center_distance < armor_params.max_small_center_distance)
-        || (armor_params.min_large_center_distance <= center_distance
-            && center_distance < armor_params.max_large_center_distance);
+    bool center_distance_ok = (armor_params_.min_small_center_distance <= center_distance
+                               && center_distance < armor_params_.max_small_center_distance)
+        || (armor_params_.min_large_center_distance <= center_distance
+            && center_distance < armor_params_.max_large_center_distance);
 
     // Angle of light center connection
     cv::Point2f diff = light_1.center - light_2.center;
     float angle = std::abs(std::atan(diff.y / diff.x)) / CV_PI * 180;
-    bool angle_ok = angle < armor_params.max_angle;
+    bool angle_ok = angle < armor_params_.max_angle;
 
     bool is_armor = light_ratio_ok && center_distance_ok && angle_ok;
 
     // Judge armor type
     ArmorType type;
     if (is_armor) {
-        type = center_distance > armor_params.min_large_center_distance ? ArmorType::LARGE
-                                                                        : ArmorType::SMALL;
+        type = center_distance > armor_params_.min_large_center_distance ? ArmorType::LARGE
+                                                                         : ArmorType::SMALL;
     } else {
         type = ArmorType::INVALID;
     }

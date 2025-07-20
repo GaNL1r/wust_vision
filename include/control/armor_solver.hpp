@@ -57,16 +57,16 @@ public:
         std::vector<OneTarget> one_targets_,
         std::chrono::steady_clock::time_point current_time
     );
-    std::vector<GimbalCmd> solve_vector(
+    std::vector<GimbalCmd> solveVector(
         const Target& target,
         std::vector<OneTarget> one_targets_,
         std::chrono::steady_clock::time_point current_time,
         int step,
         double dt
     );
-    GimbalCmd returndefaultCmd() {
-        gobal::last_cmd_.fire_advice = false;
-        return gobal::last_cmd_;
+    GimbalCmd returnDefaultCmd() {
+        gobal::last_cmd.fire_advice = false;
+        return gobal::last_cmd;
     }
 
     // Retrieve a compensated trajectory (same API as before)
@@ -128,20 +128,20 @@ private:
     int
     selectBestTarget(const std::vector<OneTarget>& targets, bool is_target_tracking) const noexcept;
 
-    double small_shooting_range_w = 0.135;
-    double small_shooting_range_h = 0.135;
-    double big_shooting_range_w = 0.135;
-    double big_shooting_range_h = 0.135;
-    double max_tracking_v_yaw = 6.0;
-    double prediction_delay = 0.0;
-    double side_angle = 15.0; // degrees
-    double min_switching_v_yaw = 1.0;
-    int transfer_thresh = 5;
-    int iteration_times = 20;
-    double bullet_speed = 20.0;
-    double gravity = 9.8;
-    double resistance = 0.001;
-    std::vector<std::pair<double, double>> manual_angle_offset; // distance→{pitch°, yaw°}
+    double small_shooting_range_w_ = 0.135;
+    double small_shooting_range_h_ = 0.135;
+    double big_shooting_range_w_ = 0.135;
+    double big_shooting_range_h_ = 0.135;
+    double max_tracking_v_yaw_ = 6.0;
+    double prediction_delay_ = 0.0;
+    double side_angle_ = 15.0; // degrees
+    double min_switching_v_yaw_ = 1.0;
+    int transfer_thresh_ = 5;
+    int iteration_times_ = 20;
+    double bullet_speed_ = 20.0;
+    double gravity_ = 9.8;
+    double resistance_ = 0.001;
+    std::vector<std::pair<double, double>> manual_angle_offset_; // distance→{pitch°, yaw°}
 
     std::unique_ptr<TrajectoryCompensator> trajectory_compensator_;
     std::unique_ptr<ManualCompensator> manual_compensator_;

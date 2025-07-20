@@ -36,9 +36,9 @@ WustVision::~WustVision() {}
 void WustVision::stop() {
     gobal::is_inited_ = false;
 
-    if (!only_nav_enable) {
+    if (!only_nav_enable_) {
         auto_labeler_.reset();
-        if (use_video) {
+        if (use_video_) {
             video_player_->stop();
         } else {
             if (camera_) {
@@ -46,7 +46,7 @@ void WustVision::stop() {
                 camera_.reset();
             }
         }
-        if (use_omni) {
+        if (use_omni_) {
             omni_manager_->stop();
             omni_manager_.reset();
         }
@@ -61,7 +61,7 @@ void WustVision::stop() {
             ncnn::destroy_gpu_instance();
         }
 #endif
-        gobal::measure_tool_.reset();
+        gobal::measure_tool.reset();
 
         if (thread_pool_) {
             thread_pool_->waitUntilEmpty();
@@ -76,7 +76,7 @@ void WustVision::stop() {
         serial_.reset();
     }
 
-    WUST_MAIN(vision_logger) << "WustVision shutdown complete.";
+    WUST_MAIN(vision_logger_) << "WustVision shutdown complete.";
 }
 void WustVision::stopTimer() {
     {
@@ -89,7 +89,7 @@ void WustVision::stopTimer() {
     }
 }
 bool WustVision::init() {
-    WUST_MAIN(vision_logger) << "WustVision init start";
+    WUST_MAIN(vision_logger_) << "WustVision init start";
     gobal::config = YAML::LoadFile("/home/hy/wust_vision/config/config_common.yaml");
 
     std::string log_level_ = gobal::config["logger"]["log_level"].as<std::string>("INFO");
@@ -100,25 +100,25 @@ bool WustVision::init() {
     initLogger(log_level_, log_path_, use_logcli, use_logfile, use_simplelog);
     gobal::control_rate = gobal::config["control"]["control_rate"].as<int>();
     initSerial();
-    only_nav_enable = gobal::config["common"]["only_nav_enable"].as<bool>();
-    if (!only_nav_enable) {
+    only_nav_enable_ = gobal::config["common"]["only_nav_enable"].as<bool>();
+    if (!only_nav_enable_) {
         gobal::attack_mode = gobal::config["common"]["init_attack_mode"].as<int>();
-        gobal::debug_mode_ = gobal::config["debug"]["debug_mode"].as<bool>();
+        gobal::debug_mode = gobal::config["debug"]["debug_mode"].as<bool>();
         toolsgobal::debug_w = gobal::config["debug"]["debug_w"].as<int>(640);
         toolsgobal::debug_h = gobal::config["debug"]["debug_h"].as<int>(480);
         debug_show_dt_ = gobal::config["debug"]["debug_show_dt"].as<double>(0.05);
         toolsgobal::debug_fps = gobal::config["debug"]["debug_fps"].as<double>(30);
-        gobal::use_calculation_ = gobal::config["common"]["use_calculation"].as<bool>();
+        gobal::use_calculation = gobal::config["common"]["use_calculation"].as<bool>();
 
-        use_video = gobal::config["camera"]["video_player"]["use"].as<bool>(false);
-        if (use_video) {
+        use_video_ = gobal::config["camera"]["video_player"]["use"].as<bool>(false);
+        if (use_video_) {
             std::string video_play_path =
                 gobal::config["camera"]["video_player"]["path"].as<std::string>("");
             int video_play_fps = gobal::config["camera"]["video_player"]["fps"].as<int>(30);
             int start_frame = gobal::config["camera"]["video_player"]["start_frame"].as<int>(0);
             bool loop = gobal::config["camera"]["video_player"]["loop"].as<bool>(false);
-            video_alpha = gobal::config["camera"]["video_player"]["alpha"].as<double>(1.0);
-            video_beta = gobal::config["camera"]["video_player"]["beta"].as<int>(0);
+            video_alpha_ = gobal::config["camera"]["video_player"]["alpha"].as<double>(1.0);
+            video_beta_ = gobal::config["camera"]["video_player"]["beta"].as<int>(0);
             video_player_ =
                 std::make_unique<VideoPlayer>(video_play_path, video_play_fps, start_frame, loop);
             video_player_->setCallback([this](const ImageFrame& frame) {
@@ -147,7 +147,7 @@ bool WustVision::init() {
             camera_ = std::make_unique<HikCamera>();
             std::string target_sn = gobal::config["camera"]["target_sn"].as<std::string>();
             if (!camera_->initializeCamera(target_sn)) {
-                WUST_ERROR(vision_logger) << "Camera initialization failed.";
+                WUST_ERROR(vision_logger_) << "Camera initialization failed.";
                 return false;
             }
 
@@ -180,8 +180,8 @@ bool WustVision::init() {
                 }
             );
         }
-        use_auto_labeler = gobal::config["common"]["use_auto_labeler"].as<bool>(false);
-        if (use_auto_labeler) {
+        use_auto_labeler_ = gobal::config["common"]["use_auto_labeler"].as<bool>(false);
+        if (use_auto_labeler_) {
             auto_labeler_ = std::make_unique<Labeler>();
         }
 
@@ -202,10 +202,10 @@ bool WustVision::init() {
         cv::Mat D(1, 5, CV_64F);
         std::memcpy(D.data, camera_d.data(), 5 * sizeof(double));
 
-        gobal::camera_intrinsic_ = K.clone();
-        gobal::camera_distortion_ = D.clone();
+        gobal::camera_intrinsic = K.clone();
+        gobal::camera_distortion = D.clone();
 
-        gobal::measure_tool_ = std::make_unique<MonoMeasureTool>();
+        gobal::measure_tool = std::make_unique<MonoMeasureTool>();
         armor_pose_estimator_ = std::make_unique<ArmorPoseEstimator>();
         bool use_ba = gobal::config["common"]["use_ba"].as<bool>(false);
         if (use_ba) {
@@ -215,52 +215,52 @@ bool WustVision::init() {
         }
         initTF();
         initTracker(gobal::config["armor_tracker"]);
-        gobal::detect_color_ = gobal::config["common"]["detect_color"].as<int>(0);
+        gobal::detect_color = gobal::config["common"]["detect_color"].as<int>(0);
         max_infer_running_ = gobal::config["common"]["max_infer_running"].as<int>(4);
         initDetector();
         initRune(camera_info_path); //仍然初始化rune_solver
         max_detect_armors_ = gobal::config["common"]["max_detect_armors"].as<int>(10);
         thread_pool_ = std::make_unique<ThreadPool>(std::thread::hardware_concurrency(), 100);
         armor_solver_ = std::make_unique<ArmorSolver>(gobal::config);
-        use_omni = gobal::config["common"]["use_omni"].as<bool>(false);
-        if (use_omni) {
+        use_omni_ = gobal::config["common"]["use_omni"].as<bool>(false);
+        if (use_omni_) {
             hit_omni_dt_ = gobal::config["common"]["hit_omni_dt"].as<double>(0.1);
             receive_omni_dt_ = gobal::config["common"]["receive_omni_dt"].as<double>(0.1);
             auto omni_config = YAML::LoadFile("/home/hy/wust_vision/config/omni_config.yaml");
             omni_manager_ = std::make_unique<OmniManager>(omni_config);
         }
     } else {
-        WUST_MAIN(vision_logger) << "only nav mode";
+        WUST_MAIN(vision_logger_) << "only nav mode";
     }
 
     gobal::is_inited_ = true;
-    WUST_MAIN(vision_logger) << "WustVision init success";
+    WUST_MAIN(vision_logger_) << "WustVision init success";
     return true;
 }
 void WustVision::run() {
-    WUST_MAIN(vision_logger) << "WustVision run start";
+    WUST_MAIN(vision_logger_) << "WustVision run start";
     if (serial_) {
         bool if_use_nav = gobal::config["control"]["use_nav"].as<bool>(false);
         gobal::use_serial = gobal::config["control"]["use_serial"].as<bool>();
         serial_->startThread(gobal::use_serial, if_use_nav);
     }
-    if (!only_nav_enable) {
-        if (video_player_ && use_video) {
+    if (!only_nav_enable_) {
+        if (video_player_ && use_video_) {
             video_player_->start();
         }
-        if (camera_ && !use_video) {
+        if (camera_ && !use_video_) {
             bool if_recorder = gobal::config["camera"]["recorder"].as<bool>(false);
 
             camera_->startCamera(if_recorder);
         }
-        if (use_omni && omni_manager_) {
+        if (use_omni_ && omni_manager_) {
             omni_manager_->startTimer();
         }
         startTimer();
         toolsgobal::robot_cmd_plot_thread_ = std::thread(&robotCmdLoggerThread);
     }
 
-    WUST_MAIN(vision_logger) << "WustVision run success";
+    WUST_MAIN(vision_logger_) << "WustVision run success";
 }
 void WustVision::initDetector() {
     std::string armor_detect_backend =
@@ -326,15 +326,15 @@ void WustVision::initDetector() {
         if (config_path.empty()) {
             throw std::runtime_error("No config path for backend: " + backend);
         }
-        rune_detect_config = YAML::LoadFile(config_path);
-        return DetectorFactory::createRuneDetector(backend, rune_detect_config);
+        rune_detect_config_ = YAML::LoadFile(config_path);
+        return DetectorFactory::createRuneDetector(backend, rune_detect_config_);
     };
 
     if (armor_detect_backend.empty()) {
         throw std::runtime_error("armor_detect_backend not set in config.");
     }
     armor_detector_ = loadArmorDetectorBackend(armor_detect_backend);
-    WUST_MAIN(vision_logger) << "Using Armor Detector: " << armor_detect_backend;
+    WUST_MAIN(vision_logger_) << "Using Armor Detector: " << armor_detect_backend;
 
     armor_detector_->setCallback(std::bind(
         &WustVision::ArmorDetectCallback,
@@ -350,7 +350,7 @@ void WustVision::initDetector() {
         throw std::runtime_error("rune_detect_backend not set in config.");
     }
     rune_detector_ = loadRuneDetectorBackend(rune_detect_backend);
-    WUST_MAIN(vision_logger) << "Using Rune Detector: " << rune_detect_backend;
+    WUST_MAIN(vision_logger_) << "Using Rune Detector: " << rune_detect_backend;
     rune_detector_->setCallback(std::bind(
         &WustVision::RuneDetectCallback,
         this,
@@ -364,9 +364,9 @@ void WustVision::initDetector() {
 }
 void WustVision::initRune(const std::string& camera_info_path) {
 #ifdef USE_RUNE
-    detect_r_tag_ = rune_detect_config["rune_detector"]["detect_r_tag"].as<bool>();
-    use_manual_r = rune_detect_config["rune_detector"]["use_manual_r"].as<bool>();
-    rune_binary_thresh_ = rune_detect_config["rune_detector"]["min_lightness"].as<int>();
+    detect_r_tag_ = rune_detect_config_["rune_detector"]["detect_r_tag"].as<bool>();
+    use_manual_r_ = rune_detect_config_["rune_detector"]["use_manual_r"].as<bool>();
+    rune_binary_thresh_ = rune_detect_config_["rune_detector"]["min_lightness"].as<int>();
 #endif
     auto rune_solver_params = RuneSolver::RuneSolverParams {
         .compensator_type = gobal::config["rune_solver"]["compensator_type"].as<std::string>(),
@@ -378,8 +378,8 @@ void WustVision::initRune(const std::string& camera_info_path) {
     };
     rune_solver_ = std::make_unique<RuneSolver>(rune_solver_params);
     rune_solver_->predict_offset_ = gobal::config["rune_solver"]["predict_offset"].as<double>(0.0);
-    rune_solver_->pnp_solver = std::make_unique<PnPSolver>();
-    rune_solver_->pnp_solver->setObjectPoints("rune", RUNE_OBJECT_POINTS);
+    rune_solver_->pnp_solver_ = std::make_unique<PnPSolver>();
+    rune_solver_->pnp_solver_->setObjectPoints("rune", RUNE_OBJECT_POINTS);
     std::vector<OffsetEntry> entries;
     if (gobal::config["rune_solver"]["trajectory_offset"]) {
         for (const auto& node: gobal::config["rune_solver"]["trajectory_offset"]) {
@@ -393,7 +393,7 @@ void WustVision::initRune(const std::string& camera_info_path) {
             entries.push_back(e);
         }
     }
-    rune_solver_->manual_compensator->updateMapFlow(entries);
+    rune_solver_->manual_compensator_->updateMapFlow(entries);
     // EKF for filtering the position of R tag
     // state: yaw, pitch, distance, orientation_yaw
     // measurement: x, y, z, yaw
@@ -431,16 +431,16 @@ void WustVision::initRune(const std::string& camera_info_path) {
     Eigen::MatrixXd yp0 = Eigen::MatrixXd::Identity(4, 4);
     int iteration_num = gobal::config["rune_solver"]["ekf"]["iteration_num"].as<int>(1);
 
-    rune_solver_->ekf_ypd =
+    rune_solver_->ekf_ypd_ =
         std::make_unique<ypdrune_motion_model::RuneCenterEKF>(yf, yh, yu_q, yu_r, yp0);
-    rune_solver_->ekf_ypd->setAngleDims({ 0, 3 });
-    rune_solver_->ekf_ypd->setIterationNum(iteration_num);
+    rune_solver_->ekf_ypd_->setAngleDims({ 0, 3 });
+    rune_solver_->ekf_ypd_->setIterationNum(iteration_num);
 }
 
 void WustVision::startTimer() {
     if (timer_running_)
         return;
-    WUST_INFO(vision_logger) << "starting timer";
+    WUST_INFO(vision_logger_) << "starting timer";
 
     timer_running_ = true;
 
@@ -487,7 +487,7 @@ void WustVision::initTF() {
     t_gimbal_to_camera = Eigen::Vector3d(gimbal2camera_x_, gimbal2camera_y_, gimbal2camera_z_);
 
     // 转换为旋转矩阵使用
-    R_camera2gimbal << 0, 0, 1, -1, 0, 0, 0, -1, 0;
+    R_camera2gimbal_ << 0, 0, 1, -1, 0, 0, 0, -1, 0;
 }
 void WustVision::initSerial() {
     SerialPortConfig cfg { /*baud*/ 115200,
@@ -499,10 +499,10 @@ void WustVision::initSerial() {
     std::string device_name = gobal::config["control"]["device_name"].as<std::string>();
     serial_ = std::make_unique<serial::Serial>();
     serial_->init(device_name, cfg);
-    serial_->alpha_yaw = gobal::config["control"]["alpha_yaw"].as<double>();
-    serial_->alpha_pitch = gobal::config["control"]["alpha_pitch"].as<double>();
-    serial_->max_yaw_change = gobal::config["control"]["max_yaw_change"].as<double>();
-    serial_->max_pitch_change = gobal::config["control"]["max_pitch_change"].as<double>();
+    serial_->alpha_yaw_ = gobal::config["control"]["alpha_yaw"].as<double>();
+    serial_->alpha_pitch_ = gobal::config["control"]["alpha_pitch"].as<double>();
+    serial_->max_yaw_change_ = gobal::config["control"]["max_yaw_change"].as<double>();
+    serial_->max_pitch_change_ = gobal::config["control"]["max_pitch_change"].as<double>();
     gobal::communication_delay_μs = gobal::config["control"]["communication_delay"].as<double>();
     jump_yaw = gobal::config["control"]["jump_yaw"].as<double>();
 }
@@ -513,7 +513,7 @@ void WustVision::initTracker(const YAML::Node& config) {
 
 void WustVision::runeTargetCallback(const Rune rune_target, Eigen::Matrix4d T_camera_to_odom) {
     // rune_solver_->pnp_solver is nullptr when camera_info is not received
-    if (rune_solver_->pnp_solver == nullptr) {
+    if (rune_solver_->pnp_solver_ == nullptr) {
         return;
     }
     // Keep the last detected target
@@ -545,14 +545,14 @@ void WustVision::armorsCallback(
         return;
     }
 
-    if (gobal::debug_mode_) {
+    if (gobal::debug_mode) {
         std::lock_guard<std::mutex> target_lock(img_mutex_);
         imgframe_.img = src_img.clone();
         imgframe_.timestamp = armors_.timestamp;
-        armors_gobal = armors_;
+        armors_gobal_ = armors_;
     }
-    if (gobal::use_calculation_) {
-        command_callbackypd(armors_);
+    if (gobal::use_calculation) {
+        commandCallbackYpd(armors_);
     }
     Target target_;
     std::vector<OneTarget> one_targets_;
@@ -560,8 +560,8 @@ void WustVision::armorsCallback(
 
     tracker_manager_->update(target_, one_targets_, armors_, time, R_gimbal2odom, v);
 
-    armor_target = target_;
-    one_armor_targets = one_targets_;
+    armor_target_ = target_;
+    one_armor_targets_ = one_targets_;
     auto now = std::chrono::steady_clock::now();
 
     auto latency_nano =
@@ -673,8 +673,8 @@ void WustVision::ArmorDetectCallback(
     std::lock_guard<std::mutex> lock(callback_mutex_);
 
     if (objs.size() >= max_detect_armors_) {
-        WUST_WARN(vision_logger) << "Detected " << objs.size() << " objects"
-                                 << "too much";
+        WUST_WARN(vision_logger_) << "Detected " << objs.size() << " objects"
+                                  << "too much";
         detect_finish_count_++;
         infer_running_count_--;
         return;
@@ -685,10 +685,9 @@ void WustVision::ArmorDetectCallback(
 
     armors.armors = armor_pose_estimator_->extractArmorPoses(objs, T_camera_to_odom);
 
-    gobal::measure_tool_
-        ->processDetectedArmors(objs, gobal::detect_color_, armors, T_camera_to_odom);
+    gobal::measure_tool->processDetectedArmors(objs, gobal::detect_color, armors, T_camera_to_odom);
 
-    if (use_auto_labeler) {
+    if (use_auto_labeler_) {
         static int save_counter = 0;
 
         for (const auto& obj: objs) {
@@ -715,7 +714,7 @@ void WustVision::ArmorDetectCallback(
             }
         }
     }
-    Eigen::Matrix3d R_camera_to_gimbal = R_camera2gimbal;
+    Eigen::Matrix3d R_camera_to_gimbal = R_camera2gimbal_;
     Eigen::Vector3d t_camera_to_gimbal = -R_camera_to_gimbal * t_gimbal_to_camera;
 
     Eigen::Matrix4d T_camera_to_gimbal = Eigen::Matrix4d::Identity();
@@ -741,7 +740,7 @@ void WustVision::RuneDetectCallback(
 
     // Used to draw debug info
     cv::Mat debug_img;
-    if (gobal::debug_mode_) {
+    if (gobal::debug_mode) {
         debug_img = src_img.clone();
     }
     Rune rune_target;
@@ -757,13 +756,14 @@ void WustVision::RuneDetectCallback(
 
         cv::Point2f r_tag;
         cv::Mat binary_roi = cv::Mat::zeros(1, 1, CV_8UC3);
-        if (use_manual_r && manual_r_init) {
-            gobal::measure_tool_->projectRTargetToImage(T_r, T_camera_to_odom, manual_r_box);
-            manual_r_center = utils::computeCenter(manual_r_box);
-            r_tag = manual_r_center;
+        if (use_manual_r_ && manual_r_init_) {
+            gobal::measure_tool->projectRTargetToImage(T_r_, T_camera_to_odom, manual_r_box_);
+            manual_r_center_ = utils::computeCenter(manual_r_box_);
+            r_tag = manual_r_center_;
             if (detect_r_tag_ && !src_img.empty()) {
                 std::tie(r_tag, binary_roi) =
-                    rune_detector_->detectRTag(src_img, rune_binary_thresh_, manual_r_center, true);
+                    rune_detector_
+                        ->detectRTag(src_img, rune_binary_thresh_, manual_r_center_, true);
             }
         } else {
             if (detect_r_tag_ && !src_img.empty()) {
@@ -790,7 +790,7 @@ void WustVision::RuneDetectCallback(
         });
 
         // Draw binary roi
-        if (gobal::debug_mode_ && !debug_img.empty()) {
+        if (gobal::debug_mode && !debug_img.empty()) {
             cv::Rect roi =
                 cv::Rect(debug_img.cols - binary_roi.cols, 0, binary_roi.cols, binary_roi.rows);
             binary_roi.copyTo(debug_img(roi));
@@ -801,7 +801,7 @@ void WustVision::RuneDetectCallback(
         auto result_it = std::find_if(
             objs.begin(),
             objs.end(),
-            [c = static_cast<EnemyColor>(gobal::detect_color_)](const auto& obj) -> bool {
+            [c = static_cast<EnemyColor>(gobal::detect_color)](const auto& obj) -> bool {
                 return obj.type == RuneType::INACTIVATED && obj.color == c;
             }
         );
@@ -853,18 +853,18 @@ void WustVision::RuneDetectCallback(
         std::chrono::duration_cast<std::chrono::nanoseconds>(now - rune_target.timestamp).count();
     toolsgobal::latency_ms = static_cast<double>(latency_nano) / 1e6;
 
-    if (gobal::debug_mode_) {
+    if (gobal::debug_mode) {
         std::lock_guard<std::mutex> target_lock(img_mutex_);
         imgframe_.img = debug_img.clone();
         imgframe_.timestamp = rune_target.timestamp;
-        rune_gobal = rune_target;
+        rune_gobal_ = rune_target;
         rune_objects_ = objs;
     }
     detect_finish_count_++;
     infer_running_count_--;
 }
-void WustVision::calculation_manual_r(const cv::Mat& src_img) {
-    manual_r_runing = true;
+void WustVision::calculationManualR(const cv::Mat& src_img) {
+    manual_r_runing_ = true;
     clicked_points_.clear();
     cv::Mat img_show = src_img.clone();
     cv::cvtColor(img_show, img_show, cv::COLOR_BGR2RGB);
@@ -879,33 +879,33 @@ void WustVision::calculation_manual_r(const cv::Mat& src_img) {
         cv::Mat temp = img_show.clone();
 
         if (!clicked_points_.empty()) {
-            manual_r_center = clicked_points_.front();
+            manual_r_center_ = clicked_points_.front();
 
             float x = std::clamp(
-                manual_r_center.x,
+                manual_r_center_.x,
                 float(half_size),
                 float(src_img.cols - half_size - 1)
             );
             float y = std::clamp(
-                manual_r_center.y,
+                manual_r_center_.y,
                 float(half_size),
                 float(src_img.rows - half_size - 1)
             );
-            manual_r_center = { x, y };
+            manual_r_center_ = { x, y };
 
-            manual_r_box = { {
+            manual_r_box_ = { {
                 { x - half_size, y - half_size }, // 左上 → 对应点0
                 { x - half_size, y + half_size }, // 左下 → 对应点1
                 { x + half_size, y + half_size }, // 右下 → 对应点2
                 { x + half_size, y - half_size } // 右上 → 对应点3
             } };
 
-            cv::circle(temp, manual_r_center, 3, cv::Scalar(0, 255, 0), -1);
+            cv::circle(temp, manual_r_center_, 3, cv::Scalar(0, 255, 0), -1);
             for (int i = 0; i < 4; ++i)
                 cv::line(
                     temp,
-                    manual_r_box[i],
-                    manual_r_box[(i + 1) % 4],
+                    manual_r_box_[i],
+                    manual_r_box_[(i + 1) % 4],
                     cv::Scalar(255, 0, 0),
                     1
                 );
@@ -916,19 +916,19 @@ void WustVision::calculation_manual_r(const cv::Mat& src_img) {
 
         if (key == 27) { // ESC 退出，不提交
             WUST_INFO("Manual R") << "Manual box canceled.";
-            manual_r_init = false;
+            manual_r_init_ = false;
             break;
         }
 
         if (key == 13 || key == 10) { // 回车提交
             if (!clicked_points_.empty()) {
-                manual_r_init = true;
-                WUST_INFO("Manual R")
-                    << "Manual center: (" << manual_r_center.x << ", " << manual_r_center.y << ")";
+                manual_r_init_ = true;
+                WUST_INFO("Manual R") << "Manual center: (" << manual_r_center_.x << ", "
+                                      << manual_r_center_.y << ")";
                 WUST_INFO("Manual R") << "Manual R Box Points Saved.";
             } else {
                 WUST_ERROR("Manual R") << "No point to submit.";
-                manual_r_init = false;
+                manual_r_init_ = false;
             }
             break;
         }
@@ -939,11 +939,11 @@ void WustVision::calculation_manual_r(const cv::Mat& src_img) {
         }
     }
 
-    gobal::measure_tool_->calcRTarget(manual_r_box, T_r, T_camera_to_odom_);
+    gobal::measure_tool->calcRTarget(manual_r_box_, T_r_, T_camera_to_odom_);
     cv::destroyWindow("Manual R Box");
     cv::destroyWindow("Manual R Box");
     cv::destroyWindow("Manual R Box");
-    manual_r_runing = false;
+    manual_r_runing_ = false;
 }
 
 std::vector<cv::Point2f> WustVision::clicked_points_;
@@ -967,7 +967,7 @@ GimbalCmd WustVision::solveByMode(
                 now + std::chrono::microseconds(static_cast<int64_t>(1e6 / gobal::control_rate));
             auto next_cmd = armor_solver_->solve(target, one_targets, next_time);
             if (std::abs(cmd.yaw - next_cmd.yaw) > jump_yaw
-                || std::abs(cmd.yaw - gobal::last_cmd_.yaw) > jump_yaw)
+                || std::abs(cmd.yaw - gobal::last_cmd.yaw) > jump_yaw)
                 cmd.fire_advice = false;
             return cmd;
         }
@@ -986,10 +986,10 @@ void WustVision::timerCallback(double dt_ms) {
     auto now = std::chrono::steady_clock::now();
     timer_count_++;
 
-    Target target = armor_target;
-    std::vector<OneTarget> one_targets = one_armor_targets;
+    Target target = armor_target_;
+    std::vector<OneTarget> one_targets = one_armor_targets_;
 
-    if (std::chrono::duration<double>(now - last_track_target).count() > hit_omni_dt_) {
+    if (std::chrono::duration<double>(now - last_track_target_).count() > hit_omni_dt_) {
         for (const auto& omni: gobal::omni_targets) {
             if (std::abs(std::chrono::duration<double>(now - omni.timestamp).count())
                 <= receive_omni_dt_) {
@@ -1001,7 +1001,7 @@ void WustVision::timerCallback(double dt_ms) {
     bool appear = utils::checkTargetAppear(target, one_targets);
     Tracker::State state = appear ? Tracker::TRACKING : Tracker::LOST;
     if (appear)
-        last_track_target = now;
+        last_track_target_ = now;
     AttackMode mode = toAttackMode(gobal::attack_mode);
 
     GimbalCmd gimbal_cmd;
@@ -1010,21 +1010,21 @@ void WustVision::timerCallback(double dt_ms) {
         if (appear || rune_solver_->tracker_state == Tracker::TRACKING) {
             try {
                 gimbal_cmd = solveByMode(mode, target, one_targets, now);
-                gobal::last_cmd_ = gimbal_cmd;
+                gobal::last_cmd = gimbal_cmd;
                 if (gimbal_cmd.fire_advice)
                     fire_count_++;
             } catch (const std::exception& e) {
                 std::cerr << "solver error: " << e.what() << '\n';
-                gimbal_cmd = gobal::last_cmd_;
+                gimbal_cmd = gobal::last_cmd;
             }
         } else {
-            gimbal_cmd = gobal::last_cmd_;
+            gimbal_cmd = gobal::last_cmd;
         }
 
         serial_->transformGimbalCmd(gimbal_cmd, appear);
     }
 
-    if (gobal::debug_mode_) {
+    if (gobal::debug_mode) {
         visualizeAndLog(mode, target, one_targets, gimbal_cmd, state, now);
     }
 }
@@ -1038,15 +1038,15 @@ void WustVision::processImage(
         return;
     }
     cv::Mat img;
-    if (!use_video) {
+    if (!use_video_) {
         img = convertToMatrgb(frame);
     } else {
         img = convertToMatbgr(frame);
-        img.convertTo(img, -1, video_alpha, video_beta);
+        img.convertTo(img, -1, video_alpha_, video_beta_);
     }
 
     Eigen::Matrix4d T_camera_to_odom =
-        utils::computeCameraToOdomTransform(R_gimbal2odom, R_camera2gimbal, t_gimbal_to_camera);
+        utils::computeCameraToOdomTransform(R_gimbal2odom, R_camera2gimbal_, t_gimbal_to_camera);
 
     infer_running_count_++;
     printStats();
@@ -1057,8 +1057,8 @@ void WustVision::processImage(
             armor_detector_->pushInput(img, frame.timestamp, T_camera_to_odom, v);
         } break;
         case AttackMode::SMALL_RUNE: {
-            if (use_manual_r && !manual_r_init && !manual_r_runing) {
-                calculation_manual_r(img);
+            if (use_manual_r_ && !manual_r_init_ && !manual_r_runing_) {
+                calculationManualR(img);
                 detect_finish_count_++;
                 infer_running_count_--;
                 return;
@@ -1066,8 +1066,8 @@ void WustVision::processImage(
             rune_detector_->pushInput(img, frame.timestamp, T_camera_to_odom);
         } break;
         case AttackMode::BIG_RUNE: {
-            if (use_manual_r && !manual_r_init && !manual_r_runing) {
-                calculation_manual_r(img);
+            if (use_manual_r_ && !manual_r_init_ && !manual_r_runing_) {
+                calculationManualR(img);
                 detect_finish_count_++;
                 infer_running_count_--;
                 return;
@@ -1101,10 +1101,10 @@ void WustVision::printStats() {
             startTimer();
             timer_check_count = 0;
         }
-        WUST_INFO(vision_logger) << "Rec: " << img_recv_count_ << ", Det: " << detect_finish_count_
-                                 << ", Fps: " << detect_finish_count_ / elapsed.count()
-                                 << ", Lat: " << toolsgobal::latency_ms << "ms"
-                                 << ", Fire: " << fire_count_ << ", Tc: " << timer_count_;
+        WUST_INFO(vision_logger_) << "Rec: " << img_recv_count_ << ", Det: " << detect_finish_count_
+                                  << ", Fps: " << detect_finish_count_ / elapsed.count()
+                                  << ", Lat: " << toolsgobal::latency_ms << "ms"
+                                  << ", Fire: " << fire_count_ << ", Tc: " << timer_count_;
         timer_count_ = 0;
         img_recv_count_ = 0;
         detect_finish_count_ = 0;
@@ -1128,7 +1128,7 @@ void WustVision::visualizeAndLog(
 
     Armors armors;
 
-    armors = armors_gobal;
+    armors = armors_gobal_;
 
     if (mode == AttackMode::ARMOR) {
         Armors armor_data = visualizeTargetProjection(target, one_targets);
@@ -1136,36 +1136,36 @@ void WustVision::visualizeAndLog(
         Target_info target_info;
         target_info.select_id = gimbal_cmd.select_id;
 
-        if (!gobal::measure_tool_->reprojectArmorsCorners(armor_data, target_info))
+        if (!gobal::measure_tool->reprojectArmorsCorners(armor_data, target_info))
             return;
-        write_target_log_to_json(target);
+        writeTargetLogToJson(target);
         try {
-            draw_debug_overlaywrite(
+            drawDebugOverlayWrite(
                 imgframe_,
                 &armors,
                 &target_info,
                 &target,
                 state,
-                gobal::last_cmd_
+                gobal::last_cmd
             );
         } catch (const std::exception& e) {
-            std::cerr << "draw_debug_overlaywrite failed: " << e.what() << '\n';
+            std::cerr << "drawDebugOverlayWrite failed: " << e.what() << '\n';
         }
 
     } else {
         double predict_angle = rune_solver_->last_pre_angle - rune_solver_->last_observed_angle_;
 
         try {
-            drawRuneandprewrite(
+            drawRuneAndPrewrite(
                 src,
                 rune_objects_,
                 imgframe_.timestamp,
                 predict_angle,
-                gobal::last_cmd_,
-                manual_r_box
+                gobal::last_cmd,
+                manual_r_box_
             );
         } catch (const std::exception& e) {
-            std::cerr << "drawRuneandprewrite failed: " << e.what() << '\n';
+            std::cerr << "drawRuneAndPrewrite failed: " << e.what() << '\n';
         }
     }
     double t = std::chrono::duration<double>(now - toolsgobal::start_time_).count();
@@ -1173,8 +1173,8 @@ void WustVision::visualizeAndLog(
     {
         std::lock_guard<std::mutex> lock(toolsgobal::robot_cmd_mutex_);
         toolsgobal::time_log_.push_back(t);
-        toolsgobal::cmd_yaw_log_.push_back(gobal::last_cmd_.yaw);
-        toolsgobal::cmd_pitch_log_.push_back(gobal::last_cmd_.pitch);
+        toolsgobal::cmd_yaw_log_.push_back(gobal::last_cmd.yaw);
+        toolsgobal::cmd_pitch_log_.push_back(gobal::last_cmd.pitch);
         double rune_obs = rune_solver_->last_observed_angle_;
         double rune_pre = rune_solver_->last_pre_angle;
         toolsgobal::rune_obs_log_.push_back(rune_obs);
@@ -1199,53 +1199,53 @@ void WustVision::visualizeAndLog(
                 const Armor& min_armor = *min_armor_it;
                 last_armor_ = min_armor;
 
-                last_distance = std::sqrt(
+                last_distance_ = std::sqrt(
                     min_armor.target_pos.x * min_armor.target_pos.x
                     + min_armor.target_pos.y * min_armor.target_pos.y
                     + min_armor.target_pos.z * min_armor.target_pos.z
                 );
                 double armor_yaw = last_armor_.yaw;
-                armor_yaw = this->last_armor_yaw
-                    + angles::shortest_angular_distance(this->last_armor_yaw, armor_yaw);
-                this->last_armor_yaw = armor_yaw;
+                armor_yaw = this->last_armor_yaw_
+                    + angles::shortest_angular_distance(this->last_armor_yaw_, armor_yaw);
+                this->last_armor_yaw_ = armor_yaw;
                 double ypd_y = std::atan2(last_armor_.target_pos.y, last_armor_.target_pos.x);
 
                 ypd_y =
-                    this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
-                this->last_ypd_y = ypd_y;
-                last_ypd_p = std::atan2(
+                    this->last_ypd_y_ + angles::shortest_angular_distance(this->last_ypd_y_, ypd_y);
+                this->last_ypd_y_ = ypd_y;
+                last_ypd_p_ = std::atan2(
                     last_armor_.target_pos.z,
                     std::sqrt(
                         last_armor_.target_pos.x * last_armor_.target_pos.x
                         + last_armor_.target_pos.y * last_armor_.target_pos.y
                     )
                 );
-                toolsgobal::armor_yaw_log_.push_back((last_armor_yaw / M_PI * 180));
+                toolsgobal::armor_yaw_log_.push_back((last_armor_yaw_ / M_PI * 180));
                 toolsgobal::armor_x_log_.push_back(last_armor_.target_pos.x);
                 toolsgobal::armor_y_log_.push_back(last_armor_.target_pos.y);
                 toolsgobal::armor_z_log_.push_back(last_armor_.target_pos.z);
-                toolsgobal::ypd_y_log_.push_back(last_ypd_y / M_PI * 180);
-                toolsgobal::ypd_p_log_.push_back(last_ypd_p / M_PI * 180);
+                toolsgobal::ypd_y_log_.push_back(last_ypd_y_ / M_PI * 180);
+                toolsgobal::ypd_p_log_.push_back(last_ypd_p_ / M_PI * 180);
 
-                toolsgobal::armor_dis_log_.push_back(last_distance);
+                toolsgobal::armor_dis_log_.push_back(last_distance_);
             } else {
-                toolsgobal::armor_yaw_log_.push_back((last_armor_yaw / M_PI * 180));
+                toolsgobal::armor_yaw_log_.push_back((last_armor_yaw_ / M_PI * 180));
                 toolsgobal::armor_x_log_.push_back(last_armor_.target_pos.x);
                 toolsgobal::armor_y_log_.push_back(last_armor_.target_pos.y);
                 toolsgobal::armor_z_log_.push_back(last_armor_.target_pos.z);
-                toolsgobal::ypd_y_log_.push_back(last_ypd_y / M_PI * 180);
-                toolsgobal::ypd_p_log_.push_back(last_ypd_p / M_PI * 180);
-                toolsgobal::armor_dis_log_.push_back(last_distance);
+                toolsgobal::ypd_y_log_.push_back(last_ypd_y_ / M_PI * 180);
+                toolsgobal::ypd_p_log_.push_back(last_ypd_p_ / M_PI * 180);
+                toolsgobal::armor_dis_log_.push_back(last_distance_);
             }
 
         } else {
-            toolsgobal::armor_yaw_log_.push_back((last_armor_yaw / M_PI * 180));
+            toolsgobal::armor_yaw_log_.push_back((last_armor_yaw_ / M_PI * 180));
             toolsgobal::armor_x_log_.push_back(last_armor_.target_pos.x);
             toolsgobal::armor_y_log_.push_back(last_armor_.target_pos.y);
             toolsgobal::armor_z_log_.push_back(last_armor_.target_pos.z);
-            toolsgobal::ypd_y_log_.push_back(last_ypd_y / M_PI * 180);
-            toolsgobal::ypd_p_log_.push_back(last_ypd_p / M_PI * 180);
-            toolsgobal::armor_dis_log_.push_back(last_distance);
+            toolsgobal::ypd_y_log_.push_back(last_ypd_y_ / M_PI * 180);
+            toolsgobal::ypd_p_log_.push_back(last_ypd_p_ / M_PI * 180);
+            toolsgobal::armor_dis_log_.push_back(last_distance_);
         }
 
         if (toolsgobal::time_log_.size() > 1000) {

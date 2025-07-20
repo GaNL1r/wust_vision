@@ -183,7 +183,7 @@ ArmorDetectTrt::ArmorDetectTrt(
     context_(nullptr),
     output_buffer_(nullptr),
     runtime_(nullptr),
-    use_armor_detect_common(use_armor_detect_common) {
+    use_armor_detect_common_(use_armor_detect_common) {
     buildEngine(onnx_path);
     TRT_ASSERT(context_ = engine_->createExecutionContext());
     TRT_ASSERT((input_idx_ = engine_->getBindingIndex("images")) == 0);
@@ -197,7 +197,7 @@ ArmorDetectTrt::ArmorDetectTrt(
     TRT_ASSERT(cudaMalloc(&device_buffers_[output_idx_], output_sz_ * sizeof(float)) == 0);
     output_buffer_ = new float[output_sz_];
     TRT_ASSERT(cudaStreamCreate(&stream_) == 0);
-    if (use_armor_detect_common) {
+    if (use_armor_detect_common_) {
         armor_detect_common_ = std::make_unique<ArmorDetectCommon>(
             classify_model_path,
             classify_label_path,
@@ -324,7 +324,7 @@ bool ArmorDetectTrt::processCallback(
     std::vector<float> scores;
     // 后处理
     objs_result =
-        postprocess(objs_tmp, scores, rects, output_buffer_, output_sz_ / 21, transform_matrix);
+        postProcess(objs_tmp, scores, rects, output_buffer_, output_sz_ / 21, transform_matrix);
     if (objs_result.size() > 10) {
         if (this->infer_callback_) {
             this->infer_callback_(objs_result, timestamp, src_img, T_camera_to_odom, v);
@@ -332,7 +332,7 @@ bool ArmorDetectTrt::processCallback(
         }
     }
 
-    if (use_armor_detect_common) {
+    if (use_armor_detect_common_) {
         std::vector<ArmorObject> armors = armor_detect_common_->detectNet(src_img, objs_result);
         // Call callback function
         if (this->infer_callback_) {
@@ -349,7 +349,7 @@ bool ArmorDetectTrt::processCallback(
     return true;
 }
 
-std::vector<ArmorObject> ArmorDetectTrt::postprocess(
+std::vector<ArmorObject> ArmorDetectTrt::postProcess(
     std::vector<ArmorObject>& output_objs,
     std::vector<float>& scores,
     std::vector<cv::Rect>& rects,

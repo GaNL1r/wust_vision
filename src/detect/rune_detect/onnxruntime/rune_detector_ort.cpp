@@ -413,7 +413,7 @@ bool RuneDetectorOnnxRuntime::processCallback(
         std::remove_if(
             objs_result.begin(),
             objs_result.end(),
-            [c = static_cast<EnemyColor>(gobal::detect_color_)](const auto& objs_result) {
+            [c = static_cast<EnemyColor>(gobal::detect_color)](const auto& objs_result) {
                 return objs_result.color != c;
             }
         ),

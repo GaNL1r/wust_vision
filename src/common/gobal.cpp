@@ -2,9 +2,9 @@
 
 namespace gobal {
 std::atomic<bool> exit_flag(false);
-std::unique_ptr<MonoMeasureTool> measure_tool_;
-int detect_color_;
-bool debug_mode_ = false;
+std::unique_ptr<MonoMeasureTool> measure_tool;
+int detect_color;
+bool debug_mode = false;
 double controller_delay = 0.0;
 double velocity = 25.0;
 bool if_manual_reset = false;
@@ -20,15 +20,15 @@ double gimbal2camera_roll = 0;
 double gimbal2camera_pitch = 0;
 bool is_inited_ = false;
 YAML::Node config;
-bool use_calculation_ = false;
+bool use_calculation = false;
 bool use_serial = false;
 int attack_mode = 0;
 double communication_delay_μs;
 MotionBuffer motion_buffer;
-cv::Mat camera_intrinsic_;
-cv::Mat camera_distortion_;
+cv::Mat camera_intrinsic;
+cv::Mat camera_distortion;
 AttackState attack_state;
 int use_detect_ncnn_count = 0;
 std::vector<OneTarget> omni_targets;
-GimbalCmd last_cmd_;
+GimbalCmd last_cmd;
 } // namespace gobal

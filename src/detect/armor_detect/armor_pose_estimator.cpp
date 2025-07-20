@@ -35,12 +35,12 @@ ArmorPoseEstimator::ArmorPoseEstimator() {
 
     std::array<double, 9> camera_matrix;
 
-    CV_Assert(gobal::camera_intrinsic_.rows == 3 && gobal::camera_intrinsic_.cols == 3);
-    CV_Assert(gobal::camera_intrinsic_.type() == CV_64F);
+    CV_Assert(gobal::camera_intrinsic.rows == 3 && gobal::camera_intrinsic.cols == 3);
+    CV_Assert(gobal::camera_intrinsic.type() == CV_64F);
 
     for (int i = 0; i < 3; ++i)
         for (int j = 0; j < 3; ++j)
-            camera_matrix[i * 3 + j] = gobal::camera_intrinsic_.at<double>(i, j);
+            camera_matrix[i * 3 + j] = gobal::camera_intrinsic.at<double>(i, j);
 
     ba_solver_ = std::make_unique<BaSolver>(camera_matrix);
 
@@ -60,9 +60,9 @@ std::vector<Armor> ArmorPoseEstimator::extractArmorPoses(
             continue;
         }
 
-        if (gobal::detect_color_ == 0 && armor.color != ArmorColor::RED) {
+        if (gobal::detect_color == 0 && armor.color != ArmorColor::RED) {
             continue;
-        } else if (gobal::detect_color_ == 1 && armor.color != ArmorColor::BLUE) {
+        } else if (gobal::detect_color == 1 && armor.color != ArmorColor::BLUE) {
             continue;
         }
         std::vector<cv::Mat> rvecs, tvecs;

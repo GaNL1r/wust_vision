@@ -16,7 +16,7 @@
 #include "common/utils.hpp"
 
 TrackerManager::TrackerManager(const YAML::Node& config_) {
-    track_one_num = config_["track_one_num"].as<int>(2);
+    track_one_num_ = config_["track_one_num"].as<int>(2);
 
     double max_match_distance = config_["max_match_distance"].as<double>(0.2);
     double max_match_yaw_diff = config_["max_match_yaw_diff"].as<double>(1.0);
@@ -29,21 +29,21 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
         jump_thresh
     );
 
-    for (int i = 0; i < track_one_num; i++) {
+    for (int i = 0; i < track_one_num_; i++) {
         auto o_tracker_ = std::make_unique<OneTracker>(
             max_match_distance,
             max_match_yaw_diff,
             max_match_z_diff,
             jump_thresh
         );
-        o_tracker_->tracking_thres = config_["one_tracking_thres"].as<int>(1);
+        o_tracker_->tracking_thres_ = config_["one_tracking_thres"].as<int>(1);
         one_trackers_.push_back(std::move(o_tracker_));
     }
 
-    v_yaw_to_one_thres_high = config_["v_yaw_to_one_thres_high"].as<float>(1.0);
-    v_yaw_to_one_thres_low = config_["v_yaw_to_one_thres_low"].as<float>(0.7);
+    v_yaw_to_one_thres_high_ = config_["v_yaw_to_one_thres_high"].as<float>(1.0);
+    v_yaw_to_one_thres_low_ = config_["v_yaw_to_one_thres_low"].as<float>(0.7);
 
-    tracker_->tracking_thres = config_["tracking_thres"].as<int>(5);
+    tracker_->tracking_thres_ = config_["tracking_thres"].as<int>(5);
 
     lost_time_thres_ = config_["lost_time_thres"].as<double>();
     one_lost_time_thres_ = config_["one_lost_time_thres"].as<double>(0.1);
@@ -51,7 +51,7 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     iteration_num_ = config_["ekf"]["iteration_num"].as<int>(1);
     bool use_esekf = config_["ekf"]["use_esekf"].as<bool>(false);
     bool fusion_esekf_ekf = config_["ekf"]["fusion_esekf_ekf"].as<bool>(false);
-    tracker_->use_esekf = use_esekf;
+    tracker_->use_esekf_ = use_esekf;
     // EKF 噪声参数
 
     ys2qx_ = config_["ekf"]["ys2qx"].as<double>(20.0);
@@ -250,18 +250,18 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
                 use_esekf ? esekf->setState(target_state) : ekf->setState(target_state);
             }
         };
-    tracker_->predict_func = tracker_predict_func;
-    tracker_->update_func = tracker_update_func;
-    tracker_->setstate_func = tracker_setstate_func;
-    tracker_->ekf_ypd =
+    tracker_->predict_func_ = tracker_predict_func;
+    tracker_->update_func_ = tracker_update_func;
+    tracker_->setstate_func_ = tracker_setstate_func;
+    tracker_->ekf_ypd_ =
         std::make_unique<ypdarmor_motion_model::RobotStateEKF>(yf, yh, yu_q, yu_r, yp0);
-    tracker_->ekf_ypd->setAngleDims({ 0, 3 });
-    tracker_->ekf_ypd->setIterationNum(iteration_num_);
-    tracker_->esekf_ypd =
+    tracker_->ekf_ypd_->setAngleDims({ 0, 3 });
+    tracker_->ekf_ypd_->setIterationNum(iteration_num_);
+    tracker_->esekf_ypd_ =
         std::make_unique<ypdarmor_motion_model::RobotStateESEKF>(yf, yh, yu_q, yu_r, yp0);
-    tracker_->esekf_ypd->setAngleDims({ 0, 3 });
-    tracker_->esekf_ypd->setIterationNum(iteration_num_);
-    tracker_->esekf_ypd->setInjectFunc(
+    tracker_->esekf_ypd_->setAngleDims({ 0, 3 });
+    tracker_->esekf_ypd_->setIterationNum(iteration_num_);
+    tracker_->esekf_ypd_->setInjectFunc(
         [](const Eigen::Matrix<double, ypdarmor_motion_model::X_N, 1>& delta,
            Eigen::Matrix<double, ypdarmor_motion_model::X_N, 1>& nominal) {
             for (int i = 0; i < ypdarmor_motion_model::X_N; i++) {
@@ -272,15 +272,15 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
             nominal[6] = angles::normalize_angle(nominal[6] + delta[6]);
         }
     );
-    tracker_->acc_ekf =
+    tracker_->acc_ekf_ =
         std::make_unique<acc_model::VelocityAccelEKF>(acc_f, acc_h, acc_q, acc_r, accp0);
 
     for (auto& o_tracker: one_trackers_) {
-        o_tracker->ekf_ypd =
+        o_tracker->ekf_ypd_ =
             std::make_unique<oneypdarmor_motion_model::RobotStateEKF>(oyf, oyh, oyu_q, oyu_r, oyp0);
-        o_tracker->ekf_ypd->setAngleDims({ 0, 3 });
-        o_tracker->ekf_ypd->setIterationNum(iteration_num_);
-        o_tracker->acc_ekf =
+        o_tracker->ekf_ypd_->setAngleDims({ 0, 3 });
+        o_tracker->ekf_ypd_->setIterationNum(iteration_num_);
+        o_tracker->acc_ekf_ =
             std::make_unique<acc_model::VelocityAccelEKF>(acc_f, acc_h, acc_q, acc_r, accp0);
     }
 
@@ -301,49 +301,49 @@ void TrackerManager::updateTracker(
 
     } else {
         dt_ = std::chrono::duration<double>(time - last_time_).count();
-        tracker_->lost_thres = std::abs(static_cast<int>(lost_time_thres_ / dt_));
+        tracker_->lost_thres_ = std::abs(static_cast<int>(lost_time_thres_ / dt_));
         double vx = v.x(), vy = v.y(), vz = v.z();
 
-        if (tracker_->tracked_id == ArmorNumber::OUTPOST) {
-            tracker_->ekf_ypd->setPredictFunc(ypdarmor_motion_model::Predict {
+        if (tracker_->tracked_id_ == ArmorNumber::OUTPOST) {
+            tracker_->ekf_ypd_->setPredictFunc(ypdarmor_motion_model::Predict {
                 dt_,
                 ypdarmor_motion_model::MotionModel::CONSTANT_ROTATION,
                 vx,
                 vy,
                 vz });
-            tracker_->esekf_ypd->setPredictFunc(ypdarmor_motion_model::Predict {
+            tracker_->esekf_ypd_->setPredictFunc(ypdarmor_motion_model::Predict {
                 dt_,
                 ypdarmor_motion_model::MotionModel::CONSTANT_ROTATION,
                 vx,
                 vy,
                 vz });
         } else {
-            tracker_->ekf_ypd->setPredictFunc(ypdarmor_motion_model::Predict {
+            tracker_->ekf_ypd_->setPredictFunc(ypdarmor_motion_model::Predict {
                 dt_,
                 ypdarmor_motion_model::MotionModel::CONSTANT_VEL_ROT,
                 vx,
                 vy,
                 vz });
-            tracker_->esekf_ypd->setPredictFunc(ypdarmor_motion_model::Predict {
+            tracker_->esekf_ypd_->setPredictFunc(ypdarmor_motion_model::Predict {
                 dt_,
                 ypdarmor_motion_model::MotionModel::CONSTANT_VEL_ROT,
                 vx,
                 vy,
                 vz });
         }
-        tracker_->acc_ekf->setPredictFunc(acc_model::Predict { dt_ });
+        tracker_->acc_ekf_->setPredictFunc(acc_model::Predict { dt_ });
         tracker_->update(armors_);
 
         if (tracker_->tracker_state == Tracker::DETECTING) {
             target_.tracking = false;
-            target_.armors_num = static_cast<int>(tracker_->tracked_armors_num);
+            target_.armors_num = static_cast<int>(tracker_->tracked_armors_num_);
         } else if (tracker_->tracker_state == Tracker::TRACKING || tracker_->tracker_state == Tracker::TEMP_LOST)
         {
             target_.tracking = true;
-            const auto& state = tracker_->target_state;
-            const auto& acc_state = tracker_->acc_state;
-            target_.id = tracker_->tracked_id;
-            target_.armors_num = static_cast<int>(tracker_->tracked_armors_num);
+            const auto& state = tracker_->target_state_;
+            const auto& acc_state = tracker_->acc_state_;
+            target_.id = tracker_->tracked_id_;
+            target_.armors_num = static_cast<int>(tracker_->tracked_armors_num_);
             target_.position_.x = state(0);
             target_.velocity_.x = state(1);
             target_.acceleration_.x = acc_state(1);
@@ -356,10 +356,10 @@ void TrackerManager::updateTracker(
             target_.yaw = state(6);
             target_.v_yaw = state(7);
             target_.radius_1 = state(8);
-            target_.radius_2 = tracker_->another_r;
+            target_.radius_2 = tracker_->another_r_;
             target_.d_zc = state(9);
-            target_.d_za = tracker_->d_za;
-            target_.type = tracker_->type;
+            target_.d_za = tracker_->d_za_;
+            target_.type = tracker_->type_;
         }
     }
 }
@@ -397,26 +397,26 @@ void TrackerManager::updateOneTrackers(
             continue;
         }
 
-        otracker->lost_thres = std::abs(static_cast<int>(one_lost_time_thres_ / dt_));
+        otracker->lost_thres_ = std::abs(static_cast<int>(one_lost_time_thres_ / dt_));
         Eigen::VectorXd ekf_prediction;
         double vx = v.x(), vy = v.y(), vz = v.z();
-        if (otracker->tracked_id == ArmorNumber::OUTPOST) {
-            otracker->ekf_ypd->setPredictFunc(oneypdarmor_motion_model::Predict {
+        if (otracker->tracked_id_ == ArmorNumber::OUTPOST) {
+            otracker->ekf_ypd_->setPredictFunc(oneypdarmor_motion_model::Predict {
                 dt_,
                 oneypdarmor_motion_model::MotionModel::CONSTANT_ROTATION,
                 vx,
                 vy,
                 vz });
         } else {
-            otracker->ekf_ypd->setPredictFunc(oneypdarmor_motion_model::Predict {
+            otracker->ekf_ypd_->setPredictFunc(oneypdarmor_motion_model::Predict {
                 dt_,
                 oneypdarmor_motion_model::MotionModel::CONSTANT_VEL_ROT,
                 vx,
                 vy,
                 vz });
         }
-        otracker->acc_ekf->setPredictFunc(acc_model::Predict { dt_ });
-        ekf_prediction = otracker->ekf_ypd->predict();
+        otracker->acc_ekf_->setPredictFunc(acc_model::Predict { dt_ });
+        ekf_prediction = otracker->ekf_ypd_->predict();
 
         Eigen::Vector3d predicted_position = otracker->getArmorPositionFromState(ekf_prediction);
 
@@ -427,7 +427,7 @@ void TrackerManager::updateOneTrackers(
             if (armor_assigned[i])
                 continue;
 
-            if (!isSameTarget(armors_.armors[i].number, otracker->tracked_id)) {
+            if (!isSameTarget(armors_.armors[i].number, otracker->tracked_id_)) {
                 continue;
             }
 
@@ -436,7 +436,7 @@ void TrackerManager::updateOneTrackers(
             double obs_yaw = otracker->orientationToYaw(armor.target_ori);
 
             double pos_dist = (obs_pos - predicted_position).norm();
-            double yaw_diff = std::abs(normalizeAngle(obs_yaw - otracker->target_state(6)));
+            double yaw_diff = std::abs(normalizeAngle(obs_yaw - otracker->target_state_(6)));
             double z_diff = std::abs(obs_pos.z() - predicted_position.z());
             if (pos_dist > otracker->max_match_distance_)
                 continue;
@@ -460,10 +460,10 @@ void TrackerManager::updateOneTrackers(
         }
         if (otracker->tracker_state == Tracker::TRACKING
             || otracker->tracker_state == Tracker::TEMP_LOST) {
-            const auto& state = otracker->target_state;
-            const auto& acc_state = otracker->acc_state;
+            const auto& state = otracker->target_state_;
+            const auto& acc_state = otracker->acc_state_;
             target.tracking = true;
-            target.id = otracker->tracked_id;
+            target.id = otracker->tracked_id_;
             target.position_.x = state(0);
             target.velocity_.x = state(1);
             target.acceleration_.x = acc_state(1);
@@ -475,8 +475,8 @@ void TrackerManager::updateOneTrackers(
             target.acceleration_.z = acc_state(5);
             target.yaw = state(6);
             target.v_yaw = state(7);
-            target.type = otracker->type;
-            target.distance_to_image_center = otracker->distance_to_image_center;
+            target.type = otracker->type_;
+            target.distance_to_image_center = otracker->distance_to_image_center_;
 
         } else {
             target.tracking = false;
@@ -489,19 +489,19 @@ void TrackerManager::updateOneTrackers(
 void TrackerManager::updateAttackState(const double& v_yaw_abs) {
     switch (gobal::attack_state) {
         case gobal::AttackState::ATTACKONE:
-            if (v_yaw_abs > v_yaw_to_one_thres_high || tracker_->tracker_state == Tracker::LOST) {
+            if (v_yaw_abs > v_yaw_to_one_thres_high_ || tracker_->tracker_state == Tracker::LOST) {
                 gobal::attack_state = gobal::AttackState::ATTACKWHOLECAR;
             }
             break;
 
         case gobal::AttackState::ATTACKWHOLECAR:
-            if (v_yaw_abs < v_yaw_to_one_thres_low) {
+            if (v_yaw_abs < v_yaw_to_one_thres_low_) {
                 gobal::attack_state = gobal::AttackState::ATTACKONE;
             }
             break;
 
         default:
-            if (v_yaw_abs > v_yaw_to_one_thres_high) {
+            if (v_yaw_abs > v_yaw_to_one_thres_high_) {
                 gobal::attack_state = gobal::AttackState::ATTACKWHOLECAR;
             } else {
                 gobal::attack_state = gobal::AttackState::ATTACKONE;

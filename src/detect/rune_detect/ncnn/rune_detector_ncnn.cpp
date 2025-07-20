@@ -266,9 +266,9 @@ RuneDetectorNCNN::RuneDetectorNCNN(
     conf_threshold_(conf_threshold),
     top_k_(top_k),
     nms_threshold_(nms_threshold),
-    use_gpu(use_gpu),
-    cpu_threads(cpu_threads),
-    use_lightmode(use_lightmode) {
+    use_gpu_(use_gpu),
+    cpu_threads_(cpu_threads),
+    use_lightmode_(use_lightmode) {
     init(device_id);
 }
 RuneDetectorNCNN::~RuneDetectorNCNN() {
@@ -276,7 +276,7 @@ RuneDetectorNCNN::~RuneDetectorNCNN() {
 }
 
 void RuneDetectorNCNN::init(int device_id) {
-    if (use_gpu) {
+    if (use_gpu_) {
         ncnn::create_gpu_instance();
         opt_.use_vulkan_compute = true;
         ncnn::VulkanDevice* vkdev = ncnn::get_gpu_device(device_id);
@@ -288,13 +288,13 @@ void RuneDetectorNCNN::init(int device_id) {
         opt_.use_vulkan_compute = false;
         WUST_INFO("rune_ncnn") << "ncnn: use cpu";
     }
-    if (use_lightmode) {
+    if (use_lightmode_) {
         opt_.lightmode = true;
     }
 
-    opt_.num_threads = cpu_threads;
+    opt_.num_threads = cpu_threads_;
     net_.opt = opt_;
-    WUST_INFO("rune_ncnn") << "ncnn: using " << cpu_threads << " threads";
+    WUST_INFO("rune_ncnn") << "ncnn: using " << cpu_threads_ << " threads";
 
     if (net_.load_param(model_path_param_.c_str()) != 0) {
         WUST_ERROR("rune_ncnn") << "Failed to load param";
@@ -406,7 +406,7 @@ bool RuneDetectorNCNN::processCallback(
         std::remove_if(
             objs_result.begin(),
             objs_result.end(),
-            [c = static_cast<EnemyColor>(gobal::detect_color_)](const auto& objs_result) {
+            [c = static_cast<EnemyColor>(gobal::detect_color)](const auto& objs_result) {
                 return objs_result.color != c;
             }
         ),

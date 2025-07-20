@@ -80,7 +80,7 @@ void Serial::stopThread() {
 }
 
 void Serial::serialPortProtect() {
-    WUST_INFO(serial_logger) << "Start serialPortProtect!";
+    WUST_INFO(serial_logger_) << "Start serialPortProtect!";
 
     // 1. 初始化串口
     driver_.init_port(device_name_, config_);
@@ -89,11 +89,11 @@ void Serial::serialPortProtect() {
     try {
         if (!driver_.is_open()) {
             driver_.open();
-            WUST_INFO(serial_logger) << "Serial port opened: " << device_name_;
+            WUST_INFO(serial_logger_) << "Serial port opened: " << device_name_;
         }
         is_usb_ok_ = true;
     } catch (const std::exception& ex) {
-        WUST_ERROR(serial_logger) << "Open serial port failed: " << ex.what();
+        WUST_ERROR(serial_logger_) << "Open serial port failed: " << ex.what();
         is_usb_ok_ = false;
     }
 
@@ -103,33 +103,33 @@ void Serial::serialPortProtect() {
             try {
                 if (driver_.is_open()) {
                     driver_.close();
-                    WUST_WARN(serial_logger) << "Serial port closed for reconnect";
+                    WUST_WARN(serial_logger_) << "Serial port closed for reconnect";
                 }
                 driver_.open();
                 if (driver_.is_open()) {
-                    WUST_INFO(serial_logger) << "Serial port re-opened successfully";
+                    WUST_INFO(serial_logger_) << "Serial port re-opened successfully";
                     is_usb_ok_ = true;
                 }
             } catch (const std::exception& ex) {
                 is_usb_ok_ = false;
-                WUST_ERROR(serial_logger) << "Re-open serial port failed: " << ex.what() << "\n";
+                WUST_ERROR(serial_logger_) << "Re-open serial port failed: " << ex.what() << "\n";
             }
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(USB_PROTECT_SLEEP_MS));
     }
 
-    WUST_INFO(serial_logger) << "serialPortProtect stopped";
+    WUST_INFO(serial_logger_) << "serialPortProtect stopped";
 }
 void Serial::receiveData() {
-    WUST_INFO(serial_logger) << "receiveData started";
+    WUST_INFO(serial_logger_) << "receiveData started";
 
     std::vector<uint8_t> buffer(sizeof(ReceiveAimINFO));
     int retry_count = 0;
 
     while (this->running_) {
         if (!is_usb_ok_) {
-            WUST_WARN(serial_logger) << "receive: USB not OK! Retry count: " << retry_count++;
+            WUST_WARN(serial_logger_) << "receive: USB not OK! Retry count: " << retry_count++;
             std::this_thread::sleep_for(std::chrono::milliseconds(USB_NOT_OK_SLEEP_MS));
             continue;
         }
@@ -138,7 +138,7 @@ void Serial::receiveData() {
                 continue;
             }
             // if (buffer.size() != sizeof(ReceiveAimINFO)) {
-            //     WUST_WARN(serial_logger) << "receive: buffer too small, skipping";
+            //     WUST_WARN(serial_logger_) << "receive: buffer too small, skipping";
             //     continue;
             // }
             // std::cout << "receive: " << buffer.size() << std::endl;
@@ -146,19 +146,19 @@ void Serial::receiveData() {
 
             auto aim = fromVector<ReceiveAimINFO>(buffer);
             //if (verifyChecksum(aim)) {
-            aim_cbk(aim);
+            aimCbk(aim);
             //}
 
         } catch (const std::exception& ex) {
-            WUST_ERROR(serial_logger) << "receiveData exception: " << ex.what();
+            WUST_ERROR(serial_logger_) << "receiveData exception: " << ex.what();
             is_usb_ok_ = false;
         }
     }
 
-    WUST_INFO(serial_logger) << "receiveData stopped";
+    WUST_INFO(serial_logger_) << "receiveData stopped";
 }
 
-void Serial::aim_cbk(ReceiveAimINFO& aim_data) {
+void Serial::aimCbk(ReceiveAimINFO& aim_data) {
     static int last_reset_count = -1;
 
     if (std::isnan(aim_data.roll) || std::isnan(aim_data.pitch) || std::isnan(aim_data.yaw)
@@ -185,7 +185,7 @@ void Serial::aim_cbk(ReceiveAimINFO& aim_data) {
     gobal::motion_buffer.push(yaw, pitch, roll, v_x, v_y, v_z, now);
     int manual_reset_count = aim_data.manual_reset_count;
     // if (manual_reset_count != last_reset_count) {
-    //     WUST_INFO(serial_logger) << "Manual reset count changed: " << last_reset_count << " -> "
+    //     WUST_INFO(serial_logger_) << "Manual reset count changed: " << last_reset_count << " -> "
     //                              << manual_reset_count;
     //     gobal::if_manual_reset = true;
     //     last_reset_count = manual_reset_count;
@@ -196,13 +196,13 @@ void Serial::aim_cbk(ReceiveAimINFO& aim_data) {
     //gobal::detect_color_ = aim_data.detect_color;
     //gobal::velocity = aim_data.bullet_speed;
 
-    if (gobal::debug_mode_) {
-        write_aim_log_to_json(aim_data);
+    if (gobal::debug_mode) {
+        writeAimLogToJson(aim_data);
     }
 }
 
 void Serial::sendData() {
-    WUST_INFO(serial_logger) << "Start sendData!";
+    WUST_INFO(serial_logger_) << "Start sendData!";
 
     // send_robot_cmd_data_.frame_header.sof = SOF_SEND;
     send_robot_cmd_data_.cmd_ID = ID_ROBOT_CMD;
@@ -216,7 +216,7 @@ void Serial::sendData() {
 
     while (this->running_) {
         if (!is_usb_ok_) {
-            WUST_WARN(serial_logger) << "send: usb is not ok! Retry count:" << retry_count++;
+            WUST_WARN(serial_logger_) << "send: usb is not ok! Retry count:" << retry_count++;
             std::this_thread::sleep_for(std::chrono::milliseconds(USB_NOT_OK_SLEEP_MS));
             continue;
         }
@@ -225,7 +225,7 @@ void Serial::sendData() {
             std::vector<uint8_t> send_data = toVector(send_robot_cmd_data_);
             driver_.send(send_data);
         } catch (const std::exception& ex) {
-            WUST_ERROR(serial_logger) << "Error sending data: " << ex.what();
+            WUST_ERROR(serial_logger_) << "Error sending data: " << ex.what();
             is_usb_ok_ = false;
         }
 
@@ -238,17 +238,17 @@ void Serial::transformGimbalCmd(GimbalCmd& gimbal_cmd, bool appear) {
         return std::clamp(val, -max_change, max_change);
     };
     if (appear) {
-        double delta_yaw = gimbal_cmd.yaw - serial_last_yaw;
-        double delta_pitch = gimbal_cmd.pitch - serial_last_pitch;
+        double delta_yaw = gimbal_cmd.yaw - serial_last_yaw_;
+        double delta_pitch = gimbal_cmd.pitch - serial_last_pitch_;
 
-        delta_yaw = limit(delta_yaw, max_yaw_change);
-        delta_pitch = limit(delta_pitch, max_pitch_change);
+        delta_yaw = limit(delta_yaw, max_yaw_change_);
+        delta_pitch = limit(delta_pitch, max_pitch_change_);
 
-        send_robot_cmd_data_.yaw = serial_last_yaw + alpha_yaw * delta_yaw;
-        send_robot_cmd_data_.pitch = serial_last_pitch + alpha_pitch * delta_pitch;
+        send_robot_cmd_data_.yaw = serial_last_yaw_ + alpha_yaw_ * delta_yaw;
+        send_robot_cmd_data_.pitch = serial_last_pitch_ + alpha_pitch_ * delta_pitch;
 
-        serial_last_yaw = send_robot_cmd_data_.yaw;
-        serial_last_pitch = send_robot_cmd_data_.pitch;
+        serial_last_yaw_ = send_robot_cmd_data_.yaw;
+        serial_last_pitch_ = send_robot_cmd_data_.pitch;
         send_robot_cmd_data_.v_yaw = gimbal_cmd.v_yaw;
         send_robot_cmd_data_.v_pitch = gimbal_cmd.v_pitch;
     } else {
@@ -262,7 +262,7 @@ void Serial::transformGimbalCmd(GimbalCmd& gimbal_cmd, bool appear) {
     send_robot_cmd_data_.pitch_diff = gimbal_cmd.pitch_diff;
     send_robot_cmd_data_.yaw_diff = gimbal_cmd.yaw_diff;
     send_robot_cmd_data_.fire = gimbal_cmd.fire_advice;
-    send_robot_cmd_data_.detect_color = gobal::detect_color_;
+    send_robot_cmd_data_.detect_color = gobal::detect_color;
     send_robot_cmd_data_.appear = appear;
     auto now = std::chrono::steady_clock::now();
     auto duration = now.time_since_epoch();
@@ -280,14 +280,14 @@ void Serial::shmTheard() {
     int shm_fd = shm_open(SHM_NAME, O_RDONLY, 0666);
     if (shm_fd == -1) {
         perror("shm_open");
-        WUST_ERROR(serial_logger) << "Error opening shared memory";
+        WUST_ERROR(serial_logger_) << "Error opening shared memory";
         return;
     }
 
     void* ptr = mmap(0, SHM_SIZE, PROT_READ, MAP_SHARED, shm_fd, 0);
     if (ptr == MAP_FAILED) {
         perror("mmap");
-        WUST_ERROR(serial_logger) << "Error mapping shared memory";
+        WUST_ERROR(serial_logger_) << "Error mapping shared memory";
         return;
     }
 
@@ -297,7 +297,7 @@ void Serial::shmTheard() {
         usleep(50000); // 50ms
     }
 
-    WUST_INFO(serial_logger) << "shmTheard end";
+    WUST_INFO(serial_logger_) << "shmTheard end";
     return;
 }
 } // namespace serial

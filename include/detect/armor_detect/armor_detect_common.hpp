@@ -47,5 +47,5 @@ public:
     float expand_ratio_w_;
     float expand_ratio_h_;
     int binary_thres_;
-    double classifier_threshold;
+    double classifier_threshold_;
 };

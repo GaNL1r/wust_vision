@@ -95,7 +95,7 @@ private:
     std::string input_name_;
     std::string output_name_;
     CallbackType infer_callback_;
-    int cpu_threads;
-    bool use_gpu;
-    bool use_lightmode = true;
+    int cpu_threads_;
+    bool use_gpu_;
+    bool use_lightmode_ = true;
 };

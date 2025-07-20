@@ -49,7 +49,7 @@ public:
         double gamma,
         const std::string& adc_bit_depth,
         const std::string& pixel_format,
-        bool acquisitionFrameRateEnable,
+        bool acquisition_frame_rate_enable,
         bool reverse_x,
         bool reverse_y
     );
@@ -69,9 +69,9 @@ private:
     MV_IMAGE_BASIC_INFO img_info_;
     MV_CC_PIXEL_CONVERT_PARAM convert_param_;
     std::thread capture_thread_;
-    std::string hik_logger = "hik_camera";
+    std::string hik_logger_ = "hik_camera";
     double last_frame_rate_, last_exposure_time_, last_gain_, last_gamma_;
-    bool last_acquisitionFrameRateEnable;
+    bool last_acquisition_frame_rate_enable_;
     std::string last_adc_bit_depth_, last_pixel_format_;
     std::string last_target_sn_;
     bool in_low_frame_rate_state_;

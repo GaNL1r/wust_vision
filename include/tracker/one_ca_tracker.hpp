@@ -56,23 +56,23 @@ public:
     } tracker_state;
     static Eigen::Vector3d getArmorPositionFromState(const Eigen::VectorXd& x) noexcept;
 
-    std::unique_ptr<onecaarmor_motion_model::RobotStateEKF> ekf;
+    std::unique_ptr<onecaarmor_motion_model::RobotStateEKF> ekf_;
 
-    int tracking_thres;
-    int lost_thres;
+    int tracking_thres_;
+    int lost_thres_;
 
-    Armor tracked_armor;
+    Armor tracked_armor_;
 
-    ArmorNumber tracked_id;
-    std::string type;
-    int retype;
-    Eigen::VectorXd measurement;
-    Eigen::VectorXd target_state;
+    ArmorNumber tracked_id_;
+    std::string type_;
+    int retype_;
+    Eigen::VectorXd measurement_;
+    Eigen::VectorXd target_state_;
 
-    double distance_to_image_center;
+    double distance_to_image_center_;
 
-    double d_za, another_r;
-    double d_zc;
+    double d_za_, another_r_;
+    double d_zc_;
     float yaw_diff_;
     float position_diff_;
     double jump_thresh = 0.4;
@@ -102,6 +102,6 @@ private:
 
     int rotation_inconsistent_cooldown_ = 0;
 
-    std::string tracker_logger = "onetracker";
+    std::string tracker_logger_ = "onetracker";
     std::deque<std::chrono::steady_clock::time_point> armor_jump_timestamps_;
 };

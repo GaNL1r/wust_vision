@@ -60,7 +60,7 @@ public:
         const Eigen::Vector3d& v
     );
 
-    void drawresult(const cv::Mat& src_img, std::vector<ArmorObject>& armor_objects);
+    void drawResult(const cv::Mat& src_img, std::vector<ArmorObject>& armor_objects);
 
     void pushInput(
         const cv::Mat& rgb_img,
@@ -86,5 +86,5 @@ private:
     DetectorCallback infer_callback_;
     std::unique_ptr<ArmorDetectCommon> armor_detect_common_;
     bool use_throughputmode_ = false;
-    bool use_armor_detect_common = true;
+    bool use_armor_detect_common_ = true;
 };

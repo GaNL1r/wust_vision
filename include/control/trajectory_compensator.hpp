@@ -31,9 +31,9 @@ public:
     std::vector<std::pair<double, double>>
     getTrajectory(double distance, double angle) const noexcept;
 
-    int iteration_times = 20;
-    double gravity = 9.8;
-    double resistance = 0.01;
+    int iteration_times_ = 20;
+    double gravity_ = 9.8;
+    double resistance_ = 0.01;
 
 protected:
     // Calculate the trajectory of the bullet, return the vertical impact point

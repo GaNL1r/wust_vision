@@ -7,31 +7,31 @@
 #include "type/type.hpp"
 #include <opencv2/core/mat.hpp>
 #include <optional>
-void drawresult(
+void drawResult(
     const cv::Mat& src_img,
     const std::vector<ArmorObject>& objs,
     int64_t timestamp_nanosec
 );
-void drawresult(const imgframe& src_img, const Armors& armors);
-void drawreprojec(
+void drawResult(const imgframe& src_img, const Armors& armors);
+void drawReprojec(
     const cv::Mat& src_img,
     const std::vector<std::vector<cv::Point2f>> all_pts,
     const Target target,
     const Tracker::State state
 );
-void drawreprojec(
+void drawReprojec(
     const cv::Mat& src_img,
     const Target_info target_info,
     const Target target,
     const Tracker::State state
 );
-void drawreprojec(
+void drawReprojec(
     const imgframe& src_img,
     const Target_info target_info,
     const Target target,
     const Tracker::State state
 );
-void drawreprojec(
+void drawReprojec(
     const imgframe& src_img,
     const Target_info target_info,
     const Target target,
@@ -44,7 +44,7 @@ void dumpImuToFile(const ReceiveImuData& imu, const std::string& path = "/tmp/im
 void dumpAimToFile(const ReceiveAimINFO& aim, const std::string& path = "/tmp/aim_status.txt");
 std::string formatAimInfo(const ReceiveAimINFO& aim);
 std::string formatImuInfo(const ReceiveImuData& imu);
-void draw_debug_overlay(
+void drawDebugOverlay(
     const imgframe& src_img,
     const Armors* armors = nullptr,
     const Target_info* target_info = nullptr,
@@ -52,7 +52,7 @@ void draw_debug_overlay(
     const std::optional<Tracker::State>& state = std::nullopt,
     const std::optional<GimbalCmd>& gimbal_cmd = std::nullopt
 );
-cv::Mat draw_debug_overlayMat(
+cv::Mat drawDebugOverlayMat(
     const imgframe& src_img,
     const Armors* armors,
     const Target_info* target_info,
@@ -60,7 +60,7 @@ cv::Mat draw_debug_overlayMat(
     const std::optional<Tracker::State>& state,
     const std::optional<GimbalCmd>& gimbal_cmd
 );
-void draw_debug_overlaywrite(
+void drawDebugOverlayWrite(
     const imgframe& src_img,
     const Armors* armors,
     const Target_info* target_info,
@@ -69,20 +69,20 @@ void draw_debug_overlaywrite(
     const std::optional<GimbalCmd>& gimbal_cmd
 );
 
-void write_target_log_to_json(const Target& target);
-void write_aim_log_to_json(const ReceiveAimINFO& aim);
+void writeTargetLogToJson(const Target& target);
+void writeAimLogToJson(const ReceiveAimINFO& aim);
 void drawRune(
     cv::Mat& src_img,
     const std::vector<RuneObject>& objs,
     std::chrono::steady_clock::time_point timestamp
 );
-void drawRuneandpre(
+void drawRuneAndPre(
     cv::Mat& src_img,
     const std::vector<RuneObject>& objs,
     std::chrono::steady_clock::time_point timestamp,
     double predict_angle
 );
-void drawRuneandprewrite(
+void drawRuneAndPrewrite(
     cv::Mat& src_img,
     const std::vector<RuneObject>& objs,
     std::chrono::steady_clock::time_point timestamp,

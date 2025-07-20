@@ -29,7 +29,7 @@ bool TrajectoryCompensator::compensate(const Eigen::Vector3d& target_position, d
     double dh = 0;
     // Iterate to find the right angle, which makes the impact height equal to the
     // target height
-    for (int i = 0; i < iteration_times; ++i) {
+    for (int i = 0; i < iteration_times_; ++i) {
         angle = std::atan2(iterative_height, distance);
         if (std::abs(angle) > M_PI / 2.5) {
             break;
@@ -64,7 +64,7 @@ TrajectoryCompensator::getTrajectory(double distance, double angle) const noexce
 
 double IdealCompensator::calculateTrajectory(const double x, const double angle) const noexcept {
     double t = x / (gobal::velocity * cos(angle));
-    double y = gobal::velocity * sin(angle) * t - 0.5 * gravity * t * t;
+    double y = gobal::velocity * sin(angle) * t - 0.5 * gravity_ * t * t;
     return y;
 }
 
@@ -79,14 +79,14 @@ double IdealCompensator::getFlyingTime(const Eigen::Vector3d& target_position) c
 
 double
 ResistanceCompensator::calculateTrajectory(const double x, const double angle) const noexcept {
-    double r = resistance < 1e-4 ? 1e-4 : resistance;
+    double r = resistance_ < 1e-4 ? 1e-4 : resistance_;
     double t = (exp(r * x) - 1) / (r * gobal::velocity * cos(angle));
-    double y = gobal::velocity * sin(angle) * t - 0.5 * gravity * t * t;
+    double y = gobal::velocity * sin(angle) * t - 0.5 * gravity_ * t * t;
     return y;
 }
 
 double ResistanceCompensator::getFlyingTime(const Eigen::Vector3d& target_position) const noexcept {
-    double r = resistance < 1e-4 ? 1e-4 : resistance;
+    double r = resistance_ < 1e-4 ? 1e-4 : resistance_;
     double distance =
         sqrt(target_position(0) * target_position(0) + target_position(1) * target_position(1));
     double angle = atan2(target_position(2), distance);

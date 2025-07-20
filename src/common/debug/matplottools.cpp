@@ -4,7 +4,7 @@
 #include <nlohmann/json.hpp>
 #include <vector>
 
-void write_cmd_log_to_json() {
+void writeCmdLogToJson() {
     nlohmann::json j;
     {
         std::lock_guard<std::mutex> lock(toolsgobal::robot_cmd_mutex_);
@@ -32,7 +32,7 @@ void robotCmdLoggerThread() {
         usleep(10000);
     }
     while (gobal::is_inited_) {
-        write_cmd_log_to_json();
+        writeCmdLogToJson();
         std::this_thread::sleep_for(std::chrono::milliseconds(50)); // 20Hz
     }
 }

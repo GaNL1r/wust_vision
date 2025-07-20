@@ -2,6 +2,6 @@
 #include "type/type.hpp"
 
 double orientationToYaw(const tf::Quaternion& orientation);
-void command_callback(Armors& armors);
+void commandCallback(Armors& armors);
 void ex(double& a, double& min, double& max);
-void command_callbackypd(const Armors& armors);
+void commandCallbackYpd(const Armors& armors);

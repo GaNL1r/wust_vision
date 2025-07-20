@@ -421,7 +421,7 @@ bool RuneDetectorTrt::processCallback(
     //   transform_matrix,
     //                     this->conf_threshold_, this->grid_strides_);
     objs_result =
-        postprocess(objs_tmp, scores, rects, output_buffer_, output_sz_ / 15, transform_matrix);
+        postProcess(objs_tmp, scores, rects, output_buffer_, output_sz_ / 15, transform_matrix);
     // TopK
     //   std::sort(
     //       objs_tmp.begin(), objs_tmp.end(),
@@ -457,7 +457,7 @@ bool RuneDetectorTrt::processCallback(
         std::remove_if(
             objs_result.begin(),
             objs_result.end(),
-            [c = static_cast<EnemyColor>(gobal::detect_color_)](const auto& objs_result) {
+            [c = static_cast<EnemyColor>(gobal::detect_color)](const auto& objs_result) {
                 return objs_result.color != c;
             }
         ),
@@ -594,7 +594,7 @@ bool RuneDetectorTrt::extractImage(const cv::Mat& src, RuneObject& rune) {
     return true;
 }
 
-std::vector<RuneObject> RuneDetectorTrt::postprocess(
+std::vector<RuneObject> RuneDetectorTrt::postProcess(
     std::vector<RuneObject>& output_objs,
     std::vector<float>& scores,
     std::vector<cv::Rect>& rects,

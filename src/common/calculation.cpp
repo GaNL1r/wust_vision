@@ -41,7 +41,7 @@ void ex(double& a, double& min, double& max) {
         max = a;
     }
 }
-void command_callbacka(const Armors& armors) {
+void commandCallbacka(const Armors& armors) {
     std::ofstream log_file("/tmp/calculation.txt", std::ios::trunc);
     log_file << "已经收集了" << datas.size() << "个数据" << std::endl;
     datas.push_back(armors);
@@ -165,7 +165,7 @@ void command_callbacka(const Armors& armors) {
     }
 }
 
-void command_callbackypd(const Armors& armors) {
+void commandCallbackYpd(const Armors& armors) {
     // 第一次写入（覆盖）
     if (datas.empty()) {
         std::ofstream log_file("/tmp/calculation.txt", std::ios::trunc);

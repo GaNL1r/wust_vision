@@ -56,7 +56,7 @@ public:
     bool use_ypd_tracker_ = false;
     double dt_;
     std::unique_ptr<Tracker> tracker_;
-    int track_one_num;
+    int track_one_num_;
     std::vector<std::unique_ptr<OneTracker>> one_trackers_;
 
     double ys2qx_, ys2qy_, ys2qz_, ys2qyaw_, ys2qr_, ys2qd_zc_;
@@ -67,7 +67,7 @@ public:
     double lost_time_thres_;
     double one_lost_time_thres_;
     std::chrono::steady_clock::time_point last_time_;
-    double v_yaw_to_one_thres_high;
-    double v_yaw_to_one_thres_low;
+    double v_yaw_to_one_thres_high_;
+    double v_yaw_to_one_thres_low_;
     int iteration_num_ = 1;
 };

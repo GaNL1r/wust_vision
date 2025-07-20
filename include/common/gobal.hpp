@@ -7,9 +7,9 @@
 
 namespace gobal {
 extern std::atomic<bool> exit_flag;
-extern std::unique_ptr<MonoMeasureTool> measure_tool_;
-extern int detect_color_;
-extern bool debug_mode_;
+extern std::unique_ptr<MonoMeasureTool> measure_tool;
+extern int detect_color;
+extern bool debug_mode;
 extern double controller_delay;
 extern double velocity;
 extern bool if_manual_reset;
@@ -23,16 +23,16 @@ extern double last_v_z;
 extern double gimbal2camera_yaw, gimbal2camera_roll, gimbal2camera_pitch;
 extern bool is_inited_;
 extern YAML::Node config;
-extern bool use_calculation_;
+extern bool use_calculation;
 extern bool use_serial;
 extern int attack_mode;
 extern double communication_delay_μs;
 extern MotionBuffer motion_buffer;
-extern cv::Mat camera_intrinsic_;
-extern cv::Mat camera_distortion_;
+extern cv::Mat camera_intrinsic;
+extern cv::Mat camera_distortion;
 extern enum AttackState { ATTACKONE, ATTACKWHOLECAR } attack_state;
 extern int use_detect_ncnn_count;
 extern std::vector<OneTarget> omni_targets;
-extern GimbalCmd last_cmd_;
+extern GimbalCmd last_cmd;
 
 } // namespace gobal

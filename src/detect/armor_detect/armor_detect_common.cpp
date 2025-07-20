@@ -27,7 +27,7 @@ ArmorDetectCommon::ArmorDetectCommon(
     light_params_(l),
     armor_params_(a),
     binary_thres_(binary_thres_),
-    classifier_threshold(classifier_threshold),
+    classifier_threshold_(classifier_threshold),
     expand_ratio_w_(expand_ratio_w),
     expand_ratio_h_(expand_ratio_h) {
     number_classifier_ =
@@ -294,16 +294,16 @@ ArmorDetectCommon::detectNet(const cv::Mat& src_img, std::vector<ArmorObject>& o
         // if (armor.color == ArmorColor::NONE || armor.color == ArmorColor::PURPLE) {
         //     continue;
         // }
-        if (gobal::detect_color_ == 0 && armor.color == ArmorColor::BLUE) {
+        if (gobal::detect_color == 0 && armor.color == ArmorColor::BLUE) {
             continue;
-        } else if (gobal::detect_color_ == 1 && armor.color == ArmorColor::RED) {
+        } else if (gobal::detect_color == 1 && armor.color == ArmorColor::RED) {
             continue;
         }
 
         try {
             if (extractNetImage(src_img, armor)) {
                 number_classifier_->classifyNumber(armor);
-                if (armor.confidence < classifier_threshold) {
+                if (armor.confidence < classifier_threshold_) {
                     continue;
                 }
 

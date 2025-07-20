@@ -37,11 +37,12 @@ public:
     bool is_inited_ = false;
     double video_alpha = 1.0;
     double video_beta = 0.0;
-    size_t index;
+    size_t index_;
     cv::Mat camera_intrinsic_;
     cv::Mat camera_distortion_;
     double gimbal2camera_roll_, gimbal2camera_pitch_, gimbal2camera_yaw_;
-    std::function<void(const ImageFrame&, const Eigen::Matrix3d&, const Eigen::Vector3d&)> callback;
+    std::function<void(const ImageFrame&, const Eigen::Matrix3d&, const Eigen::Vector3d&)>
+        callback_;
 };
 
 class OmniManager {
@@ -49,7 +50,7 @@ public:
     OmniManager(const YAML::Node& config);
     ~OmniManager();
     void stop();
-    void initdetector();
+    void initDetector();
     void run();
     void processImage(
         const ImageFrame& frame,
@@ -86,5 +87,4 @@ public:
     std::string vision_logger = "omni_vision";
     size_t omni_num_ = 0;
     int count_ = 0;
-    std::function<void(const ImageFrame&, const Eigen::Matrix3d&, const Eigen::Vector3d&)> callback;
 };

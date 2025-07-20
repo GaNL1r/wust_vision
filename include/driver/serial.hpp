@@ -34,7 +34,7 @@ public:
     void startThread(bool if_use_serial, bool if_use_nav);
     void stopThread();
     void receiveData();
-    void aim_cbk(ReceiveAimINFO& aim_data);
+    void aimCbk(ReceiveAimINFO& aim_data);
     bool usbOk() const {
         return is_usb_ok_;
     }
@@ -57,8 +57,8 @@ public:
     }
 
     void shmTheard();
-    double serial_last_yaw;
-    double serial_last_pitch;
+    double serial_last_yaw_;
+    double serial_last_pitch_;
     std::string device_name_;
     SerialPortConfig config_;
     std::atomic<bool> is_usb_ok_;
@@ -68,11 +68,11 @@ public:
     std::thread send_thread_;
     std::thread shm_thread_;
     SerialDriver driver_;
-    std::string serial_logger = "serial";
+    std::string serial_logger_ = "serial";
     SendRobotCmdData send_robot_cmd_data_;
-    double alpha_yaw;
-    double alpha_pitch;
-    double max_yaw_change;
-    double max_pitch_change;
+    double alpha_yaw_;
+    double alpha_pitch_;
+    double max_yaw_change_;
+    double max_pitch_change_;
 };
 } // namespace serial

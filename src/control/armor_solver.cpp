@@ -33,20 +33,20 @@ void ArmorSolver::init(const YAML::Node& config) {
     }
     auto s = config["armor_solver"];
 
-    small_shooting_range_w = s["small_shooting_range_w"].as<double>(0.12);
-    small_shooting_range_h = s["small_shooting_range_h"].as<double>(0.12);
-    big_shooting_range_w = s["big_shooting_range_w"].as<double>(0.12);
-    big_shooting_range_h = s["big_shooting_range_h"].as<double>(0.12);
-    max_tracking_v_yaw = s["max_tracking_v_yaw"].as<double>(60.0);
-    prediction_delay = s["prediction_delay"].as<double>(0.0);
+    small_shooting_range_w_ = s["small_shooting_range_w"].as<double>(0.12);
+    small_shooting_range_h_ = s["small_shooting_range_h"].as<double>(0.12);
+    big_shooting_range_w_ = s["big_shooting_range_w"].as<double>(0.12);
+    big_shooting_range_h_ = s["big_shooting_range_h"].as<double>(0.12);
+    max_tracking_v_yaw_ = s["max_tracking_v_yaw"].as<double>(60.0);
+    prediction_delay_ = s["prediction_delay"].as<double>(0.0);
     gobal::controller_delay = s["controller_delay"].as<double>(0.0);
-    side_angle = s["side_angle"].as<double>(20.0);
-    min_switching_v_yaw = s["min_switching_v_yaw"].as<double>(1.0);
+    side_angle_ = s["side_angle"].as<double>(20.0);
+    min_switching_v_yaw_ = s["min_switching_v_yaw"].as<double>(1.0);
 
-    bullet_speed = s["bullet_speed"].as<double>(25.0);
-    gravity = s["gravity"].as<double>(10.0);
-    resistance = s["resistance"].as<double>(0.092);
-    iteration_times = s["iteration_times"].as<int>(20);
+    bullet_speed_ = s["bullet_speed"].as<double>(25.0);
+    gravity_ = s["gravity"].as<double>(10.0);
+    resistance_ = s["resistance"].as<double>(0.092);
+    iteration_times_ = s["iteration_times"].as<int>(20);
     oneswitch_position_thres_ = s["oneswitch_position_thres"].as<double>(0.2);
     oneswitch_angle_thres_ = s["oneswitch_angle_thres"].as<double>(0.2);
 
@@ -56,10 +56,10 @@ void ArmorSolver::init(const YAML::Node& config) {
 
     // 3. 初始化弹道补偿器
     trajectory_compensator_ = CompensatorFactory::createCompensator(comp_type);
-    trajectory_compensator_->iteration_times = iteration_times;
-    gobal::velocity = bullet_speed;
-    trajectory_compensator_->gravity = gravity;
-    trajectory_compensator_->resistance = resistance;
+    trajectory_compensator_->iteration_times_ = iteration_times_;
+    gobal::velocity = bullet_speed_;
+    trajectory_compensator_->gravity_ = gravity_;
+    trajectory_compensator_->resistance_ = resistance_;
 
     // 4. 手动补偿表（pitch_offset）
     manual_compensator_ = std::make_unique<ManualCompensator>();
@@ -82,7 +82,7 @@ void ArmorSolver::init(const YAML::Node& config) {
     // 5. 状态机初值
     state_ = State::TRACKING_ARMOR;
     overflow_count_ = 0;
-    transfer_thresh = 5;
+    transfer_thresh_ = 5;
 }
 
 GimbalCmd
@@ -101,7 +101,7 @@ ArmorSolver::solve(const Target& target, std::chrono::steady_clock::time_point c
     using namespace std::chrono;
 
     double fly_t = trajectory_compensator_->getFlyingTime(pos);
-    auto dt_seconds = duration<double>(fly_t + prediction_delay);
+    auto dt_seconds = duration<double>(fly_t + prediction_delay_);
     auto dt = duration_cast<steady_clock::duration>(dt_seconds);
     auto total_dt = (current_time - target.timestamp) + dt;
     double dt_seconds_double = duration<double>(total_dt).count();
@@ -158,12 +158,12 @@ ArmorSolver::solve(const Target& target, std::chrono::steady_clock::time_point c
     bool is_large;
     switch (state_) {
         case TRACKING_ARMOR:
-            if (std::abs(target.v_yaw) > max_tracking_v_yaw) {
+            if (std::abs(target.v_yaw) > max_tracking_v_yaw_) {
                 ++overflow_count_;
             } else {
                 overflow_count_ = 0;
             }
-            if (overflow_count_ > transfer_thresh) {
+            if (overflow_count_ > transfer_thresh_) {
                 state_ = TRACKING_CENTER;
             }
             // 如果一直没对上，也加 controller_delay 预测
@@ -203,12 +203,12 @@ ArmorSolver::solve(const Target& target, std::chrono::steady_clock::time_point c
             break;
 
         case TRACKING_CENTER:
-            if (std::abs(target.v_yaw) < max_tracking_v_yaw) {
+            if (std::abs(target.v_yaw) < max_tracking_v_yaw_) {
                 ++overflow_count_;
             } else {
                 overflow_count_ = 0;
             }
-            if (overflow_count_ > transfer_thresh) {
+            if (overflow_count_ > transfer_thresh_) {
                 state_ = TRACKING_ARMOR;
                 overflow_count_ = 0;
             }
@@ -308,7 +308,7 @@ GimbalCmd ArmorSolver::solve(
         using namespace std::chrono;
 
         double fly_t = trajectory_compensator_->getFlyingTime(pos);
-        auto dt_seconds = duration<double>(fly_t + prediction_delay);
+        auto dt_seconds = duration<double>(fly_t + prediction_delay_);
         auto dt = duration_cast<steady_clock::duration>(dt_seconds);
         auto total_dt = (current_time - target.timestamp) + dt;
         double dt_seconds_double = duration<double>(total_dt).count();
@@ -345,7 +345,7 @@ GimbalCmd ArmorSolver::solve(
         int idx = selectBestArmor(armors, pos, yaw, target.v_yaw, target.armors_num);
 
         if (idx < 0 || idx >= static_cast<int>(armors.size())) {
-            return returndefaultCmd();
+            return returnDefaultCmd();
         }
 
         Eigen::Vector3d chosen = armors[idx];
@@ -371,12 +371,12 @@ GimbalCmd ArmorSolver::solve(
         bool is_large;
         switch (state_) {
             case TRACKING_ARMOR:
-                if (std::abs(target.v_yaw) > max_tracking_v_yaw) {
+                if (std::abs(target.v_yaw) > max_tracking_v_yaw_) {
                     ++overflow_count_;
                 } else {
                     overflow_count_ = 0;
                 }
-                if (overflow_count_ > transfer_thresh) {
+                if (overflow_count_ > transfer_thresh_) {
                     state_ = TRACKING_CENTER;
                 }
                 // 如果一直没对上，也加 controller_delay 预测
@@ -416,12 +416,12 @@ GimbalCmd ArmorSolver::solve(
                 break;
 
             case TRACKING_CENTER:
-                if (std::abs(target.v_yaw) < max_tracking_v_yaw) {
+                if (std::abs(target.v_yaw) < max_tracking_v_yaw_) {
                     ++overflow_count_;
                 } else {
                     overflow_count_ = 0;
                 }
-                if (overflow_count_ > transfer_thresh) {
+                if (overflow_count_ > transfer_thresh_) {
                     state_ = TRACKING_ARMOR;
                     overflow_count_ = 0;
                 }
@@ -502,7 +502,7 @@ GimbalCmd ArmorSolver::solve(
         using namespace std::chrono;
 
         double fly_t = trajectory_compensator_->getFlyingTime(pos);
-        auto dt_seconds = duration<double>(fly_t + prediction_delay);
+        auto dt_seconds = duration<double>(fly_t + prediction_delay_);
         auto dt = duration_cast<steady_clock::duration>(dt_seconds);
         auto total_dt = (current_time - best_target.timestamp) + dt;
         double dt_seconds_double = duration<double>(total_dt).count();
@@ -577,10 +577,10 @@ GimbalCmd ArmorSolver::solve(
         cmd.select_id = one_idx + target_armor_num;
         return cmd;
     } else {
-        return returndefaultCmd();
+        return returnDefaultCmd();
     }
 }
-std::vector<GimbalCmd> ArmorSolver::solve_vector(
+std::vector<GimbalCmd> ArmorSolver::solveVector(
     const Target& target,
     std::vector<OneTarget> one_targets_,
     std::chrono::steady_clock::time_point current_time,
@@ -623,18 +623,18 @@ bool ArmorSolver::isOnTarget(
     double shooting_range_yaw, shooting_range_pitch;
     if (is_large_armor) {
         // 缩放后的目标宽度
-        double dynamic_w = big_shooting_range_w * width_scale;
+        double dynamic_w = big_shooting_range_w_ * width_scale;
 
         // 开火角容差
-        shooting_range_yaw = std::abs(std::atan2(big_shooting_range_w / 2.0, distance));
-        shooting_range_pitch = std::abs(std::atan2(big_shooting_range_h / 2.0, distance));
+        shooting_range_yaw = std::abs(std::atan2(big_shooting_range_w_ / 2.0, distance));
+        shooting_range_pitch = std::abs(std::atan2(big_shooting_range_h_ / 2.0, distance));
     } else {
         // 缩放后的目标宽度
-        double dynamic_w = small_shooting_range_w * width_scale;
+        double dynamic_w = small_shooting_range_w_ * width_scale;
 
         // 开火角容差
-        shooting_range_yaw = std::abs(std::atan2(small_shooting_range_w / 2.0, distance));
-        shooting_range_pitch = std::abs(std::atan2(small_shooting_range_h / 2.0, distance));
+        shooting_range_yaw = std::abs(std::atan2(small_shooting_range_w_ / 2.0, distance));
+        shooting_range_pitch = std::abs(std::atan2(small_shooting_range_h_ / 2.0, distance));
     }
 
     // 限制最小角度为 1°
@@ -751,10 +751,10 @@ int ArmorSolver::selectBestArmor(
     double decision_angle = -std::asin(R_center2armor(0, 1));
 
     // Angle thresh of the armor jump
-    double theta = (target_v_yaw > 0 ? side_angle : -side_angle) / 180.0 * M_PI;
+    double theta = (target_v_yaw > 0 ? side_angle_ : -side_angle_) / 180.0 * M_PI;
 
     // Avoid the frequent switch between two armor
-    if (std::abs(target_v_yaw) < min_switching_v_yaw) {
+    if (std::abs(target_v_yaw) < min_switching_v_yaw_) {
         theta = 0;
     }
 

@@ -29,17 +29,17 @@
 #include "common/utils.hpp"
 #include "type/type.hpp"
 
-RuneSolver::RuneSolver(const RuneSolverParams& rsp): rune_solver_params(rsp) {
+RuneSolver::RuneSolver(const RuneSolverParams& rsp): rune_solver_params_(rsp) {
     // Init
     tracker_state = LOST;
-    curve_fitter = std::make_unique<CurveFitter>(MotionType::UNKNOWN);
-    curve_fitter->setAutoTypeDetermined(rsp.auto_type_determined);
-    trajectory_compensator = CompensatorFactory::createCompensator(rsp.compensator_type);
-    trajectory_compensator->gravity = rsp.gravity;
+    curve_fitter_ = std::make_unique<CurveFitter>(MotionType::UNKNOWN);
+    curve_fitter_->setAutoTypeDetermined(rsp.auto_type_determined);
+    trajectory_compensator_ = CompensatorFactory::createCompensator(rsp.compensator_type);
+    trajectory_compensator_->gravity_ = rsp.gravity;
     gobal::velocity = rsp.bullet_speed;
-    trajectory_compensator->resistance = 0.01;
+    trajectory_compensator_->resistance_ = 0.01;
     ekf_state_ = Eigen::Vector4d::Zero();
-    manual_compensator = std::make_unique<ManualCompensator>();
+    manual_compensator_ = std::make_unique<ManualCompensator>();
 }
 
 double RuneSolver::init(const Rune received_target, Eigen::Matrix4d T_camera_to_odom) {
@@ -47,7 +47,7 @@ double RuneSolver::init(const Rune received_target, Eigen::Matrix4d T_camera_to_
         return 0;
     }
 
-    WUST_INFO(rune_solver_logger) << "Init rune solver";
+    WUST_INFO(rune_solver_logger_) << "Init rune solver";
 
     // Init EKF
     try {
@@ -56,20 +56,20 @@ double RuneSolver::init(const Rune received_target, Eigen::Matrix4d T_camera_to_
         // Filter out outliers
         Eigen::Vector3d t = T_odom_2_rune.block(0, 3, 3, 1);
         if (t.norm() < MIN_RUNE_DISTANCE || t.norm() > MAX_RUNE_DISTANCE) {
-            WUST_ERROR(rune_solver_logger) << "Rune position is out of range";
+            WUST_ERROR(rune_solver_logger_) << "Rune position is out of range";
             return 0;
         }
 
         ekf_state_ = getStateFromTransform(T_odom_2_rune);
         if (!utils::isStateValid(ekf_state_)) {
-            WUST_ERROR(rune_solver_logger) << "Is not valid";
+            WUST_ERROR(rune_solver_logger_) << "Is not valid";
             return 0;
         }
 
-        ekf_ypd->setState(ekf_state_);
+        ekf_ypd_->setState(ekf_state_);
 
     } catch (...) {
-        WUST_ERROR(rune_solver_logger) << "Init failed";
+        WUST_ERROR(rune_solver_logger_) << "Init failed";
         return 0;
     }
 
@@ -77,7 +77,7 @@ double RuneSolver::init(const Rune received_target, Eigen::Matrix4d T_camera_to_
     tracker_state = DETECTING;
     double observed_angle = getNormalAngle(received_target);
     double observed_time = 0;
-    curve_fitter->update(observed_time, observed_angle);
+    curve_fitter_->update(observed_time, observed_angle);
 
     last_observed_angle_ = observed_angle;
     last_angle_ = last_observed_angle_;
@@ -95,9 +95,9 @@ double RuneSolver::update(const Rune received_target, Eigen::Matrix4d T_camera_t
     double delta_time = now_time - last_time_;
 
     if (received_target.is_big_rune) {
-        curve_fitter->setType(MotionType::BIG);
+        curve_fitter_->setType(MotionType::BIG);
     } else {
-        curve_fitter->setType(MotionType::SMALL);
+        curve_fitter_->setType(MotionType::SMALL);
     }
 
     if (!received_target.is_lost) {
@@ -108,25 +108,25 @@ double RuneSolver::update(const Rune received_target, Eigen::Matrix4d T_camera_t
             // Filter out outliers
             Eigen::Vector3d t = T_odom_2_rune.block(0, 3, 3, 1);
             if (t.norm() < MIN_RUNE_DISTANCE || t.norm() > MAX_RUNE_DISTANCE) {
-                WUST_ERROR(rune_solver_logger) << "Rune position is out of range";
+                WUST_ERROR(rune_solver_logger_) << "Rune position is out of range";
                 return 0;
             }
 
             Eigen::Vector4d measurement = getStateFromTransform(T_odom_2_rune);
 
-            ekf_ypd->predict();
+            ekf_ypd_->predict();
             tf::Position p(measurement[0], measurement[1], measurement[2]);
             double ypd_y = std::atan2(p.y, p.x);
-            ypd_y = this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
-            this->last_ypd_y = ypd_y;
+            ypd_y = this->last_ypd_y_ + angles::shortest_angular_distance(this->last_ypd_y_, ypd_y);
+            this->last_ypd_y_ = ypd_y;
             double ypd_p = std::atan2(p.z, std::sqrt(p.x * p.x + p.y * p.y));
             double ypd_d = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
             Eigen::Vector4d state;
             state << ypd_y, ypd_p, ypd_d, measurement[3];
-            ekf_state_ = ekf_ypd->update(state);
+            ekf_state_ = ekf_ypd_->update(state);
 
         } catch (...) {
-            WUST_ERROR(rune_solver_logger) << "EKF update failed";
+            WUST_ERROR(rune_solver_logger_) << "EKF update failed";
             return 0;
         }
 
@@ -136,7 +136,7 @@ double RuneSolver::update(const Rune received_target, Eigen::Matrix4d T_camera_t
         double observed_angle = getObservedAngle(normal_angle);
 
         // Update fitter
-        curve_fitter->update(observed_time, observed_angle);
+        curve_fitter_->update(observed_time, observed_angle);
 
         last_time_ = now_time;
         last_angle_ = normal_angle;
@@ -146,18 +146,18 @@ double RuneSolver::update(const Rune received_target, Eigen::Matrix4d T_camera_t
     // Update tracker state
     switch (tracker_state) {
         case DETECTING: {
-            if (received_target.is_lost && delta_time > rune_solver_params.lost_time_thres) {
+            if (received_target.is_lost && delta_time > rune_solver_params_.lost_time_thres) {
                 tracker_state = LOST;
-                curve_fitter->reset();
-            } else if (curve_fitter->statusVerified()) {
+                curve_fitter_->reset();
+            } else if (curve_fitter_->statusVerified()) {
                 tracker_state = TRACKING;
             }
             break;
         }
         case TRACKING: {
-            if (received_target.is_lost && delta_time > rune_solver_params.lost_time_thres) {
+            if (received_target.is_lost && delta_time > rune_solver_params_.lost_time_thres) {
                 tracker_state = LOST;
-                curve_fitter->reset();
+                curve_fitter_->reset();
             }
             break;
         }
@@ -174,7 +174,7 @@ double RuneSolver::update(const Rune received_target, Eigen::Matrix4d T_camera_t
 double RuneSolver::predictTarget(Eigen::Vector3d& predicted_position, double timestamp) {
     double t1 = timestamp - start_time_;
     double t0 = last_time_ - start_time_;
-    double predict_angle_diff = curve_fitter->predict(t1) - curve_fitter->predict(t0);
+    double predict_angle_diff = curve_fitter_->predict(t1) - curve_fitter_->predict(t0);
 
     // Get the predicted position
     predicted_position = getTargetPosition(predict_angle_diff);
@@ -194,7 +194,7 @@ RuneSolver::solvePose(const Rune& predicted_target, Eigen::Matrix4d T_camera_to_
     );
 
     cv::Mat rvec(3, 1, CV_64F), tvec(3, 1, CV_64F);
-    if (pnp_solver && pnp_solver->solvePnP(image_points, rvec, tvec, "rune")) {
+    if (pnp_solver_ && pnp_solver_->solvePnP(image_points, rvec, tvec, "rune")) {
         // Get the transformation matrix from rune to odom
         try {
             // Get rotation matrix from rvec
@@ -268,15 +268,15 @@ RuneSolver::solvePose(const Rune& predicted_target, Eigen::Matrix4d T_camera_to_
             pose.block(0, 0, 3, 3) = rot_odom;
 
         } catch (const std::exception& e) {
-            WUST_ERROR(rune_solver_logger) << e.what();
+            WUST_ERROR(rune_solver_logger_) << e.what();
         }
     } else {
-        WUST_ERROR(rune_solver_logger) << "PnP failed";
+        WUST_ERROR(rune_solver_logger_) << "PnP failed";
         throw std::runtime_error("PnP failed");
     }
     Eigen::VectorXd pose_flatten = Eigen::Map<const Eigen::VectorXd>(pose.data(), pose.size());
     if (!utils::isStateValid(pose_flatten)) {
-        WUST_ERROR(rune_solver_logger) << "Pose is not valid";
+        WUST_ERROR(rune_solver_logger_) << "Pose is not valid";
         return Eigen::Matrix4d();
     }
     return pose;
@@ -313,16 +313,16 @@ GimbalCmd RuneSolver::solveGimbalCmd(const Eigen::Vector3d& target) {
 
     // Set parameters of compensator
 
-    trajectory_compensator->gravity = rune_solver_params.gravity;
-    trajectory_compensator->iteration_times = 30;
+    trajectory_compensator_->gravity_ = rune_solver_params_.gravity;
+    trajectory_compensator_->iteration_times_ = 30;
 
-    if (double temp_pitch = pitch; trajectory_compensator->compensate(target, temp_pitch)) {
+    if (double temp_pitch = pitch; trajectory_compensator_->compensate(target, temp_pitch)) {
         pitch = temp_pitch;
     }
     double distance = target.norm();
 
     // Compensate angle by angle_offset_map
-    auto angle_offset = manual_compensator->angleHardCorrect(target.head(2).norm(), target.z());
+    auto angle_offset = manual_compensator_->angleHardCorrect(target.head(2).norm(), target.z());
     double pitch_offset = angle_offset[0] * M_PI / 180;
     double yaw_offset = angle_offset[1] * M_PI / 180;
     double cmd_pitch = pitch + pitch_offset;
@@ -353,7 +353,7 @@ GimbalCmd RuneSolver::solveGimbalCmd(const Eigen::Vector3d& target) {
         && std::abs(gimbal_cmd.pitch_diff) < shooting_range_pitch)
     {
         gimbal_cmd.fire_advice = true;
-        WUST_DEBUG(rune_solver_logger) << "You Can Fire!";
+        WUST_DEBUG(rune_solver_logger_) << "You Can Fire!";
     } else {
         gimbal_cmd.fire_advice = false;
     }
@@ -384,7 +384,7 @@ double RuneSolver::getNormalAngle(const Rune received_target) {
 double RuneSolver::getObservedAngle(double normal_angle) {
     double angle_diff = angles::shortest_angular_distance(last_angle_, normal_angle);
     // Handle rune target switch
-    if (std::abs(angle_diff) > rune_solver_params.angle_offset_thres) {
+    if (std::abs(angle_diff) > rune_solver_params_.angle_offset_thres) {
         angle_diff = normal_angle - last_angle_;
         int offset = std::round(double(angle_diff / DEG_72));
         angle_diff -= offset * DEG_72;
@@ -453,7 +453,7 @@ GimbalCmd RuneSolver::solve() {
     GimbalCmd gimbal_control_cmd;
     // Calculate predict time
     Eigen::Vector3d cur_pos = getTargetPosition(0);
-    double flying_time = trajectory_compensator->getFlyingTime(cur_pos);
+    double flying_time = trajectory_compensator_->getFlyingTime(cur_pos);
     auto now = std::chrono::steady_clock::now();
 
     auto predict_time_point = now + std::chrono::duration<double>(flying_time + predict_offset_);
@@ -472,7 +472,7 @@ GimbalCmd RuneSolver::solve() {
         try {
             gimbal_control_cmd = solveGimbalCmd(pred_pos);
         } catch (...) {
-            WUST_ERROR(rune_solver_logger) << "solveGimbalCmd error";
+            WUST_ERROR(rune_solver_logger_) << "solveGimbalCmd error";
             gimbal_control_cmd.yaw_diff = 0;
             gimbal_control_cmd.pitch_diff = 0;
             gimbal_control_cmd.distance = -1;

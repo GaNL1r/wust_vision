@@ -88,14 +88,14 @@ public:
     GimbalCmd solve();
 
     // Solvers
-    std::unique_ptr<PnPSolver> pnp_solver;
-    std::unique_ptr<TrajectoryCompensator> trajectory_compensator;
-    std::unique_ptr<CurveFitter> curve_fitter;
+    std::unique_ptr<PnPSolver> pnp_solver_;
+    std::unique_ptr<TrajectoryCompensator> trajectory_compensator_;
+    std::unique_ptr<CurveFitter> curve_fitter_;
 
-    std::unique_ptr<ypdrune_motion_model::RuneCenterEKF> ekf_ypd;
-    std::unique_ptr<ManualCompensator> manual_compensator;
+    std::unique_ptr<ypdrune_motion_model::RuneCenterEKF> ekf_ypd_;
+    std::unique_ptr<ManualCompensator> manual_compensator_;
 
-    RuneSolverParams rune_solver_params;
+    RuneSolverParams rune_solver_params_;
     double predict_offset_;
     double last_pre_angle;
     // last_observed_angle_ is continuously increasing (or decreasing)
@@ -120,9 +120,9 @@ private:
     double last_angle_;
     double start_time_;
     double last_time_;
-    double last_ypd_y;
+    double last_ypd_y_;
 
-    std::string rune_solver_logger = "rune_solver";
+    std::string rune_solver_logger_ = "rune_solver";
 
     Eigen::Vector4d ekf_state_;
 };

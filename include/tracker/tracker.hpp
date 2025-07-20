@@ -66,37 +66,37 @@ public:
     std::function<
         Eigen::
             VectorXd(const std::unique_ptr<ypdarmor_motion_model::RobotStateEKF>&, const std::unique_ptr<ypdarmor_motion_model::RobotStateESEKF>&)>
-        predict_func;
+        predict_func_;
     std::function<
         void(const std::unique_ptr<ypdarmor_motion_model::RobotStateEKF>&, const std::unique_ptr<ypdarmor_motion_model::RobotStateESEKF>&, const Eigen::VectorXd&)>
-        update_func;
+        update_func_;
     std::function<
         void(const std::unique_ptr<ypdarmor_motion_model::RobotStateEKF>&, const std::unique_ptr<ypdarmor_motion_model::RobotStateESEKF>&, const Eigen::VectorXd&)>
-        setstate_func;
-    std::unique_ptr<ypdarmor_motion_model::RobotStateEKF> ekf_ypd;
-    std::unique_ptr<ypdarmor_motion_model::RobotStateESEKF> esekf_ypd;
-    bool use_esekf;
-    Eigen::VectorXd center_velocity_measurement;
-    Eigen::VectorXd acc_state;
-    std::unique_ptr<acc_model::VelocityAccelEKF> acc_ekf;
-    int tracking_thres;
-    int lost_thres;
+        setstate_func_;
+    std::unique_ptr<ypdarmor_motion_model::RobotStateEKF> ekf_ypd_;
+    std::unique_ptr<ypdarmor_motion_model::RobotStateESEKF> esekf_ypd_;
+    bool use_esekf_;
+    Eigen::VectorXd center_velocity_measurement_;
+    Eigen::VectorXd acc_state_;
+    std::unique_ptr<acc_model::VelocityAccelEKF> acc_ekf_;
+    int tracking_thres_;
+    int lost_thres_;
 
-    Armor tracked_armor;
+    Armor tracked_armor_;
 
-    ArmorNumber tracked_id;
-    ArmorsNum tracked_armors_num;
-    std::string type;
-    int retype;
-    Eigen::VectorXd measurement;
-    Eigen::VectorXd target_state;
+    ArmorNumber tracked_id_;
+    ArmorsNum tracked_armors_num_;
+    std::string type_;
+    int retype_;
+    Eigen::VectorXd measurement_;
+    Eigen::VectorXd target_state_;
 
-    double d_za, another_r;
-    double d_zc;
+    double d_za_, another_r_;
+    double d_zc_;
     float yaw_diff_;
     float position_diff_;
 
-    double jump_thresh = 0.4;
+    double jump_thresh_ = 0.4;
 
 private:
     void initEKF(const Armor& a) noexcept;
@@ -115,5 +115,5 @@ private:
     double last_yaw_;
     double last_ypd_y;
 
-    std::string tracker_logger = "tracker";
+    std::string tracker_logger_ = "tracker";
 };

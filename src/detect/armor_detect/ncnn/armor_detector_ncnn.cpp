@@ -244,11 +244,11 @@ ArmorDetectNCNN::ArmorDetectNCNN(
     conf_threshold_(conf_threshold),
     top_k_(top_k),
     nms_threshold_(nms_threshold),
-    use_gpu(use_gpu),
-    cpu_threads(cpu_threads),
-    use_lightmode(use_lightmode),
-    use_armor_detect_common(use_armor_detect_common) {
-    if (use_armor_detect_common) {
+    use_gpu_(use_gpu),
+    cpu_threads_(cpu_threads),
+    use_lightmode_(use_lightmode),
+    use_armor_detect_common_(use_armor_detect_common) {
+    if (use_armor_detect_common_) {
         armor_detect_common_ = std::make_unique<ArmorDetectCommon>(
             classify_model_path,
             classify_label_path,
@@ -268,7 +268,7 @@ ArmorDetectNCNN::~ArmorDetectNCNN() {
 }
 
 void ArmorDetectNCNN::init(int device_id) {
-    if (use_gpu) {
+    if (use_gpu_) {
         ncnn::create_gpu_instance();
         opt_.use_vulkan_compute = true;
         ncnn::VulkanDevice* vkdev = ncnn::get_gpu_device(device_id);
@@ -280,11 +280,11 @@ void ArmorDetectNCNN::init(int device_id) {
         opt_.use_vulkan_compute = false;
         WUST_INFO("armor_ncnn") << "ncnn: use cpu";
     }
-    if (use_lightmode) {
+    if (use_lightmode_) {
         opt_.lightmode = true;
     }
 
-    opt_.num_threads = cpu_threads;
+    opt_.num_threads = cpu_threads_;
     net_.opt = opt_;
 
     if (net_.load_param(model_path_param_.c_str()) != 0) {
@@ -383,7 +383,7 @@ bool ArmorDetectNCNN::processCallback(
             }
         }
     }
-    if (use_armor_detect_common) {
+    if (use_armor_detect_common_) {
         std::vector<ArmorObject> armors = armor_detect_common_->detectNet(src_img, objs_result);
         // Call callback function
         if (this->infer_callback_) {
