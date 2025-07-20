@@ -360,6 +360,8 @@ void TrackerManager::updateTracker(
             target_.d_zc = state(9);
             target_.d_za = tracker_->d_za_;
             target_.type = tracker_->type_;
+
+            target_.acceleration_ = tf::Position(0, 0, 0);
         }
     }
 }
@@ -476,6 +478,9 @@ void TrackerManager::updateOneTrackers(
             target.yaw = state(6);
             target.v_yaw = state(7);
             target.type = otracker->type_;
+
+            target.acceleration_ = tf::Position(0, 0, 0);
+
             target.distance_to_image_center = otracker->distance_to_image_center_;
 
         } else {

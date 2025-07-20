@@ -38,7 +38,21 @@
 
 G2O_USE_OPTIMIZATION_LIBRARY(dense)
 
-BaSolver::BaSolver(std::array<double, 9>& camera_matrix) {
+BaSolver::BaSolver(
+    std::array<double, 9>& camera_matrix,
+    int max_iter_R,
+    int max_iter_t,
+    int step_R,
+    int step_t,
+    double min_error_R,
+    double min_error_t
+):
+    max_iter_R_(max_iter_R),
+    max_iter_t_(max_iter_t),
+    step_R_(step_R),
+    step_t_(step_t),
+    min_error_R_(min_error_R),
+    min_error_t_(min_error_t) {
     K_ = Eigen::Matrix3d::Identity();
     K_(0, 0) = camera_matrix[0];
     K_(1, 1) = camera_matrix[4];
@@ -58,12 +72,12 @@ BaSolver::BaSolver(std::array<double, 9>& camera_matrix) {
     lm_algorithm_->setUserLambdaInit(0.1);
 }
 
-Eigen::Matrix3d BaSolver::solveBa(
+Eigen::Matrix3d BaSolver::solveBa_R(
     const ArmorObject& armor,
     const Eigen::Vector3d& t_camera_armor,
     const Eigen::Matrix3d& R_camera_armor,
     const Eigen::Matrix3d& R_imu_camera,
-    int type_number
+    const std::string type
 ) noexcept {
     optimizer_.clear();
 
@@ -80,7 +94,7 @@ Eigen::Matrix3d BaSolver::solveBa(
         initial_armor_yaw = R_imu_armor(1, 1) > 0 ? 0 : CV_PI;
     }
 
-    double armor_roll = 0.0; // 你可以设置为一个估计值，比如 0.0 或 ±10°
+    double armor_roll = 0.0;
     Sophus::SO3d R_roll = Sophus::SO3d::exp(Eigen::Vector3d(armor_roll, 0, 0));
 
     // 固定 pitch
@@ -90,20 +104,12 @@ Eigen::Matrix3d BaSolver::solveBa(
 
     // 构建 3D 角点
     Eigen::Vector2d armor_size;
-    switch (type_number) {
-        case 0:
-            armor_size = Eigen::Vector2d(LARGE_ARMOR_WIDTH, LARGE_ARMOR_HEIGHT);
-            break;
-        case 1:
-            armor_size = Eigen::Vector2d(SMALL_ARMOR_WIDTH, SMALL_ARMOR_HEIGHT);
-            break;
-        case 2:
-            armor_size = Eigen::Vector2d(LARGE_ARMOR_WIDTH_NET, LARGE_ARMOR_HEIGHT_NET);
-            break;
-        case 3:
-            armor_size = Eigen::Vector2d(SMALL_ARMOR_WIDTH_NET, SMALL_ARMOR_HEIGHT_NET);
-            break;
+    if (type == "large") {
+        armor_size = { LARGE_ARMOR_WIDTH, LARGE_ARMOR_HEIGHT };
+    } else {
+        armor_size = Eigen::Vector2d(SMALL_ARMOR_WIDTH, SMALL_ARMOR_HEIGHT);
     }
+
     auto object_points =
         ArmorObject::buildObjectPoints<Eigen::Vector3d>(armor_size.x(), armor_size.y());
     const auto& landmarks = armor.landmarks();
@@ -157,9 +163,25 @@ Eigen::Matrix3d BaSolver::solveBa(
     }
 
     // 优化
+    // optimizer_.initializeOptimization();
+    // optimizer_.optimize(1000);
     optimizer_.initializeOptimization();
-    optimizer_.optimize(1000);
+    double finalChi2 = std::numeric_limits<double>::infinity();
+    int numEdges = optimizer_.edges().size();
 
+    auto computeRMS = [&]() {
+        // 用总 chi2 / 边数 开方得到 RMS reprojection error
+        return std::sqrt(optimizer_.chi2() / numEdges);
+    };
+    for (int k = 0; k < max_iter_R_ / step_R_; ++k) {
+        optimizer_.optimize(step_R_);
+        finalChi2 = optimizer_.chi2();
+        double rms = computeRMS();
+
+        if (rms < min_error_R_) {
+            break;
+        }
+    }
     double yaw_opt = v_yaw->estimate();
     if (std::isnan(yaw_opt)) {
         std::cerr << "Yaw is nan after g2o optimization\n";
@@ -174,7 +196,7 @@ Eigen::Vector3d BaSolver::solveBa_t(
     const Eigen::Vector3d& t_camera_armor_init,
     const Eigen::Matrix3d& R_camera_armor, // 已优化的旋转
     const Eigen::Matrix3d& /*unused R_imu_camera*/,
-    int type_number
+    const std::string type
 ) noexcept {
     optimizer_.clear();
 
@@ -183,21 +205,10 @@ Eigen::Vector3d BaSolver::solveBa_t(
 
     // 2) 构建装甲板 3D 点
     Eigen::Vector2d armor_size;
-    switch (type_number) {
-        case 0:
-            armor_size = { LARGE_ARMOR_WIDTH, LARGE_ARMOR_HEIGHT };
-            break;
-        case 1:
-            armor_size = { SMALL_ARMOR_WIDTH, SMALL_ARMOR_HEIGHT };
-            break;
-        case 2:
-            armor_size = { LARGE_ARMOR_WIDTH_NET, LARGE_ARMOR_HEIGHT_NET };
-            break;
-        case 3:
-            armor_size = { SMALL_ARMOR_WIDTH_NET, SMALL_ARMOR_HEIGHT_NET };
-            break;
-        default:
-            armor_size = { LARGE_ARMOR_WIDTH, LARGE_ARMOR_HEIGHT };
+    if (type == "large") {
+        armor_size = { LARGE_ARMOR_WIDTH, LARGE_ARMOR_HEIGHT };
+    } else {
+        armor_size = Eigen::Vector2d(SMALL_ARMOR_WIDTH, SMALL_ARMOR_HEIGHT);
     }
     const auto object_points =
         ArmorObject::buildObjectPoints<Eigen::Vector3d>(armor_size.x(), armor_size.y());
@@ -243,7 +254,22 @@ Eigen::Vector3d BaSolver::solveBa_t(
 
     // 6) 执行优化
     optimizer_.initializeOptimization();
-    optimizer_.optimize(100);
+    double finalChi2 = std::numeric_limits<double>::infinity();
+    int numEdges = optimizer_.edges().size();
+
+    auto computeRMS = [&]() {
+        // 用总 chi2 / 边数 开方得到 RMS reprojection error
+        return std::sqrt(optimizer_.chi2() / numEdges);
+    };
+
+    for (int k = 0; k < max_iter_t_ / step_t_; ++k) {
+        optimizer_.optimize(step_t_);
+        finalChi2 = optimizer_.chi2();
+        double rms = computeRMS();
+        if (rms < min_error_t_) {
+            break;
+        }
+    }
 
     // 7) 获取并返回优化后的 tvec
     Eigen::Vector3d t_opt = v_tvec->estimate();

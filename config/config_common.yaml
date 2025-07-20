@@ -1,5 +1,5 @@
 common:
-  armor_detect_backend: opencv
+  armor_detect_backend: tensorrt
   rune_detect_backend: tensorrt
   detect_color: 0
   init_attack_mode: 0
@@ -7,7 +7,7 @@ common:
   only_nav_enable: false
   use_auto_labeler: false
   use_calculation: false
-  use_ba: false
+  use_ba: true
   max_detect_armors: 10
   use_omni: false
   hit_omni_dt: 5.0
@@ -71,6 +71,14 @@ logger:
   use_logfile: true
   use_simplelog: true
 
+armor_optimize:
+  max_iter_R: 3000
+  max_iter_t: 1000
+  step_R: 100
+  step_t: 100
+  min_error_R: 5
+  min_error_t: 0.5
+
 armor_solver:
   bullet_speed: 21
   compenstator_type: ideal
@@ -118,12 +126,12 @@ armor_tracker:
     oys2qy: 40
     oys2qyaw: 30
     oys2qz: 5
-    yr_d_front: 0.002 #1m处
-    yr_d_side: 0.007 #1m处
+    yr_d_front: 0.02 #1m处
+    yr_d_side: 0.07 #1m处
     yr_p: 10 #角度
     yr_y: 7 #角度
     yr_yaw_front: 8
-    yr_yaw_side: 5
+    yr_yaw_side: 8
     ys2qd_zc: 700
     ys2qr: 70
     ys2qx: 22

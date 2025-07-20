@@ -42,7 +42,15 @@ ArmorPoseEstimator::ArmorPoseEstimator() {
         for (int j = 0; j < 3; ++j)
             camera_matrix[i * 3 + j] = gobal::camera_intrinsic.at<double>(i, j);
 
-    ba_solver_ = std::make_unique<BaSolver>(camera_matrix);
+    ba_solver_ = std::make_unique<BaSolver>(
+        camera_matrix,
+        gobal::config["armor_optimize"]["max_iter_R"].as<int>(),
+        gobal::config["armor_optimize"]["max_iter_t"].as<int>(),
+        gobal::config["armor_optimize"]["step_R"].as<int>(),
+        gobal::config["armor_optimize"]["step_t"].as<int>(),
+        gobal::config["armor_optimize"]["min_error_R"].as<double>(),
+        gobal::config["armor_optimize"]["min_error_t"].as<double>()
+    );
 
     R_gimbal_camera_ = Eigen::Matrix3d::Identity();
     R_gimbal_camera_ << 0, 0, 1, -1, 0, 0, 0, -1, 0;
@@ -71,13 +79,10 @@ std::vector<Armor> ArmorPoseEstimator::extractArmorPoses(
         Armor armor_;
         ArmorObject temp_armor = armor;
         std::string temp_type;
-        int temp_number;
         if (temp_armor.number == ArmorNumber::NO1 || temp_armor.number == ArmorNumber::BASE) {
             temp_type = "large";
-            temp_number = 0;
         } else {
             temp_type = "small";
-            temp_number = 1;
         }
 
         // Use PnP to get the initial pose information
@@ -105,8 +110,8 @@ std::vector<Armor> ArmorPoseEstimator::extractArmorPoses(
                 // Use BA alogorithm to optimize the pose from PnP
                 // solveBa() will modify the rotation_matrix
                 Eigen::Matrix3d tmp_R = R;
-                R = ba_solver_->solveBa(armor, t, R, R_imu_camera, temp_number);
-                t = ba_solver_->solveBa_t(armor, t, R, R_imu_camera, temp_number);
+                R = ba_solver_->solveBa_R(armor, t, R, R_imu_camera, temp_type);
+                t = ba_solver_->solveBa_t(armor, t, tmp_R, R_imu_camera, temp_type);
             }
 
             Eigen::Quaterniond q(R);

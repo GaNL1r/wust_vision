@@ -50,23 +50,31 @@ inline double normalizeAngleaa(double angle) {
 // the Yaw angle)
 class BaSolver {
 public:
-    BaSolver(std::array<double, 9>& camera_matrix);
+    BaSolver(
+        std::array<double, 9>& camera_matrix,
+        int max_iter_R,
+        int max_iter_t,
+        int step_R,
+        int step_t,
+        double min_error_R,
+        double min_error_t
+    );
     ~BaSolver() = default;
 
     // Solve the armor pose using the BA algorithm, return the optimized rotation
-    Eigen::Matrix3d solveBa(
+    Eigen::Matrix3d solveBa_R(
         const ArmorObject& armor,
         const Eigen::Vector3d& t_camera_armor,
         const Eigen::Matrix3d& R_camera_armor,
         const Eigen::Matrix3d& R_imu_camera,
-        int type_number
+        const std::string type
     ) noexcept;
     Eigen::Vector3d solveBa_t(
         const ArmorObject& armor,
         const Eigen::Vector3d& t_camera_armor_init,
         const Eigen::Matrix3d& R_camera_armor,
         const Eigen::Matrix3d& R_imu_camera,
-        int type_number
+        const std::string type
     ) noexcept;
 
 private:
@@ -74,4 +82,10 @@ private:
     g2o::SparseOptimizer optimizer_;
     g2o::OptimizationAlgorithmProperty solver_property_;
     g2o::OptimizationAlgorithmLevenberg* lm_algorithm_;
+    int max_iter_R_;
+    int max_iter_t_;
+    int step_R_;
+    int step_t_;
+    double min_error_R_;
+    double min_error_t_;
 };
