@@ -70,6 +70,8 @@ bool MonoMeasureTool::solvePnp(
     const std::vector<cv::Point3f>& points3d,
     cv::Point3f& position,
     cv::Mat& rvec,
+    const cv::Mat& camera_intrinsic,
+    const cv::Mat& camera_distortion,
     cv::SolvePnPMethod pnp_method
 ) {
     if (points2d.size() != points3d.size()) {
@@ -78,7 +80,7 @@ bool MonoMeasureTool::solvePnp(
         return false;
     }
 
-    if (gobal::camera_intrinsic.empty() || gobal::camera_distortion.empty()) {
+    if (camera_intrinsic.empty() || camera_distortion.empty()) {
         // WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
         return false;
     }
@@ -88,8 +90,8 @@ bool MonoMeasureTool::solvePnp(
     bool res = cv::solvePnP(
         points3d,
         points2d,
-        gobal::camera_intrinsic,
-        gobal::camera_distortion,
+        camera_intrinsic,
+        camera_distortion,
         r,
         trans,
         false,
@@ -156,9 +158,11 @@ void MonoMeasureTool::calcViewAngle(cv::Point2f p, float& pitch, float& yaw) {
 bool MonoMeasureTool::calcRTarget(
     const std::vector<cv::Point2f>& manual_r_box,
     Eigen::Matrix4d& TRodom,
-    const Eigen::Matrix4d& T_camera_to_odom
+    const Eigen::Matrix4d& T_camera_to_odom,
+    const cv::Mat& camera_intrinsic,
+    const cv::Mat& camera_distortion
 ) {
-    if (gobal::camera_intrinsic.empty() || gobal::camera_distortion.empty()) {
+    if (camera_intrinsic.empty() || camera_distortion.empty()) {
         WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
         return false;
     }
@@ -168,8 +172,8 @@ bool MonoMeasureTool::calcRTarget(
     bool res = cv::solvePnP(
         R_BOX_POINTS,
         manual_r_box,
-        gobal::camera_intrinsic,
-        gobal::camera_distortion,
+        camera_intrinsic,
+        camera_distortion,
         rvec,
         tvec,
         false,
@@ -203,9 +207,11 @@ bool MonoMeasureTool::calcRTarget(
 bool MonoMeasureTool::projectRTargetToImage(
     const Eigen::Matrix4d& TRodom,
     const Eigen::Matrix4d& T_camera_to_odom,
-    std::vector<cv::Point2f>& manual_r_box
+    std::vector<cv::Point2f>& manual_r_box,
+    const cv::Mat& camera_intrinsic,
+    const cv::Mat& camera_distortion
 ) {
-    if (gobal::camera_intrinsic.empty() || gobal::camera_distortion.empty()) {
+    if (camera_intrinsic.empty() || camera_distortion.empty()) {
         WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
         return false;
     }
@@ -224,14 +230,7 @@ bool MonoMeasureTool::projectRTargetToImage(
     cv::eigen2cv(t_eigen, tvec);
 
     // R_BOX_POINTS：目标3D点，cv::Point3f格式的vector
-    cv::projectPoints(
-        R_BOX_POINTS,
-        rvec,
-        tvec,
-        gobal::camera_intrinsic,
-        gobal::camera_distortion,
-        manual_r_box
-    );
+    cv::projectPoints(R_BOX_POINTS, rvec, tvec, camera_intrinsic, camera_distortion, manual_r_box);
 
     return true;
 }
@@ -240,206 +239,98 @@ bool MonoMeasureTool::calcArmorTarget(
     const ArmorObject& obj,
     cv::Point3f& position,
     cv::Mat& rvec,
-    std::string& armor_type
-) {
-    // Determine armor size
-    const std::vector<cv::Point3f>* model_points = nullptr;
-    const std::vector<cv::Point2f>* image_points = nullptr;
-
-    if (obj.is_ok) {
-        image_points = &obj.pts_binary;
-        if (is_big_armor(obj)) {
-            armor_type = "large";
-            model_points = &BIG_ARMOR_3D_POINTS;
-        } else {
-            armor_type = "small";
-            model_points = &SMALL_ARMOR_3D_POINTS;
-        }
-    } else {
-        image_points = &obj.pts;
-        if (is_big_armor(obj)) {
-            armor_type = "large";
-            model_points = &BIG_ARMOR_3D_POINTS_NET;
-        } else {
-            armor_type = "small";
-            model_points = &SMALL_ARMOR_3D_POINTS_NET;
-        }
-    }
-
-    // Ensure camera parameters initialized
-    if (gobal::camera_intrinsic.empty() || gobal::camera_distortion.empty()) {
-        WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
-        return false;
-    }
-
-    // Use solvePnPGeneric to get all candidate solutions
-    std::vector<cv::Mat> rvecs, tvecs;
-    bool generic_ok = cv::solvePnPGeneric(
-        *model_points,
-        *image_points,
-        gobal::camera_intrinsic,
-        gobal::camera_distortion,
-        rvecs,
-        tvecs,
-        false, /* useExtrinsicGuess */
-        cv::SOLVEPNP_IPPE
-    );
-    if (!generic_ok || rvecs.empty()) {
-        WUST_WARN(mono_logger) << "solvePnPGeneric failed.";
-        return false;
-    }
-
-    // Select solution with minimum reprojection error
-    double best_err = std::numeric_limits<double>::max();
-    size_t best_idx = 0;
-    for (size_t i = 0; i < rvecs.size(); ++i) {
-        std::vector<cv::Point2f> reproj;
-        cv::projectPoints(
-            *model_points,
-            rvecs[i],
-            tvecs[i],
-            gobal::camera_intrinsic,
-            gobal::camera_distortion,
-            reproj
-        );
-        double err = 0.0;
-        for (size_t k = 0; k < reproj.size(); ++k) {
-            err += cv::norm(reproj[k] - (*image_points)[k]);
-        }
-        if (err < best_err) {
-            best_err = err;
-            best_idx = i;
-        }
-    }
-
-    // Retrieve best solution
-    rvec = rvecs[best_idx].clone();
-    cv::Mat tvec = tvecs[best_idx].clone();
-    position = cv::Point3f(tvec);
-
-    // Store for next-frame iterative refinement
-    prev_rvec_ = rvec;
-    prev_tvec_ = tvec;
-    has_prev_ = true;
-
-    return true;
-}
-bool MonoMeasureTool::calcArmorTargetOmni(
-    const ArmorObject& obj,
-    cv::Point3f& position,
-    cv::Mat& rvec,
     std::string& armor_type,
-    const cv::Mat& camera_intrinsic_,
-    const cv::Mat& camera_distortion_
-) {
-    // Determine armor size
-    const std::vector<cv::Point3f>* model_points = nullptr;
-    const std::vector<cv::Point2f>* image_points = nullptr;
-
-    if (obj.is_ok) {
-        image_points = &obj.pts_binary;
-        if (is_big_armor(obj)) {
-            armor_type = "large";
-            model_points = &BIG_ARMOR_3D_POINTS;
-        } else {
-            armor_type = "small";
-            model_points = &SMALL_ARMOR_3D_POINTS;
-        }
-    } else {
-        image_points = &obj.pts;
-        if (is_big_armor(obj)) {
-            armor_type = "large";
-            model_points = &BIG_ARMOR_3D_POINTS_NET;
-        } else {
-            armor_type = "small";
-            model_points = &SMALL_ARMOR_3D_POINTS_NET;
-        }
-    }
-
-    // Ensure camera parameters initialized
-    if (camera_intrinsic_.empty() || camera_distortion_.empty()) {
-        WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
-        return false;
-    }
-
-    // Use solvePnPGeneric to get all candidate solutions
-    std::vector<cv::Mat> rvecs, tvecs;
-    bool generic_ok = cv::solvePnPGeneric(
-        *model_points,
-        *image_points,
-        camera_intrinsic_,
-        camera_distortion_,
-        rvecs,
-        tvecs,
-        false, /* useExtrinsicGuess */
-        cv::SOLVEPNP_IPPE
-    );
-    if (!generic_ok || rvecs.empty()) {
-        WUST_WARN(mono_logger) << "solvePnPGeneric failed.";
-        return false;
-    }
-
-    // Select solution with minimum reprojection error
-    double best_err = std::numeric_limits<double>::max();
-    size_t best_idx = 0;
-    for (size_t i = 0; i < rvecs.size(); ++i) {
-        std::vector<cv::Point2f> reproj;
-        cv::projectPoints(
-            *model_points,
-            rvecs[i],
-            tvecs[i],
-            camera_intrinsic_,
-            camera_distortion_,
-            reproj
-        );
-        double err = 0.0;
-        for (size_t k = 0; k < reproj.size(); ++k) {
-            err += cv::norm(reproj[k] - (*image_points)[k]);
-        }
-        if (err < best_err) {
-            best_err = err;
-            best_idx = i;
-        }
-    }
-
-    // Retrieve best solution
-    rvec = rvecs[best_idx].clone();
-    cv::Mat tvec = tvecs[best_idx].clone();
-    position = cv::Point3f(tvec);
-
-    // Store for next-frame iterative refinement
-    prev_rvec_ = rvec;
-    prev_tvec_ = tvec;
-    has_prev_ = true;
-
-    return true;
-}
-float MonoMeasureTool::calcDistanceToCenter(const ArmorObject& obj) {
-    cv::Point2f img_center(
-        gobal::camera_intrinsic.at<double>(0, 2),
-        gobal::camera_intrinsic.at<double>(1, 2)
-    );
-    cv::Point2f armor_center;
-    if (obj.is_ok) {
-        armor_center.x =
-            (obj.pts_binary[0].x + obj.pts_binary[1].x + obj.pts_binary[2].x + obj.pts_binary[3].x)
-            / 4.;
-        armor_center.y =
-            (obj.pts_binary[0].y + obj.pts_binary[1].y + obj.pts_binary[2].y + obj.pts_binary[3].y)
-            / 4.;
-    } else {
-        armor_center.x = (obj.pts[0].x + obj.pts[1].x + obj.pts[2].x + obj.pts[3].x) / 4.;
-        armor_center.y = (obj.pts[0].y + obj.pts[1].y + obj.pts[2].y + obj.pts[3].y) / 4.;
-    }
-    auto dis_vec = img_center - armor_center;
-    return sqrt(dis_vec.dot(dis_vec));
-}
-float MonoMeasureTool::calcDistanceToCenterOmni(
-    const ArmorObject& obj,
     const cv::Mat& camera_intrinsic,
     const cv::Mat& camera_distortion
 ) {
-    cv::Point2f img_center(camera_intrinsic.at<double>(0, 2), camera_intrinsic.at<double>(1, 2));
+    // Determine armor size
+    const std::vector<cv::Point3f>* model_points = nullptr;
+    const std::vector<cv::Point2f>* image_points = nullptr;
+
+    if (obj.is_ok) {
+        image_points = &obj.pts_binary;
+        if (is_big_armor(obj)) {
+            armor_type = "large";
+            model_points = &BIG_ARMOR_3D_POINTS;
+        } else {
+            armor_type = "small";
+            model_points = &SMALL_ARMOR_3D_POINTS;
+        }
+    } else {
+        image_points = &obj.pts;
+        if (is_big_armor(obj)) {
+            armor_type = "large";
+            model_points = &BIG_ARMOR_3D_POINTS_NET;
+        } else {
+            armor_type = "small";
+            model_points = &SMALL_ARMOR_3D_POINTS_NET;
+        }
+    }
+
+    // Ensure camera parameters initialized
+    if (camera_intrinsic.empty() || camera_distortion.empty()) {
+        WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
+        return false;
+    }
+
+    // Use solvePnPGeneric to get all candidate solutions
+    std::vector<cv::Mat> rvecs, tvecs;
+    bool generic_ok = cv::solvePnPGeneric(
+        *model_points,
+        *image_points,
+        camera_intrinsic,
+        camera_distortion,
+        rvecs,
+        tvecs,
+        false, /* useExtrinsicGuess */
+        cv::SOLVEPNP_IPPE
+    );
+    if (!generic_ok || rvecs.empty()) {
+        WUST_WARN(mono_logger) << "solvePnPGeneric failed.";
+        return false;
+    }
+
+    // Select solution with minimum reprojection error
+    double best_err = std::numeric_limits<double>::max();
+    size_t best_idx = 0;
+    for (size_t i = 0; i < rvecs.size(); ++i) {
+        std::vector<cv::Point2f> reproj;
+        cv::projectPoints(
+            *model_points,
+            rvecs[i],
+            tvecs[i],
+            camera_intrinsic,
+            camera_distortion,
+            reproj
+        );
+        double err = 0.0;
+        for (size_t k = 0; k < reproj.size(); ++k) {
+            err += cv::norm(reproj[k] - (*image_points)[k]);
+        }
+        if (err < best_err) {
+            best_err = err;
+            best_idx = i;
+        }
+    }
+
+    // Retrieve best solution
+    rvec = rvecs[best_idx].clone();
+    cv::Mat tvec = tvecs[best_idx].clone();
+    position = cv::Point3f(tvec);
+
+    // Store for next-frame iterative refinement
+    prev_rvec_ = rvec;
+    prev_tvec_ = tvec;
+    has_prev_ = true;
+
+    return true;
+}
+float MonoMeasureTool::calcDistanceToCenter(
+    const ArmorObject& obj,
+    const cv::Mat& camera_intrinsic_,
+    const cv::Mat& camera_distortion_
+) {
+    cv::Point2f img_center(camera_intrinsic_.at<double>(0, 2), camera_intrinsic_.at<double>(1, 2));
     cv::Point2f armor_center;
     if (obj.is_ok) {
         armor_center.x =
@@ -455,11 +346,14 @@ float MonoMeasureTool::calcDistanceToCenterOmni(
     auto dis_vec = img_center - armor_center;
     return sqrt(dis_vec.dot(dis_vec));
 }
+
 bool MonoMeasureTool::reprojectArmorCorners(
     const Armor& armor,
-    std::vector<cv::Point2f>& image_points
+    std::vector<cv::Point2f>& image_points,
+    const cv::Mat& camera_intrinsic,
+    const cv::Mat& camera_distortion
 ) {
-    if (gobal::camera_intrinsic.empty() || gobal::camera_distortion.empty()) {
+    if (camera_intrinsic.empty() || camera_distortion.empty()) {
         WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
         return false;
     }
@@ -497,22 +391,17 @@ bool MonoMeasureTool::reprojectArmorCorners(
         (cv::Mat_<double>(3, 1) << armor.target_pos.x, armor.target_pos.y, armor.target_pos.z);
 
     // 反投影
-    cv::projectPoints(
-        *model_points,
-        rvec,
-        tvec,
-        gobal::camera_intrinsic,
-        gobal::camera_distortion,
-        image_points
-    );
+    cv::projectPoints(*model_points, rvec, tvec, camera_intrinsic, camera_distortion, image_points);
 
     return true;
 }
 bool MonoMeasureTool::reprojectArmorCorners_raw(
     const Armor& armor,
-    std::vector<cv::Point2f>& image_points
+    std::vector<cv::Point2f>& image_points,
+    const cv::Mat& camera_intrinsic,
+    const cv::Mat& camera_distortion
 ) {
-    if (gobal::camera_intrinsic.empty() || gobal::camera_distortion.empty()) {
+    if (camera_intrinsic.empty() || camera_distortion.empty()) {
         WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
         return false;
     }
@@ -549,26 +438,24 @@ bool MonoMeasureTool::reprojectArmorCorners_raw(
     cv::Mat tvec = (cv::Mat_<double>(3, 1) << armor.pos.x, armor.pos.y, armor.pos.z);
 
     // 反投影
-    cv::projectPoints(
-        *model_points,
-        rvec,
-        tvec,
-        gobal::camera_intrinsic,
-        gobal::camera_distortion,
-        image_points
-    );
+    cv::projectPoints(*model_points, rvec, tvec, camera_intrinsic, camera_distortion, image_points);
 
     return true;
 }
-bool MonoMeasureTool::reprojectArmorsCorners(Armors& armors, Target_info& target_info) {
-    if (gobal::camera_intrinsic.empty() || gobal::camera_distortion.empty()) {
+bool MonoMeasureTool::reprojectArmorsCorners(
+    Armors& armors,
+    Target_info& target_info,
+    const cv::Mat& camera_intrinsic,
+    const cv::Mat& camera_distortion
+) {
+    if (camera_intrinsic.empty() || camera_distortion.empty()) {
         WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
         return false;
     }
     for (auto& armor: armors.armors) {
         std::vector<cv::Point2f> pts;
 
-        if (!reprojectArmorCorners(armor, pts))
+        if (!reprojectArmorCorners(armor, pts, camera_intrinsic, camera_distortion))
             return false;
         target_info.pts.push_back(pts);
         target_info.pos.push_back(armor.pos);
@@ -581,91 +468,9 @@ void MonoMeasureTool::processDetectedArmors(
     const std::vector<ArmorObject>& objs,
     int detect_color,
     Armors& armors_out,
-    Eigen::Matrix4d T_camera_to_odom
-) {
-    for (const auto& obj: objs) {
-        if (obj.is_ok) {
-            continue;
-        }
-
-        // 按照颜色过滤
-        if ((detect_color == 0 && obj.color != ArmorColor::RED)
-            || (detect_color == 1 && obj.color != ArmorColor::BLUE))
-        {
-            continue;
-        }
-
-        cv::Point3f target_position;
-        cv::Mat target_rvec;
-        std::string armor_type;
-
-        // 尝试计算装甲板位姿
-        if (!calcArmorTarget(obj, target_position, target_rvec, armor_type)) {
-            continue;
-        }
-
-        // 检查位置合法性
-        if (!cv::checkRange(cv::Mat(target_position))) {
-            continue;
-        }
-
-        // 检查旋转向量合法性
-        if (target_rvec.empty() || target_rvec.total() != 3
-            || target_rvec.rows * target_rvec.cols != 3 || !cv::checkRange(target_rvec))
-        {
-            continue;
-        }
-
-        try {
-            // 将 rvec 转换为旋转矩阵
-            cv::Mat rot_mat;
-            cv::Rodrigues(target_rvec, rot_mat);
-
-            // 再转换为 tf::Quaternion
-            tf::Matrix3x3 tf_rot_mat(
-                rot_mat.at<double>(0, 0),
-                rot_mat.at<double>(0, 1),
-                rot_mat.at<double>(0, 2),
-                rot_mat.at<double>(1, 0),
-                rot_mat.at<double>(1, 1),
-                rot_mat.at<double>(1, 2),
-                rot_mat.at<double>(2, 0),
-                rot_mat.at<double>(2, 1),
-                rot_mat.at<double>(2, 2)
-            );
-            tf::Quaternion tf_quaternion;
-            tf_rot_mat.getRotation(tf_quaternion);
-
-            if (!std::isfinite(tf_quaternion.x) || !std::isfinite(tf_quaternion.y)
-                || !std::isfinite(tf_quaternion.z) || !std::isfinite(tf_quaternion.w))
-            {
-                WUST_WARN(mono_logger) << "Quaternion contains NaN or Inf";
-                continue;
-            }
-
-            Armor armor;
-            armor.pos = { target_position.x, target_position.y, target_position.z };
-            armor.ori = { tf_quaternion.x, tf_quaternion.y, tf_quaternion.z, tf_quaternion.w };
-            armor.number = obj.number;
-            armor.type = armor_type;
-            armor.distance_to_image_center = calcDistanceToCenter(obj);
-            armor.is_ok = false;
-            armors_out.armors.emplace_back(armor);
-
-        } catch (const cv::Exception& e) {
-            WUST_ERROR(mono_logger) << "cv::Rodrigues failed: " << e.what();
-            continue;
-        }
-    }
-    utils::transformArmorData(armors_out, T_camera_to_odom);
-}
-void MonoMeasureTool::processDetectedArmorsOmni(
-    const std::vector<ArmorObject>& objs,
-    int detect_color,
-    Armors& armors_out,
     Eigen::Matrix4d T_camera_to_odom,
-    const cv::Mat& camera_intrinsic_,
-    const cv::Mat& camera_distortion_
+    const cv::Mat& camera_intrinsic,
+    const cv::Mat& camera_distortion
 ) {
     for (const auto& obj: objs) {
         if (obj.is_ok) {
@@ -684,13 +489,13 @@ void MonoMeasureTool::processDetectedArmorsOmni(
         std::string armor_type;
 
         // 尝试计算装甲板位姿
-        if (!calcArmorTargetOmni(
+        if (!calcArmorTarget(
                 obj,
                 target_position,
                 target_rvec,
                 armor_type,
-                camera_intrinsic_,
-                camera_distortion_
+                camera_intrinsic,
+                camera_distortion
             ))
         {
             continue;
@@ -741,7 +546,7 @@ void MonoMeasureTool::processDetectedArmorsOmni(
             armor.number = obj.number;
             armor.type = armor_type;
             armor.distance_to_image_center =
-                calcDistanceToCenterOmni(obj, camera_intrinsic_, camera_distortion_);
+                calcDistanceToCenter(obj, camera_intrinsic, camera_distortion);
             armor.is_ok = false;
             armors_out.armors.emplace_back(armor);
 

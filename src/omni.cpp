@@ -267,7 +267,7 @@ void OmniManager::ArmorDetectCallback(
     armors.frame_id = "camera_optical_frame";
     cv::Mat camera_intrinsic_ = omni_visions_[v.x()]->camera_intrinsic_;
     cv::Mat camera_distortion_ = omni_visions_[v.x()]->camera_distortion_;
-    measure_tool_->processDetectedArmorsOmni(
+    measure_tool_->processDetectedArmors(
         objs,
         gobal::detect_color,
         armors,

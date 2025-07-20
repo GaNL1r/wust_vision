@@ -171,7 +171,12 @@ void drawResult(const imgframe& src_img, const Armors& armors) {
         // std::cout<<"cc\n";
         std::vector<cv::Point2f> pts;
 
-        if (!gobal::measure_tool->reprojectArmorCorners_raw(armor, pts))
+        if (!gobal::measure_tool->reprojectArmorCorners_raw(
+                armor,
+                pts,
+                gobal::camera_intrinsic,
+                gobal::camera_distortion
+            ))
             continue;
         for (size_t i = 0; i < 4; ++i) {
             cv::line(debug_img, pts[i], pts[(i + 1) % 4], cv::Scalar(255, 100, 0), 2);
@@ -1061,7 +1066,12 @@ void drawDebugOverlay(
 
         for (const auto& armor: armors->armors) {
             std::vector<cv::Point2f> pts;
-            if (!gobal::measure_tool->reprojectArmorCorners_raw(armor, pts))
+            if (!gobal::measure_tool->reprojectArmorCorners_raw(
+                    armor,
+                    pts,
+                    gobal::camera_intrinsic,
+                    gobal::camera_distortion
+                ))
                 continue;
 
             for (size_t i = 0; i < 4; ++i)
@@ -1402,7 +1412,12 @@ void drawDebugOverlayWrite(
 
         for (const auto& armor: armors->armors) {
             std::vector<cv::Point2f> pts;
-            if (!gobal::measure_tool->reprojectArmorCorners_raw(armor, pts))
+            if (!gobal::measure_tool->reprojectArmorCorners_raw(
+                    armor,
+                    pts,
+                    gobal::camera_intrinsic,
+                    gobal::camera_distortion
+                ))
                 continue;
 
             for (size_t i = 0; i < 4; ++i) {
@@ -1759,7 +1774,12 @@ cv::Mat drawDebugOverlayMat(
 
         for (const auto& armor: armors->armors) {
             std::vector<cv::Point2f> pts;
-            if (!gobal::measure_tool->reprojectArmorCorners_raw(armor, pts))
+            if (!gobal::measure_tool->reprojectArmorCorners_raw(
+                    armor,
+                    pts,
+                    gobal::camera_intrinsic,
+                    gobal::camera_distortion
+                ))
                 continue;
 
             for (size_t i = 0; i < 4; ++i)

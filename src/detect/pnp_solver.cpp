@@ -26,9 +26,12 @@ void PnPSolver::setObjectPoints(
     object_points_map_[coord_frame_name] = object_points;
 }
 
-float PnPSolver::calculateDistanceToCenter(const cv::Point2f& image_point) const noexcept {
-    float cx = gobal::camera_intrinsic.at<double>(0, 2);
-    float cy = gobal::camera_intrinsic.at<double>(1, 2);
+float PnPSolver::calculateDistanceToCenter(
+    const cv::Point2f& image_point,
+    const cv::Mat& camera_intrinsic
+) const noexcept {
+    float cx = camera_intrinsic.at<double>(0, 2);
+    float cy = camera_intrinsic.at<double>(1, 2);
     return cv::norm(image_point - cv::Point2f(cx, cy));
 }
 
@@ -36,7 +39,9 @@ double PnPSolver::calculateReprojectionError(
     const std::vector<cv::Point2f>& image_points,
     const cv::Mat& rvec,
     const cv::Mat& tvec,
-    const std::string& coord_frame_name
+    const std::string& coord_frame_name,
+    const cv::Mat& camera_intrinsic,
+    const cv::Mat& camera_distortion
 ) const noexcept {
     if (object_points_map_.find(coord_frame_name) != object_points_map_.end()) {
         const auto& object_points = object_points_map_.at(coord_frame_name);
@@ -45,8 +50,8 @@ double PnPSolver::calculateReprojectionError(
             object_points,
             rvec,
             tvec,
-            gobal::camera_intrinsic,
-            gobal::camera_distortion,
+            camera_intrinsic,
+            camera_distortion,
             reprojected_points
         );
         double error = 0;

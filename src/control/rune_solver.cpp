@@ -194,7 +194,16 @@ RuneSolver::solvePose(const Rune& predicted_target, Eigen::Matrix4d T_camera_to_
     );
 
     cv::Mat rvec(3, 1, CV_64F), tvec(3, 1, CV_64F);
-    if (pnp_solver_ && pnp_solver_->solvePnP(image_points, rvec, tvec, "rune")) {
+    if (pnp_solver_
+        && pnp_solver_->solvePnP(
+            image_points,
+            rvec,
+            tvec,
+            "rune",
+            gobal::camera_intrinsic,
+            gobal::camera_distortion
+        ))
+    {
         // Get the transformation matrix from rune to odom
         try {
             // Get rotation matrix from rvec

@@ -34,8 +34,12 @@ class ArmorPoseEstimator {
 public:
     explicit ArmorPoseEstimator();
 
-    std::vector<Armor>
-    extractArmorPoses(const std::vector<ArmorObject>& armors, Eigen::Matrix4d T_camera_to_odom);
+    std::vector<Armor> extractArmorPoses(
+        const std::vector<ArmorObject>& armors,
+        Eigen::Matrix4d T_camera_to_odom,
+        const cv::Mat& camera_intrinsic,
+        const cv::Mat& camera_distortion
+    );
 
     void enableBA(bool enable) {
         use_ba_ = enable;
@@ -48,7 +52,9 @@ private:
         const ArmorObject& armor,
         std::vector<cv::Mat>& rvecs,
         std::vector<cv::Mat>& tvecs,
-        std::string coord_frame_name
+        std::string coord_frame_name,
+        const cv::Mat& camera_intrinsic,
+        const cv::Mat& camera_distortion
     ) const;
 
     // Convert a rotation matrix to RPY

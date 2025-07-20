@@ -683,9 +683,21 @@ void WustVision::ArmorDetectCallback(
     armors.timestamp = timestamp;
     armors.frame_id = "camera_optical_frame";
 
-    armors.armors = armor_pose_estimator_->extractArmorPoses(objs, T_camera_to_odom);
+    armors.armors = armor_pose_estimator_->extractArmorPoses(
+        objs,
+        T_camera_to_odom,
+        gobal::camera_intrinsic,
+        gobal::camera_distortion
+    );
 
-    gobal::measure_tool->processDetectedArmors(objs, gobal::detect_color, armors, T_camera_to_odom);
+    gobal::measure_tool->processDetectedArmors(
+        objs,
+        gobal::detect_color,
+        armors,
+        T_camera_to_odom,
+        gobal::camera_intrinsic,
+        gobal::camera_distortion
+    );
 
     if (use_auto_labeler_) {
         static int save_counter = 0;
@@ -757,7 +769,13 @@ void WustVision::RuneDetectCallback(
         cv::Point2f r_tag;
         cv::Mat binary_roi = cv::Mat::zeros(1, 1, CV_8UC3);
         if (use_manual_r_ && manual_r_init_) {
-            gobal::measure_tool->projectRTargetToImage(T_r_, T_camera_to_odom, manual_r_box_);
+            gobal::measure_tool->projectRTargetToImage(
+                T_r_,
+                T_camera_to_odom,
+                manual_r_box_,
+                gobal::camera_intrinsic,
+                gobal::camera_distortion
+            );
             manual_r_center_ = utils::computeCenter(manual_r_box_);
             r_tag = manual_r_center_;
             if (detect_r_tag_ && !src_img.empty()) {
@@ -939,7 +957,13 @@ void WustVision::calculationManualR(const cv::Mat& src_img) {
         }
     }
 
-    gobal::measure_tool->calcRTarget(manual_r_box_, T_r_, T_camera_to_odom_);
+    gobal::measure_tool->calcRTarget(
+        manual_r_box_,
+        T_r_,
+        T_camera_to_odom_,
+        gobal::camera_intrinsic,
+        gobal::camera_distortion
+    );
     cv::destroyWindow("Manual R Box");
     cv::destroyWindow("Manual R Box");
     cv::destroyWindow("Manual R Box");
@@ -1136,7 +1160,12 @@ void WustVision::visualizeAndLog(
         Target_info target_info;
         target_info.select_id = gimbal_cmd.select_id;
 
-        if (!gobal::measure_tool->reprojectArmorsCorners(armor_data, target_info))
+        if (!gobal::measure_tool->reprojectArmorsCorners(
+                armor_data,
+                target_info,
+                gobal::camera_intrinsic,
+                gobal::camera_distortion
+            ))
             return;
         writeTargetLogToJson(target);
         try {

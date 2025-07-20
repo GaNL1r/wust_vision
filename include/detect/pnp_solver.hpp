@@ -39,7 +39,9 @@ public:
         const InputArray& image_points,
         std::vector<cv::Mat>& rvecs,
         std::vector<cv::Mat>& tvecs,
-        const std::string& coord_frame_name
+        const std::string& coord_frame_name,
+        const cv::Mat& camera_intrinsic,
+        const cv::Mat& camera_distortion
     ) {
         rvecs.clear();
         tvecs.clear();
@@ -48,8 +50,8 @@ public:
             int solutions = cv::solvePnPGeneric(
                 object_points,
                 image_points,
-                gobal::camera_intrinsic,
-                gobal::camera_distortion,
+                camera_intrinsic,
+                camera_distortion,
                 rvecs,
                 tvecs,
                 false,
@@ -69,15 +71,17 @@ public:
         const InputArray& image_points,
         cv::Mat& rvec,
         cv::Mat& tvec,
-        const std::string& coord_frame_name
+        const std::string& coord_frame_name,
+        const cv::Mat& camera_intrinsic,
+        const cv::Mat& camera_distortion
     ) {
         if (object_points_map_.find(coord_frame_name) != object_points_map_.end()) {
             const auto& object_points = object_points_map_[coord_frame_name];
             return cv::solvePnP(
                 object_points,
                 image_points,
-                gobal::camera_intrinsic,
-                gobal::camera_distortion,
+                camera_intrinsic,
+                camera_distortion,
                 rvec,
                 tvec,
                 false,
@@ -87,8 +91,13 @@ public:
             return false;
         }
     }
-    std::vector<cv::Point2f>
-    getImagePoints(const cv::Mat& rvec, const cv::Mat& tvec, const std::string& coord_frame_name) {
+    std::vector<cv::Point2f> getImagePoints(
+        const cv::Mat& rvec,
+        const cv::Mat& tvec,
+        const std::string& coord_frame_name,
+        const cv::Mat& camera_intrinsic,
+        const cv::Mat& camera_distortion
+    ) {
         std::vector<cv::Point2f> image_points;
         if (object_points_map_.find(coord_frame_name) == object_points_map_.end()) {
             throw std::runtime_error("Unknown coord_frame_name");
@@ -99,8 +108,8 @@ public:
             object_points,
             rvec,
             tvec,
-            gobal::camera_intrinsic,
-            gobal::camera_distortion,
+            camera_intrinsic,
+            camera_distortion,
             image_points
         );
 
@@ -108,13 +117,16 @@ public:
     }
 
     // Calculate the distance between armor center and image center
-    float calculateDistanceToCenter(const cv::Point2f& image_point) const noexcept;
+    float calculateDistanceToCenter(const cv::Point2f& image_point, const cv::Mat& camera_intrinsic)
+        const noexcept;
 
     double calculateReprojectionError(
         const std::vector<cv::Point2f>& image_points,
         const cv::Mat& rvec,
         const cv::Mat& tvec,
-        const std::string& coord_frame_name
+        const std::string& coord_frame_name,
+        const cv::Mat& camera_intrinsic,
+        const cv::Mat& camera_distortion
     ) const noexcept;
 
 private:

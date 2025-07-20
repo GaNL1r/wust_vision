@@ -49,6 +49,8 @@ public:
         const std::vector<cv::Point3f>& points3d,
         cv::Point3f& position,
         cv::Mat& rvec,
+        const cv::Mat& camera_intrinsic_,
+        const cv::Mat& camera_distortion_,
         cv::SolvePnPMethod pnp_method = cv::SOLVEPNP_ITERATIVE
     );
     /**
@@ -81,45 +83,52 @@ public:
         const ArmorObject& obj,
         cv::Point3f& position,
         cv::Mat& rvec,
-        std::string& armor_type
-    );
-    bool calcArmorTargetOmni(
-        const ArmorObject& obj,
-        cv::Point3f& position,
-        cv::Mat& rvec,
         std::string& armor_type,
         const cv::Mat& camera_intrinsic_,
         const cv::Mat& camera_distortion_
     );
+
     bool projectRTargetToImage(
         const Eigen::Matrix4d& TRodom,
         const Eigen::Matrix4d& T_camera_to_odom,
-        std::vector<cv::Point2f>& manual_r_box
+        std::vector<cv::Point2f>& manual_r_box,
+        const cv::Mat& camera_intrinsic_,
+        const cv::Mat& camera_distortion_
     );
     bool calcRTarget(
         const std::vector<cv::Point2f>& manual_r_box,
         Eigen::Matrix4d& TRodom,
-        const Eigen::Matrix4d& T_camera_to_odom
+        const Eigen::Matrix4d& T_camera_to_odom,
+        const cv::Mat& camera_intrinsic_,
+        const cv::Mat& camera_distortion_
     );
 
-    float calcDistanceToCenter(const ArmorObject& obj);
-    float calcDistanceToCenterOmni(
+    float calcDistanceToCenter(
         const ArmorObject& obj,
         const cv::Mat& camera_intrinsic_,
         const cv::Mat& camera_distortion_
     );
 
-    bool reprojectArmorsCorners(Armors& armors, Target_info& target_info);
-
-    bool reprojectArmorCorners(const Armor& armor, std::vector<cv::Point2f>& image_points);
-    bool reprojectArmorCorners_raw(const Armor& armor, std::vector<cv::Point2f>& image_points);
-    void processDetectedArmors(
-        const std::vector<ArmorObject>& objs,
-        int detect_color,
-        Armors& armors_out,
-        Eigen::Matrix4d T_camera_to_odom
+    bool reprojectArmorsCorners(
+        Armors& armors,
+        Target_info& target_info,
+        const cv::Mat& camera_intrinsic_,
+        const cv::Mat& camera_distortion_
     );
-    void processDetectedArmorsOmni(
+
+    bool reprojectArmorCorners(
+        const Armor& armor,
+        std::vector<cv::Point2f>& image_points,
+        const cv::Mat& camera_intrinsic_,
+        const cv::Mat& camera_distortion_
+    );
+    bool reprojectArmorCorners_raw(
+        const Armor& armor,
+        std::vector<cv::Point2f>& image_points,
+        const cv::Mat& camera_intrinsic_,
+        const cv::Mat& camera_distortion_
+    );
+    void processDetectedArmors(
         const std::vector<ArmorObject>& objs,
         int detect_color,
         Armors& armors_out,

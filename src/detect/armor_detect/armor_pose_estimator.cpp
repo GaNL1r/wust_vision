@@ -50,7 +50,9 @@ ArmorPoseEstimator::ArmorPoseEstimator() {
 
 std::vector<Armor> ArmorPoseEstimator::extractArmorPoses(
     const std::vector<ArmorObject>& armors,
-    Eigen::Matrix4d T_camera_to_odom
+    Eigen::Matrix4d T_camera_to_odom,
+    const cv::Mat& camera_intrinsic,
+    const cv::Mat& camera_distortion
 ) {
     std::vector<Armor> armors_msg;
     Eigen::Matrix3d R_imu_camera = T_camera_to_odom.block<3, 3>(0, 0);
@@ -79,8 +81,16 @@ std::vector<Armor> ArmorPoseEstimator::extractArmorPoses(
         }
 
         // Use PnP to get the initial pose information
-        if (pnp_solver_->solvePnPGeneric(armor.landmarks(), rvecs, tvecs, (temp_type))) {
-            sortPnPResult(armor, rvecs, tvecs, temp_type);
+        if (pnp_solver_->solvePnPGeneric(
+                armor.landmarks(),
+                rvecs,
+                tvecs,
+                (temp_type),
+                camera_intrinsic,
+                camera_distortion
+            ))
+        {
+            sortPnPResult(armor, rvecs, tvecs, temp_type, camera_intrinsic, camera_distortion);
 
             cv::Mat rmat;
             cv::Rodrigues(rvecs[0], rmat);
@@ -126,7 +136,8 @@ std::vector<Armor> ArmorPoseEstimator::extractArmorPoses(
             armor_.ori.z = new_q.z();
             armor_.ori.w = new_q.w();
             utils::transformArmorData(armor_, T_camera_to_odom);
-            armor_.distance_to_image_center = pnp_solver_->calculateDistanceToCenter(armor.center);
+            armor_.distance_to_image_center =
+                pnp_solver_->calculateDistanceToCenter(armor.center, camera_intrinsic);
             armor_.is_ok = true;
 
             Eigen::Vector3d rpy = rotationMatrixToRPY(q.toRotationMatrix());
@@ -154,7 +165,9 @@ void ArmorPoseEstimator::sortPnPResult(
     const ArmorObject& armor,
     std::vector<cv::Mat>& rvecs,
     std::vector<cv::Mat>& tvecs,
-    std::string coord_frame_name
+    std::string coord_frame_name,
+    const cv::Mat& camera_intrinsic,
+    const cv::Mat& camera_distortion
 ) const {
     constexpr float PROJECT_ERR_THRES = 3.0;
 
@@ -177,10 +190,22 @@ void ArmorPoseEstimator::sortPnPResult(
     auto rpy1 = rotationMatrixToRPY(R_gimbal_camera_ * R1);
     auto rpy2 = rotationMatrixToRPY(R_gimbal_camera_ * R2);
 
-    double error1 =
-        pnp_solver_->calculateReprojectionError(armor.landmarks(), rvec1, tvec1, coord_frame_name);
-    double error2 =
-        pnp_solver_->calculateReprojectionError(armor.landmarks(), rvec2, tvec2, coord_frame_name);
+    double error1 = pnp_solver_->calculateReprojectionError(
+        armor.landmarks(),
+        rvec1,
+        tvec1,
+        coord_frame_name,
+        camera_intrinsic,
+        camera_distortion
+    );
+    double error2 = pnp_solver_->calculateReprojectionError(
+        armor.landmarks(),
+        rvec2,
+        tvec2,
+        coord_frame_name,
+        camera_intrinsic,
+        camera_distortion
+    );
 
     // 两个解的重投影误差差距较大或者roll角度较大时，不做选择
     if ((error2 / error1 > PROJECT_ERR_THRES) || (rpy1[0] > 10 * 180 / M_PI)
