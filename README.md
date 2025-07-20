@@ -45,7 +45,7 @@ git clone --recurse-submodules https://github.com/WUST-RM/wust_vision.git
 cd wust_vision
 sudo ./run.sh run/rebuild/build/cal #编译并运行/删除build缓存重新编译/仅编译/简单相机标定
 ```
-### 注意：本项目可选择编译OpenVINO/TensorRT-cuda/NCNN/OnnxRunetime与能量机关，需在build缓存前在[CMakeLists.txt](CMakeLists.txt)中修改对应编译选项,修改后需rebuild重新编译，无OpenVINO/TensorRT-cuda/NCNN/OnnxRunetime环境仍可以使用OpenCV的装甲板识别，装甲板/能量机关需要在[config/config_common.yaml](config/config_common.yaml)中修改
+### 注意：本项目可选择编译OpenVINO/TensorRT-cuda/NCNN/OnnxRunetime与能量机关，需在build缓存前在[CMakeLists.txt](CMakeLists.txt)中修改对应编译选项,修改后需rebuild重新编译，无OpenVINO/TensorRT-cuda/NCNN/OnnxRunetime环境仍可以使用OpenCV的装甲板识别，装甲板/能量机关的识别方案需要在[config/config_common.yaml](config/config_common.yaml)中修改
 ## 文件树
 ```
 .
