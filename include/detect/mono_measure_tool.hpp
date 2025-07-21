@@ -80,7 +80,7 @@ public:
    * @return false
    */
     bool calcArmorTarget(
-        const ArmorObject& obj,
+        const armor::ArmorObject& obj,
         cv::Point3f& position,
         cv::Mat& rvec,
         std::string& armor_type,
@@ -104,34 +104,34 @@ public:
     );
 
     float calcDistanceToCenter(
-        const ArmorObject& obj,
+        const armor::ArmorObject& obj,
         const cv::Mat& camera_intrinsic_,
         const cv::Mat& camera_distortion_
     );
 
     bool reprojectArmorsCorners(
-        Armors& armors,
+        armor::Armors& armors,
         Target_info& target_info,
         const cv::Mat& camera_intrinsic_,
         const cv::Mat& camera_distortion_
     );
 
     bool reprojectArmorCorners(
-        const Armor& armor,
+        const armor::Armor& armor,
         std::vector<cv::Point2f>& image_points,
         const cv::Mat& camera_intrinsic_,
         const cv::Mat& camera_distortion_
     );
     bool reprojectArmorCorners_raw(
-        const Armor& armor,
+        const armor::Armor& armor,
         std::vector<cv::Point2f>& image_points,
         const cv::Mat& camera_intrinsic_,
         const cv::Mat& camera_distortion_
     );
     void processDetectedArmors(
-        const std::vector<ArmorObject>& objs,
+        const std::vector<armor::ArmorObject>& objs,
         int detect_color,
-        Armors& armors_out,
+        armor::Armors& armors_out,
         Eigen::Matrix4d T_camera_to_odom,
         const cv::Mat& camera_intrinsic_,
         const cv::Mat& camera_distortion_

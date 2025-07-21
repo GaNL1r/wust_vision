@@ -114,13 +114,13 @@ static cv::Mat letterbox(
  * @param b Object b.
  * @return Area of intersection.
  */
-static inline float intersection_area(const ArmorObject& a, const ArmorObject& b) {
+static inline float intersection_area(const armor::ArmorObject& a, const armor::ArmorObject& b) {
     cv::Rect_<float> inter = a.box & b.box;
     return inter.area();
 }
 
 static void nms_merge_sorted_bboxes(
-    std::vector<ArmorObject>& faceobjects,
+    std::vector<armor::ArmorObject>& faceobjects,
     std::vector<int>& indices,
     float nms_threshold
 ) {
@@ -134,11 +134,11 @@ static void nms_merge_sorted_bboxes(
     }
 
     for (int i = 0; i < n; i++) {
-        ArmorObject& a = faceobjects[i];
+        armor::ArmorObject& a = faceobjects[i];
 
         int keep = 1;
         for (int indice: indices) {
-            ArmorObject& b = faceobjects[indice];
+            armor::ArmorObject& b = faceobjects[indice];
 
             // intersection over union
             float inter_area = intersection_area(a, b);
@@ -171,8 +171,8 @@ ArmorDetectTrt::ArmorDetectTrt(
     double expand_ratio_w,
     double expand_ratio_h,
     int binary_thres,
-    LightParams light_params,
-    ArmorParams armor_params,
+    armor::LightParams light_params,
+    armor::ArmorParams armor_params,
     std::string classify_model_path,
     std::string classify_label_path,
     double classify_threshold,
@@ -318,14 +318,14 @@ bool ArmorDetectTrt::processCallback(
     );
     cudaStreamSynchronize(stream_);
 
-    std::vector<ArmorObject> objs_tmp, objs_result;
+    std::vector<armor::ArmorObject> objs_tmp, objs_result;
     std::vector<cv::Rect> rects;
     std::vector<float> scores;
     // 后处理
     objs_result =
         postProcess(objs_tmp, scores, rects, output_buffer_, output_sz_ / 21, transform_matrix);
     if (use_armor_detect_common_) {
-        std::vector<ArmorObject> armors =
+        std::vector<armor::ArmorObject> armors =
             armor_detect_common_->detectNet(frame.src_img, objs_result);
         // Call callback function
         if (this->infer_callback_) {
@@ -342,8 +342,8 @@ bool ArmorDetectTrt::processCallback(
     return true;
 }
 
-std::vector<ArmorObject> ArmorDetectTrt::postProcess(
-    std::vector<ArmorObject>& output_objs,
+std::vector<armor::ArmorObject> ArmorDetectTrt::postProcess(
+    std::vector<armor::ArmorObject>& output_objs,
     std::vector<float>& scores,
     std::vector<cv::Rect>& rects,
     const float* output,
@@ -384,7 +384,7 @@ std::vector<ArmorObject> ArmorDetectTrt::postProcess(
 
         apex_dst = transform_matrix * apex_norm;
 
-        ArmorObject obj;
+        armor::ArmorObject obj;
 
         obj.pts.resize(4);
 
@@ -401,9 +401,10 @@ std::vector<ArmorObject> ArmorDetectTrt::postProcess(
         obj.prob = conf;
 
         // 解析颜色和类别
-        obj.color =
-            static_cast<ArmorColor>(std::max_element(det + 9, det + 9 + NUM_COLORS) - (det + 9));
-        obj.number = static_cast<ArmorNumber>(
+        obj.color = static_cast<armor::ArmorColor>(
+            std::max_element(det + 9, det + 9 + NUM_COLORS) - (det + 9)
+        );
+        obj.number = static_cast<armor::ArmorNumber>(
             std::max_element(det + 9 + NUM_COLORS, det + 9 + NUM_COLORS + NUM_CLASSES)
             - (det + 9 + NUM_COLORS)
         );
@@ -418,13 +419,13 @@ std::vector<ArmorObject> ArmorDetectTrt::postProcess(
     std::sort(
         output_objs.begin(),
         output_objs.end(),
-        [](const ArmorObject& a, const ArmorObject& b) { return a.prob > b.prob; }
+        [](const armor::ArmorObject& a, const armor::ArmorObject& b) { return a.prob > b.prob; }
     );
     if (output_objs.size() > static_cast<size_t>(params_.top_k)) {
         output_objs.resize(params_.top_k);
     }
     std::vector<int> indices;
-    std::vector<ArmorObject> objs_result;
+    std::vector<armor::ArmorObject> objs_result;
     // cv::dnn::NMSBoxes(rects, scores, params_.conf_threshold,
     // params_.nms_threshold, indices);
     nms_merge_sorted_bboxes(output_objs, indices, params_.nms_threshold);

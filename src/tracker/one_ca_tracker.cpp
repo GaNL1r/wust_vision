@@ -33,7 +33,7 @@ OneCaTracker::OneCaTracker(
     double jump_thresh
 ):
     tracker_state(LOST),
-    tracked_id_(ArmorNumber::UNKNOWN),
+    tracked_id_(armor::ArmorNumber::UNKNOWN),
     measurement_(Eigen::VectorXd::Zero(4)),
     target_state_(Eigen::VectorXd::Zero(10)),
     max_match_distance_(max_match_distance),
@@ -44,7 +44,7 @@ OneCaTracker::OneCaTracker(
     lost_count_(0),
     last_yaw_(0) {}
 
-void OneCaTracker::init(const Armors& armors_msg) noexcept {
+void OneCaTracker::init(const armor::Armors& armors_msg) noexcept {
     if (armors_msg.armors.empty())
         return;
 
@@ -63,7 +63,7 @@ void OneCaTracker::init(const Armors& armors_msg) noexcept {
     tracked_id_ = tracked_armor_.number;
     tracker_state = DETECTING;
 }
-void OneCaTracker::init(const Armor& armor_msg) noexcept {
+void OneCaTracker::init(const armor::Armor& armor_msg) noexcept {
     double min_distance = DBL_MAX;
     tracked_armor_ = armor_msg;
 
@@ -78,18 +78,18 @@ void OneCaTracker::init(const Armor& armor_msg) noexcept {
     tracker_state = DETECTING;
 }
 
-void OneCaTracker::update(const Armors& armors_msg) noexcept {
+void OneCaTracker::update(const armor::Armors& armors_msg) noexcept {
     Eigen::VectorXd ekf_prediction = ekf_->predict();
     bool matched = false;
     target_state_ = ekf_prediction;
-    std::vector<Armor> another_armors;
+    std::vector<armor::Armor> another_armors;
     if (gobal::if_manual_reset) {
         tracker_state = LOST;
         return;
     }
 
     if (!armors_msg.armors.empty()) {
-        Armor same_id_armor;
+        armor::Armor same_id_armor;
         int same_id_armors_count = 0;
         auto predicted_position = getArmorPositionFromState(ekf_prediction);
         double min_position_diff = DBL_MAX;
@@ -179,11 +179,11 @@ void OneCaTracker::update(const Armors& armors_msg) noexcept {
         }
     }
 }
-void OneCaTracker::update(const Armor& armor_msg) noexcept {
+void OneCaTracker::update(const armor::Armor& armor_msg) noexcept {
     Eigen::VectorXd ekf_prediction = ekf_->predict();
     bool matched = false;
     target_state_ = ekf_prediction;
-    std::vector<Armor> another_armors;
+    std::vector<armor::Armor> another_armors;
     double dis = std::sqrt(
         armor_msg.pos.x * armor_msg.pos.x + armor_msg.pos.y * armor_msg.pos.y
         + armor_msg.pos.z * armor_msg.pos.z
@@ -232,7 +232,7 @@ void OneCaTracker::update(const Armor& armor_msg) noexcept {
     }
 }
 
-void OneCaTracker::initEKF(const Armor& a) noexcept {
+void OneCaTracker::initEKF(const armor::Armor& a) noexcept {
     double xa = a.target_pos.x;
     double ya = a.target_pos.y;
     double za = a.target_pos.z;
@@ -244,7 +244,7 @@ void OneCaTracker::initEKF(const Armor& a) noexcept {
     ekf_->setState(target_state_);
 }
 
-void OneCaTracker::handleArmorJump(const Armor& current_armor) noexcept {
+void OneCaTracker::handleArmorJump(const armor::Armor& current_armor) noexcept {
     double last_yaw = target_state_(6);
     double yaw = orientationToYaw(current_armor.target_ori);
     double delta_yaw = onormalizeAnglem(yaw - last_yaw);

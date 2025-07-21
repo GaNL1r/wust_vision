@@ -482,7 +482,7 @@ void WustVision::initTF() {
     gimbal2camera_pitch_ = gobal::config["tf"]["gimbal2camera_pitch"].as<double>(0.0);
     gimbal2camera_yaw_ = gobal::config["tf"]["gimbal2camera_yaw"].as<double>(0.0);
 
-    t_gimbal_to_camera = Eigen::Vector3d(gimbal2camera_x_, gimbal2camera_y_, gimbal2camera_z_);
+    t_gimbal_to_camera_ = Eigen::Vector3d(gimbal2camera_x_, gimbal2camera_y_, gimbal2camera_z_);
 
     // 转换为旋转矩阵使用
     R_camera2gimbal_ << 0, 0, 1, -1, 0, 0, 0, -1, 0;
@@ -509,7 +509,10 @@ void WustVision::initTracker(const YAML::Node& config) {
     tracker_manager_ = std::make_unique<TrackerManager>(config);
 }
 
-void WustVision::runeTargetCallback(const Rune rune_target, Eigen::Matrix4d T_camera_to_odom) {
+void WustVision::runeTargetCallback(
+    const rune::Rune rune_target,
+    Eigen::Matrix4d T_camera_to_odom
+) {
     // rune_solver_->pnp_solver is nullptr when camera_info is not received
     if (rune_solver_->pnp_solver_ == nullptr) {
         return;
@@ -532,7 +535,7 @@ void WustVision::runeTargetCallback(const Rune rune_target, Eigen::Matrix4d T_ca
 }
 
 void WustVision::armorsCallback(
-    Armors armors_,
+    armor::Armors armors_,
     const cv::Mat& src_img,
     const Eigen::Matrix3d& R_gimbal2odom,
     const Eigen::Vector3d& v
@@ -552,8 +555,8 @@ void WustVision::armorsCallback(
     if (gobal::use_calculation) {
         commandCallbackYpd(armors_);
     }
-    Target target_;
-    std::vector<OneTarget> one_targets_;
+    armor::Target target_;
+    std::vector<armor::OneTarget> one_targets_;
     auto time = armors_.timestamp;
 
     tracker_manager_->update(target_, one_targets_, armors_, time, R_gimbal2odom, v);
@@ -567,37 +570,31 @@ void WustVision::armorsCallback(
     toolsgobal::latency_ms = static_cast<double>(latency_nano) / 1e6;
 }
 
-Armors WustVision::visualizeTargetProjection(
-    Target armor_target_,
-    std::vector<OneTarget> one_armor_targets_
+armor::Armors WustVision::visualizeTargetProjection(
+    armor::Target armor_target_,
+    std::vector<armor::OneTarget> one_armor_targets_
 ) {
-    Armors armor_data;
+    armor::Armors armor_data;
     armor_data.frame_id = "gimbal_odom";
     armor_data.timestamp = armor_target_.timestamp;
 
     if (armor_target_.tracking) {
-        double yaw = armor_target_.yaw, r1 = armor_target_.radius_1, r2 = armor_target_.radius_2;
-        float xc = armor_target_.position_.x, yc = armor_target_.position_.y,
-              zc = armor_target_.position_.z;
-        double d_za = armor_target_.d_za, d_zc = armor_target_.d_zc;
-        double vx = armor_target_.velocity_.x, vy = armor_target_.velocity_.y,
-               vz = armor_target_.velocity_.z;
-        vx = vx + armor_target_.acceleration_.x * debug_show_dt_;
-        vy = vy + armor_target_.acceleration_.y * debug_show_dt_;
-        vz = vz + armor_target_.acceleration_.z * debug_show_dt_;
-        xc = xc + vx * debug_show_dt_;
-        yc = yc + vy * debug_show_dt_;
-        zc = zc + vz * debug_show_dt_;
-        yaw = yaw + armor_target_.v_yaw * debug_show_dt_;
-
+        tf::Position pos = armor_target_.position_;
+        tf::Position vel = armor_target_.velocity_;
+        utils::addVelFromAccDt(vel, armor_target_.acceleration_, debug_show_dt_);
+        utils::addPosFromVelDt(pos, vel, debug_show_dt_);
+        double yaw = armor_target_.yaw + armor_target_.v_yaw * debug_show_dt_;
+        double r1 = armor_target_.radius_1;
+        double r2 = armor_target_.radius_2;
+        double d_za = armor_target_.d_za;
+        double d_zc = armor_target_.d_zc;
+        float xc = pos.x;
+        float yc = pos.y;
+        float zc = pos.z;
         bool is_current_pair = true;
-
         armor_data.armors.clear();
-
         size_t a_n = armor_target_.armors_num;
-
         armor_data.armors.reserve(a_n);
-
         for (size_t i = 0; i < a_n; ++i) {
             double tmp_yaw = yaw + i * (2 * M_PI / a_n);
             double cos_yaw = std::cos(tmp_yaw);
@@ -619,74 +616,78 @@ Armors WustVision::visualizeTargetProjection(
             tf::Quaternion ori;
             ori.setRPY(
                 M_PI / 2,
-                armor_target_.id == ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
+                armor_target_.id == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
                 tmp_yaw
             );
 
-            armor_data.armors.emplace_back(Armor { .type = armor_target_.type,
-                                                   .pos = pos,
-                                                   .ori = ori,
-                                                   .is_ok = true,
-                                                   .distance_to_image_center = 0.0f });
+            armor_data.armors.emplace_back(armor::Armor { .type = armor_target_.type,
+                                                          .pos = pos,
+                                                          .ori = ori,
+                                                          .is_ok = true,
+                                                          .distance_to_image_center = 0.0f });
         }
     }
     for (auto one_armor_target_: one_armor_targets_) {
         if (one_armor_target_.tracking) {
-            tf::Position pos;
-            tf::Position vol;
-            vol.x =
-                one_armor_target_.velocity_.x + one_armor_target_.acceleration_.x * debug_show_dt_;
-            vol.y =
-                one_armor_target_.velocity_.y + one_armor_target_.acceleration_.y * debug_show_dt_;
-            vol.z =
-                one_armor_target_.velocity_.z + one_armor_target_.acceleration_.z * debug_show_dt_;
-            pos.x = one_armor_target_.position_.x + vol.x * debug_show_dt_;
-            pos.y = one_armor_target_.position_.y + vol.y * debug_show_dt_;
-            pos.z = one_armor_target_.position_.z + vol.z * debug_show_dt_;
+            tf::Position pos = one_armor_target_.position_;
+            tf::Position vel = one_armor_target_.velocity_;
+            utils::addVelFromAccDt(vel, one_armor_target_.acceleration_, debug_show_dt_);
+            utils::addPosFromVelDt(pos, vel, debug_show_dt_);
             double tmp_yaw = one_armor_target_.yaw + one_armor_target_.v_yaw * debug_show_dt_;
             tf::Quaternion ori;
             ori.setRPY(
                 M_PI / 2,
-                one_armor_target_.id == ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
+                one_armor_target_.id == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
                 tmp_yaw
             );
 
-            armor_data.armors.emplace_back(Armor { .type = one_armor_target_.type,
-                                                   .pos = pos,
-                                                   .ori = ori,
-                                                   .is_ok = false,
-                                                   .distance_to_image_center = 0.0f });
+            armor_data.armors.emplace_back(armor::Armor { .type = one_armor_target_.type,
+                                                          .pos = pos,
+                                                          .ori = ori,
+                                                          .is_ok = false,
+                                                          .distance_to_image_center = 0.0f });
         }
     }
 
     return armor_data;
 }
 void WustVision::ArmorDetectCallback(
-    const std::vector<ArmorObject>& objs,
+    const std::vector<armor::ArmorObject>& objs,
     const CommonFrame& frame
 ) {
     std::lock_guard<std::mutex> lock(callback_mutex_);
 
-    if (objs.size() >= max_detect_armors_) {
-        WUST_WARN(vision_logger_) << "Detected " << objs.size() << " objects"
-                                  << "too much";
-        detect_finish_count_++;
-        infer_running_count_--;
-        return;
+    std::vector<armor::ArmorObject> sorted_objs = objs;
+
+    if (sorted_objs.size() > max_detect_armors_) {
+        WUST_WARN(vision_logger_) << "Detected " << sorted_objs.size()
+                                  << " objects, too many, keeping top " << max_detect_armors_;
+
+        std::partial_sort(
+            sorted_objs.begin(),
+            sorted_objs.begin() + max_detect_armors_,
+            sorted_objs.end(),
+            [](const armor::ArmorObject& a, const armor::ArmorObject& b) {
+                return a.confidence > b.confidence;
+            }
+        );
+
+        sorted_objs.resize(max_detect_armors_);
     }
-    Armors armors;
+
+    armor::Armors armors;
     armors.timestamp = frame.timestamp;
     armors.frame_id = "camera_optical_frame";
 
     armors.armors = armor_pose_estimator_->extractArmorPoses(
-        objs,
+        sorted_objs,
         frame.T_camera_to_odom,
         gobal::camera_intrinsic,
         gobal::camera_distortion
     );
 
     gobal::measure_tool->processDetectedArmors(
-        objs,
+        sorted_objs,
         gobal::detect_color,
         armors,
         frame.T_camera_to_odom,
@@ -695,48 +696,18 @@ void WustVision::ArmorDetectCallback(
     );
 
     if (use_auto_labeler_) {
-        static int save_counter = 0;
-
-        for (const auto& obj: objs) {
-            std::vector<float> csv_data;
-
-            int number_ = formArmorNumber(obj.number);
-            int color_ = formArmorColor(obj.color);
-
-            const auto& pts = obj.is_ok ? obj.pts_binary : obj.pts;
-
-            for (int i = 0; i < 4; ++i) {
-                csv_data.push_back(pts[i].x);
-                csv_data.push_back(pts[i].y);
-            }
-
-            csv_data.push_back(number_);
-            csv_data.push_back(color_);
-
-            save_counter++;
-            if (save_counter % 10 == 0) {
-                cv::Mat img_save;
-                cv::cvtColor(frame.src_img, img_save, cv::COLOR_RGB2BGR);
-                auto_labeler_->save(img_save, csv_data);
-            }
-        }
+        saveAutoLabelData(objs, frame);
     }
-    Eigen::Matrix3d R_camera_to_gimbal = R_camera2gimbal_;
-    Eigen::Vector3d t_camera_to_gimbal = -R_camera_to_gimbal * t_gimbal_to_camera;
-
-    Eigen::Matrix4d T_camera_to_gimbal = Eigen::Matrix4d::Identity();
-    T_camera_to_gimbal.block<3, 3>(0, 0) = R_camera_to_gimbal;
-    T_camera_to_gimbal.block<3, 1>(0, 3) = t_camera_to_gimbal;
-    Eigen::Matrix4d T_gimbal_to_camera = T_camera_to_gimbal.inverse();
-    Eigen::Matrix4d T_gimbal_to_odom = frame.T_camera_to_odom * T_gimbal_to_camera;
-    Eigen::Matrix3d R_gimbal2odom = T_gimbal_to_odom.block<3, 3>(0, 0);
+    Eigen::Matrix3d R_gimbal2odom =
+        utils::getRGimbalToOdom(T_camera_to_odom_, R_camera2gimbal_, t_gimbal_to_camera_);
 
     armorsCallback(armors, frame.src_img, R_gimbal2odom, frame.v);
     T_camera_to_odom_ = frame.T_camera_to_odom;
     detect_finish_count_++;
     infer_running_count_--;
 }
-void WustVision::RuneDetectCallback(std::vector<RuneObject>& objs, const CommonFrame& frame) {
+
+void WustVision::RuneDetectCallback(std::vector<rune::RuneObject>& objs, const CommonFrame& frame) {
     std::lock_guard<std::mutex> lock(callback_mutex_);
     static bool last_rune_big = false; //Always small rune first
 
@@ -745,16 +716,18 @@ void WustVision::RuneDetectCallback(std::vector<RuneObject>& objs, const CommonF
     if (gobal::debug_mode) {
         debug_img = frame.src_img.clone();
     }
-    Rune rune_target;
+    rune::Rune rune_target;
     rune_target.frame_id = "camera_optical_frame";
     rune_target.timestamp = frame.timestamp;
     rune_target.is_big_rune = false;
 
     if (!objs.empty()) {
         // Sort by probability
-        std::sort(objs.begin(), objs.end(), [](const RuneObject& a, const RuneObject& b) {
-            return a.prob > b.prob;
-        });
+        std::sort(
+            objs.begin(),
+            objs.end(),
+            [](const rune::RuneObject& a, const rune::RuneObject& b) { return a.prob > b.prob; }
+        );
 
         cv::Point2f r_tag;
         cv::Mat binary_roi = cv::Mat::zeros(1, 1, CV_8UC3);
@@ -796,7 +769,7 @@ void WustVision::RuneDetectCallback(std::vector<RuneObject>& objs, const CommonF
         }
 
         // Assign the center of the R tag to all objects
-        std::for_each(objs.begin(), objs.end(), [r = r_tag](RuneObject& obj) {
+        std::for_each(objs.begin(), objs.end(), [r = r_tag](rune::RuneObject& obj) {
             obj.pts.r_center = r;
         });
 
@@ -813,7 +786,7 @@ void WustVision::RuneDetectCallback(std::vector<RuneObject>& objs, const CommonF
             objs.begin(),
             objs.end(),
             [c = static_cast<EnemyColor>(gobal::detect_color)](const auto& obj) -> bool {
-                return obj.type == RuneType::INACTIVATED && obj.color == c;
+                return obj.type == rune::RuneType::INACTIVATED && obj.color == c;
             }
         );
 
@@ -877,16 +850,15 @@ void WustVision::RuneDetectCallback(std::vector<RuneObject>& objs, const CommonF
 
 GimbalCmd WustVision::solveByMode(
     AttackMode mode,
-    const Target& target,
-    const std::vector<OneTarget>& one_targets,
+    const ArmorSloverTarget& armor_slover_target,
     const std::chrono::steady_clock::time_point& now
 ) {
     switch (mode) {
         case AttackMode::ARMOR: {
-            auto cmd = armor_solver_->solve(target, one_targets, now);
+            auto cmd = armor_solver_->solve(armor_slover_target, now);
             auto next_time =
                 now + std::chrono::microseconds(static_cast<int64_t>(1e6 / gobal::control_rate));
-            auto next_cmd = armor_solver_->solve(target, one_targets, next_time);
+            auto next_cmd = armor_solver_->solve(armor_slover_target, next_time);
             if (std::abs(cmd.yaw - next_cmd.yaw) > jump_yaw
                 || std::abs(cmd.yaw - gobal::last_cmd.yaw) > jump_yaw)
                 cmd.fire_advice = false;
@@ -897,7 +869,7 @@ GimbalCmd WustVision::solveByMode(
             return rune_solver_->solve();
         case AttackMode::UNKNOWN:
         default:
-            return armor_solver_->solve(target, one_targets, now);
+            return armor_solver_->solve(armor_slover_target, now);
     }
 }
 void WustVision::timerCallback(double dt_ms) {
@@ -907,8 +879,8 @@ void WustVision::timerCallback(double dt_ms) {
     auto now = std::chrono::steady_clock::now();
     timer_count_++;
 
-    Target target = armor_target_;
-    std::vector<OneTarget> one_targets = one_armor_targets_;
+    armor::Target target = armor_target_;
+    std::vector<armor::OneTarget> one_targets = one_armor_targets_;
 
     if (std::chrono::duration<double>(now - last_track_target_).count() > hit_omni_dt_) {
         for (const auto& omni: gobal::omni_targets) {
@@ -930,7 +902,10 @@ void WustVision::timerCallback(double dt_ms) {
     if (appear || rune_solver_->tracker_state == Tracker::TRACKING) {
         if (appear || rune_solver_->tracker_state == Tracker::TRACKING) {
             try {
-                gimbal_cmd = solveByMode(mode, target, one_targets, now);
+                ArmorSloverTarget armor_slover_target;
+                armor_slover_target.one_targets = one_targets;
+                armor_slover_target.target = target;
+                gimbal_cmd = solveByMode(mode, armor_slover_target, now);
                 gobal::last_cmd = gimbal_cmd;
                 if (gimbal_cmd.fire_advice)
                     fire_count_++;
@@ -962,7 +937,7 @@ void WustVision::processImage(const ImageFrame& frame) {
     common_frame.T_camera_to_odom = utils::computeCameraToOdomTransform(
         frame.R_gimbal2odom,
         R_camera2gimbal_,
-        t_gimbal_to_camera
+        t_gimbal_to_camera_
     );
 
     infer_running_count_++;
@@ -1034,7 +1009,7 @@ void WustVision::debugThread() {
 
     double us_interval = 1e6 / static_cast<double>(toolsgobal::debug_fps);
     auto kInterval = std::chrono::microseconds(static_cast<int64_t>(us_interval));
-    while (gobal::is_inited_) {
+    while (gobal::is_inited_ && gobal::debug_mode) {
         auto start_time = steady_clock::now();
 
         visualizeAndLog(false);
@@ -1048,8 +1023,8 @@ void WustVision::debugThread() {
 
 void WustVision::visualizeAndLog(bool auto_fps) {
     auto now = std::chrono::steady_clock::now();
-    Target target = armor_target_;
-    std::vector<OneTarget> one_targets = one_armor_targets_;
+    armor::Target target = armor_target_;
+    std::vector<armor::OneTarget> one_targets = one_armor_targets_;
     AttackMode mode = toAttackMode(gobal::attack_mode);
     bool appear = utils::checkTargetAppear(target, one_targets);
     Tracker::State state = appear ? Tracker::TRACKING : Tracker::LOST;
@@ -1060,12 +1035,12 @@ void WustVision::visualizeAndLog(bool auto_fps) {
         src = imgframe_.img.clone();
     }
 
-    Armors armors;
+    armor::Armors armors;
 
     armors = armors_gobal_;
 
     if (mode == AttackMode::ARMOR) {
-        Armors armor_data = visualizeTargetProjection(target, one_targets);
+        armor::Armors armor_data = visualizeTargetProjection(target, one_targets);
         utils::transformArmorData(armor_data, T_camera_to_odom_.inverse());
         Target_info target_info;
         target_info.select_id = gimbal_cmd.select_id;
@@ -1113,17 +1088,17 @@ void WustVision::visualizeAndLog(bool auto_fps) {
 
         double armor_yaw = 0.0, ypd_y = 0.0, ypd_p = 0.0, armor_distance = 0.0;
         if (!armors.armors.empty()) {
-            std::vector<Armor> ok_armors;
+            std::vector<armor::Armor> ok_armors;
             for (const auto& armor: armors.armors) {
-                if (armor.number != ArmorNumber::OUTPOST)
+                if (armor.number != armor::ArmorNumber::OUTPOST)
                     ok_armors.push_back(armor);
             }
 
             if (!ok_armors.empty()) {
-                const Armor& min_armor = *std::min_element(
+                const armor::Armor& min_armor = *std::min_element(
                     ok_armors.begin(),
                     ok_armors.end(),
-                    [](const Armor& a, const Armor& b) {
+                    [](const armor::Armor& a, const armor::Armor& b) {
                         return a.distance_to_image_center < b.distance_to_image_center;
                     }
                 );
@@ -1284,5 +1259,34 @@ void WustVision::onMouse(int event, int x, int y, int, void*) {
         clicked_points_.clear();
         clicked_points_.emplace_back(x, y);
         WUST_INFO("Manual R") << "Clicked Point: (" << x << ", " << y << ")";
+    }
+}
+void WustVision::saveAutoLabelData(
+    const std::vector<armor::ArmorObject>& objs,
+    const CommonFrame& frame
+) {
+    static int save_counter = 0;
+
+    for (const auto& obj: objs) {
+        std::vector<float> csv_data;
+
+        int number_ = formArmorNumber(obj.number);
+        int color_ = formArmorColor(obj.color);
+
+        const auto& pts = obj.is_ok ? obj.pts_binary : obj.pts;
+        for (int i = 0; i < 4; ++i) {
+            csv_data.push_back(pts[i].x);
+            csv_data.push_back(pts[i].y);
+        }
+
+        csv_data.push_back(number_);
+        csv_data.push_back(color_);
+
+        save_counter++;
+        if (save_counter % 10 == 0) {
+            cv::Mat img_save;
+            cv::cvtColor(frame.src_img, img_save, cv::COLOR_RGB2BGR);
+            auto_labeler_->save(img_save, csv_data);
+        }
     }
 }

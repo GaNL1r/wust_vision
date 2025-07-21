@@ -18,6 +18,35 @@
 #include <fmt/core.h>
 #include <numeric>
 #include <string>
+enum class AttackMode { ARMOR = 0, SMALL_RUNE, BIG_RUNE, UNKNOWN };
+inline AttackMode toAttackMode(int value) {
+    switch (value) {
+        case 0:
+            return AttackMode::ARMOR;
+#ifdef USE_RUNE
+        case 1:
+            return AttackMode::SMALL_RUNE;
+        case 2:
+            return AttackMode::BIG_RUNE;
+#endif
+        default:
+#ifndef USE_RUNE
+            return AttackMode::ARMOR;
+#else
+            return AttackMode::UNKNOWN;
+#endif
+    }
+}
+enum class EnemyColor {
+    RED = 0,
+    BLUE = 1,
+    WHITE = 2,
+};
+struct GridAndStride {
+    int grid0;
+    int grid1;
+    int stride;
+};
 
 constexpr double SMALL_ARMOR_WIDTH = 133.0 / 1000.0; // 135
 constexpr double SMALL_ARMOR_HEIGHT = 50.0 / 1000.0; // 55
@@ -30,6 +59,38 @@ constexpr double LARGE_ARMOR_WIDTH_NET = 225.0 / 1000.0;
 constexpr double LARGE_ARMOR_HEIGHT_NET = 55.0 / 1000.0; // 55
 constexpr double FIFTTEN_DEGREE_RAD = 15 * CV_PI / 180;
 
+constexpr double DEG_72 = 0.4 * CV_PI;
+constexpr int ARMOR_KEYPOINTS_NUM = 4;
+constexpr int KEYPOINTS_NUM = 5;
+
+// Motion type
+enum class MotionType { SMALL, BIG, UNKNOWN };
+
+// Moving direction
+enum Direction { CLOCKWISE = -1, ANTI_CLOCKWISE = 1, UNKNOWN = 0 };
+
+// Rune arm length, Unit: m
+constexpr double ARM_LENGTH = 0.700;
+
+// Acceptable distance between robot and rune, Unit: m
+// True value = 6.436 m
+constexpr double MIN_RUNE_DISTANCE = 1.0;
+constexpr double MAX_RUNE_DISTANCE = 19.0;
+
+// Rune object points
+// r_tag, bottom_left, top_left, top_right, bottom_right
+const std::vector<cv::Point3f> RUNE_OBJECT_POINTS = { cv::Point3f(0, 0, 0) / 1000,
+                                                      cv::Point3f(0, -541.5, 186) / 1000,
+                                                      cv::Point3f(0, -858.5, 160) / 1000,
+                                                      cv::Point3f(0, -858.5, -160) / 1000,
+                                                      cv::Point3f(0, -541.5, -186) / 1000 };
+
+#define BIG_RUNE_CURVE(x, a, omega, b, c, d, sign) \
+    ((-((a) / (omega)*ceres::cos((omega) * ((x) + (d)))) + (b) * ((x) + (d)) + (c)) * (sign))
+
+#define SMALL_RUNE_CURVE(x, a, b, c, sign) (((a) * ((x) + (b)) + (c)) * (sign))
+
+namespace armor {
 struct Light: public cv::RotatedRect {
     Light() = default;
     explicit Light(const std::vector<cv::Point>& contour):
@@ -87,14 +148,33 @@ struct ArmorParams {
     // horizontal angle
     double max_angle;
 };
-struct GridAndStride {
-    int grid0;
-    int grid1;
-    int stride;
-};
 
 enum class ArmorColor { BLUE = 0, RED, NONE, PURPLE };
 
+inline std::string enemyColorToString(EnemyColor color) {
+    switch (color) {
+        case EnemyColor::RED:
+            return "RED";
+        case EnemyColor::BLUE:
+            return "BLUE";
+        case EnemyColor::WHITE:
+            return "WHITE";
+        default:
+            return "UNKNOWN";
+    }
+}
+inline int formArmorColor(ArmorColor color) {
+    switch (color) {
+        case ArmorColor::RED:
+            return 0;
+        case ArmorColor::BLUE:
+            return 1;
+        case ArmorColor::NONE:
+            return 2;
+        case ArmorColor::PURPLE:
+            return 3;
+    }
+}
 enum class ArmorNumber { SENTRY = 0, NO1, NO2, NO3, NO4, NO5, OUTPOST, BASE, UNKNOWN };
 inline std::ostream& operator<<(std::ostream& os, ArmorNumber number) {
     switch (number) {
@@ -120,18 +200,7 @@ inline std::ostream& operator<<(std::ostream& os, ArmorNumber number) {
             return os << "InvalidArmorNumber(" << static_cast<int>(number) << ")";
     }
 }
-inline int formArmorColor(ArmorColor color) {
-    switch (color) {
-        case ArmorColor::RED:
-            return 0;
-        case ArmorColor::BLUE:
-            return 1;
-        case ArmorColor::NONE:
-            return 2;
-        case ArmorColor::PURPLE:
-            return 3;
-    }
-}
+
 inline int formArmorNumber(ArmorNumber number) {
     switch (number) {
         case ArmorNumber::SENTRY:
@@ -154,54 +223,11 @@ inline int formArmorNumber(ArmorNumber number) {
             return 8;
     }
 }
-enum class AttackMode {
-    ARMOR = 0,
-    SMALL_RUNE,
-    BIG_RUNE,
-    UNKNOWN
-
-};
-enum class EnemyColor {
-    RED = 0,
-    BLUE = 1,
-    WHITE = 2,
-};
-inline std::string enemyColorToString(EnemyColor color) {
-    switch (color) {
-        case EnemyColor::RED:
-            return "RED";
-        case EnemyColor::BLUE:
-            return "BLUE";
-        case EnemyColor::WHITE:
-            return "WHITE";
-        default:
-            return "UNKNOWN";
-    }
-}
-inline AttackMode toAttackMode(int value) {
-    switch (value) {
-        case 0:
-            return AttackMode::ARMOR;
-#ifdef USE_RUNE
-        case 1:
-            return AttackMode::SMALL_RUNE;
-        case 2:
-            return AttackMode::BIG_RUNE;
-#endif
-        default:
-#ifndef USE_RUNE
-            return AttackMode::ARMOR;
-#else
-            return AttackMode::UNKNOWN;
-#endif
-    }
-}
-
 inline int retypetotracker(ArmorNumber a) {
     static const std::unordered_map<ArmorNumber, int> map = {
-        { ArmorNumber::SENTRY, 0 },  { ArmorNumber::NO1, 1 },  { ArmorNumber::NO2, 0 },
-        { ArmorNumber::NO3, 0 },     { ArmorNumber::NO4, 0 },  { ArmorNumber::NO5, 0 },
-        { ArmorNumber::OUTPOST, 2 }, { ArmorNumber::BASE, 1 }, { ArmorNumber::UNKNOWN, -1 }
+        { ArmorNumber::SENTRY, 0 },  { ArmorNumber::NO1, 1 },  { ArmorNumber::NO2, 2 },
+        { ArmorNumber::NO3, 3 },     { ArmorNumber::NO4, 4 },  { ArmorNumber::NO5, 5 },
+        { ArmorNumber::OUTPOST, 6 }, { ArmorNumber::BASE, 7 }, { ArmorNumber::UNKNOWN, -1 }
     };
 
     auto it = map.find(a);
@@ -215,25 +241,44 @@ inline bool isSameTarget(ArmorNumber a, ArmorNumber b) {
     return retypetotracker(a) == retypetotracker(b);
 }
 
-template<>
-struct fmt::formatter<ArmorNumber> {
-    constexpr auto parse(fmt::format_parse_context& ctx) -> decltype(ctx.begin()) {
-        return ctx.begin();
+inline std::string armorNumberToString(ArmorNumber num) {
+    switch (num) {
+        case ArmorNumber::SENTRY:
+            return "SENTRY";
+        case ArmorNumber::BASE:
+            return "BASE";
+        case ArmorNumber::OUTPOST:
+            return "OUTPOST";
+        case ArmorNumber::NO1:
+            return "NO1";
+        case ArmorNumber::NO2:
+            return "NO2";
+        case ArmorNumber::NO3:
+            return "NO3";
+        case ArmorNumber::NO4:
+            return "NO4";
+        case ArmorNumber::NO5:
+            return "NO5";
+        default:
+            return "UNKNOWN";
     }
+}
 
-    template<typename FormatContext>
-    auto format(ArmorNumber num, FormatContext& ctx) -> decltype(ctx.out()) {
-        const char* names[] = { "SENTRY", "NO1", "NO2", "NO3", "NO4", "NO5", "OUTPOST", "BASE" };
-        int index = static_cast<int>(num);
-        if (index >= 0 && index < sizeof(names) / sizeof(names[0])) {
-            return fmt::format_to(ctx.out(), "{}", names[index]);
-        } else {
-            return fmt::format_to(ctx.out(), "UNKNOWN");
-        }
+enum class ArmorsNum { NORMAL_4 = 4, OUTPOST_3 = 3 };
+
+enum class ArmorType { SMALL, LARGE, INVALID };
+inline std::string armorTypeToString(const ArmorType& type) {
+    switch (type) {
+        case ArmorType::SMALL:
+            return "small";
+        case ArmorType::LARGE:
+            return "large";
+        default:
+            return "invalid";
     }
-};
+}
 
-typedef struct ArmorObject {
+struct ArmorObject {
     ArmorColor color;
     ArmorNumber number;
     float prob;
@@ -324,7 +369,7 @@ typedef struct ArmorObject {
         new_y(),
         prob(),
         pts() {}
-} ArmorObject;
+};
 
 constexpr const char* K_ARMOR_NAMES[] = { "sentry", "1", "2", "3", "4", "5", "outpost", "base" };
 
@@ -410,22 +455,9 @@ struct OneTarget {
         v_yaw = 0.0;
     }
 };
-struct imgframe {
-    cv::Mat img;
-    std::chrono::steady_clock::time_point timestamp;
-};
-struct GimbalCmd {
-    std::chrono::steady_clock::time_point timestamp;
-    float pitch = 0;
-    float yaw = 0;
-    float yaw_diff = 0;
-    float pitch_diff = 0;
-    float v_yaw = 0;
-    float v_pitch = 0;
-    float distance = -1;
-    bool fire_advice = false;
-    int select_id = -1;
-};
+
+} // namespace armor
+namespace rune {
 enum class RuneType { INACTIVATED = 0, ACTIVATED };
 
 struct FeaturePoints {
@@ -502,75 +534,49 @@ struct Rune {
     bool is_big_rune;
 };
 
-constexpr double DEG_72 = 0.4 * CV_PI;
-constexpr int ARMOR_KEYPOINTS_NUM = 4;
-constexpr int KEYPOINTS_NUM = 5;
+} // namespace rune
 
-// Motion type
-enum class MotionType { SMALL, BIG, UNKNOWN };
-
-// Moving direction
-enum Direction { CLOCKWISE = -1, ANTI_CLOCKWISE = 1, UNKNOWN = 0 };
-
-// Rune arm length, Unit: m
-constexpr double ARM_LENGTH = 0.700;
-
-// Acceptable distance between robot and rune, Unit: m
-// True value = 6.436 m
-constexpr double MIN_RUNE_DISTANCE = 1.0;
-constexpr double MAX_RUNE_DISTANCE = 19.0;
-
-// Rune object points
-// r_tag, bottom_left, top_left, top_right, bottom_right
-const std::vector<cv::Point3f> RUNE_OBJECT_POINTS = { cv::Point3f(0, 0, 0) / 1000,
-                                                      cv::Point3f(0, -541.5, 186) / 1000,
-                                                      cv::Point3f(0, -858.5, 160) / 1000,
-                                                      cv::Point3f(0, -858.5, -160) / 1000,
-                                                      cv::Point3f(0, -541.5, -186) / 1000 };
-
-#define BIG_RUNE_CURVE(x, a, omega, b, c, d, sign) \
-    ((-((a) / (omega)*ceres::cos((omega) * ((x) + (d)))) + (b) * ((x) + (d)) + (c)) * (sign))
-
-#define SMALL_RUNE_CURVE(x, a, b, c, sign) (((a) * ((x) + (b)) + (c)) * (sign))
-
-enum class ArmorsNum { NORMAL_4 = 4, OUTPOST_3 = 3 };
-
-enum class ArmorType { SMALL, LARGE, INVALID };
-inline std::string armorTypeToString(const ArmorType& type) {
-    switch (type) {
-        case ArmorType::SMALL:
-            return "small";
-        case ArmorType::LARGE:
-            return "large";
-        default:
-            return "invalid";
+template<>
+struct fmt::formatter<armor::ArmorNumber> {
+    constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
+        return ctx.begin();
     }
-}
-inline std::string armorNumberToString(ArmorNumber num) {
-    switch (num) {
-        case ArmorNumber::SENTRY:
-            return "SENTRY";
-        case ArmorNumber::BASE:
-            return "BASE";
-        case ArmorNumber::OUTPOST:
-            return "OUTPOST";
-        case ArmorNumber::NO1:
-            return "NO1";
-        case ArmorNumber::NO2:
-            return "NO2";
-        case ArmorNumber::NO3:
-            return "NO3";
-        case ArmorNumber::NO4:
-            return "NO4";
-        case ArmorNumber::NO5:
-            return "NO5";
-        default:
-            return "UNKNOWN";
+
+    template<typename FormatContext>
+    auto format(armor::ArmorNumber num, FormatContext& ctx) -> decltype(ctx.out()) {
+        const char* names[] = { "SENTRY", "NO1", "NO2", "NO3", "NO4", "NO5", "OUTPOST", "BASE" };
+        int index = static_cast<int>(num);
+        if (index >= 0 && index < static_cast<int>(sizeof(names) / sizeof(names[0]))) {
+            return fmt::format_to(ctx.out(), "{}", names[index]);
+        } else {
+            return fmt::format_to(ctx.out(), "UNKNOWN");
+        }
     }
-}
+};
+
 struct CommonFrame {
     cv::Mat src_img;
     std::chrono::steady_clock::time_point timestamp;
     Eigen::Matrix4d T_camera_to_odom;
     Eigen::Vector3d v;
+};
+struct ArmorSloverTarget {
+    armor::Target target;
+    std::vector<armor::OneTarget> one_targets;
+};
+struct imgframe {
+    cv::Mat img;
+    std::chrono::steady_clock::time_point timestamp;
+};
+struct GimbalCmd {
+    std::chrono::steady_clock::time_point timestamp;
+    float pitch = 0;
+    float yaw = 0;
+    float yaw_diff = 0;
+    float pitch_diff = 0;
+    float v_yaw = 0;
+    float v_pitch = 0;
+    float distance = -1;
+    bool fire_advice = false;
+    int select_id = -1;
 };

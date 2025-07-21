@@ -60,7 +60,7 @@ void NumberClassifier::initNumberClassifier() {
             << "Successfully loaded " << class_names_.size() << " labels from " << label_path;
     }
 }
-bool NumberClassifier::classifyNumber(ArmorObject& armor) {
+bool NumberClassifier::classifyNumber(armor::ArmorObject& armor) {
     static thread_local std::unique_ptr<cv::dnn::Net> thread_net;
     if (armor.number_img.empty()) {
         return false;
@@ -96,10 +96,11 @@ bool NumberClassifier::classifyNumber(ArmorObject& armor) {
 
     armor.confidence = confidence;
 
-    static const std::map<int, ArmorNumber> label_to_armor_number = {
-        { 0, ArmorNumber::NO1 },    { 1, ArmorNumber::NO2 }, { 2, ArmorNumber::NO3 },
-        { 3, ArmorNumber::NO4 },    { 4, ArmorNumber::NO5 }, { 5, ArmorNumber::OUTPOST },
-        { 6, ArmorNumber::SENTRY }, { 7, ArmorNumber::BASE }
+    static const std::map<int, armor::ArmorNumber> label_to_armor_number = {
+        { 0, armor::ArmorNumber::NO1 },    { 1, armor::ArmorNumber::NO2 },
+        { 2, armor::ArmorNumber::NO3 },    { 3, armor::ArmorNumber::NO4 },
+        { 4, armor::ArmorNumber::NO5 },    { 5, armor::ArmorNumber::OUTPOST },
+        { 6, armor::ArmorNumber::SENTRY }, { 7, armor::ArmorNumber::BASE }
     };
 
     if (label_id < 8 && label_to_armor_number.find(label_id) != label_to_armor_number.end()) {

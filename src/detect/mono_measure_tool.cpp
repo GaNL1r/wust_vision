@@ -55,10 +55,10 @@ std::vector<cv::Point3f> MonoMeasureTool::R_BOX_POINTS = {
     { 0, 0.05, 0.05 },
 };
 
-bool is_big_armor(const ArmorObject& obj) {
+bool is_big_armor(const armor::ArmorObject& obj) {
     switch (obj.number) {
-        case ArmorNumber::NO1:
-        case ArmorNumber::BASE:
+        case armor::ArmorNumber::NO1:
+        case armor::ArmorNumber::BASE:
             return true;
         default:
             return false;
@@ -125,36 +125,6 @@ void MonoMeasureTool::calcViewAngle(cv::Point2f p, float& pitch, float& yaw) {
     yaw = atan2((p.x - u0_), fx_);
 }
 
-// bool MonoMeasureTool::calcArmorTarget(
-//   const ArmorObject & obj, cv::Point3f & position, cv::Mat & rvec,
-//   std::string & armor_type)
-// {
-//   if(obj.is_ok)
-//   {
-
-//     if (is_big_armor(obj)) {
-//       armor_type = "large";
-//       return solvePnp(obj.pts_binary, BIG_ARMOR_3D_POINTS, position, rvec,
-//       cv::SOLVEPNP_IPPE);
-//     } else {
-//       armor_type = "small";
-//       return solvePnp(obj.pts_binary, SMALL_ARMOR_3D_POINTS, position, rvec,
-//       cv::SOLVEPNP_IPPE);
-//     }
-
-//   }
-//   else {
-//   if (is_big_armor(obj)) {
-//     armor_type = "large";
-//     return solvePnp(obj.pts, BIG_ARMOR_3D_POINTS_NET, position, rvec,
-//     cv::SOLVEPNP_IPPE);
-//   } else {
-//     armor_type = "small";
-//     return solvePnp(obj.pts, SMALL_ARMOR_3D_POINTS_NET, position, rvec,
-//     cv::SOLVEPNP_IPPE);
-//  }
-// }
-// }
 bool MonoMeasureTool::calcRTarget(
     const std::vector<cv::Point2f>& manual_r_box,
     Eigen::Matrix4d& TRodom,
@@ -236,7 +206,7 @@ bool MonoMeasureTool::projectRTargetToImage(
 }
 
 bool MonoMeasureTool::calcArmorTarget(
-    const ArmorObject& obj,
+    const armor::ArmorObject& obj,
     cv::Point3f& position,
     cv::Mat& rvec,
     std::string& armor_type,
@@ -326,7 +296,7 @@ bool MonoMeasureTool::calcArmorTarget(
     return true;
 }
 float MonoMeasureTool::calcDistanceToCenter(
-    const ArmorObject& obj,
+    const armor::ArmorObject& obj,
     const cv::Mat& camera_intrinsic_,
     const cv::Mat& camera_distortion_
 ) {
@@ -348,7 +318,7 @@ float MonoMeasureTool::calcDistanceToCenter(
 }
 
 bool MonoMeasureTool::reprojectArmorCorners(
-    const Armor& armor,
+    const armor::Armor& armor,
     std::vector<cv::Point2f>& image_points,
     const cv::Mat& camera_intrinsic,
     const cv::Mat& camera_distortion
@@ -396,7 +366,7 @@ bool MonoMeasureTool::reprojectArmorCorners(
     return true;
 }
 bool MonoMeasureTool::reprojectArmorCorners_raw(
-    const Armor& armor,
+    const armor::Armor& armor,
     std::vector<cv::Point2f>& image_points,
     const cv::Mat& camera_intrinsic,
     const cv::Mat& camera_distortion
@@ -443,7 +413,7 @@ bool MonoMeasureTool::reprojectArmorCorners_raw(
     return true;
 }
 bool MonoMeasureTool::reprojectArmorsCorners(
-    Armors& armors,
+    armor::Armors& armors,
     Target_info& target_info,
     const cv::Mat& camera_intrinsic,
     const cv::Mat& camera_distortion
@@ -465,9 +435,9 @@ bool MonoMeasureTool::reprojectArmorsCorners(
     return true;
 }
 void MonoMeasureTool::processDetectedArmors(
-    const std::vector<ArmorObject>& objs,
+    const std::vector<armor::ArmorObject>& objs,
     int detect_color,
-    Armors& armors_out,
+    armor::Armors& armors_out,
     Eigen::Matrix4d T_camera_to_odom,
     const cv::Mat& camera_intrinsic,
     const cv::Mat& camera_distortion
@@ -478,8 +448,8 @@ void MonoMeasureTool::processDetectedArmors(
         }
 
         // 按照颜色过滤
-        if ((detect_color == 0 && obj.color != ArmorColor::RED)
-            || (detect_color == 1 && obj.color != ArmorColor::BLUE))
+        if ((detect_color == 0 && obj.color != armor::ArmorColor::RED)
+            || (detect_color == 1 && obj.color != armor::ArmorColor::BLUE))
         {
             continue;
         }
@@ -540,7 +510,7 @@ void MonoMeasureTool::processDetectedArmors(
                 continue;
             }
 
-            Armor armor;
+            armor::Armor armor;
             armor.pos = { target_position.x, target_position.y, target_position.z };
             armor.ori = { tf_quaternion.x, tf_quaternion.y, tf_quaternion.z, tf_quaternion.w };
             armor.number = obj.number;

@@ -22,7 +22,7 @@ public:
         const std::string& classify_label_path
     );
     void initNumberClassifier();
-    bool classifyNumber(ArmorObject& armor);
+    bool classifyNumber(armor::ArmorObject& armor);
 
 private:
     cv::dnn::Net number_net_;

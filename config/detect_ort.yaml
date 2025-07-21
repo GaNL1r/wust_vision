@@ -18,7 +18,7 @@ armor_detect:
     max_ratio: 0.45
     min_ratio: 0.02
   model:
-    conf_threshold: 0.25
+    conf_threshold: 0.2
     use_gpu: true
     device_id: 0
     model_path: /home/hy/wust_vision/model/opt-1208-001.onnx

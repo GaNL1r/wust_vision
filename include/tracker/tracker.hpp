@@ -53,8 +53,8 @@ public:
         double jump_thresh
     );
 
-    void init(const Armors& armors_msg) noexcept;
-    void update(const Armors& armors_msg) noexcept;
+    void init(const armor::Armors& armors_msg) noexcept;
+    void update(const armor::Armors& armors_msg) noexcept;
 
     enum State {
         LOST,
@@ -82,10 +82,10 @@ public:
     int tracking_thres_;
     int lost_thres_;
 
-    Armor tracked_armor_;
+    armor::Armor tracked_armor_;
 
-    ArmorNumber tracked_id_;
-    ArmorsNum tracked_armors_num_;
+    armor::ArmorNumber tracked_id_;
+    armor::ArmorsNum tracked_armors_num_;
     std::string type_;
     int retype_;
     Eigen::VectorXd measurement_;
@@ -99,8 +99,8 @@ public:
     double jump_thresh_ = 0.4;
 
 private:
-    void initEKF(const Armor& a) noexcept;
-    void handleArmorJump(const Armor& a) noexcept;
+    void initEKF(const armor::Armor& a) noexcept;
+    void handleArmorJump(const armor::Armor& a) noexcept;
 
     double orientationToYaw(const tf::Quaternion& q) noexcept;
     static Eigen::Vector3d getArmorPositionFromState(const Eigen::VectorXd& x) noexcept;

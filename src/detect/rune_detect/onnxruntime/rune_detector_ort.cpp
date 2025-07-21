@@ -124,7 +124,7 @@ static void generateGridsAndStride(
 
 // Decode output tensor
 static void generateProposals(
-    std::vector<RuneObject>& output_objs,
+    std::vector<rune::RuneObject>& output_objs,
     std::vector<float>& scores,
     std::vector<cv::Rect>& rects,
     const cv::Mat& output_buffer,
@@ -181,7 +181,7 @@ static void generateProposals(
 
         apex_dst = transform_matrix * apex_norm;
 
-        RuneObject obj;
+        rune::RuneObject obj;
 
         obj.pts.r_center = cv::Point2f(apex_dst(0, 0), apex_dst(1, 0));
         obj.pts.bottom_left = cv::Point2f(apex_dst(0, 1), apex_dst(1, 1));
@@ -193,7 +193,7 @@ static void generateProposals(
 
         obj.box = rect;
         obj.color = DNN_COLOR_TO_ENEMY_COLOR[color_id.x];
-        obj.type = static_cast<RuneType>(class_id.x);
+        obj.type = static_cast<rune::RuneType>(class_id.x);
         obj.prob = confidence;
 
         rects.push_back(rect);
@@ -203,13 +203,13 @@ static void generateProposals(
 }
 
 // Calculate intersection area between Object a and Object b.
-static inline float intersectionArea(const RuneObject& a, const RuneObject& b) {
+static inline float intersectionArea(const rune::RuneObject& a, const rune::RuneObject& b) {
     cv::Rect_<float> inter = a.box & b.box;
     return inter.area();
 }
 
 static void nmsMergeSortedBboxes(
-    std::vector<RuneObject>& faceobjects,
+    std::vector<rune::RuneObject>& faceobjects,
     std::vector<int>& indices,
     float nms_threshold
 ) {
@@ -223,11 +223,11 @@ static void nmsMergeSortedBboxes(
     }
 
     for (int i = 0; i < n; i++) {
-        RuneObject& a = faceobjects[i];
+        rune::RuneObject& a = faceobjects[i];
 
         int keep = 1;
         for (size_t j = 0; j < indices.size(); j++) {
-            RuneObject& b = faceobjects[indices[j]];
+            rune::RuneObject& b = faceobjects[indices[j]];
 
             // intersection over union
             float inter_area = intersectionArea(a, b);
@@ -364,7 +364,7 @@ bool RuneDetectorOnnxRuntime::processCallback(
     // 5) 用 cv::Mat 包装输出，方便后续处理
     cv::Mat output_buffer(rows, cols, CV_32F, output_data);
     // Parsed variable
-    std::vector<RuneObject> objs_tmp, objs_result;
+    std::vector<rune::RuneObject> objs_tmp, objs_result;
     std::vector<cv::Rect> rects;
     std::vector<float> scores;
     std::vector<int> indices;
@@ -381,9 +381,11 @@ bool RuneDetectorOnnxRuntime::processCallback(
     );
 
     // TopK
-    std::sort(objs_tmp.begin(), objs_tmp.end(), [](const RuneObject& a, const RuneObject& b) {
-        return a.prob > b.prob;
-    });
+    std::sort(
+        objs_tmp.begin(),
+        objs_tmp.end(),
+        [](const rune::RuneObject& a, const rune::RuneObject& b) { return a.prob > b.prob; }
+    );
     if (objs_tmp.size() > static_cast<size_t>(this->top_k_)) {
         objs_tmp.resize(this->top_k_);
     }
@@ -395,7 +397,7 @@ bool RuneDetectorOnnxRuntime::processCallback(
 
         if (objs_result[i].pts.children.size() > 0) {
             const float N = static_cast<float>(objs_result[i].pts.children.size() + 1);
-            FeaturePoints pts_final = std::accumulate(
+            rune::FeaturePoints pts_final = std::accumulate(
                 objs_result[i].pts.children.begin(),
                 objs_result[i].pts.children.end(),
                 objs_result[i].pts

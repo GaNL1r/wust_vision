@@ -51,8 +51,8 @@ public:
     void initDetector();
     void run();
     void processImage(const ImageFrame& frame);
-    void ArmorDetectCallback(const std::vector<ArmorObject>& objs, const CommonFrame& frame);
-    std::vector<OneTarget> buildOneTargetsfromOmni(const Armors& armors);
+    void ArmorDetectCallback(const std::vector<armor::ArmorObject>& objs, const CommonFrame& frame);
+    std::vector<armor::OneTarget> buildOneTargetsfromOmni(const armor::Armors& armors);
     void startTimer();
     void stopTimer();
     void timerCallback(double dt_ms);

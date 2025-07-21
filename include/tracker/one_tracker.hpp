@@ -44,10 +44,10 @@ public:
         double jump_thresh
     );
 
-    void init(const Armors& armors_msg) noexcept;
-    void update(const Armors& armors_msg) noexcept;
-    void init(const Armor& armor_msg) noexcept;
-    void update(const Armor& armor_msg) noexcept;
+    void init(const armor::Armors& armors_msg) noexcept;
+    void update(const armor::Armors& armors_msg) noexcept;
+    void init(const armor::Armor& armor_msg) noexcept;
+    void update(const armor::Armor& armor_msg) noexcept;
 
     enum State {
         LOST,
@@ -66,9 +66,9 @@ public:
     Eigen::VectorXd center_velocity_measurement_;
     Eigen::VectorXd acc_state_;
     std::unique_ptr<acc_model::VelocityAccelEKF> acc_ekf_;
-    Armor tracked_armor_;
+    armor::Armor tracked_armor_;
 
-    ArmorNumber tracked_id_;
+    armor::ArmorNumber tracked_id_;
     std::string type_;
     int retype_;
     Eigen::VectorXd measurement_;
@@ -87,8 +87,8 @@ public:
     double jump_thresh = 0.4;
 
 private:
-    void initEKF(const Armor& a) noexcept;
-    void handleArmorJump(const Armor& a) noexcept;
+    void initEKF(const armor::Armor& a) noexcept;
+    void handleArmorJump(const armor::Armor& a) noexcept;
 
     int detect_count_;
     int lost_count_;

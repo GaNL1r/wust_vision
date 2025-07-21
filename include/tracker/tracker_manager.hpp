@@ -24,23 +24,23 @@ class TrackerManager {
 public:
     explicit TrackerManager(const YAML::Node& config);
     void update(
-        Target& target_,
-        std::vector<OneTarget>& one_targets_,
-        Armors armors_,
+        armor::Target& target_,
+        std::vector<armor::OneTarget>& one_targets_,
+        armor::Armors armors_,
         std::chrono::steady_clock::time_point time,
         const Eigen::Matrix3d& R_gimbal2odom,
         const Eigen::Vector3d& v
     );
     void updateAttackState(const double& v_yaw_abs);
     void updateTracker(
-        Target& target_,
-        Armors armors_,
+        armor::Target& target_,
+        armor::Armors armors_,
         std::chrono::steady_clock::time_point time,
         const Eigen::Vector3d& v
     );
     void updateOneTrackers(
-        std::vector<OneTarget>& one_targets_,
-        Armors armors_,
+        std::vector<armor::OneTarget>& one_targets_,
+        armor::Armors armors_,
         std::chrono::steady_clock::time_point time,
         const Eigen::Vector3d& v
     );

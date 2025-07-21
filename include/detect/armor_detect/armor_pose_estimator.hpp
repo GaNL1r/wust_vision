@@ -34,8 +34,8 @@ class ArmorPoseEstimator {
 public:
     explicit ArmorPoseEstimator();
 
-    std::vector<Armor> extractArmorPoses(
-        const std::vector<ArmorObject>& armors,
+    std::vector<armor::Armor> extractArmorPoses(
+        const std::vector<armor::ArmorObject>& armors,
         Eigen::Matrix4d T_camera_to_odom,
         const cv::Mat& camera_intrinsic,
         const cv::Mat& camera_distortion
@@ -49,7 +49,7 @@ private:
     // Select the best PnP solution according to the armor's direction in image,
     // only available for SOLVEPNP_IPPE
     void sortPnPResult(
-        const ArmorObject& armor,
+        const armor::ArmorObject& armor,
         std::vector<cv::Mat>& rvecs,
         std::vector<cv::Mat>& tvecs,
         std::string coord_frame_name,

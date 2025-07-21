@@ -43,8 +43,8 @@ ArmorDetectOpenCV::ArmorDetectOpenCV(
     const std::string& classify_label_path,
     const int& bin_thres,
     const double& classifier_threshold,
-    const LightParams& l,
-    const ArmorParams& a
+    const armor::LightParams& l,
+    const armor::ArmorParams& a
 ):
     binary_thres_(bin_thres),
     light_params_(l),
@@ -55,24 +55,24 @@ ArmorDetectOpenCV::ArmorDetectOpenCV(
         std::make_unique<NumberClassifier>(classify_model_path, classify_label_path);
 }
 
-std::vector<ArmorObject> ArmorDetectOpenCV::detect(const cv::Mat& input) noexcept {
+std::vector<armor::ArmorObject> ArmorDetectOpenCV::detect(const cv::Mat& input) noexcept {
     if (input.empty())
         return {};
     cv::Mat gray_img_;
-    std::vector<Light> lights_;
+    std::vector<armor::Light> lights_;
     cv::Mat binary_img = preprocessImage(input, gray_img_);
 
     lights_ = findLights(input, binary_img);
-    std::vector<ArmorObject> armors = matchLights(lights_);
+    std::vector<armor::ArmorObject> armors = matchLights(lights_);
 
-    std::vector<ArmorObject> valid_armors;
+    std::vector<armor::ArmorObject> valid_armors;
     std::mutex valid_mutex;
 
     std::for_each(
         std::execution::par,
         armors.begin(),
         armors.end(),
-        [this, &input, gray_img_, &valid_armors, &valid_mutex](ArmorObject& armor) {
+        [this, &input, gray_img_, &valid_armors, &valid_mutex](armor::ArmorObject& armor) {
             try {
                 armor.number_img = extractNumber(input, armor);
                 if (armor.number_img.empty())
@@ -113,20 +113,20 @@ cv::Mat ArmorDetectOpenCV::preprocessImage(const cv::Mat& rgb_img, cv::Mat& gray
     return binary_img;
 }
 
-std::vector<Light>
+std::vector<armor::Light>
 ArmorDetectOpenCV::findLights(const cv::Mat& rgb_img, const cv::Mat& binary_img) noexcept {
     using std::vector;
     vector<vector<cv::Point>> contours;
     vector<cv::Vec4i> hierarchy;
     cv::findContours(binary_img, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
 
-    vector<Light> lights;
+    vector<armor::Light> lights;
 
     for (const auto& contour: contours) {
         if (contour.size() < 6)
             continue;
 
-        auto light = Light(contour);
+        auto light = armor::Light(contour);
 
         if (isLight(light)) {
             int sum_r = 0, sum_b = 0;
@@ -141,13 +141,13 @@ ArmorDetectOpenCV::findLights(const cv::Mat& rgb_img, const cv::Mat& binary_img)
             lights.emplace_back(light);
         }
     }
-    std::sort(lights.begin(), lights.end(), [](const Light& l1, const Light& l2) {
+    std::sort(lights.begin(), lights.end(), [](const armor::Light& l1, const armor::Light& l2) {
         return l1.center.x < l2.center.x;
     });
     return lights;
 }
 
-bool ArmorDetectOpenCV::isLight(const Light& light) noexcept {
+bool ArmorDetectOpenCV::isLight(const armor::Light& light) noexcept {
     // The ratio of light (short side / long side)
     float ratio = light.width / light.length;
     bool ratio_ok = light_params_.min_ratio < ratio && ratio < light_params_.max_ratio;
@@ -159,8 +159,9 @@ bool ArmorDetectOpenCV::isLight(const Light& light) noexcept {
     return is_light;
 }
 
-std::vector<ArmorObject> ArmorDetectOpenCV::matchLights(const std::vector<Light>& lights) noexcept {
-    std::vector<ArmorObject> armors;
+std::vector<armor::ArmorObject>
+ArmorDetectOpenCV::matchLights(const std::vector<armor::Light>& lights) noexcept {
+    std::vector<armor::ArmorObject> armors;
 
     // Loop all the pairing of lights
     for (auto light_1 = lights.begin(); light_1 != lights.end(); light_1++) {
@@ -178,13 +179,13 @@ std::vector<ArmorObject> ArmorDetectOpenCV::matchLights(const std::vector<Light>
                 break;
 
             auto type = isArmor(*light_1, *light_2);
-            if (type != ArmorType::INVALID) {
+            if (type != armor::ArmorType::INVALID) {
                 // auto armor = Armor(*light_1, *light_2);
-                ArmorObject armor(*light_1, *light_2);
+                armor::ArmorObject armor(*light_1, *light_2);
                 if (gobal::detect_color == 0) {
-                    armor.color = ArmorColor::RED;
+                    armor.color = armor::ArmorColor::RED;
                 } else {
-                    armor.color = ArmorColor::BLUE;
+                    armor.color = armor::ArmorColor::BLUE;
                 }
 
                 // armor.type = type;
@@ -200,7 +201,7 @@ std::vector<ArmorObject> ArmorDetectOpenCV::matchLights(const std::vector<Light>
 bool ArmorDetectOpenCV::containLight(
     const int i,
     const int j,
-    const std::vector<Light>& lights
+    const std::vector<armor::Light>& lights
 ) noexcept {
     if (i < 0 || j < 0 || i >= static_cast<int>(lights.size())
         || j >= static_cast<int>(lights.size()) || i >= j)
@@ -210,7 +211,7 @@ bool ArmorDetectOpenCV::containLight(
         return false;
     }
 
-    const Light &light_1 = lights[i], light_2 = lights[j];
+    const armor::Light &light_1 = lights[i], light_2 = lights[j];
     auto points =
         std::vector<cv::Point2f> { light_1.top, light_1.bottom, light_2.top, light_2.bottom };
     auto bounding_rect = cv::boundingRect(points);
@@ -218,7 +219,7 @@ bool ArmorDetectOpenCV::containLight(
     double avg_width = (light_1.width + light_2.width) / 2.0;
 
     for (int k = i + 1; k < j; k++) {
-        const Light& test_light = lights[k];
+        const armor::Light& test_light = lights[k];
 
         if (test_light.width > 2 * avg_width) {
             continue;
@@ -236,7 +237,8 @@ bool ArmorDetectOpenCV::containLight(
     return false;
 }
 
-ArmorType ArmorDetectOpenCV::isArmor(const Light& light_1, const Light& light_2) noexcept {
+armor::ArmorType
+ArmorDetectOpenCV::isArmor(const armor::Light& light_1, const armor::Light& light_2) noexcept {
     // Ratio of the length of 2 lights (short side / long side)
     float light_length_ratio = light_1.length < light_2.length ? light_1.length / light_2.length
                                                                : light_2.length / light_1.length;
@@ -258,19 +260,19 @@ ArmorType ArmorDetectOpenCV::isArmor(const Light& light_1, const Light& light_2)
     bool is_armor = light_ratio_ok && center_distance_ok && angle_ok;
 
     // Judge armor type
-    ArmorType type;
+    armor::ArmorType type;
     if (is_armor) {
-        type = center_distance > armor_params_.min_large_center_distance ? ArmorType::LARGE
-                                                                         : ArmorType::SMALL;
+        type = center_distance > armor_params_.min_large_center_distance ? armor::ArmorType::LARGE
+                                                                         : armor::ArmorType::SMALL;
     } else {
-        type = ArmorType::INVALID;
+        type = armor::ArmorType::INVALID;
     }
 
     return type;
 }
 
-cv::Mat
-ArmorDetectOpenCV::extractNumber(const cv::Mat& src, const ArmorObject& armor) const noexcept {
+cv::Mat ArmorDetectOpenCV::extractNumber(const cv::Mat& src, const armor::ArmorObject& armor)
+    const noexcept {
     // Light length in image
     const int light_length = 12;
     // Image size after warp
@@ -279,7 +281,8 @@ ArmorDetectOpenCV::extractNumber(const cv::Mat& src, const ArmorObject& armor) c
     const int large_armor_width = 54;
     // Number ROI size
     const cv::Size roi_size(20, 28);
-    bool is_large = (armor.number == ArmorNumber::NO1 || armor.number == ArmorNumber::BASE);
+    bool is_large =
+        (armor.number == armor::ArmorNumber::NO1 || armor.number == armor::ArmorNumber::BASE);
 
     // Warp perspective transform
     cv::Point2f lights_vertices[4] = { armor.lights[0].bottom,
@@ -314,7 +317,7 @@ ArmorDetectOpenCV::extractNumber(const cv::Mat& src, const ArmorObject& armor) c
 void ArmorDetectOpenCV::setCallback(DetectorCallback callback) {
     this->infer_callback_ = callback;
 }
-void ArmorDetectOpenCV::topts(ArmorObject& armor) {
+void ArmorDetectOpenCV::topts(armor::ArmorObject& armor) {
     if (armor.lights.size() != 2) {
         armor.is_ok = false;
         return;
@@ -329,7 +332,7 @@ void ArmorDetectOpenCV::topts(ArmorObject& armor) {
     armor.pts_binary[3] = armor.lights[1].top;
 }
 void ArmorDetectOpenCV::pushInput(const CommonFrame& frame) {
-    std::vector<ArmorObject> objs_result;
+    std::vector<armor::ArmorObject> objs_result;
     objs_result = detect(frame.src_img);
 
     if (this->infer_callback_) {

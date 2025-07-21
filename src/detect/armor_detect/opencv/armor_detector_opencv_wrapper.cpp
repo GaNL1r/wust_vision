@@ -22,13 +22,13 @@ ArmorDetectorOpencvWrapper::ArmorDetectorOpencvWrapper(const YAML::Node& config)
 
     int binary_thres = config["armor_detect_opencv"]["light"]["binary_thres"].as<int>();
 
-    LightParams l_params = {
+    armor::LightParams l_params = {
         .min_ratio = config["armor_detect_opencv"]["light"]["min_ratio"].as<double>(),
         .max_ratio = config["armor_detect_opencv"]["light"]["max_ratio"].as<double>(),
         .max_angle = config["armor_detect_opencv"]["light"]["max_angle"].as<double>(),
         .color_diff_thresh = config["armor_detect_opencv"]["light"]["color_diff_thresh"].as<int>()
     };
-    ArmorParams a_params = {
+    armor::ArmorParams a_params = {
         .min_light_ratio = config["armor_detect_opencv"]["armor"]["min_light_ratio"].as<double>(),
         .min_small_center_distance =
             config["armor_detect_opencv"]["armor"]["min_small_center_distance"].as<double>(),

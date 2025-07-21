@@ -51,23 +51,23 @@ void drawDebugArmorContent(cv::Mat& debug_img, const DebugArmor& dbg) {
                 cv::Scalar(0, 200, 200),
                 2
             );
-            auto armorName = [](ArmorNumber num) {
+            auto armorName = [](armor::ArmorNumber num) {
                 switch (num) {
-                    case ArmorNumber::SENTRY:
+                    case armor::ArmorNumber::SENTRY:
                         return "SENTRY";
-                    case ArmorNumber::BASE:
+                    case armor::ArmorNumber::BASE:
                         return "BASE";
-                    case ArmorNumber::OUTPOST:
+                    case armor::ArmorNumber::OUTPOST:
                         return "OUTPOST";
-                    case ArmorNumber::NO1:
+                    case armor::ArmorNumber::NO1:
                         return "NO1";
-                    case ArmorNumber::NO2:
+                    case armor::ArmorNumber::NO2:
                         return "NO2";
-                    case ArmorNumber::NO3:
+                    case armor::ArmorNumber::NO3:
                         return "NO3";
-                    case ArmorNumber::NO4:
+                    case armor::ArmorNumber::NO4:
                         return "NO4";
-                    case ArmorNumber::NO5:
+                    case armor::ArmorNumber::NO5:
                         return "NO5";
                     default:
                         return "UNKNOWN";
@@ -327,7 +327,7 @@ void drawDebugRuneContent(cv::Mat& debug_img, const DebugRune& dbg) {
     const auto& manual_r_box = dbg.manual_r_box.value_or(std::vector<cv::Point2f> {});
 
     for (const auto& obj: objs) {
-        if (obj.type == RuneType::INACTIVATED) {
+        if (obj.type == rune::RuneType::INACTIVATED) {
             const auto pts = obj.pts.toVector2f();
             if (pts.size() < 3)
                 break;
@@ -380,8 +380,8 @@ void drawDebugRuneContent(cv::Mat& debug_img, const DebugRune& dbg) {
         cv::Point2f aim_point =
             std::accumulate(pts.begin() + 1, pts.end(), cv::Point2f(0, 0)) / 4.0f;
 
-        cv::Scalar line_color =
-            obj.type == RuneType::INACTIVATED ? cv::Scalar(50, 255, 50) : cv::Scalar(255, 50, 255);
+        cv::Scalar line_color = obj.type == rune::RuneType::INACTIVATED ? cv::Scalar(50, 255, 50)
+                                                                        : cv::Scalar(255, 50, 255);
 
         cv::putText(
             debug_img,
@@ -395,8 +395,8 @@ void drawDebugRuneContent(cv::Mat& debug_img, const DebugRune& dbg) {
         cv::polylines(debug_img, obj.pts.toVector2i(), true, line_color, 2);
         cv::circle(debug_img, aim_point, 5, line_color, -1);
 
-        std::string rune_type = obj.type == RuneType::INACTIVATED ? "_HIT" : "_OK";
-        std::string rune_color = enemyColorToString(obj.color);
+        std::string rune_type = obj.type == rune::RuneType::INACTIVATED ? "_HIT" : "_OK";
+        std::string rune_color = armor::enemyColorToString(obj.color);
         cv::putText(
             debug_img,
             rune_color + rune_type,
@@ -473,7 +473,7 @@ void drawDebugRuneContent(cv::Mat& debug_img, const DebugRune& dbg) {
     );
 }
 
-void drawResult(const imgframe& src_img, const Armors& armors) {
+void drawResult(const imgframe& src_img, const armor::Armors& armors) {
     static auto last_show_time = std::chrono::steady_clock::now();
     static bool window_initialized = false;
     static int brightness_slider = 200;
@@ -533,31 +533,31 @@ void drawResult(const imgframe& src_img, const Armors& armors) {
         );
         std::string armor_info;
         switch (armor.number) {
-            case ArmorNumber::SENTRY:
+            case armor::ArmorNumber::SENTRY:
                 armor_info = "SENTRY";
                 break;
-            case ArmorNumber::BASE:
+            case armor::ArmorNumber::BASE:
                 armor_info = "BASE";
                 break;
-            case ArmorNumber::OUTPOST:
+            case armor::ArmorNumber::OUTPOST:
                 armor_info = "OUTPOST";
                 break;
-            case ArmorNumber::NO1:
+            case armor::ArmorNumber::NO1:
                 armor_info = "NO1";
                 break;
-            case ArmorNumber::NO2:
+            case armor::ArmorNumber::NO2:
                 armor_info = "NO2";
                 break;
-            case ArmorNumber::NO3:
+            case armor::ArmorNumber::NO3:
                 armor_info = "NO3";
                 break;
-            case ArmorNumber::NO4:
+            case armor::ArmorNumber::NO4:
                 armor_info = "NO4";
                 break;
-            case ArmorNumber::NO5:
+            case armor::ArmorNumber::NO5:
                 armor_info = "NO5";
                 break;
-            case ArmorNumber::UNKNOWN:
+            case armor::ArmorNumber::UNKNOWN:
                 armor_info = "UNKNOWN";
                 break;
         }
@@ -625,7 +625,7 @@ void drawResult(const imgframe& src_img, const Armors& armors) {
     cv::waitKey(1);
 }
 
-std::string formatTargetInfo(const Target& target) {
+std::string formatTargetInfo(const armor::Target& target) {
     std::ostringstream oss;
     oss << std::fixed << std::setprecision(2);
 
@@ -664,7 +664,7 @@ std::string formatTargetInfo(const Target& target) {
 
     return oss.str();
 }
-void dumpTargetToFile(const Target& target, const std::string& path) {
+void dumpTargetToFile(const armor::Target& target, const std::string& path) {
     std::ofstream file(path);
     if (file.is_open()) {
         file << formatTargetInfo(target);
@@ -817,7 +817,7 @@ void writeAimLogToJson(const ReceiveAimINFO& aim) {
         file << j.dump(2);
     }
 }
-void writeTargetLogToJson(const Target& target) {
+void writeTargetLogToJson(const armor::Target& target) {
     nlohmann::json j;
 
     j["frame_id"] = target.frame_id;

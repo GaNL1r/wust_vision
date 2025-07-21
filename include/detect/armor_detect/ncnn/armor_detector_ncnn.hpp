@@ -28,7 +28,7 @@
 class ArmorDetectNCNN {
 public:
     using DetectorCallback =
-        std::function<void(const std::vector<ArmorObject>&, const CommonFrame&)>;
+        std::function<void(const std::vector<armor::ArmorObject>&, const CommonFrame&)>;
     explicit ArmorDetectNCNN(
         std::string input_name_,
         std::string output_name_,
@@ -36,8 +36,8 @@ public:
         const std::string& model_path_bin_,
         const std::string& classify_model_path,
         const std::string& classify_label_path,
-        const LightParams& l,
-        const ArmorParams& a,
+        const armor::LightParams& l,
+        const armor::ArmorParams& a,
         double classifier_threshold,
         float conf_threshold = 0.25,
         int top_k = 128,
@@ -67,8 +67,8 @@ private:
     ncnn::Option opt_;
     std::string model_path_param_;
     std::string model_path_bin_;
-    LightParams light_params_;
-    ArmorParams armor_params_;
+    armor::LightParams light_params_;
+    armor::ArmorParams armor_params_;
     DetectorCallback infer_callback_;
     std::vector<int> strides_;
     std::vector<GridAndStride> grid_strides_;

@@ -22,7 +22,7 @@ public:
     virtual void pushInput(const CommonFrame& frame) = 0;
 
     using DetectorCallback =
-        std::function<void(const std::vector<ArmorObject>&, const CommonFrame&)>;
+        std::function<void(const std::vector<armor::ArmorObject>&, const CommonFrame&)>;
 
     virtual void setCallback(DetectorCallback cb) = 0;
 };

@@ -65,15 +65,15 @@ struct DebugLogs {
 
 struct DebugArmor {
     std::optional<imgframe> src_img;
-    std::optional<Armors> armors;
+    std::optional<armor::Armors> armors;
     std::optional<Target_info> target_info;
-    std::optional<Target> target;
+    std::optional<armor::Target> target;
     std::optional<Tracker::State> tracker_state;
     std::optional<GimbalCmd> gimbal_cmd;
 };
 struct DebugRune {
     std::optional<imgframe> src_img;
-    std::optional<std::vector<RuneObject>> objs;
+    std::optional<std::vector<rune::RuneObject>> objs;
     std::optional<double> predict_angle;
     std::optional<GimbalCmd> gimbal_cmd;
     std::optional<std::vector<cv::Point2f>> manual_r_box;

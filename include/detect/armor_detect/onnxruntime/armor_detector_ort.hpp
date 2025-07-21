@@ -12,14 +12,14 @@
 class ArmorDetectOnnxRuntime {
 public:
     using DetectorCallback =
-        std::function<void(const std::vector<ArmorObject>&, const CommonFrame&)>;
+        std::function<void(const std::vector<armor::ArmorObject>&, const CommonFrame&)>;
 
     explicit ArmorDetectOnnxRuntime(
         const std::filesystem::path& model_path,
         const std::string& classify_model_path,
         const std::string& classify_label_path,
-        const LightParams& l,
-        const ArmorParams& a,
+        const armor::LightParams& l,
+        const armor::ArmorParams& a,
         double classifier_threshold,
         float conf_threshold = 0.25,
         int top_k = 128,
@@ -41,7 +41,7 @@ public:
         const CommonFrame& frame
     );
 
-    void drawResult(const cv::Mat& src_img, std::vector<ArmorObject>& armor_objects);
+    void drawResult(const cv::Mat& src_img, std::vector<armor::ArmorObject>& armor_objects);
 
     void pushInput(const CommonFrame& frame);
 

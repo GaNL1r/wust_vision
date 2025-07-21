@@ -73,7 +73,7 @@ BaSolver::BaSolver(
 }
 
 Eigen::Matrix3d BaSolver::solveBa_R(
-    const ArmorObject& armor,
+    const armor::ArmorObject& armor,
     const Eigen::Vector3d& t_camera_armor,
     const Eigen::Matrix3d& R_camera_armor,
     const Eigen::Matrix3d& R_imu_camera,
@@ -99,7 +99,7 @@ Eigen::Matrix3d BaSolver::solveBa_R(
 
     // 固定 pitch
     double armor_pitch =
-        (armor.number == ArmorNumber::OUTPOST) ? -FIFTTEN_DEGREE_RAD : FIFTTEN_DEGREE_RAD;
+        (armor.number == armor::ArmorNumber::OUTPOST) ? -FIFTTEN_DEGREE_RAD : FIFTTEN_DEGREE_RAD;
     Sophus::SO3d R_pitch = Sophus::SO3d::exp(Eigen::Vector3d(0, armor_pitch, 0));
 
     // 构建 3D 角点
@@ -111,7 +111,7 @@ Eigen::Matrix3d BaSolver::solveBa_R(
     }
 
     auto object_points =
-        ArmorObject::buildObjectPoints<Eigen::Vector3d>(armor_size.x(), armor_size.y());
+        armor::ArmorObject::buildObjectPoints<Eigen::Vector3d>(armor_size.x(), armor_size.y());
     const auto& landmarks = armor.landmarks();
 
     size_t id_counter = 0;
@@ -192,7 +192,7 @@ Eigen::Matrix3d BaSolver::solveBa_R(
     return (R_camera_imu * R_yaw * R_pitch).matrix();
 }
 Eigen::Vector3d BaSolver::solveBa_t(
-    const ArmorObject& armor,
+    const armor::ArmorObject& armor,
     const Eigen::Vector3d& t_camera_armor_init,
     const Eigen::Matrix3d& R_camera_armor, // 已优化的旋转
     const Eigen::Matrix3d& /*unused R_imu_camera*/,
@@ -211,7 +211,7 @@ Eigen::Vector3d BaSolver::solveBa_t(
         armor_size = Eigen::Vector2d(SMALL_ARMOR_WIDTH, SMALL_ARMOR_HEIGHT);
     }
     const auto object_points =
-        ArmorObject::buildObjectPoints<Eigen::Vector3d>(armor_size.x(), armor_size.y());
+        armor::ArmorObject::buildObjectPoints<Eigen::Vector3d>(armor_size.x(), armor_size.y());
     const auto& landmarks = armor.landmarks();
 
     // 3) 添加优化器顶点：tvec

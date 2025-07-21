@@ -234,45 +234,58 @@ void OmniManager::initDetector() {
     ));
 }
 void OmniManager::ArmorDetectCallback(
-    const std::vector<ArmorObject>& objs,
+    const std::vector<armor::ArmorObject>& objs,
     const CommonFrame& frame
 ) {
     std::lock_guard<std::mutex> lock(callback_mutex_);
 
-    if (objs.size() >= max_detect_armors_) {
-        WUST_WARN(vision_logger) << "Detected " << objs.size() << " objects"
-                                 << "too much";
-        detect_finish_count_++;
-        infer_running_count_--;
-        return;
+    std::vector<armor::ArmorObject> sorted_objs = objs;
+    if (sorted_objs.size() > max_detect_armors_) {
+        WUST_WARN(vision_logger) << "Detected " << sorted_objs.size() << " objects"
+                                 << ", too much, keeping top " << max_detect_armors_;
+        std::partial_sort(
+            sorted_objs.begin(),
+            sorted_objs.begin() + max_detect_armors_,
+            sorted_objs.end(),
+            [](const armor::ArmorObject& a, const armor::ArmorObject& b) {
+                return a.confidence > b.confidence;
+            }
+        );
+        sorted_objs.resize(max_detect_armors_);
     }
-    Armors armors;
+
+    armor::Armors armors;
     armors.timestamp = frame.timestamp;
     armors.frame_id = "camera_optical_frame";
+
     cv::Mat camera_intrinsic_ = omni_visions_[frame.v.x()]->camera_intrinsic_;
     cv::Mat camera_distortion_ = omni_visions_[frame.v.x()]->camera_distortion_;
+
     measure_tool_->processDetectedArmors(
-        objs,
+        sorted_objs,
         gobal::detect_color,
         armors,
         frame.T_camera_to_odom,
         camera_intrinsic_,
         camera_distortion_
     );
+
     gobal::omni_targets = buildOneTargetsfromOmni(armors);
-    cv::Mat debug_img;
-    debug_img = frame.src_img.clone();
+
+    cv::Mat debug_img = frame.src_img.clone();
     imgframe debug_img_frame;
     debug_img_frame.img = debug_img;
     debug_img_frame.timestamp = frame.timestamp;
     drawResult(debug_img_frame, armors);
+
     detect_finish_count_++;
     infer_running_count_--;
 }
-std::vector<OneTarget> OmniManager::buildOneTargetsfromOmni(const Armors& armors) {
-    std::vector<OneTarget> one_targets;
+
+std::vector<armor::OneTarget> OmniManager::buildOneTargetsfromOmni(const armor::Armors& armors) {
+    std::vector<armor::OneTarget> one_targets;
     for (const auto& armor: armors.armors) {
-        OneTarget target;
+        armor::OneTarget target;
         target.type = armor.type;
         target.id = armor.number;
         target.position_ = armor.target_pos;

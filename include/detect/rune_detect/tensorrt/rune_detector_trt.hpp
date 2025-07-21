@@ -33,7 +33,7 @@
 
 class RuneDetectorTrt {
 public:
-    using CallbackType = std::function<void(std::vector<RuneObject>&, const CommonFrame&)>;
+    using CallbackType = std::function<void(std::vector<rune::RuneObject>&, const CommonFrame&)>;
     struct Params {
         int input_w = 416; // 模型输入宽度
         int input_h = 416; // 模型输入高度
@@ -68,16 +68,14 @@ private:
         const CommonFrame& frame
     );
     void buildEngine(const std::string& onnx_path);
-    std::vector<RuneObject> postProcess(
-        std::vector<RuneObject>& output_objs,
+    std::vector<rune::RuneObject> postProcess(
+        std::vector<rune::RuneObject>& output_objs,
         std::vector<float>& scores,
         std::vector<cv::Rect>& rects,
         const float* output,
         int num_detections,
         const Eigen::Matrix<float, 3, 3>& transform_matrix
     );
-    bool extractImage(const cv::Mat& src, RuneObject& rune);
-    void detectTarget(RuneObject& rune);
 
 private:
     std::string model_path_;

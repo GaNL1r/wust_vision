@@ -32,7 +32,7 @@
 
 class RuneDetectorNCNN {
 public:
-    using CallbackType = std::function<void(std::vector<RuneObject>&, const CommonFrame&)>;
+    using CallbackType = std::function<void(std::vector<rune::RuneObject>&, const CommonFrame&)>;
 
 public:
     // Construct a new OpenNCNN Detector object

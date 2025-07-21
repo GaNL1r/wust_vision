@@ -51,19 +51,11 @@ public:
     ~ArmorSolver() = default;
 
     // Solve a new gimbal command; timestamp in seconds
-    GimbalCmd solve(const Target& target, std::chrono::steady_clock::time_point current_time);
     GimbalCmd solve(
-        const Target& target,
-        std::vector<OneTarget> one_targets_,
+        const ArmorSloverTarget& armor_slover_target,
         std::chrono::steady_clock::time_point current_time
     );
-    std::vector<GimbalCmd> solveVector(
-        const Target& target,
-        std::vector<OneTarget> one_targets_,
-        std::chrono::steady_clock::time_point current_time,
-        int step,
-        double dt
-    );
+
     GimbalCmd returnDefaultCmd() {
         gobal::last_cmd.fire_advice = false;
         return gobal::last_cmd;
@@ -125,8 +117,8 @@ private:
         double v_yaw,
         size_t num
     ) const noexcept;
-    int
-    selectBestTarget(const std::vector<OneTarget>& targets, bool is_target_tracking) const noexcept;
+    int selectBestTarget(const std::vector<armor::OneTarget>& targets, bool is_target_tracking)
+        const noexcept;
 
     double small_shooting_range_w_ = 0.135;
     double small_shooting_range_h_ = 0.135;
@@ -149,10 +141,10 @@ private:
     int overflow_count_ = 0;
     std::array<double, 3> rpy_ { 0, 0, 0 }; // roll, pitch, yaw
     std::string solver_logger = "armor_solver";
-    mutable OneTarget last_target_;
+    mutable armor::OneTarget last_target_;
     mutable bool has_last_target_ = false;
 
-    mutable OneTarget pending_target_;
+    mutable armor::OneTarget pending_target_;
     mutable std::chrono::steady_clock::time_point pending_target_start_time_;
     mutable bool has_pending_target_ = false;
 

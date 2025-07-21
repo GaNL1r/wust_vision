@@ -33,7 +33,7 @@ OneTracker::OneTracker(
     double jump_thresh
 ):
     tracker_state(LOST),
-    tracked_id_(ArmorNumber::UNKNOWN),
+    tracked_id_(armor::ArmorNumber::UNKNOWN),
     measurement_(Eigen::VectorXd::Zero(4)),
     target_state_(Eigen::VectorXd::Zero(8)),
     max_match_distance_(max_match_distance),
@@ -45,7 +45,7 @@ OneTracker::OneTracker(
     last_yaw_(0),
     last_ypd_y(0) {}
 
-void OneTracker::init(const Armors& armors_msg) noexcept {
+void OneTracker::init(const armor::Armors& armors_msg) noexcept {
     if (armors_msg.armors.empty())
         return;
 
@@ -64,7 +64,7 @@ void OneTracker::init(const Armors& armors_msg) noexcept {
     tracked_id_ = tracked_armor_.number;
     tracker_state = DETECTING;
 }
-void OneTracker::init(const Armor& armor_msg) noexcept {
+void OneTracker::init(const armor::Armor& armor_msg) noexcept {
     double min_distance = DBL_MAX;
     tracked_armor_ = armor_msg;
 
@@ -79,7 +79,7 @@ void OneTracker::init(const Armor& armor_msg) noexcept {
     tracker_state = DETECTING;
 }
 
-void OneTracker::update(const Armors& armors_msg) noexcept {
+void OneTracker::update(const armor::Armors& armors_msg) noexcept {
     Eigen::VectorXd ekf_prediction;
 
     ekf_prediction = ekf_ypd_->predict();
@@ -90,14 +90,14 @@ void OneTracker::update(const Armors& armors_msg) noexcept {
     center_velocity_measurement_ =
         Eigen::Vector3d(target_state_(1), target_state_(3), target_state_(5));
     acc_ekf_->update(center_velocity_measurement_);
-    std::vector<Armor> another_armors;
+    std::vector<armor::Armor> another_armors;
     if (gobal::if_manual_reset) {
         tracker_state = LOST;
         return;
     }
 
     if (!armors_msg.armors.empty()) {
-        Armor same_id_armor;
+        armor::Armor same_id_armor;
         int same_id_armors_count = 0;
         auto predicted_position = getArmorPositionFromState(ekf_prediction);
         double min_position_diff = DBL_MAX;
@@ -187,7 +187,7 @@ void OneTracker::update(const Armors& armors_msg) noexcept {
     }
 }
 
-void OneTracker::update(const Armor& armor_msg) noexcept {
+void OneTracker::update(const armor::Armor& armor_msg) noexcept {
     Eigen::VectorXd ekf_prediction;
 
     ekf_prediction = ekf_ypd_->predict();
@@ -256,7 +256,7 @@ void OneTracker::update(const Armor& armor_msg) noexcept {
     }
 }
 
-void OneTracker::initEKF(const Armor& a) noexcept {
+void OneTracker::initEKF(const armor::Armor& a) noexcept {
     double xa = a.target_pos.x;
     double ya = a.target_pos.y;
     double za = a.target_pos.z;
@@ -272,7 +272,7 @@ void OneTracker::initEKF(const Armor& a) noexcept {
     acc_ekf_->setState(acc_state_);
 }
 
-void OneTracker::handleArmorJump(const Armor& current_armor) noexcept {
+void OneTracker::handleArmorJump(const armor::Armor& current_armor) noexcept {
     double last_yaw = target_state_(6);
     double yaw = orientationToYaw(current_armor.target_ori);
     double delta_yaw = onormalizeAnglea(yaw - last_yaw);

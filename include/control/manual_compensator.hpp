@@ -16,8 +16,10 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <vector>
 
 constexpr size_t NORMAL_STR_NUM = 6;
@@ -116,6 +118,13 @@ public:
             }
         }
         return true;
+    }
+    std::tuple<double, double>
+    applyManualCompensator(double distance, double z, double raw_yaw, double raw_pitch) {
+        auto offs = this->angleHardCorrect(distance, z);
+        double yaw_off = offs[1] * M_PI / 180.0;
+        double pitch_off = offs[0] * M_PI / 180.0;
+        return { raw_yaw + yaw_off, raw_pitch + pitch_off };
     }
 
 private:

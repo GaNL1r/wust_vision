@@ -92,7 +92,7 @@ inline Eigen::MatrixXd cvToEigen(const cv::Mat& cv_mat) noexcept {
     return eigen_mat;
 }
 
-inline void transformArmorData(Armors& armors, Eigen::Matrix4d T_camera_to_odom) {
+inline void transformArmorData(armor::Armors& armors, Eigen::Matrix4d T_camera_to_odom) {
     for (auto& armor: armors.armors) {
         try {
             // Step 1: Transform position from camera to odom
@@ -126,7 +126,7 @@ inline void transformArmorData(Armors& armors, Eigen::Matrix4d T_camera_to_odom)
         }
     }
 }
-inline void transformArmorData(Armor& armor, Eigen::Matrix4d T_camera_to_odom) {
+inline void transformArmorData(armor::Armor& armor, Eigen::Matrix4d T_camera_to_odom) {
     try {
         // Step 1: Transform position from camera to odom
         Eigen::Vector4d pos_camera(armor.pos.x, armor.pos.y, armor.pos.z, 1.0);
@@ -195,10 +195,11 @@ inline double clamp_pm_pi(auto&& angle) {
 inline double ratio(const auto& point) {
     return atan2(point.y, point.x);
 }
-inline bool checkTargetAppear(const Target& target, const std::vector<OneTarget>& one_targets) {
+inline bool
+checkTargetAppear(const armor::Target& target, const std::vector<armor::OneTarget>& one_targets) {
     if (target.tracking)
         return true;
-    return std::any_of(one_targets.begin(), one_targets.end(), [](const OneTarget& t) {
+    return std::any_of(one_targets.begin(), one_targets.end(), [](const armor::OneTarget& t) {
         return t.tracking;
     });
 }
@@ -219,6 +220,33 @@ inline Eigen::Matrix4d computeCameraToOdomTransform(
     Eigen::Matrix4d T_camera_to_odom = T_gimbal_to_odom * T_camera_to_gimbal;
 
     return T_camera_to_odom;
+}
+inline Eigen::Matrix3d getRGimbalToOdom(
+    const Eigen::Matrix4d& T_camera_to_odom,
+    const Eigen::Matrix3d& R_camera2gimbal,
+    const Eigen::Vector3d& t_gimbal_to_camera
+) {
+    Eigen::Matrix3d R_camera_to_gimbal = R_camera2gimbal;
+    Eigen::Vector3d t_camera_to_gimbal = -R_camera_to_gimbal * t_gimbal_to_camera;
+
+    Eigen::Matrix4d T_camera_to_gimbal = Eigen::Matrix4d::Identity();
+    T_camera_to_gimbal.block<3, 3>(0, 0) = R_camera_to_gimbal;
+    T_camera_to_gimbal.block<3, 1>(0, 3) = t_camera_to_gimbal;
+
+    Eigen::Matrix4d T_gimbal_to_camera = T_camera_to_gimbal.inverse();
+    Eigen::Matrix4d T_gimbal_to_odom = T_camera_to_odom * T_gimbal_to_camera;
+    Eigen::Matrix3d R_gimbal2odom = T_gimbal_to_odom.block<3, 3>(0, 0);
+    return R_gimbal2odom;
+}
+inline void addVelFromAccDt(tf::Position& vel, const tf::Position& acc, double dt) {
+    vel.x += acc.x * dt;
+    vel.y += acc.y * dt;
+    vel.z += acc.z * dt;
+}
+inline void addPosFromVelDt(tf::Position pos, const tf::Position& vel, double dt) {
+    pos.x += vel.x * dt;
+    pos.y += vel.y * dt;
+    pos.z += vel.z * dt;
 }
 
 } // namespace utils

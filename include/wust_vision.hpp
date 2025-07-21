@@ -14,7 +14,6 @@
 #include "tracker/tracker_manager.hpp"
 #include "type/type.hpp"
 #include "yaml-cpp/yaml.h"
-//#include "common/debug/crow.hpp"
 #include <opencv2/core/mat.hpp>
 class WustVision {
 public:
@@ -26,16 +25,16 @@ public:
     void processImage(const ImageFrame& frame);
 
     void printStats();
-    void ArmorDetectCallback(const std::vector<ArmorObject>& objs, const CommonFrame& frame);
-    void RuneDetectCallback(std::vector<RuneObject>& rune_objects, const CommonFrame& frame);
+    void ArmorDetectCallback(const std::vector<armor::ArmorObject>& objs, const CommonFrame& frame);
+    void RuneDetectCallback(std::vector<rune::RuneObject>& rune_objects, const CommonFrame& frame);
     void stop();
     void armorsCallback(
-        Armors armors_,
+        armor::Armors armors_,
         const cv::Mat& src_img,
         const Eigen::Matrix3d& R_gimbal2odom,
         const Eigen::Vector3d& v
     );
-    void runeTargetCallback(const Rune rune_target, Eigen::Matrix4d T_camera_to_odom);
+    void runeTargetCallback(const rune::Rune rune_target, Eigen::Matrix4d T_camera_to_odom);
     void initDetector();
     void initTF();
     void initSerial();
@@ -48,14 +47,16 @@ public:
     void initRune(const std::string& camera_info_path);
     void calculationManualR(const cv::Mat& src_img);
     static void onMouse(int event, int x, int y, int, void* userdata);
-    Armors
-    visualizeTargetProjection(Target armor_target_, std::vector<OneTarget> one_armor_targets_);
+    armor::Armors visualizeTargetProjection(
+        armor::Target armor_target_,
+        std::vector<armor::OneTarget> one_armor_targets_
+    );
     GimbalCmd solveByMode(
         AttackMode mode,
-        const Target& target,
-        const std::vector<OneTarget>& one_targets,
+        const ArmorSloverTarget& armor_slover_target,
         const std::chrono::steady_clock::time_point& now
     );
+    void saveAutoLabelData(const std::vector<armor::ArmorObject>& objs, const CommonFrame& frame);
     void visualizeAndLog(bool auto_fps = true);
     void debugThread();
 
@@ -83,22 +84,22 @@ public:
     std::unique_ptr<ArmorPoseEstimator> armor_pose_estimator_;
     bool only_nav_enable_;
 
-    Target armor_target_;
-    std::vector<OneTarget> one_armor_targets_;
-    Armors armors_gobal_;
-    Rune rune_gobal_;
+    armor::Target armor_target_;
+    std::vector<armor::OneTarget> one_armor_targets_;
+    armor::Armors armors_gobal_;
+    rune::Rune rune_gobal_;
     std::mutex img_mutex_;
     imgframe imgframe_;
     YAML::Node rune_detect_config_;
     std::unique_ptr<RuneSolver> rune_solver_;
     bool detect_r_tag_;
     int rune_binary_thresh_;
-    Rune last_rune_target_;
+    rune::Rune last_rune_target_;
     std::unique_ptr<Labeler> auto_labeler_;
     bool use_auto_labeler_;
     bool use_video_;
-    std::vector<RuneObject> rune_objects_;
-    Eigen::Vector3d t_gimbal_to_camera;
+    std::vector<rune::RuneObject> rune_objects_;
+    Eigen::Vector3d t_gimbal_to_camera_;
     Eigen::Matrix4d T_camera_to_odom_;
     Eigen::Matrix3d R_camera2gimbal_;
 
@@ -112,7 +113,7 @@ public:
     std::chrono::steady_clock::time_point last_stat_time_steady_;
     double debug_show_dt_;
 
-    Armor last_armor_;
+    armor::Armor last_armor_;
     double last_distance_;
     double last_ypd_y_;
     double last_ypd_p_;
@@ -133,5 +134,4 @@ public:
     double receive_omni_dt_;
     double hit_omni_dt_;
     std::chrono::steady_clock::time_point last_track_target_;
-    //std::unique_ptr<DebugWebServer> debug_server_;
 };

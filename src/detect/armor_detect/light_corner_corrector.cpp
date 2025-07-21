@@ -21,7 +21,7 @@
 #include <numeric>
 #include <ostream>
 
-void LightCornerCorrector::correctCorners(ArmorObject& armor) noexcept {
+void LightCornerCorrector::correctCorners(armor::ArmorObject& armor) noexcept {
     constexpr int PASS_OPTIMIZE_WIDTH = 3;
     if (armor.lights.empty())
         return;
@@ -95,7 +95,7 @@ void LightCornerCorrector::correctCorners(ArmorObject& armor) noexcept {
         armor.center = armor_center;
     }
 }
-void LightCornerCorrector::correctCorners_nonmatch(ArmorObject& armor) noexcept {
+void LightCornerCorrector::correctCorners_nonmatch(armor::ArmorObject& armor) noexcept {
     // If the width of the light is too small, the correction is not performed
     constexpr int PASS_OPTIMIZE_WIDTH = 3;
     if (armor.lights.empty())
@@ -139,7 +139,8 @@ void LightCornerCorrector::correctCorners_nonmatch(ArmorObject& armor) noexcept 
     armor.is_ok = true;
 }
 
-SymmetryAxis LightCornerCorrector::findSymmetryAxis(const cv::Mat& gray_img, const Light& light) {
+SymmetryAxis
+LightCornerCorrector::findSymmetryAxis(const cv::Mat& gray_img, const armor::Light& light) {
     constexpr float MAX_BRIGHTNESS = 25;
     constexpr float SCALE = 0.07;
 
@@ -199,7 +200,7 @@ SymmetryAxis LightCornerCorrector::findSymmetryAxis(const cv::Mat& gray_img, con
 
 cv::Point2f LightCornerCorrector::findCorner(
     const cv::Mat& gray_img,
-    const Light& light,
+    const armor::Light& light,
     const SymmetryAxis& axis,
     std::string order
 ) {

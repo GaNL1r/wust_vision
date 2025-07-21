@@ -38,7 +38,7 @@ Tracker::Tracker(
     double jump_thresh
 ):
     tracker_state(LOST),
-    tracked_id_(ArmorNumber::UNKNOWN),
+    tracked_id_(armor::ArmorNumber::UNKNOWN),
     measurement_(Eigen::VectorXd::Zero(4)),
     target_state_(Eigen::VectorXd::Zero(9)),
     max_match_distance_(max_match_distance),
@@ -50,7 +50,7 @@ Tracker::Tracker(
     last_yaw_(0),
     last_ypd_y(0) {}
 
-void Tracker::init(const Armors& armors_msg) noexcept {
+void Tracker::init(const armor::Armors& armors_msg) noexcept {
     if (armors_msg.armors.empty())
         return;
 
@@ -71,14 +71,14 @@ void Tracker::init(const Armors& armors_msg) noexcept {
     tracked_id_ = tracked_armor_.number;
     tracker_state = DETECTING;
 
-    if (tracked_id_ == ArmorNumber::OUTPOST) {
-        tracked_armors_num_ = ArmorsNum::OUTPOST_3;
+    if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
+        tracked_armors_num_ = armor::ArmorsNum::OUTPOST_3;
     } else {
-        tracked_armors_num_ = ArmorsNum::NORMAL_4;
+        tracked_armors_num_ = armor::ArmorsNum::NORMAL_4;
     }
 }
 
-void Tracker::update(const Armors& armors_msg) noexcept {
+void Tracker::update(const armor::Armors& armors_msg) noexcept {
     Eigen::VectorXd ekf_prediction;
 
     ekf_prediction = predict_func_(ekf_ypd_, esekf_ypd_);
@@ -96,7 +96,7 @@ void Tracker::update(const Armors& armors_msg) noexcept {
     }
 
     if (!armors_msg.armors.empty()) {
-        Armor same_id_armor;
+        armor::Armor same_id_armor;
         int same_id_armors_count = 0;
         auto predicted_position = getArmorPositionFromState(ekf_prediction);
 
@@ -127,10 +127,10 @@ void Tracker::update(const Armors& armors_msg) noexcept {
                     tracked_armor_.timestamp = armors_msg.timestamp;
                     yaw_diff_ = yaw_diff;
 
-                    if (tracked_id_ == ArmorNumber::OUTPOST) {
-                        tracked_armors_num_ = ArmorsNum::OUTPOST_3;
+                    if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
+                        tracked_armors_num_ = armor::ArmorsNum::OUTPOST_3;
                     } else {
-                        tracked_armors_num_ = ArmorsNum::NORMAL_4;
+                        tracked_armors_num_ = armor::ArmorsNum::NORMAL_4;
                     }
                 } else {
                     position_diff_ = position_diff;
@@ -208,7 +208,7 @@ void Tracker::update(const Armors& armors_msg) noexcept {
     }
 }
 
-void Tracker::initEKF(const Armor& a) noexcept {
+void Tracker::initEKF(const armor::Armor& a) noexcept {
     double xa = a.target_pos.x;
     double ya = a.target_pos.y;
     double za = a.target_pos.z;
@@ -232,7 +232,7 @@ void Tracker::initEKF(const Armor& a) noexcept {
     acc_ekf_->setState(acc_state_);
 }
 
-void Tracker::handleArmorJump(const Armor& current_armor) noexcept {
+void Tracker::handleArmorJump(const armor::Armor& current_armor) noexcept {
     double last_yaw = target_state_(6);
     double yaw = orientationToYaw(current_armor.target_ori);
     double delta_yaw = normalizeAngle(yaw - last_yaw);
@@ -240,7 +240,7 @@ void Tracker::handleArmorJump(const Armor& current_armor) noexcept {
     if (std::abs(delta_yaw) > jump_thresh_) {
         target_state_(6) = yaw;
 
-        if (tracked_armors_num_ == ArmorsNum::NORMAL_4) {
+        if (tracked_armors_num_ == armor::ArmorsNum::NORMAL_4) {
             d_za_ = target_state_(4) + target_state_(9) - current_armor.target_pos.z;
             std::swap(target_state_(8), another_r_);
             d_zc_ = d_zc_ == 0 ? -d_za_ : 0;

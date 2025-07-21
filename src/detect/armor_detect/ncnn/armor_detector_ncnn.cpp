@@ -85,7 +85,7 @@ static void generate_grids_and_stride(
     }
 }
 static void generate_proposals(
-    std::vector<ArmorObject>& output_objs,
+    std::vector<armor::ArmorObject>& output_objs,
     std::vector<float>& scores,
     std::vector<cv::Rect>& rects,
     const cv::Mat& output_buffer,
@@ -136,7 +136,7 @@ static void generate_proposals(
 
         apex_dst = transform_matrix * apex_norm;
 
-        ArmorObject obj;
+        armor::ArmorObject obj;
 
         obj.pts.resize(4);
 
@@ -148,8 +148,8 @@ static void generate_proposals(
         auto rect = cv::boundingRect(obj.pts);
 
         obj.box = rect;
-        obj.color = static_cast<ArmorColor>(color_id.x);
-        obj.number = static_cast<ArmorNumber>(num_id.x);
+        obj.color = static_cast<armor::ArmorColor>(color_id.x);
+        obj.number = static_cast<armor::ArmorNumber>(num_id.x);
         obj.prob = confidence;
 
         rects.push_back(rect);
@@ -164,13 +164,13 @@ static void generate_proposals(
  * @param b Object b.
  * @return Area of intersection.
  */
-static inline float intersection_area(const ArmorObject& a, const ArmorObject& b) {
+static inline float intersection_area(const armor::ArmorObject& a, const armor::ArmorObject& b) {
     cv::Rect_<float> inter = a.box & b.box;
     return inter.area();
 }
 
 static void nms_merge_sorted_bboxes(
-    std::vector<ArmorObject>& faceobjects,
+    std::vector<armor::ArmorObject>& faceobjects,
     std::vector<int>& indices,
     float nms_threshold
 ) {
@@ -184,11 +184,11 @@ static void nms_merge_sorted_bboxes(
     }
 
     for (int i = 0; i < n; i++) {
-        ArmorObject& a = faceobjects[i];
+        armor::ArmorObject& a = faceobjects[i];
 
         int keep = 1;
         for (size_t j = 0; j < indices.size(); j++) {
-            ArmorObject& b = faceobjects[indices[j]];
+            armor::ArmorObject& b = faceobjects[indices[j]];
 
             // intersection over union
             float inter_area = intersection_area(a, b);
@@ -220,8 +220,8 @@ ArmorDetectNCNN::ArmorDetectNCNN(
     const std::string& model_path_bin,
     const std::string& classify_model_path,
     const std::string& classify_label_path,
-    const LightParams& l,
-    const ArmorParams& a,
+    const armor::LightParams& l,
+    const armor::ArmorParams& a,
     double classifier_threshold,
     float conf_threshold,
     int top_k,
@@ -335,7 +335,7 @@ bool ArmorDetectNCNN::processCallback(
 
     cv::Mat output_buffer(out.h, out.w, CV_32F, out.data);
 
-    std::vector<ArmorObject> objs_tmp, objs_result;
+    std::vector<armor::ArmorObject> objs_tmp, objs_result;
     std::vector<cv::Rect> rects;
     std::vector<float> scores;
     std::vector<int> indices;
@@ -352,9 +352,11 @@ bool ArmorDetectNCNN::processCallback(
     );
 
     // TopK
-    std::sort(objs_tmp.begin(), objs_tmp.end(), [](const ArmorObject& a, const ArmorObject& b) {
-        return a.prob > b.prob;
-    });
+    std::sort(
+        objs_tmp.begin(),
+        objs_tmp.end(),
+        [](const armor::ArmorObject& a, const armor::ArmorObject& b) { return a.prob > b.prob; }
+    );
     if (objs_tmp.size() > static_cast<size_t>(this->top_k_)) {
         objs_tmp.resize(this->top_k_);
     }
@@ -381,7 +383,7 @@ bool ArmorDetectNCNN::processCallback(
         }
     }
     if (use_armor_detect_common_) {
-        std::vector<ArmorObject> armors =
+        std::vector<armor::ArmorObject> armors =
             armor_detect_common_->detectNet(frame.src_img, objs_result);
         // Call callback function
         if (this->infer_callback_) {

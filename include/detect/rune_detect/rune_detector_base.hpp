@@ -19,7 +19,7 @@ class RuneDetectorBase {
 public:
     virtual ~RuneDetectorBase() = default;
 
-    using CallbackType = std::function<void(std::vector<RuneObject>&, const CommonFrame&)>;
+    using CallbackType = std::function<void(std::vector<rune::RuneObject>&, const CommonFrame&)>;
 
     virtual void pushInput(const CommonFrame& frame) = 0;
 

@@ -37,7 +37,7 @@ class ArmorDetectTrt {
 public:
     // 初始化参数结构体
     using DetectorCallback =
-        std::function<void(const std::vector<ArmorObject>&, const CommonFrame&)>;
+        std::function<void(const std::vector<armor::ArmorObject>&, const CommonFrame&)>;
     struct Params {
         int input_w = 416; // 模型输入宽度
         int input_h = 416; // 模型输入高度
@@ -56,8 +56,8 @@ public:
         double expand_ratio_w,
         double expand_ratio_h,
         int binary_thres,
-        LightParams light_params,
-        ArmorParams armor_params,
+        armor::LightParams light_params,
+        armor::ArmorParams armor_params,
         std::string classify_model_path,
         std::string classify_label_path,
         double classifier_threshold,
@@ -80,8 +80,8 @@ private:
     // TensorRT 引擎初始化
     void buildEngine(const std::string& onnx_path);
     // 后处理：解析输出张量，生成检测框
-    std::vector<ArmorObject> postProcess(
-        std::vector<ArmorObject>& output_objs,
+    std::vector<armor::ArmorObject> postProcess(
+        std::vector<armor::ArmorObject>& output_objs,
         std::vector<float>& scores,
         std::vector<cv::Rect>& rects,
         const float* output,

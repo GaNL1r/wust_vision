@@ -324,19 +324,74 @@ struct Position {
     Position(double x_, double y_, double z_): x(x_), y(y_), z(z_) {}
 
     Position operator+(const Position& other) const {
-        return Position(x + other.x, y + other.y, z + other.z);
+        return { x + other.x, y + other.y, z + other.z };
     }
 
     Position operator-(const Position& other) const {
-        return Position(x - other.x, y - other.y, z - other.z);
+        return { x - other.x, y - other.y, z - other.z };
+    }
+
+    Position& operator+=(const Position& other) {
+        x += other.x;
+        y += other.y;
+        z += other.z;
+        return *this;
+    }
+
+    Position& operator-=(const Position& other) {
+        x -= other.x;
+        y -= other.y;
+        z -= other.z;
+        return *this;
     }
 
     Position operator*(double scalar) const {
-        return Position(x * scalar, y * scalar, z * scalar);
+        return { x * scalar, y * scalar, z * scalar };
+    }
+
+    Position operator/(double scalar) const {
+        return { x / scalar, y / scalar, z / scalar };
+    }
+
+    Position& operator*=(double scalar) {
+        x *= scalar;
+        y *= scalar;
+        z *= scalar;
+        return *this;
+    }
+
+    Position& operator/=(double scalar) {
+        x /= scalar;
+        y /= scalar;
+        z /= scalar;
+        return *this;
+    }
+
+    Position operator-() const {
+        return { -x, -y, -z };
+    }
+
+    bool operator==(const Position& other) const {
+        constexpr double eps = 1e-9;
+        return std::abs(x - other.x) < eps && std::abs(y - other.y) < eps
+            && std::abs(z - other.z) < eps;
+    }
+
+    bool operator!=(const Position& other) const {
+        return !(*this == other);
     }
 
     double norm() const {
         return std::sqrt(x * x + y * y + z * z);
+    }
+
+    double norm_squared() const {
+        return x * x + y * y + z * z;
+    }
+
+    Position normalized() const {
+        double n = norm();
+        return (n > 1e-9) ? *this / n : Position();
     }
 
     Eigen::Vector3d toEigen() const {
@@ -346,10 +401,14 @@ struct Position {
     static Position fromEigen(const Eigen::Vector3d& v) {
         return { v.x(), v.y(), v.z() };
     }
+
+    friend std::ostream& operator<<(std::ostream& os, const Position& p) {
+        return os << "(" << p.x << ", " << p.y << ", " << p.z << ")";
+    }
 };
-inline std::ostream& operator<<(std::ostream& os, const Position& p) {
-    os << "(" << p.x << ", " << p.y << ", " << p.z << ")";
-    return os;
+
+inline Position operator*(double scalar, const Position& p) {
+    return p * scalar;
 }
 
 struct Transform {

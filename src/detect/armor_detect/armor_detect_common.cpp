@@ -17,8 +17,8 @@
 ArmorDetectCommon::ArmorDetectCommon(
     const std::string& classify_model_path,
     const std::string& classify_label_path,
-    const LightParams& l,
-    const ArmorParams& a,
+    const armor::LightParams& l,
+    const armor::ArmorParams& a,
     double classifier_threshold,
     float expand_ratio_w,
     float expand_ratio_h,
@@ -34,7 +34,7 @@ ArmorDetectCommon::ArmorDetectCommon(
         std::make_unique<NumberClassifier>(classify_model_path, classify_label_path);
     corner_corrector = std::make_unique<LightCornerCorrector>();
 }
-bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, ArmorObject& armor) {
+bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, armor::ArmorObject& armor) {
     const int light_length = 12;
     const int warp_height = 28;
     const int small_armor_width = 32;
@@ -50,7 +50,8 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, ArmorObject& armor) 
     }
 
     // 判断装甲板类型
-    bool is_large = (armor.number == ArmorNumber::NO1 || armor.number == ArmorNumber::BASE);
+    bool is_large =
+        (armor.number == armor::ArmorNumber::NO1 || armor.number == armor::ArmorNumber::BASE);
 
     // pts 数量检查
     std::vector<cv::Point2f> pts_vec(std::begin(armor.pts), std::end(armor.pts));
@@ -188,7 +189,7 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, ArmorObject& armor) 
     return true;
 }
 
-bool ArmorDetectCommon::refineLightsFromArmorPts(ArmorObject& armor) const {
+bool ArmorDetectCommon::refineLightsFromArmorPts(armor::ArmorObject& armor) const {
     cv::Point2f armor_center = (armor.pts[0] + armor.pts[1] + armor.pts[2] + armor.pts[3]) * 0.25;
 
     std::vector<std::pair<int, double>> light_distances;
@@ -202,8 +203,8 @@ bool ArmorDetectCommon::refineLightsFromArmorPts(ArmorObject& armor) const {
     });
 
     if (light_distances.size() >= 2) {
-        const Light& l1 = armor.lights[light_distances[0].first];
-        const Light& l2 = armor.lights[light_distances[1].first];
+        const armor::Light& l1 = armor.lights[light_distances[0].first];
+        const armor::Light& l2 = armor.lights[light_distances[1].first];
 
         if (l1.center.x < l2.center.x) {
             armor.lights[0] = l1;
@@ -217,10 +218,10 @@ bool ArmorDetectCommon::refineLightsFromArmorPts(ArmorObject& armor) const {
         return false;
     }
 }
-std::vector<Light> ArmorDetectCommon::findLights(
+std::vector<armor::Light> ArmorDetectCommon::findLights(
     const cv::Mat& rgb_img,
     const cv::Mat& binary_img,
-    ArmorObject& armor
+    armor::ArmorObject& armor
 ) noexcept {
     using std::vector;
     vector<vector<cv::Point>> contours;
@@ -228,28 +229,30 @@ std::vector<Light> ArmorDetectCommon::findLights(
 
     cv::findContours(binary_img, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
 
-    vector<Light> all_lights;
+    vector<armor::Light> all_lights;
 
     for (const auto& contour: contours) {
         if (contour.size() < 6)
             continue;
 
-        auto light = Light(contour);
+        auto light = armor::Light(contour);
         if (isLight(light)) {
             all_lights.emplace_back(light);
         }
     }
 
-    std::sort(all_lights.begin(), all_lights.end(), [](const Light& l1, const Light& l2) {
-        return l1.center.x < l2.center.x;
-    });
+    std::sort(
+        all_lights.begin(),
+        all_lights.end(),
+        [](const armor::Light& l1, const armor::Light& l2) { return l1.center.x < l2.center.x; }
+    );
 
     armor.lights = all_lights;
 
     return all_lights;
 }
 
-bool ArmorDetectCommon::isLight(const Light& light) noexcept {
+bool ArmorDetectCommon::isLight(const armor::Light& light) noexcept {
     // The ratio of light (short side / long side)
     float ratio = light.width / light.length;
     bool ratio_ok = light_params_.min_ratio < ratio && ratio < light_params_.max_ratio;
@@ -260,7 +263,7 @@ bool ArmorDetectCommon::isLight(const Light& light) noexcept {
 
     return is_light;
 }
-bool ArmorDetectCommon::isArmor(const Light& light_1, const Light& light_2) noexcept {
+bool ArmorDetectCommon::isArmor(const armor::Light& light_1, const armor::Light& light_2) noexcept {
     if (light_1.length <= 1e-3f || light_2.length <= 1e-3f) {
         return false;
     }
@@ -286,17 +289,17 @@ bool ArmorDetectCommon::isArmor(const Light& light_1, const Light& light_2) noex
 
     return is_armor;
 }
-std::vector<ArmorObject>
-ArmorDetectCommon::detectNet(const cv::Mat& src_img, std::vector<ArmorObject>& objs_result) {
-    std::vector<ArmorObject> armors;
+std::vector<armor::ArmorObject>
+ArmorDetectCommon::detectNet(const cv::Mat& src_img, std::vector<armor::ArmorObject>& objs_result) {
+    std::vector<armor::ArmorObject> armors;
 
     for (auto& armor: objs_result) {
         // if (armor.color == ArmorColor::NONE || armor.color == ArmorColor::PURPLE) {
         //     continue;
         // }
-        if (gobal::detect_color == 0 && armor.color == ArmorColor::BLUE) {
+        if (gobal::detect_color == 0 && armor.color == armor::ArmorColor::BLUE) {
             continue;
-        } else if (gobal::detect_color == 1 && armor.color == ArmorColor::RED) {
+        } else if (gobal::detect_color == 1 && armor.color == armor::ArmorColor::RED) {
             continue;
         }
 

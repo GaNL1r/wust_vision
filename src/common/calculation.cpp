@@ -22,7 +22,7 @@ double s2qz_max = 100.0;
 double s2qyaw_min = 0.1;
 double s2qyaw_max = 100.0;
 double last_x_ = 0.0, last_y_ = 0.0, last_z_ = 0.0, last_yaw_ = 0.0;
-std::vector<Armors> datas;
+std::vector<armor::Armors> datas;
 std::chrono::steady_clock::time_point last_time_ = std::chrono::steady_clock::now();
 
 double orientationToYaw(const tf::Quaternion& orientation) {
@@ -41,7 +41,7 @@ void ex(double& a, double& min, double& max) {
         max = a;
     }
 }
-void commandCallbacka(const Armors& armors) {
+void commandCallbacka(const armor::Armors& armors) {
     std::ofstream log_file("/tmp/calculation.txt", std::ios::trunc);
     log_file << "已经收集了" << datas.size() << "个数据" << std::endl;
     datas.push_back(armors);
@@ -165,7 +165,7 @@ void commandCallbacka(const Armors& armors) {
     }
 }
 
-void commandCallbackYpd(const Armors& armors) {
+void commandCallbackYpd(const armor::Armors& armors) {
     // 第一次写入（覆盖）
     if (datas.empty()) {
         std::ofstream log_file("/tmp/calculation.txt", std::ios::trunc);

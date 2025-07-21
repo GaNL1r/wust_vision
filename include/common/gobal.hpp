@@ -37,7 +37,7 @@ extern cv::Mat camera_intrinsic;
 extern cv::Mat camera_distortion;
 extern enum AttackState { ATTACKONE, ATTACKWHOLECAR } attack_state;
 extern int use_detect_ncnn_count;
-extern std::vector<OneTarget> omni_targets;
+extern std::vector<armor::OneTarget> omni_targets;
 extern GimbalCmd last_cmd;
 extern std::unique_ptr<ThreadPool> thread_pool;
 } // namespace gobal

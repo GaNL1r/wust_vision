@@ -29,7 +29,7 @@ cv::Mat camera_intrinsic;
 cv::Mat camera_distortion;
 AttackState attack_state;
 int use_detect_ncnn_count = 0;
-std::vector<OneTarget> omni_targets;
+std::vector<armor::OneTarget> omni_targets;
 GimbalCmd last_cmd;
 std::unique_ptr<ThreadPool> thread_pool;
 } // namespace gobal

@@ -26,11 +26,11 @@ ArmorPoseEstimator::ArmorPoseEstimator() {
     pnp_solver_ = std::make_unique<PnPSolver>();
     pnp_solver_->setObjectPoints(
         "small",
-        ArmorObject::buildObjectPoints<cv::Point3f>(SMALL_ARMOR_WIDTH, SMALL_ARMOR_HEIGHT)
+        armor::ArmorObject::buildObjectPoints<cv::Point3f>(SMALL_ARMOR_WIDTH, SMALL_ARMOR_HEIGHT)
     );
     pnp_solver_->setObjectPoints(
         "large",
-        ArmorObject::buildObjectPoints<cv::Point3f>(LARGE_ARMOR_WIDTH, LARGE_ARMOR_HEIGHT)
+        armor::ArmorObject::buildObjectPoints<cv::Point3f>(LARGE_ARMOR_WIDTH, LARGE_ARMOR_HEIGHT)
     );
 
     std::array<double, 9> camera_matrix;
@@ -56,13 +56,13 @@ ArmorPoseEstimator::ArmorPoseEstimator() {
     R_gimbal_camera_ << 0, 0, 1, -1, 0, 0, 0, -1, 0;
 }
 
-std::vector<Armor> ArmorPoseEstimator::extractArmorPoses(
-    const std::vector<ArmorObject>& armors,
+std::vector<armor::Armor> ArmorPoseEstimator::extractArmorPoses(
+    const std::vector<armor::ArmorObject>& armors,
     Eigen::Matrix4d T_camera_to_odom,
     const cv::Mat& camera_intrinsic,
     const cv::Mat& camera_distortion
 ) {
-    std::vector<Armor> armors_msg;
+    std::vector<armor::Armor> armors_msg;
     Eigen::Matrix3d R_imu_camera = T_camera_to_odom.block<3, 3>(0, 0);
 
     for (const auto& armor: armors) {
@@ -70,16 +70,17 @@ std::vector<Armor> ArmorPoseEstimator::extractArmorPoses(
             continue;
         }
 
-        if (gobal::detect_color == 0 && armor.color != ArmorColor::RED) {
+        if (gobal::detect_color == 0 && armor.color != armor::ArmorColor::RED) {
             continue;
-        } else if (gobal::detect_color == 1 && armor.color != ArmorColor::BLUE) {
+        } else if (gobal::detect_color == 1 && armor.color != armor::ArmorColor::BLUE) {
             continue;
         }
         std::vector<cv::Mat> rvecs, tvecs;
-        Armor armor_;
-        ArmorObject temp_armor = armor;
+        armor::Armor armor_;
+        armor::ArmorObject temp_armor = armor;
         std::string temp_type;
-        if (temp_armor.number == ArmorNumber::NO1 || temp_armor.number == ArmorNumber::BASE) {
+        if (temp_armor.number == armor::ArmorNumber::NO1
+            || temp_armor.number == armor::ArmorNumber::BASE) {
             temp_type = "large";
         } else {
             temp_type = "small";
@@ -167,7 +168,7 @@ Eigen::Vector3d ArmorPoseEstimator::rotationMatrixToRPY(const Eigen::Matrix3d& R
 }
 
 void ArmorPoseEstimator::sortPnPResult(
-    const ArmorObject& armor,
+    const armor::ArmorObject& armor,
     std::vector<cv::Mat>& rvecs,
     std::vector<cv::Mat>& tvecs,
     std::string coord_frame_name,
@@ -226,7 +227,7 @@ void ArmorPoseEstimator::sortPnPResult(
 
     angle += 90.0;
 
-    if (armor.number == ArmorNumber::OUTPOST)
+    if (armor.number == armor::ArmorNumber::OUTPOST)
         angle = -angle;
 
     // 根据倾斜角度选择解

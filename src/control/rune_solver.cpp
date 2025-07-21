@@ -42,7 +42,7 @@ RuneSolver::RuneSolver(const RuneSolverParams& rsp): rune_solver_params_(rsp) {
     manual_compensator_ = std::make_unique<ManualCompensator>();
 }
 
-double RuneSolver::init(const Rune received_target, Eigen::Matrix4d T_camera_to_odom) {
+double RuneSolver::init(const rune::Rune received_target, Eigen::Matrix4d T_camera_to_odom) {
     if (received_target.is_lost) {
         return 0;
     }
@@ -89,7 +89,7 @@ double RuneSolver::init(const Rune received_target, Eigen::Matrix4d T_camera_to_
     return observed_angle;
 }
 
-double RuneSolver::update(const Rune received_target, Eigen::Matrix4d T_camera_to_odom) {
+double RuneSolver::update(const rune::Rune received_target, Eigen::Matrix4d T_camera_to_odom) {
     std::chrono::steady_clock::time_point timestamp = received_target.timestamp;
     double now_time = std::chrono::duration<double>(timestamp.time_since_epoch()).count();
     double delta_time = now_time - last_time_;
@@ -183,7 +183,7 @@ double RuneSolver::predictTarget(Eigen::Vector3d& predicted_position, double tim
 }
 
 Eigen::Matrix4d
-RuneSolver::solvePose(const Rune& predicted_target, Eigen::Matrix4d T_camera_to_odom) {
+RuneSolver::solvePose(const rune::Rune& predicted_target, Eigen::Matrix4d T_camera_to_odom) {
     Eigen::Matrix4d pose = Eigen::Matrix4d::Identity();
     std::vector<cv::Point2f> image_points(predicted_target.pts.size());
     std::transform(
@@ -370,7 +370,7 @@ GimbalCmd RuneSolver::solveGimbalCmd(const Eigen::Vector3d& target) {
     return gimbal_cmd;
 }
 
-double RuneSolver::getNormalAngle(const Rune received_target) {
+double RuneSolver::getNormalAngle(const rune::Rune received_target) {
     auto center_point = cv::Point2f(received_target.pts[0].x, received_target.pts[0].y);
     std::array<cv::Point2f, ARMOR_KEYPOINTS_NUM> armor_points;
     std::transform(

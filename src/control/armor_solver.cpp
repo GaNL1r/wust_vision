@@ -19,6 +19,7 @@
 #include "common/3rdparty/angles.h"
 #include "common/gobal.hpp"
 #include "common/logger.hpp"
+#include "common/utils.hpp"
 #include "yaml-cpp/yaml.h"
 #include <cmath>
 #include <iostream>
@@ -85,243 +86,46 @@ void ArmorSolver::init(const YAML::Node& config) {
     transfer_thresh_ = 5;
 }
 
-GimbalCmd
-ArmorSolver::solve(const Target& target, std::chrono::steady_clock::time_point current_time) {
-    // 1. 获取最新的云台 RPY
-    std::array<double, 3> rpy {};
-
-    rpy[0] = gobal::last_roll + gobal::gimbal2camera_roll;
-    rpy[1] = gobal::last_pitch + gobal::gimbal2camera_pitch;
-    rpy[2] = gobal::last_yaw + gobal::gimbal2camera_yaw;
-
-    //  2. 预测目标位置与朝向
-    Eigen::Vector3d pos(target.position_.x, target.position_.y, target.position_.z);
-    double yaw = target.yaw;
-
-    using namespace std::chrono;
-
-    double fly_t = trajectory_compensator_->getFlyingTime(pos);
-    auto dt_seconds = duration<double>(fly_t + prediction_delay_);
-    auto dt = duration_cast<steady_clock::duration>(dt_seconds);
-    auto total_dt = (current_time - target.timestamp) + dt;
-    double dt_seconds_double = duration<double>(total_dt).count();
-    auto center_v = Eigen::Vector3d(target.velocity_.x, target.velocity_.y, target.velocity_.z);
-    center_v += dt_seconds_double
-        * Eigen::Vector3d(target.acceleration_.x, target.acceleration_.y, target.acceleration_.z);
-    pos += dt_seconds_double * center_v;
-    yaw += dt_seconds_double * target.v_yaw;
-
-    // 3. 选装甲板并计算原始 yaw/pitch
-    auto armors = getArmorPositions(
-        pos,
-        yaw,
-        target.radius_1,
-        target.radius_2,
-        target.d_zc,
-        target.d_za,
-        target.armors_num
-    );
-
-    auto v_armors = getArmorVelocities(
-        pos,
-        yaw,
-        center_v,
-        target.v_yaw,
-        target.radius_1,
-        target.radius_2,
-        target.d_zc,
-        target.d_za,
-        target.armors_num
-    );
-    int idx = selectBestArmor(armors, pos, yaw, target.v_yaw, target.armors_num);
-
-    Eigen::Vector3d chosen = armors.at(idx);
-    Eigen::Vector3d v_chosen = v_armors.at(idx);
-    if (chosen.norm() < 0.1) {
-        throw std::runtime_error("No valid armor to shoot");
-    }
-    double raw_yaw, raw_pitch;
-    double v_yaw, v_pitch;
-    double v_yaw_ = 0;
-    double v_pitch_ = 0;
-    calcYawAndPitch(chosen, rpy, raw_yaw, raw_pitch);
-    calcVYawAndVPitch(v_chosen, rpy, v_yaw, v_pitch);
-    double distance = chosen.norm();
-    std::vector<double> offs;
-    double pitch_off;
-    double yaw_off;
-    double fire_yaw;
-    double fire_pitch;
-    double raw_yaw_, raw_pitch_;
-    // 4. 状态机逻辑
-    bool fire_advice = false;
-    bool is_large;
-    switch (state_) {
-        case TRACKING_ARMOR:
-            if (std::abs(target.v_yaw) > max_tracking_v_yaw_) {
-                ++overflow_count_;
-            } else {
-                overflow_count_ = 0;
-            }
-            if (overflow_count_ > transfer_thresh_) {
-                state_ = TRACKING_CENTER;
-            }
-            // 如果一直没对上，也加 controller_delay 预测
-            if (gobal::controller_delay != 0.0) {
-                center_v += gobal::controller_delay
-                    * Eigen::Vector3d(
-                                target.acceleration_.x,
-                                target.acceleration_.y,
-                                target.acceleration_.z
-                    );
-                pos += gobal::controller_delay * center_v;
-                yaw += gobal::controller_delay * target.v_yaw;
-                auto tmp = getArmorPositions(
-                               pos,
-                               yaw,
-                               target.radius_1,
-                               target.radius_2,
-                               target.d_zc,
-                               target.d_za,
-                               target.armors_num
-                )
-                               .at(idx);
-                if (tmp.norm() < 0.1) {
-                    throw std::runtime_error("No valid armor after controller delay");
-                }
-                calcYawAndPitch(tmp, rpy, raw_yaw, raw_pitch);
-                distance = tmp.norm();
-            }
-            calcYawAndPitch(pos, rpy, raw_yaw_, raw_pitch);
-            offs = manual_compensator_->angleHardCorrect(distance, chosen.z());
-            yaw_off = offs[1] * M_PI / 180.0;
-            pitch_off = offs[0] * M_PI / 180.0;
-            fire_yaw = raw_yaw + yaw_off;
-            fire_pitch = raw_pitch + pitch_off;
-            is_large = (target.id == ArmorNumber::NO1 || target.id == ArmorNumber::BASE);
-            fire_advice = isOnTarget(rpy[2], rpy[1], fire_yaw, fire_pitch, distance, is_large);
-            break;
-
-        case TRACKING_CENTER:
-            if (std::abs(target.v_yaw) < max_tracking_v_yaw_) {
-                ++overflow_count_;
-            } else {
-                overflow_count_ = 0;
-            }
-            if (overflow_count_ > transfer_thresh_) {
-                state_ = TRACKING_ARMOR;
-                overflow_count_ = 0;
-            }
-
-            calcYawAndPitch(chosen, rpy, raw_yaw_, raw_pitch);
-            if (gobal::controller_delay != 0.0) {
-                center_v += gobal::controller_delay
-                    * Eigen::Vector3d(
-                                target.acceleration_.x,
-                                target.acceleration_.y,
-                                target.acceleration_.z
-                    );
-                pos += gobal::controller_delay * center_v;
-                yaw += gobal::controller_delay * target.v_yaw;
-                auto tmp = getArmorPositions(
-                               pos,
-                               yaw,
-                               target.radius_1,
-                               target.radius_2,
-                               target.d_zc,
-                               target.d_za,
-                               target.armors_num
-                )
-                               .at(idx);
-                if (tmp.norm() < 0.1) {
-                    throw std::runtime_error("No valid armor after controller delay");
-                }
-                calcYawAndPitch(tmp, rpy, raw_yaw_, raw_pitch);
-                distance = tmp.norm();
-            }
-            // fire_advice = true;
-            calcYawAndPitch(pos, rpy, raw_yaw, raw_pitch_);
-            calcVYawAndVPitch(center_v, rpy, v_yaw, v_pitch_);
-            distance = pos.norm();
-            offs = manual_compensator_->angleHardCorrect(distance, chosen.z());
-            yaw_off = offs[1] * M_PI / 180.0;
-            pitch_off = offs[0] * M_PI / 180.0;
-
-            fire_yaw = raw_yaw_ + yaw_off;
-            fire_pitch = raw_pitch + pitch_off;
-            is_large = (target.id == ArmorNumber::NO1 || target.id == ArmorNumber::BASE);
-            fire_advice = isOnTarget(rpy[2], rpy[1], fire_yaw, fire_pitch, distance, is_large);
-            break;
-    }
-
-    // 5. 弹道+手动补偿
-
-    double cmd_pitch = raw_pitch + pitch_off;
-    double cmd_yaw = normalize_angle(raw_yaw + yaw_off);
-
-    // 6. 填充输出
-    GimbalCmd cmd;
-    cmd.timestamp = current_time;
-    cmd.distance = distance;
-    cmd.fire_advice = fire_advice;
-    cmd.yaw = cmd_yaw * 180.0 / M_PI;
-    cmd.pitch = cmd_pitch * 180.0 / M_PI;
-    cmd.yaw_diff = (cmd_yaw - rpy[2]) * 180.0 / M_PI;
-    if (cmd.yaw_diff > 180) {
-        cmd.yaw_diff -= 360;
-    }
-    if (cmd.yaw_diff < -180) {
-        cmd.yaw_diff += 360;
-    }
-    cmd.pitch_diff = (cmd_pitch - rpy[1]) * 180.0 / M_PI;
-    cmd.v_yaw = v_yaw * 180.0 / M_PI;
-    cmd.v_pitch = v_pitch * 180.0 / M_PI;
-    cmd.select_id = idx;
-    return cmd;
-}
 GimbalCmd ArmorSolver::solve(
-    const Target& target,
-    std::vector<OneTarget> one_targets_,
+    const ArmorSloverTarget& armor_slover_target,
     std::chrono::steady_clock::time_point current_time
 ) {
     // 1. 获取最新的云台 RPY
-    std::array<double, 3> rpy {};
-
+    std::array<double, 3> rpy;
     rpy[0] = gobal::last_roll + gobal::gimbal2camera_roll;
     rpy[1] = gobal::last_pitch + gobal::gimbal2camera_pitch;
     rpy[2] = gobal::last_yaw + gobal::gimbal2camera_yaw;
 
-    int one_idx = selectBestTarget(one_targets_, target.tracking);
-    int target_armor_num = target.armors_num;
-    // 2. 选择最佳单目标
-    OneTarget best_target;
+    // 2. 选择最优单目标索引
+    const auto& one_targets = armor_slover_target.one_targets;
+    const auto& target = armor_slover_target.target;
+    int one_idx = selectBestTarget(one_targets, target.tracking);
+    armor::OneTarget best_target;
     if (one_idx >= 0) {
-        best_target = one_targets_[one_idx];
+        best_target = one_targets[one_idx];
     }
-    bool use_single = best_target.tracking;
-    //  2. 预测目标位置与朝向
 
-    if (!use_single || target.tracking) {
-        Eigen::Vector3d pos(target.position_.x, target.position_.y, target.position_.z);
+    // 拿到 best_target
+    bool use_multi = (!best_target.tracking || target.tracking);
+
+    if (use_multi) {
+        // 3.1 预测位置、速度、yaw
+        Eigen::Vector3d pos = target.position_.toEigen();
+        Eigen::Vector3d vel = target.velocity_.toEigen();
+        Eigen::Vector3d acc = target.acceleration_.toEigen();
         double yaw = target.yaw;
 
         using namespace std::chrono;
-
         double fly_t = trajectory_compensator_->getFlyingTime(pos);
-        auto dt_seconds = duration<double>(fly_t + prediction_delay_);
-        auto dt = duration_cast<steady_clock::duration>(dt_seconds);
-        auto total_dt = (current_time - target.timestamp) + dt;
-        double dt_seconds_double = duration<double>(total_dt).count();
-        auto center_v = Eigen::Vector3d(target.velocity_.x, target.velocity_.y, target.velocity_.z);
-        center_v += dt_seconds_double
-            * Eigen::Vector3d(
-                        target.acceleration_.x,
-                        target.acceleration_.y,
-                        target.acceleration_.z
-            );
-        pos += dt_seconds_double * center_v;
-        yaw += dt_seconds_double * target.v_yaw;
-        // 3. 选装甲板并计算原始 yaw/pitch
+        // 总延迟 = 飞行时间 + 预测延迟 + 从目标 timestamp 到 now 的时间
+        double dt_sec =
+            fly_t + prediction_delay_ + duration<double>(current_time - target.timestamp).count();
+
+        vel += dt_sec * acc;
+        pos += dt_sec * vel;
+        yaw += dt_sec * target.v_yaw;
+
+        // 3.2 装甲板位置与速度
         auto armors = getArmorPositions(
             pos,
             yaw,
@@ -334,7 +138,7 @@ GimbalCmd ArmorSolver::solve(
         auto v_armors = getArmorVelocities(
             pos,
             yaw,
-            center_v,
+            vel,
             target.v_yaw,
             target.radius_1,
             target.radius_2,
@@ -342,261 +146,102 @@ GimbalCmd ArmorSolver::solve(
             target.d_za,
             target.armors_num
         );
-        int idx = selectBestArmor(armors, pos, yaw, target.v_yaw, target.armors_num);
 
-        if (idx < 0 || idx >= static_cast<int>(armors.size())) {
+        int idx = selectBestArmor(armors, pos, yaw, target.v_yaw, target.armors_num);
+        if (idx < 0 || idx >= (int)armors.size() || armors[idx].norm() < 0.1) {
             return returnDefaultCmd();
         }
 
+        // 3.3 角度计算与补偿
         Eigen::Vector3d chosen = armors[idx];
-
-        Eigen::Vector3d v_chosen = v_armors[idx];
-        if (chosen.norm() < 0.1) {
-            throw std::runtime_error("No valid armor to shoot");
-        }
         double raw_yaw, raw_pitch;
-        double v_yaw, v_pitch;
-        double v_yaw_ = 0;
-        double v_pitch_ = 0;
         calcYawAndPitch(chosen, rpy, raw_yaw, raw_pitch);
-        calcVYawAndVPitch(v_chosen, rpy, v_yaw, v_pitch);
+
         double distance = chosen.norm();
-        std::vector<double> offs;
-        double pitch_off;
-        double yaw_off;
-        double fire_yaw;
-        double fire_pitch;
-        double raw_yaw_, raw_pitch_;
-        bool fire_advice = false;
-        bool is_large;
-        switch (state_) {
-            case TRACKING_ARMOR:
-                if (std::abs(target.v_yaw) > max_tracking_v_yaw_) {
-                    ++overflow_count_;
-                } else {
-                    overflow_count_ = 0;
-                }
-                if (overflow_count_ > transfer_thresh_) {
-                    state_ = TRACKING_CENTER;
-                }
-                // 如果一直没对上，也加 controller_delay 预测
-                if (gobal::controller_delay != 0.0) {
-                    center_v += gobal::controller_delay
-                        * Eigen::Vector3d(
-                                    target.acceleration_.x,
-                                    target.acceleration_.y,
-                                    target.acceleration_.z
-                        );
-                    pos += gobal::controller_delay * center_v;
-                    yaw += gobal::controller_delay * target.v_yaw;
-                    auto tmp = getArmorPositions(
-                                   pos,
-                                   yaw,
-                                   target.radius_1,
-                                   target.radius_2,
-                                   target.d_zc,
-                                   target.d_za,
-                                   target.armors_num
-                    )
-                                   .at(idx);
-                    if (tmp.norm() < 0.1) {
-                        throw std::runtime_error("No valid armor after controller delay");
-                    }
-                    calcYawAndPitch(tmp, rpy, raw_yaw, raw_pitch);
-                    distance = tmp.norm();
-                }
-                //calcYawAndPitch(pos, rpy, raw_yaw_, raw_pitch);
-                offs = manual_compensator_->angleHardCorrect(distance, chosen.z());
-                yaw_off = offs[1] * M_PI / 180.0;
-                pitch_off = offs[0] * M_PI / 180.0;
-                fire_yaw = raw_yaw + yaw_off;
-                fire_pitch = raw_pitch + pitch_off;
-                is_large = (target.id == ArmorNumber::NO1 || target.id == ArmorNumber::BASE);
-                fire_advice = isOnTarget(rpy[2], rpy[1], fire_yaw, fire_pitch, distance, is_large);
-                break;
+        auto [fire_yaw, fire_pitch] =
+            manual_compensator_->applyManualCompensator(distance, chosen.z(), raw_yaw, raw_pitch);
 
-            case TRACKING_CENTER:
-                if (std::abs(target.v_yaw) < max_tracking_v_yaw_) {
-                    ++overflow_count_;
-                } else {
-                    overflow_count_ = 0;
-                }
-                if (overflow_count_ > transfer_thresh_) {
-                    state_ = TRACKING_ARMOR;
-                    overflow_count_ = 0;
-                }
+        // 3.4 发射判断
+        bool is_large =
+            (target.id == armor::ArmorNumber::NO1 || target.id == armor::ArmorNumber::BASE);
+        bool fire_advice = isOnTarget(rpy[2], rpy[1], fire_yaw, fire_pitch, distance, is_large);
 
-                calcYawAndPitch(chosen, rpy, raw_yaw_, raw_pitch);
-                if (gobal::controller_delay != 0.0) {
-                    center_v += gobal::controller_delay
-                        * Eigen::Vector3d(
-                                    target.acceleration_.x,
-                                    target.acceleration_.y,
-                                    target.acceleration_.z
-                        );
-                    pos += gobal::controller_delay * center_v;
-                    yaw += gobal::controller_delay * target.v_yaw;
-                    auto tmp = getArmorPositions(
-                                   pos,
-                                   yaw,
-                                   target.radius_1,
-                                   target.radius_2,
-                                   target.d_zc,
-                                   target.d_za,
-                                   target.armors_num
-                    )
-                                   .at(idx);
-                    if (tmp.norm() < 0.1) {
-                        throw std::runtime_error("No valid armor after controller delay");
-                    }
-                    calcYawAndPitch(tmp, rpy, raw_yaw_, raw_pitch);
-                    distance = tmp.norm();
-                }
-                // fire_advice = true;
-                calcYawAndPitch(pos, rpy, raw_yaw, raw_pitch_);
-                calcVYawAndVPitch(center_v, rpy, v_yaw, v_pitch_);
-                distance = pos.norm();
-                offs = manual_compensator_->angleHardCorrect(distance, chosen.z());
-                yaw_off = offs[1] * M_PI / 180.0;
-                pitch_off = offs[0] * M_PI / 180.0;
+        // 3.5 速度角计算
+        double v_yaw, v_pitch;
+        calcVYawAndVPitch(vel, rpy, v_yaw, v_pitch);
 
-                fire_yaw = raw_yaw_ + yaw_off;
-                fire_pitch = raw_pitch + pitch_off;
-                is_large = (target.id == ArmorNumber::NO1 || target.id == ArmorNumber::BASE);
-                fire_advice = isOnTarget(rpy[2], rpy[1], fire_yaw, fire_pitch, distance, is_large);
-                break;
-        }
-
-        // 5. 弹道+手动补偿
-
-        double cmd_pitch = raw_pitch + pitch_off;
-        double cmd_yaw = normalize_angle(raw_yaw + yaw_off);
-
-        // 6. 填充输出
+        // 3.6 填充命令并返回
         GimbalCmd cmd;
         cmd.timestamp = current_time;
         cmd.distance = distance;
         cmd.fire_advice = fire_advice;
-        cmd.yaw = cmd_yaw * 180.0 / M_PI;
-        cmd.pitch = cmd_pitch * 180.0 / M_PI;
-        cmd.yaw_diff = (cmd_yaw - rpy[2]) * 180.0 / M_PI;
-        if (cmd.yaw_diff > 180) {
+        cmd.yaw = fire_yaw * 180.0 / M_PI;
+        cmd.pitch = fire_pitch * 180.0 / M_PI;
+
+        cmd.yaw_diff = normalize_angle(fire_yaw - rpy[2]) * 180.0 / M_PI;
+        if (cmd.yaw_diff > 180)
             cmd.yaw_diff -= 360;
-        }
-        if (cmd.yaw_diff < -180) {
+        if (cmd.yaw_diff < -180)
             cmd.yaw_diff += 360;
-        }
-        cmd.pitch_diff = (cmd_pitch - rpy[1]) * 180.0 / M_PI;
+
+        cmd.pitch_diff = (fire_pitch - rpy[1]) * 180.0 / M_PI;
         cmd.v_yaw = v_yaw * 180.0 / M_PI;
         cmd.v_pitch = v_pitch * 180.0 / M_PI;
         cmd.select_id = idx;
         return cmd;
-    } else if (best_target.tracking) {
-        Eigen::Vector3d pos(
-            best_target.position_.x,
-            best_target.position_.y,
-            best_target.position_.z
-        );
+    } else {
+        // 4.1 预测 best_target
+        Eigen::Vector3d pos = best_target.position_.toEigen();
+        Eigen::Vector3d vel = best_target.velocity_.toEigen();
         double yaw = best_target.yaw;
 
         using namespace std::chrono;
-
         double fly_t = trajectory_compensator_->getFlyingTime(pos);
-        auto dt_seconds = duration<double>(fly_t + prediction_delay_);
-        auto dt = duration_cast<steady_clock::duration>(dt_seconds);
-        auto total_dt = (current_time - best_target.timestamp) + dt;
-        double dt_seconds_double = duration<double>(total_dt).count();
-        auto armor_v = Eigen::Vector3d(
-            best_target.velocity_.x,
-            best_target.velocity_.y,
-            best_target.velocity_.z
-        );
-        armor_v += dt_seconds_double
-            * Eigen::Vector3d(
-                       best_target.acceleration_.x,
-                       best_target.acceleration_.y,
-                       best_target.acceleration_.z
-            );
-        pos += dt_seconds_double * armor_v;
-        yaw += dt_seconds_double * best_target.v_yaw;
-        double v_yaw, v_pitch;
-        calcVYawAndVPitch(armor_v, rpy, v_yaw, v_pitch);
+        double dt_sec = fly_t + prediction_delay_
+            + duration<double>(current_time - best_target.timestamp).count();
+
+        vel += dt_sec * best_target.acceleration_.toEigen();
+        pos += dt_sec * vel;
+        yaw += dt_sec * best_target.v_yaw;
+
+        // 4.2 计算角度与补偿
         double raw_yaw, raw_pitch;
         calcYawAndPitch(pos, rpy, raw_yaw, raw_pitch);
+
         double distance = pos.norm();
-        std::vector<double> offs;
-        double pitch_off;
-        double yaw_off;
-        double fire_yaw;
-        double fire_pitch;
-        double raw_yaw_, raw_pitch_;
-        bool fire_advice = false;
-        if (gobal::controller_delay != 0.0) {
-            armor_v += gobal::controller_delay
-                * Eigen::Vector3d(
-                           best_target.acceleration_.x,
-                           best_target.acceleration_.y,
-                           best_target.acceleration_.z
-                );
-            pos += gobal::controller_delay * armor_v;
-            yaw += gobal::controller_delay * best_target.v_yaw;
+        auto [fire_yaw, fire_pitch] =
+            manual_compensator_->applyManualCompensator(distance, pos.z(), raw_yaw, raw_pitch);
 
-            if (pos.norm() < 0.1) {
-                throw std::runtime_error("No valid armor after controller delay");
-            }
-            calcYawAndPitch(pos, rpy, raw_yaw, raw_pitch);
-            distance = pos.norm();
-        }
-        offs = manual_compensator_->angleHardCorrect(distance, pos.z());
-        yaw_off = offs[1] * M_PI / 180.0;
-        pitch_off = offs[0] * M_PI / 180.0;
+        // 4.3 发射判断
+        bool is_large =
+            (best_target.id == armor::ArmorNumber::NO1 || best_target.id == armor::ArmorNumber::BASE
+            );
+        bool fire_advice = isOnTarget(rpy[2], rpy[1], fire_yaw, fire_pitch, distance, is_large);
 
-        fire_yaw = raw_yaw + yaw_off;
-        fire_pitch = raw_pitch + pitch_off;
-        bool is_large = (best_target.id == ArmorNumber::NO1 || best_target.id == ArmorNumber::BASE);
-        fire_advice = isOnTarget(rpy[2], rpy[1], fire_yaw, fire_pitch, distance, is_large);
-        double cmd_pitch = raw_pitch + pitch_off;
-        double cmd_yaw = normalize_angle(raw_yaw + yaw_off);
+        // 4.4 速度角计算
+        double v_yaw, v_pitch;
+        calcVYawAndVPitch(vel, rpy, v_yaw, v_pitch);
 
+        // 4.5 填充并返回
         GimbalCmd cmd;
         cmd.timestamp = current_time;
         cmd.distance = distance;
         cmd.fire_advice = fire_advice;
-        cmd.yaw = cmd_yaw * 180.0 / M_PI;
-        cmd.pitch = cmd_pitch * 180.0 / M_PI;
-        cmd.yaw_diff = (cmd_yaw - rpy[2]) * 180.0 / M_PI;
-        if (cmd.yaw_diff > 180) {
+        cmd.yaw = fire_yaw * 180.0 / M_PI;
+        cmd.pitch = fire_pitch * 180.0 / M_PI;
+
+        cmd.yaw_diff = normalize_angle(fire_yaw - rpy[2]) * 180.0 / M_PI;
+        if (cmd.yaw_diff > 180)
             cmd.yaw_diff -= 360;
-        }
-        if (cmd.yaw_diff < -180) {
+        if (cmd.yaw_diff < -180)
             cmd.yaw_diff += 360;
-        }
-        cmd.pitch_diff = (cmd_pitch - rpy[1]) * 180.0 / M_PI;
+
+        cmd.pitch_diff = (fire_pitch - rpy[1]) * 180.0 / M_PI;
         cmd.v_yaw = v_yaw * 180.0 / M_PI;
         cmd.v_pitch = v_pitch * 180.0 / M_PI;
-        cmd.select_id = one_idx + target_armor_num;
+        cmd.select_id = one_idx + target.armors_num;
         return cmd;
-    } else {
-        return returnDefaultCmd();
     }
-}
-std::vector<GimbalCmd> ArmorSolver::solveVector(
-    const Target& target,
-    std::vector<OneTarget> one_targets_,
-    std::chrono::steady_clock::time_point current_time,
-    int step,
-    double dt
-) {
-    std::vector<GimbalCmd> cmds;
-    for (int i = 1; i <= step; ++i) {
-        auto cmd = solve(
-            target,
-            one_targets_,
-            current_time + std::chrono::milliseconds(static_cast<int>(std::round(i * dt)))
-        );
-        cmds.push_back(cmd);
-    }
-    return cmds;
 }
 
 std::vector<std::pair<double, double>> ArmorSolver::getTrajectory() const noexcept {
@@ -767,12 +412,14 @@ int ArmorSolver::selectBestArmor(
     int selected_id = static_cast<int>(temp_angle / (2 * M_PI / armors_num));
     return selected_id;
 }
-int ArmorSolver::selectBestTarget(const std::vector<OneTarget>& targets, bool is_target_tracking)
-    const noexcept {
+int ArmorSolver::selectBestTarget(
+    const std::vector<armor::OneTarget>& targets,
+    bool is_target_tracking
+) const noexcept {
     int best_idx = -1;
     auto current_time = std::chrono::steady_clock::now();
     double min_angle_diff = std::numeric_limits<double>::max();
-    const OneTarget* best_target_ptr = nullptr;
+    const armor::OneTarget* best_target_ptr = nullptr;
 
     // Step 1: 优先选择 is_omni == false 的目标
     for (int pass = 0; pass < 2; ++pass) {
@@ -812,7 +459,7 @@ int ArmorSolver::selectBestTarget(const std::vector<OneTarget>& targets, bool is
     if (best_idx == -1 || best_target_ptr == nullptr)
         return -1;
 
-    const OneTarget& best_target = *best_target_ptr;
+    const armor::OneTarget& best_target = *best_target_ptr;
 
     if (!has_last_target_) {
         last_target_ = best_target;

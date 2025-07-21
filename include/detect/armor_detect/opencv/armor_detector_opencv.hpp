@@ -34,42 +34,43 @@
 class ArmorDetectOpenCV {
 public:
     using DetectorCallback =
-        std::function<void(const std::vector<ArmorObject>&, const CommonFrame&)>;
+        std::function<void(const std::vector<armor::ArmorObject>&, const CommonFrame&)>;
 
     ArmorDetectOpenCV(
         const std::string& classify_model_path,
         const std::string& classify_label_path,
         const int& bin_thres,
         const double& classifier_threshold,
-        const LightParams& l,
-        const ArmorParams& a
+        const armor::LightParams& l,
+        const armor::ArmorParams& a
     );
 
-    std::vector<ArmorObject> detect(const cv::Mat& input) noexcept;
+    std::vector<armor::ArmorObject> detect(const cv::Mat& input) noexcept;
     void pushInput(const CommonFrame& frame);
 
     cv::Mat preprocessImage(const cv::Mat& input, cv::Mat& gray_img_) noexcept;
-    std::vector<Light> findLights(const cv::Mat& rbg_img, const cv::Mat& binary_img) noexcept;
-    std::vector<ArmorObject> matchLights(const std::vector<Light>& lights) noexcept;
+    std::vector<armor::Light>
+    findLights(const cv::Mat& rbg_img, const cv::Mat& binary_img) noexcept;
+    std::vector<armor::ArmorObject> matchLights(const std::vector<armor::Light>& lights) noexcept;
 
-    cv::Mat extractNumber(const cv::Mat& src, const ArmorObject& armor) const noexcept;
+    cv::Mat extractNumber(const cv::Mat& src, const armor::ArmorObject& armor) const noexcept;
 
     void setCallback(DetectorCallback callback);
     // Parameters
     int binary_thres_;
 
-    LightParams light_params_;
-    ArmorParams armor_params_;
+    armor::LightParams light_params_;
+    armor::ArmorParams armor_params_;
 
     std::unique_ptr<LightCornerCorrector> corner_corrector_;
 
     double classifier_threshold_ = 0.5;
 
 private:
-    bool isLight(const Light& possible_light) noexcept;
-    bool containLight(const int i, const int j, const std::vector<Light>& lights) noexcept;
-    ArmorType isArmor(const Light& light_1, const Light& light_2) noexcept;
-    void topts(ArmorObject& armor);
+    bool isLight(const armor::Light& possible_light) noexcept;
+    bool containLight(const int i, const int j, const std::vector<armor::Light>& lights) noexcept;
+    armor::ArmorType isArmor(const armor::Light& light_1, const armor::Light& light_2) noexcept;
+    void topts(armor::ArmorObject& armor);
 
     std::unique_ptr<NumberClassifier> number_classifier_;
 

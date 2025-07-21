@@ -37,8 +37,8 @@ ArmorDetectorNCNNWrapper::ArmorDetectorNCNNWrapper(
                                 << "model_path_bin: " << model_path_param;
     int binary_thres;
     float expand_ratio_w, expand_ratio_h;
-    LightParams l_params;
-    ArmorParams a_params;
+    armor::LightParams l_params;
+    armor::ArmorParams a_params;
     if (use_armor_detect_common) {
         binary_thres = config["armor_detect"]["light"]["binary_thres"].as<int>(85);
         expand_ratio_w = config["armor_detect"]["light"]["expand_ratio_w"].as<float>(1.1);
