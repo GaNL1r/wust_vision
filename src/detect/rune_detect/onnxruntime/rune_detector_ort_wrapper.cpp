@@ -34,12 +34,8 @@ RuneDetectorOnnxRuntimeWrapper::RuneDetectorOnnxRuntimeWrapper(const YAML::Node&
 
 RuneDetectorOnnxRuntimeWrapper::~RuneDetectorOnnxRuntimeWrapper() = default;
 
-void RuneDetectorOnnxRuntimeWrapper::pushInput(
-    const cv::Mat& rgb_img,
-    std::chrono::steady_clock::time_point timestamp,
-    Eigen::Matrix4d T_camera_to_odom
-) {
-    rune_detector_->pushInput(rgb_img, timestamp, T_camera_to_odom);
+void RuneDetectorOnnxRuntimeWrapper::pushInput(const CommonFrame& frame) {
+    rune_detector_->pushInput(frame);
 }
 
 void RuneDetectorOnnxRuntimeWrapper::setCallback(CallbackType cb) {

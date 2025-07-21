@@ -2,6 +2,7 @@
 <html lang="zh">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>崇实战队自瞄系统网页调试器</title>
     <link rel="icon" href="/static/logo.JPG" type="image/png" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -44,6 +45,7 @@
       #tab-buttons {
         margin: 130px 0 10px 0;
         text-align: center;
+        -webkit-user-select: none;
         user-select: none;
       }
       #tab-buttons button {
@@ -110,6 +112,7 @@
         display: block;
         margin-bottom: 6px;
         cursor: pointer;
+        -webkit-user-select: none;
         user-select: none;
       }
       fieldset {
@@ -153,6 +156,7 @@
         border-radius: 10px;
         width: 500px;
         box-sizing: border-box;
+        -webkit-user-select: none;
         user-select: none;
       }
       .chart-box h4 {
@@ -200,10 +204,12 @@
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         overflow-y: auto;
         max-height: 450px;
-        user-select: text;
+        -webkit-user-select: none;
+        user-select: none;
       }
       .json-container h3 {
         margin-top: 0;
+        -webkit-user-select: none;
         user-select: none;
       }
       #json-aim {
@@ -243,6 +249,7 @@
         cursor: pointer;
         font-weight: bold;
         outline: none;
+        -webkit-user-select: none;
         user-select: none;
       }
       .json-tree ul {
@@ -264,7 +271,8 @@
         width: 220px;
         font-weight: bold;
         margin-bottom: 8px;
-        user-select: text;
+        -webkit-user-select: none;
+        user-select: none;
       }
       #config-form input {
         width: 240px;
@@ -286,6 +294,7 @@
         border: none;
         background-color: #337ab7;
         color: #fff;
+        -webkit-user-select: none;
         user-select: none;
         transition: background-color 0.3s ease;
       }

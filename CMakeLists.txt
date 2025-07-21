@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.14)
 project(wust_vision LANGUAGES CXX)
 include_directories(${PROJECT_SOURCE_DIR}/include)
-
+include_directories(${PROJECT_SOURCE_DIR}/3rdparty)
 # C++ 标准
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -54,7 +54,6 @@ set(COMMON_SOURCES
   src/common/debug/tools.cpp
   src/common/gobal.cpp
   src/common/debug/toolsgobal.cpp
-  src/common/debug/matplottools.cpp
   src/common/calculation.cpp
   src/control/armor_solver.cpp
   src/control/manual_compensator.cpp

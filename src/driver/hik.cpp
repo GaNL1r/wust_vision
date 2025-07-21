@@ -374,38 +374,29 @@ void HikCamera::hikCaptureLoop() {
                         double yaw = past_att->yaw;
                         double pitch = past_att->pitch;
                         double roll = past_att->roll;
-                        Eigen::Vector3d v(past_att->vx, past_att->vy, past_att->vz);
-                        Eigen::Matrix3d R_gimbal2odom;
-                        R_gimbal2odom = Eigen::AngleAxisd(
-                                            yaw + gobal::gimbal2camera_yaw,
-                                            Eigen::Vector3d::UnitZ()
-                                        )
-                            * Eigen::AngleAxisd(
-                                            -pitch - gobal::gimbal2camera_pitch,
-                                            Eigen::Vector3d::UnitY()
-                            )
-                            * Eigen::AngleAxisd(
-                                            roll + gobal::gimbal2camera_roll,
-                                            Eigen::Vector3d::UnitX()
-                            );
-                        on_frame_callback_(frame, R_gimbal2odom, v);
+                        frame.v = Eigen::Vector3d(past_att->vx, past_att->vy, past_att->vz);
+                        frame.R_gimbal2odom = Eigen::AngleAxisd(
+                                                  yaw + gobal::gimbal2camera_yaw,
+                                                  Eigen::Vector3d::UnitZ()
+                                              )
+                            * Eigen::AngleAxisd(-pitch - gobal::gimbal2camera_pitch,
+                                                Eigen::Vector3d::UnitY())
+                            * Eigen::AngleAxisd(roll + gobal::gimbal2camera_roll,
+                                                Eigen::Vector3d::UnitX());
+                        on_frame_callback_(frame);
 
                     } else {
-                        Eigen::Matrix3d R_gimbal2odom;
-                        R_gimbal2odom = Eigen::AngleAxisd(
-                                            gobal::last_yaw + gobal::gimbal2camera_yaw,
-                                            Eigen::Vector3d::UnitZ()
-                                        )
-                            * Eigen::AngleAxisd(
-                                            -gobal::last_pitch - gobal::gimbal2camera_pitch,
-                                            Eigen::Vector3d::UnitY()
-                            )
-                            * Eigen::AngleAxisd(
-                                            gobal::last_roll + gobal::gimbal2camera_roll,
-                                            Eigen::Vector3d::UnitX()
-                            );
-                        Eigen::Vector3d v(gobal::last_v_x, gobal::last_v_y, gobal::last_v_z);
-                        on_frame_callback_(frame, R_gimbal2odom, v);
+                        frame.R_gimbal2odom = Eigen::AngleAxisd(
+                                                  gobal::last_yaw + gobal::gimbal2camera_yaw,
+                                                  Eigen::Vector3d::UnitZ()
+                                              )
+                            * Eigen::AngleAxisd(-gobal::last_pitch - gobal::gimbal2camera_pitch,
+                                                Eigen::Vector3d::UnitY())
+                            * Eigen::AngleAxisd(gobal::last_roll + gobal::gimbal2camera_roll,
+                                                Eigen::Vector3d::UnitX());
+                        frame.v =
+                            Eigen::Vector3d(gobal::last_v_x, gobal::last_v_y, gobal::last_v_z);
+                        on_frame_callback_(frame);
                     }
                 }
                 if (recorder_ != nullptr) {
@@ -528,30 +519,24 @@ bool HikCamera::read() {
             double yaw = past_att->yaw;
             double pitch = past_att->pitch;
             double roll = past_att->roll;
-            Eigen::Vector3d v(past_att->vx, past_att->vy, past_att->vz);
-            Eigen::Matrix3d R_gimbal2odom;
-            R_gimbal2odom =
+            frame.v = Eigen::Vector3d(past_att->vx, past_att->vy, past_att->vz);
+            frame.R_gimbal2odom =
                 Eigen::AngleAxisd(yaw + gobal::gimbal2camera_yaw, Eigen::Vector3d::UnitZ())
                 * Eigen::AngleAxisd(-pitch - gobal::gimbal2camera_pitch, Eigen::Vector3d::UnitY())
                 * Eigen::AngleAxisd(roll + gobal::gimbal2camera_roll, Eigen::Vector3d::UnitX());
-            on_frame_callback_(frame, R_gimbal2odom, v);
+            on_frame_callback_(frame);
 
         } else {
-            Eigen::Matrix3d R_gimbal2odom;
-            R_gimbal2odom = Eigen::AngleAxisd(
-                                gobal::last_yaw + gobal::gimbal2camera_yaw,
-                                Eigen::Vector3d::UnitZ()
-                            )
-                * Eigen::AngleAxisd(
-                                -gobal::last_pitch - gobal::gimbal2camera_pitch,
-                                Eigen::Vector3d::UnitY()
-                )
-                * Eigen::AngleAxisd(
-                                gobal::last_roll + gobal::gimbal2camera_roll,
-                                Eigen::Vector3d::UnitX()
-                );
-            Eigen::Vector3d v(gobal::last_v_x, gobal::last_v_y, gobal::last_v_z);
-            on_frame_callback_(frame, R_gimbal2odom, v);
+            frame.R_gimbal2odom = Eigen::AngleAxisd(
+                                      gobal::last_yaw + gobal::gimbal2camera_yaw,
+                                      Eigen::Vector3d::UnitZ()
+                                  )
+                * Eigen::AngleAxisd(-gobal::last_pitch - gobal::gimbal2camera_pitch,
+                                    Eigen::Vector3d::UnitY())
+                * Eigen::AngleAxisd(gobal::last_roll + gobal::gimbal2camera_roll,
+                                    Eigen::Vector3d::UnitX());
+            frame.v = Eigen::Vector3d(gobal::last_v_x, gobal::last_v_y, gobal::last_v_z);
+            on_frame_callback_(frame);
         }
 
         if (recorder_ != nullptr) {

@@ -314,15 +314,11 @@ void RuneDetectorOpenvino::init() {
     generateGridsAndStride(INPUT_W, INPUT_H, strides_, grid_strides_);
 }
 
-void RuneDetectorOpenvino::pushInput(
-    const cv::Mat& rgb_img,
-    std::chrono::steady_clock::time_point timestamp,
-    Eigen::Matrix4d T_camera_to_odom
-) {
+void RuneDetectorOpenvino::pushInput(const CommonFrame& frame) {
     // Reprocess
     Eigen::Matrix3f transform_matrix; // transform matrix from resized image to source image.
-    cv::Mat resized_img = letterbox(rgb_img, transform_matrix);
-    processCallback(resized_img, transform_matrix, timestamp, rgb_img, T_camera_to_odom);
+    cv::Mat resized_img = letterbox(frame.src_img, transform_matrix);
+    processCallback(resized_img, transform_matrix, frame);
 }
 
 void RuneDetectorOpenvino::setCallback(CallbackType callback) {
@@ -332,9 +328,7 @@ void RuneDetectorOpenvino::setCallback(CallbackType callback) {
 bool RuneDetectorOpenvino::processCallback(
     const cv::Mat resized_img,
     Eigen::Matrix3f transform_matrix,
-    std::chrono::steady_clock::time_point timestamp,
-    const cv::Mat& src_img,
-    Eigen::Matrix4d T_camera_to_odom
+    const CommonFrame& frame
 ) {
     // BGR->RGB, u8(0-255)->f32(0.0-1.0), HWC->NCHW
     // note: TUP's model no need to normalize
@@ -434,7 +428,7 @@ bool RuneDetectorOpenvino::processCallback(
 
     // Call callback function
     if (this->infer_callback_) {
-        this->infer_callback_(objs_result, timestamp, src_img, T_camera_to_odom);
+        this->infer_callback_(objs_result, frame);
         return true;
     }
 

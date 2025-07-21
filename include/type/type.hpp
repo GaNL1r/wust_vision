@@ -390,10 +390,6 @@ struct imgframe {
     cv::Mat img;
     std::chrono::steady_clock::time_point timestamp;
 };
-struct SyncedData {
-    Target target;
-    imgframe image;
-};
 struct GimbalCmd {
     std::chrono::steady_clock::time_point timestamp;
     float pitch = 0;
@@ -526,3 +522,31 @@ inline std::string armorTypeToString(const ArmorType& type) {
             return "invalid";
     }
 }
+inline std::string armorNumberToString(ArmorNumber num) {
+    switch (num) {
+        case ArmorNumber::SENTRY:
+            return "SENTRY";
+        case ArmorNumber::BASE:
+            return "BASE";
+        case ArmorNumber::OUTPOST:
+            return "OUTPOST";
+        case ArmorNumber::NO1:
+            return "NO1";
+        case ArmorNumber::NO2:
+            return "NO2";
+        case ArmorNumber::NO3:
+            return "NO3";
+        case ArmorNumber::NO4:
+            return "NO4";
+        case ArmorNumber::NO5:
+            return "NO5";
+        default:
+            return "UNKNOWN";
+    }
+}
+struct CommonFrame {
+    cv::Mat src_img;
+    std::chrono::steady_clock::time_point timestamp;
+    Eigen::Matrix4d T_camera_to_odom;
+    Eigen::Vector3d v;
+};

@@ -98,6 +98,6 @@ if __name__ == "__main__":
         return IP
 
     ip = get_local_ip()
-    url = f"http://{ip}:5000"
+    url = f"http://{ip}:8000"
     print(f"✅ Web 调试器已启动: {url}")
-    app.run(host="0.0.0.0", port=5000, threaded=True)
+    app.run(host="0.0.0.0", port=8000, threaded=True)

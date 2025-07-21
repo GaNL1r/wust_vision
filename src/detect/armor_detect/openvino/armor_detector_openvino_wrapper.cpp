@@ -73,13 +73,8 @@ ArmorDetectorOpenvinoWrapper::ArmorDetectorOpenvinoWrapper(
 
 ArmorDetectorOpenvinoWrapper::~ArmorDetectorOpenvinoWrapper() = default;
 
-void ArmorDetectorOpenvinoWrapper::pushInput(
-    const cv::Mat& rgb_img,
-    std::chrono::steady_clock::time_point timestamp,
-    const Eigen::Matrix4d& T_camera_to_odom,
-    const Eigen::Vector3d& v
-) {
-    detector_->pushInput(rgb_img, timestamp, T_camera_to_odom, v);
+void ArmorDetectorOpenvinoWrapper::pushInput(const CommonFrame& frame) {
+    detector_->pushInput(frame);
 }
 
 void ArmorDetectorOpenvinoWrapper::setCallback(DetectorCallback cb) {

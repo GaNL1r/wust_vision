@@ -45,12 +45,8 @@ RuneDetectorNCNNWrapper::RuneDetectorNCNNWrapper(const YAML::Node& config) {
 
 RuneDetectorNCNNWrapper::~RuneDetectorNCNNWrapper() = default;
 
-void RuneDetectorNCNNWrapper::pushInput(
-    const cv::Mat& rgb_img,
-    std::chrono::steady_clock::time_point timestamp,
-    Eigen::Matrix4d T_camera_to_odom
-) {
-    rune_detector_->pushInput(rgb_img, timestamp, T_camera_to_odom);
+void RuneDetectorNCNNWrapper::pushInput(const CommonFrame& frame) {
+    rune_detector_->pushInput(frame);
 }
 
 void RuneDetectorNCNNWrapper::setCallback(CallbackType cb) {

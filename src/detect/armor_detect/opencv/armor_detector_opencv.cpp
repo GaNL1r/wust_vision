@@ -328,17 +328,12 @@ void ArmorDetectOpenCV::topts(ArmorObject& armor) {
     armor.pts_binary[2] = armor.lights[1].bottom;
     armor.pts_binary[3] = armor.lights[1].top;
 }
-void ArmorDetectOpenCV::pushInput(
-    const cv::Mat& rgb_img,
-    std::chrono::steady_clock::time_point timestamp,
-    const Eigen::Matrix4d& T_camera_to_odom,
-    const Eigen::Vector3d& v
-) {
+void ArmorDetectOpenCV::pushInput(const CommonFrame& frame) {
     std::vector<ArmorObject> objs_result;
-    objs_result = detect(rgb_img);
+    objs_result = detect(frame.src_img);
 
     if (this->infer_callback_) {
-        this->infer_callback_(objs_result, timestamp, rgb_img, T_camera_to_odom, v);
+        this->infer_callback_(objs_result, frame);
         return;
     }
     return;

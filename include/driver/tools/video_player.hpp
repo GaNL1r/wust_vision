@@ -21,7 +21,7 @@
 
 class VideoPlayer {
 public:
-    using FrameCallback = std::function<void(const ImageFrame&)>;
+    using FrameCallback = std::function<void(ImageFrame&)>;
 
     VideoPlayer(
         const std::string& video_path,

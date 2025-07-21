@@ -27,10 +27,11 @@ camera:
   reverse_y: false
   recorder: false
   video_player:
-    fps: 200
+    fps: 60
     loop: true
     #path: /home/hy/wust_data/video/1749800971.avi
     path: /home/hy/wust_data/video/jiao.avi
+    #path: /home/hy/wust_data/video/rune.mp4
     #path: /home/hy/wust_data/video/Sentry.mp4
     start_frame: 0
     alpha: 1.2

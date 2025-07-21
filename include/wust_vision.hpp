@@ -14,6 +14,7 @@
 #include "tracker/tracker_manager.hpp"
 #include "type/type.hpp"
 #include "yaml-cpp/yaml.h"
+//#include "common/debug/crow.hpp"
 #include <opencv2/core/mat.hpp>
 class WustVision {
 public:
@@ -22,26 +23,11 @@ public:
 
     bool init();
     void run();
-    void processImage(
-        const ImageFrame& frame,
-        const Eigen::Matrix3d& R_gimbal2odom,
-        const Eigen::Vector3d& v
-    );
+    void processImage(const ImageFrame& frame);
 
     void printStats();
-    void ArmorDetectCallback(
-        const std::vector<ArmorObject>& objs,
-        std::chrono::steady_clock::time_point timestamp,
-        const cv::Mat& src_img,
-        const Eigen::Matrix4d& T_camera_to_odom,
-        const Eigen::Vector3d& v
-    );
-    void RuneDetectCallback(
-        std::vector<RuneObject>& rune_objects,
-        std::chrono::steady_clock::time_point timestamp,
-        const cv::Mat& img,
-        const Eigen::Matrix4d& T_camera_to_odom
-    );
+    void ArmorDetectCallback(const std::vector<ArmorObject>& objs, const CommonFrame& frame);
+    void RuneDetectCallback(std::vector<RuneObject>& rune_objects, const CommonFrame& frame);
     void stop();
     void armorsCallback(
         Armors armors_,
@@ -153,4 +139,5 @@ public:
     double receive_omni_dt_;
     double hit_omni_dt_;
     std::chrono::steady_clock::time_point last_track_target_;
+    //std::unique_ptr<DebugWebServer> debug_server_;
 };

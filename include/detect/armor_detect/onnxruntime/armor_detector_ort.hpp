@@ -11,8 +11,8 @@
 
 class ArmorDetectOnnxRuntime {
 public:
-    using DetectorCallback = std::function<
-        void(const std::vector<ArmorObject>&, std::chrono::steady_clock::time_point, const cv::Mat&, const Eigen::Matrix4d&, const Eigen::Vector3d&)>;
+    using DetectorCallback =
+        std::function<void(const std::vector<ArmorObject>&, const CommonFrame&)>;
 
     explicit ArmorDetectOnnxRuntime(
         const std::filesystem::path& model_path,
@@ -38,20 +38,12 @@ public:
     bool processCallback(
         const cv::Mat resized_img,
         Eigen::Matrix3f transform_matrix,
-        std::chrono::steady_clock::time_point timestamp,
-        const cv::Mat& src_img,
-        const Eigen::Matrix4d& T_camera_to_odom,
-        const Eigen::Vector3d& v
+        const CommonFrame& frame
     );
 
     void drawResult(const cv::Mat& src_img, std::vector<ArmorObject>& armor_objects);
 
-    void pushInput(
-        const cv::Mat& rgb_img,
-        std::chrono::steady_clock::time_point timestamp,
-        const Eigen::Matrix4d& T_camera_to_odom,
-        const Eigen::Vector3d& v
-    );
+    void pushInput(const CommonFrame& frame);
 
     void setCallback(DetectorCallback callback);
 

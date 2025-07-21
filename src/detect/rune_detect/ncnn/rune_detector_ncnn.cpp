@@ -325,15 +325,11 @@ void RuneDetectorNCNN::init(int device_id) {
     WUST_INFO("rune_ncnn") << "ncnn: model loaded successfully";
 }
 
-void RuneDetectorNCNN::pushInput(
-    const cv::Mat& rgb_img,
-    std::chrono::steady_clock::time_point timestamp,
-    Eigen::Matrix4d T_camera_to_odom
-) {
+void RuneDetectorNCNN::pushInput(const CommonFrame& frame) {
     // Reprocess
     Eigen::Matrix3f transform_matrix; // transform matrix from resized image to source image.
-    cv::Mat resized_img = letterbox(rgb_img, transform_matrix);
-    processCallback(resized_img, transform_matrix, timestamp, rgb_img, T_camera_to_odom);
+    cv::Mat resized_img = letterbox(frame.src_img, transform_matrix);
+    processCallback(resized_img, transform_matrix, frame);
 }
 
 void RuneDetectorNCNN::setCallback(CallbackType callback) {
@@ -343,9 +339,7 @@ void RuneDetectorNCNN::setCallback(CallbackType callback) {
 bool RuneDetectorNCNN::processCallback(
     const cv::Mat resized_img,
     Eigen::Matrix3f transform_matrix,
-    std::chrono::steady_clock::time_point timestamp,
-    const cv::Mat& src_img,
-    Eigen::Matrix4d T_camera_to_odom
+    const CommonFrame& frame
 ) {
     ncnn::Mat in = ncnn::Mat::from_pixels(
         resized_img.data,
@@ -423,7 +417,7 @@ bool RuneDetectorNCNN::processCallback(
 
     // Call callback function
     if (this->infer_callback_) {
-        this->infer_callback_(objs_result, timestamp, src_img, T_camera_to_odom);
+        this->infer_callback_(objs_result, frame);
         return true;
     }
 

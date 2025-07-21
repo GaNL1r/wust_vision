@@ -19,15 +19,10 @@ class ArmorDetectorBase {
 public:
     virtual ~ArmorDetectorBase() = default;
 
-    virtual void pushInput(
-        const cv::Mat& rgb_img,
-        std::chrono::steady_clock::time_point timestamp,
-        const Eigen::Matrix4d& T_camera_to_odom,
-        const Eigen::Vector3d& v
-    ) = 0;
+    virtual void pushInput(const CommonFrame& frame) = 0;
 
-    using DetectorCallback = std::function<
-        void(const std::vector<ArmorObject>&, std::chrono::steady_clock::time_point, const cv::Mat&, const Eigen::Matrix4d&, const Eigen::Vector3d&)>;
+    using DetectorCallback =
+        std::function<void(const std::vector<ArmorObject>&, const CommonFrame&)>;
 
     virtual void setCallback(DetectorCallback cb) = 0;
 };

@@ -36,12 +36,7 @@
 #include "type/type.hpp"
 class RuneDetectorOpenvino {
 public:
-    using CallbackType = std::function<void(
-        std::vector<RuneObject>&,
-        std::chrono::steady_clock::time_point,
-        const cv::Mat&,
-        Eigen::Matrix4d
-    )>;
+    using CallbackType = std::function<void(std::vector<RuneObject>&, const CommonFrame&)>;
 
 public:
     // Construct a new OpenVINO Detector object
@@ -57,11 +52,7 @@ public:
     void init();
 
     // Push an inference request to the detector
-    void pushInput(
-        const cv::Mat& rgb_img,
-        std::chrono::steady_clock::time_point timestamp,
-        Eigen::Matrix4d T_camera_to_odom
-    );
+    void pushInput(const CommonFrame& frame);
 
     void setCallback(CallbackType callback);
 
@@ -75,9 +66,7 @@ private:
     bool processCallback(
         const cv::Mat resized_img,
         Eigen::Matrix3f transform_matrix,
-        std::chrono::steady_clock::time_point timestamp,
-        const cv::Mat& src_img,
-        Eigen::Matrix4d T_camera_to_odom
+        const CommonFrame& frame
     );
 
 private:

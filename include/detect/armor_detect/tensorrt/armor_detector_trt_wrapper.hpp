@@ -21,12 +21,7 @@ public:
     ArmorDetectorTrtWrapper(const YAML::Node& config, bool use_armor_detect_common = true);
     ~ArmorDetectorTrtWrapper() override;
 
-    void pushInput(
-        const cv::Mat& rgb_img,
-        std::chrono::steady_clock::time_point timestamp,
-        const Eigen::Matrix4d& T_camera_to_odom,
-        const Eigen::Vector3d& v
-    ) override;
+    void pushInput(const CommonFrame& frame) override;
 
     void setCallback(DetectorCallback cb) override;
 

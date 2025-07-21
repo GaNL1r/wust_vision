@@ -19,18 +19,9 @@ class RuneDetectorBase {
 public:
     virtual ~RuneDetectorBase() = default;
 
-    using CallbackType = std::function<void(
-        std::vector<RuneObject>&,
-        std::chrono::steady_clock::time_point,
-        const cv::Mat&,
-        Eigen::Matrix4d
-    )>;
+    using CallbackType = std::function<void(std::vector<RuneObject>&, const CommonFrame&)>;
 
-    virtual void pushInput(
-        const cv::Mat& rgb_img,
-        std::chrono::steady_clock::time_point timestamp,
-        Eigen::Matrix4d T_camera_to_odom
-    ) = 0;
+    virtual void pushInput(const CommonFrame& frame) = 0;
 
     virtual void setCallback(CallbackType cb) = 0;
     virtual std::tuple<cv::Point2f, cv::Mat>

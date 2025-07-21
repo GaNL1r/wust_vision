@@ -21,11 +21,7 @@ public:
     RuneDetectorOpenvinoWrapper(const YAML::Node& config);
     ~RuneDetectorOpenvinoWrapper() override;
 
-    void pushInput(
-        const cv::Mat& rgb_img,
-        std::chrono::steady_clock::time_point timestamp,
-        Eigen::Matrix4d T_camera_to_odom
-    ) override;
+    void pushInput(const CommonFrame& frame) override;
 
     void setCallback(CallbackType cb) override;
 

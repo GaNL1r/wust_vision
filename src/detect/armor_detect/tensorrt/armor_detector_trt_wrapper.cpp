@@ -72,13 +72,8 @@ ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(
 
 ArmorDetectorTrtWrapper::~ArmorDetectorTrtWrapper() = default;
 
-void ArmorDetectorTrtWrapper::pushInput(
-    const cv::Mat& rgb_img,
-    std::chrono::steady_clock::time_point timestamp,
-    const Eigen::Matrix4d& T_camera_to_odom,
-    const Eigen::Vector3d& v
-) {
-    detector_->pushInput(rgb_img, timestamp, T_camera_to_odom, v);
+void ArmorDetectorTrtWrapper::pushInput(const CommonFrame& frame) {
+    detector_->pushInput(frame);
 }
 
 void ArmorDetectorTrtWrapper::setCallback(DetectorCallback cb) {

@@ -14,6 +14,7 @@
 #pragma once
 
 #include "opencv2/opencv.hpp"
+#include <Eigen/Dense>
 
 struct ImageFrame {
     std::vector<uint8_t> data;
@@ -21,6 +22,8 @@ struct ImageFrame {
     int height;
     int step;
     std::chrono::steady_clock::time_point timestamp;
+    Eigen::Matrix3d R_gimbal2odom;
+    Eigen::Vector3d v;
 };
 
 inline cv::Mat convertToMat(const ImageFrame& frame) {

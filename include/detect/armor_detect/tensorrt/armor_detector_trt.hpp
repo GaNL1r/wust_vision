@@ -36,8 +36,8 @@
 class ArmorDetectTrt {
 public:
     // 初始化参数结构体
-    using DetectorCallback = std::function<
-        void(const std::vector<ArmorObject>&, std::chrono::steady_clock::time_point, const cv::Mat&, const Eigen::Matrix4d&, const Eigen::Vector3d&)>;
+    using DetectorCallback =
+        std::function<void(const std::vector<ArmorObject>&, const CommonFrame&)>;
     struct Params {
         int input_w = 416; // 模型输入宽度
         int input_h = 416; // 模型输入高度
@@ -67,20 +67,12 @@ public:
     // 析构函数：释放资源
     ~ArmorDetectTrt();
 
-    void pushInput(
-        const cv::Mat& rgb_img,
-        std::chrono::steady_clock::time_point timestamp,
-        const Eigen::Matrix4d& T_camera_to_odom,
-        const Eigen::Vector3d& v
-    );
+    void pushInput(const CommonFrame& frame);
 
     bool processCallback(
         const cv::Mat resized_img,
         Eigen::Matrix3f transform_matrix,
-        std::chrono::steady_clock::time_point timestamp,
-        const cv::Mat& src_img,
-        const Eigen::Matrix4d& T_camera_to_odom,
-        const Eigen::Vector3d& v
+        const CommonFrame& frame
     );
     void setCallback(DetectorCallback callback);
 

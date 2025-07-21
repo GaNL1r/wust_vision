@@ -23,8 +23,7 @@ public:
     void stop();
     bool init(
         const YAML::Node& config,
-        std::function<void(const ImageFrame&, const Eigen::Matrix3d&, const Eigen::Vector3d&)>
-            on_frame_callback_,
+        std::function<void(const ImageFrame&)> on_frame_callback_,
         size_t index
     );
     void initTF(const YAML::Node& config);
@@ -41,8 +40,7 @@ public:
     cv::Mat camera_intrinsic_;
     cv::Mat camera_distortion_;
     double gimbal2camera_roll_, gimbal2camera_pitch_, gimbal2camera_yaw_;
-    std::function<void(const ImageFrame&, const Eigen::Matrix3d&, const Eigen::Vector3d&)>
-        callback_;
+    std::function<void(const ImageFrame&)> callback_;
 };
 
 class OmniManager {
@@ -52,18 +50,8 @@ public:
     void stop();
     void initDetector();
     void run();
-    void processImage(
-        const ImageFrame& frame,
-        const Eigen::Matrix3d& R_gimbal2odom,
-        const Eigen::Vector3d& v
-    );
-    void ArmorDetectCallback(
-        const std::vector<ArmorObject>& objs,
-        std::chrono::steady_clock::time_point timestamp,
-        const cv::Mat& src_img,
-        const Eigen::Matrix4d& T_camera_to_odom,
-        const Eigen::Vector3d& v
-    );
+    void processImage(const ImageFrame& frame);
+    void ArmorDetectCallback(const std::vector<ArmorObject>& objs, const CommonFrame& frame);
     std::vector<OneTarget> buildOneTargetsfromOmni(const Armors& armors);
     void startTimer();
     void stopTimer();

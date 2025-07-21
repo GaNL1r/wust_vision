@@ -326,10 +326,7 @@ void ArmorDetectOpenVino::setCallback(DetectorCallback callback) {
 bool ArmorDetectOpenVino::processCallback(
     const cv::Mat resized_img,
     Eigen::Matrix3f transform_matrix,
-    std::chrono::steady_clock::time_point timestamp,
-    const cv::Mat& src_img,
-    const Eigen::Matrix4d& T_camera_to_odom,
-    const Eigen::Vector3d& v
+    const CommonFrame& frame
 ) {
     // BGR->RGB, u8(0-255)->f32(0.0-1.0), HWC->NCHW
     // note: TUP's model no need to normalize
@@ -417,28 +414,24 @@ bool ArmorDetectOpenVino::processCallback(
     }
 
     if (use_armor_detect_common_) {
-        std::vector<ArmorObject> armors = armor_detect_common_->detectNet(src_img, objs_result);
+        std::vector<ArmorObject> armors =
+            armor_detect_common_->detectNet(frame.src_img, objs_result);
         // Call callback function
         if (this->infer_callback_) {
-            this->infer_callback_(armors, timestamp, src_img, T_camera_to_odom, v);
+            this->infer_callback_(armors, frame);
             return true;
         }
     } else {
         if (this->infer_callback_) {
-            this->infer_callback_(objs_result, timestamp, src_img, T_camera_to_odom, v);
+            this->infer_callback_(objs_result, frame);
             return true;
         }
     }
 
     return false;
 }
-void ArmorDetectOpenVino::pushInput(
-    const cv::Mat& rgb_img,
-    std::chrono::steady_clock::time_point timestamp,
-    const Eigen::Matrix4d& T_camera_to_odom,
-    const Eigen::Vector3d& v
-) {
+void ArmorDetectOpenVino::pushInput(const CommonFrame& frame) {
     Eigen::Matrix3f transform_matrix;
-    cv::Mat resized_img = letterbox(rgb_img, transform_matrix);
-    processCallback(resized_img, transform_matrix, timestamp, rgb_img, T_camera_to_odom, v);
+    cv::Mat resized_img = letterbox(frame.src_img, transform_matrix);
+    processCallback(resized_img, transform_matrix, frame);
 }

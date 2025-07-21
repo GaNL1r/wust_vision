@@ -15,8 +15,7 @@ void OmniVision::stop() {
 
 bool OmniVision::init(
     const YAML::Node& config,
-    std::function<void(const ImageFrame&, const Eigen::Matrix3d&, const Eigen::Vector3d&)>
-        on_frame_callback_,
+    std::function<void(const ImageFrame&)> on_frame_callback_,
     size_t index
 ) {
     this->callback_ = std::move(on_frame_callback_);
@@ -32,16 +31,16 @@ bool OmniVision::init(
         video_player_ =
             std::make_unique<VideoPlayer>(video_play_path, video_play_fps, start_frame, loop);
         video_player_->enableTriggerMode(true);
-        video_player_->setCallback([this](const ImageFrame& frame) {
+        video_player_->setCallback([this](ImageFrame& frame) {
             static bool first_is_inited = false;
 
             if (is_inited_) {
-                Eigen::Matrix3d R_gimbal2odom;
-                R_gimbal2odom = Eigen::AngleAxisd(gimbal2camera_yaw_, Eigen::Vector3d::UnitZ())
+                frame.R_gimbal2odom =
+                    Eigen::AngleAxisd(gimbal2camera_yaw_, Eigen::Vector3d::UnitZ())
                     * Eigen::AngleAxisd(gimbal2camera_pitch_, Eigen::Vector3d::UnitY())
                     * Eigen::AngleAxisd(gimbal2camera_roll_, Eigen::Vector3d::UnitX());
-                Eigen::Vector3d fake_v(this->index_, this->index_, this->index_);
-                this->callback_(frame, R_gimbal2odom, fake_v);
+                frame.v = Eigen::Vector3d(this->index_, this->index_, this->index_);
+                this->callback_(frame);
             } else {
                 return;
             }
@@ -67,22 +66,20 @@ bool OmniVision::init(
             config["camera"]["reverse_y"].as<bool>(false)
         );
         camera_->enableTrigger(TriggerType::Software, "Software", 0);
-        camera_->setFrameCallback(
-            [this](const ImageFrame& frame, Eigen::Matrix3d R_gimbal2odom, Eigen::Vector3d v) {
-                static bool first_is_inited = false;
+        camera_->setFrameCallback([this](ImageFrame& frame) {
+            static bool first_is_inited = false;
 
-                if (is_inited_) {
-                    Eigen::Matrix3d R_gimbal2odom_;
-                    R_gimbal2odom_ = Eigen::AngleAxisd(gimbal2camera_yaw_, Eigen::Vector3d::UnitZ())
-                        * Eigen::AngleAxisd(gimbal2camera_pitch_, Eigen::Vector3d::UnitY())
-                        * Eigen::AngleAxisd(gimbal2camera_roll_, Eigen::Vector3d::UnitX());
-                    Eigen::Vector3d fake_v(this->index_, this->index_, this->index_);
-                    this->callback_(frame, R_gimbal2odom_, fake_v);
-                } else {
-                    return;
-                }
+            if (is_inited_) {
+                frame.R_gimbal2odom =
+                    Eigen::AngleAxisd(gimbal2camera_yaw_, Eigen::Vector3d::UnitZ())
+                    * Eigen::AngleAxisd(gimbal2camera_pitch_, Eigen::Vector3d::UnitY())
+                    * Eigen::AngleAxisd(gimbal2camera_roll_, Eigen::Vector3d::UnitX());
+                frame.v = Eigen::Vector3d(this->index_, this->index_, this->index_);
+                this->callback_(frame);
+            } else {
+                return;
             }
-        );
+        });
     }
     const std::string camera_info_path = config["camera"]["camera_info_path"].as<std::string>();
     YAML::Node config_camera_info = YAML::LoadFile(camera_info_path);
@@ -123,11 +120,7 @@ void OmniVision::run() {
 
 OmniManager::OmniManager(const YAML::Node& config) {
     config_ = config;
-    auto callback = [this](
-                        const ImageFrame& frame,
-                        const Eigen::Matrix3d& R_gimbal2odom,
-                        const Eigen::Vector3d& v
-                    ) {
+    auto callback = [this](const ImageFrame& frame) {
         static bool first_is_inited = false;
 
         if (gobal::is_inited_) {
@@ -136,9 +129,7 @@ OmniManager::OmniManager(const YAML::Node& config) {
                 return;
             }
             gobal::thread_pool->enqueue(
-                [frame = std::move(frame), R_gimbal2odom, v, this]() {
-                    processImage(frame, R_gimbal2odom, v);
-                },
+                [frame = std::move(frame), this]() { processImage(frame); },
                 -1
             );
         } else {
@@ -239,18 +230,12 @@ void OmniManager::initDetector() {
         &OmniManager::ArmorDetectCallback,
         this,
         std::placeholders::_1,
-        std::placeholders::_2,
-        std::placeholders::_3,
-        std::placeholders::_4,
-        std::placeholders::_5
+        std::placeholders::_2
     ));
 }
 void OmniManager::ArmorDetectCallback(
     const std::vector<ArmorObject>& objs,
-    std::chrono::steady_clock::time_point timestamp,
-    const cv::Mat& src_img,
-    const Eigen::Matrix4d& T_camera_to_odom,
-    const Eigen::Vector3d& v
+    const CommonFrame& frame
 ) {
     std::lock_guard<std::mutex> lock(callback_mutex_);
 
@@ -262,24 +247,24 @@ void OmniManager::ArmorDetectCallback(
         return;
     }
     Armors armors;
-    armors.timestamp = timestamp;
+    armors.timestamp = frame.timestamp;
     armors.frame_id = "camera_optical_frame";
-    cv::Mat camera_intrinsic_ = omni_visions_[v.x()]->camera_intrinsic_;
-    cv::Mat camera_distortion_ = omni_visions_[v.x()]->camera_distortion_;
+    cv::Mat camera_intrinsic_ = omni_visions_[frame.v.x()]->camera_intrinsic_;
+    cv::Mat camera_distortion_ = omni_visions_[frame.v.x()]->camera_distortion_;
     measure_tool_->processDetectedArmors(
         objs,
         gobal::detect_color,
         armors,
-        T_camera_to_odom,
+        frame.T_camera_to_odom,
         camera_intrinsic_,
         camera_distortion_
     );
     gobal::omni_targets = buildOneTargetsfromOmni(armors);
     cv::Mat debug_img;
-    debug_img = src_img.clone();
+    debug_img = frame.src_img.clone();
     imgframe debug_img_frame;
     debug_img_frame.img = debug_img;
-    debug_img_frame.timestamp = timestamp;
+    debug_img_frame.timestamp = frame.timestamp;
     drawResult(debug_img_frame, armors);
     detect_finish_count_++;
     infer_running_count_--;
@@ -300,29 +285,33 @@ std::vector<OneTarget> OmniManager::buildOneTargetsfromOmni(const Armors& armors
     }
     return one_targets;
 }
-void OmniManager::processImage(
-    const ImageFrame& frame,
-    const Eigen::Matrix3d& R_gimbal2odom,
-    const Eigen::Vector3d& v
-) {
-    cv::Mat img;
-    if (!omni_visions_[v.x()]->use_video) {
-        img = convertToMatrgb(frame);
+void OmniManager::processImage(const ImageFrame& frame) {
+    CommonFrame common_frame;
+
+    common_frame.timestamp = frame.timestamp;
+    common_frame.v = frame.v;
+    if (!omni_visions_[common_frame.v.x()]->use_video) {
+        common_frame.src_img = convertToMatrgb(frame);
     } else {
-        img = convertToMatbgr(frame);
-        img.convertTo(img, -1, omni_visions_[v.x()]->video_alpha, omni_visions_[v.x()]->video_beta);
+        common_frame.src_img = convertToMatbgr(frame);
+        common_frame.src_img.convertTo(
+            common_frame.src_img,
+            -1,
+            omni_visions_[common_frame.v.x()]->video_alpha,
+            omni_visions_[common_frame.v.x()]->video_beta
+        );
     }
     Eigen::Matrix3d R_camera_to_gimbal;
     R_camera_to_gimbal << 0, 0, 1, -1, 0, 0, 0, -1, 0;
 
     Eigen::Matrix4d T_camera_to_odom = utils::computeCameraToOdomTransform(
-        R_gimbal2odom,
+        frame.R_gimbal2odom,
         R_camera_to_gimbal,
         Eigen::Vector3d(0, 0, 0)
     );
 
     infer_running_count_++;
-    armor_detector_->pushInput(img, frame.timestamp, T_camera_to_odom, v);
+    armor_detector_->pushInput(common_frame);
 }
 void OmniManager::stopTimer() {
     {
