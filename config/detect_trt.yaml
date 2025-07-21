@@ -22,6 +22,7 @@ armor_detect:
     input_h: 416
     input_w: 416
     model_path: /home/hy/wust_vision/model/opt-1208-001.onnx
+    device_id: 0
     nms_threshold: 0.3
     num_classes: 8
     num_colors: 4
@@ -33,5 +34,6 @@ rune_detector:
   use_manual_r: true
   min_lightness: 80
   model: /home/hy/wust_vision/model/yolox_rune_3.6m.onnx
+  device_id: 1
   nms_threshold: 0.3
   top_k: 128

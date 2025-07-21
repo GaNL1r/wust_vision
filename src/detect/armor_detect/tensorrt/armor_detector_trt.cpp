@@ -184,6 +184,8 @@ ArmorDetectTrt::ArmorDetectTrt(
     output_buffer_(nullptr),
     runtime_(nullptr),
     use_armor_detect_common_(use_armor_detect_common) {
+    int device_id = params_.device_id;
+    cudaSetDevice(device_id);
     buildEngine(onnx_path);
     TRT_ASSERT(context_ = engine_->createExecutionContext());
     TRT_ASSERT((input_idx_ = engine_->getBindingIndex("images")) == 0);

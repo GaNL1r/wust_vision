@@ -74,7 +74,7 @@ public:
     std::condition_variable timer_cv_;
     int total_fps_ = 0;
     YAML::Node config_;
-    std::unique_ptr<ThreadPool> thread_pool_;
+
     std::unique_ptr<ArmorDetectorBase> armor_detector_;
     std::vector<std::unique_ptr<OmniVision>> omni_visions_;
     std::unique_ptr<MonoMeasureTool> measure_tool_;

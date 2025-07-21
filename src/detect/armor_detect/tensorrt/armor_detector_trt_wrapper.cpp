@@ -29,6 +29,7 @@ ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(
     params.conf_threshold = config["armor_detect"]["model"]["conf_threshold"].as<float>();
     params.nms_threshold = config["armor_detect"]["model"]["nms_threshold"].as<float>();
     params.top_k = config["armor_detect"]["model"]["top_k"].as<int>();
+    params.device_id = config["armor_detect"]["model"]["device_id"].as<int>();
     WUST_INFO("armor_detector") << "model_path: " << model_path;
     int binary_thres;
     float expand_ratio_w, expand_ratio_h;

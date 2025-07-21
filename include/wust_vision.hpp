@@ -79,8 +79,6 @@ public:
         const std::chrono::steady_clock::time_point& now
     );
 
-    std::unique_ptr<ThreadPool> thread_pool_;
-
     std::unique_ptr<HikCamera> camera_;
     std::unique_ptr<VideoPlayer> video_player_;
     double video_alpha_;

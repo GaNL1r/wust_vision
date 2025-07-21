@@ -63,9 +63,9 @@ void WustVision::stop() {
 #endif
         gobal::measure_tool.reset();
 
-        if (thread_pool_) {
-            thread_pool_->waitUntilEmpty();
-            thread_pool_.reset();
+        if (gobal::thread_pool) {
+            gobal::thread_pool->waitUntilEmpty();
+            gobal::thread_pool.reset();
         }
         if (toolsgobal::robot_cmd_plot_thread_.joinable()) {
             toolsgobal::robot_cmd_plot_thread_.join();
@@ -125,13 +125,17 @@ bool WustVision::init() {
                 static bool first_is_inited = false;
 
                 if (gobal::is_inited_) {
+                    img_recv_count_++;
+                    if (infer_running_count_.load() >= max_infer_running_) {
+                        return;
+                    }
+
                     Eigen::Matrix3d R_gimbal2odom;
                     R_gimbal2odom = Eigen::AngleAxisd(gobal::last_yaw, Eigen::Vector3d::UnitZ())
                         * Eigen::AngleAxisd(gobal::last_pitch, Eigen::Vector3d::UnitY())
                         * Eigen::AngleAxisd(gobal::last_roll, Eigen::Vector3d::UnitX());
                     Eigen::Vector3d v(gobal::last_v_x, gobal::last_v_y, gobal::last_v_z);
-                    ;
-                    thread_pool_->enqueue(
+                    gobal::thread_pool->enqueue(
                         [frame = std::move(frame), R_gimbal2odom, v, this]() {
                             processImage(frame, R_gimbal2odom, v);
                         },
@@ -167,7 +171,11 @@ bool WustVision::init() {
                     static bool first_is_inited = false;
 
                     if (gobal::is_inited_) {
-                        thread_pool_->enqueue(
+                        img_recv_count_++;
+                        if (infer_running_count_.load() >= max_infer_running_) {
+                            return;
+                        }
+                        gobal::thread_pool->enqueue(
                             [frame = std::move(frame), R_gimbal2odom, v, this]() {
                                 processImage(frame, R_gimbal2odom, v);
                             },
@@ -220,7 +228,7 @@ bool WustVision::init() {
         initDetector();
         initRune(camera_info_path); //仍然初始化rune_solver
         max_detect_armors_ = gobal::config["common"]["max_detect_armors"].as<int>(10);
-        thread_pool_ = std::make_unique<ThreadPool>(std::thread::hardware_concurrency(), 100);
+        gobal::thread_pool = std::make_unique<ThreadPool>(std::thread::hardware_concurrency());
         armor_solver_ = std::make_unique<ArmorSolver>(gobal::config);
         use_omni_ = gobal::config["common"]["use_omni"].as<bool>(false);
         if (use_omni_) {
@@ -295,15 +303,15 @@ void WustVision::initDetector() {
 
     auto getConfigPath = [](const std::string& backend) -> std::string {
         if (backend == "openvino")
-            return "/home/hy/wust_vision/config/detect_openvino.yaml";
+            return OPENVINO_CONFIG;
         if (backend == "tensorrt")
-            return "/home/hy/wust_vision/config/detect_trt.yaml";
+            return TENSORRT_CONFIG;
         if (backend == "ncnn")
-            return "/home/hy/wust_vision/config/detect_ncnn.yaml";
+            return NCNN_CONFIG;
         if (backend == "onnxruntime")
-            return "/home/hy/wust_vision/config/detect_ort.yaml";
+            return ONNXRUNTIME_CONFIG;
         if (backend == "opencv")
-            return "/home/hy/wust_vision/config/armor_detect_opencv.yaml";
+            return OPENCV_CONFIG;
         return "";
     };
 
@@ -1057,10 +1065,6 @@ void WustVision::processImage(
     const Eigen::Matrix3d& R_gimbal2odom,
     const Eigen::Vector3d& v
 ) {
-    img_recv_count_++;
-    if (infer_running_count_.load() >= max_infer_running_) {
-        return;
-    }
     cv::Mat img;
     if (!use_video_) {
         img = convertToMatrgb(frame);

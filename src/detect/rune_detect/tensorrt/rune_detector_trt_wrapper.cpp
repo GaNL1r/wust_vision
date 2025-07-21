@@ -22,6 +22,7 @@ RuneDetectorTrtWrapper::RuneDetectorTrtWrapper(const YAML::Node& config) {
     params.conf_threshold = config["rune_detector"]["confidence_threshold"].as<float>(0.50);
     params.nms_threshold = config["rune_detector"]["nms_threshold"].as<float>(0.3);
     params.top_k = config["rune_detector"]["top_k"].as<int>(128);
+    params.device_id = config["rune_detector"]["model"]["device_id"].as<int>();
     WUST_INFO("rune_detector") << "model_path : " << model_path;
     rune_detector_ = std::make_unique<RuneDetectorTrt>(model_path, params);
 }

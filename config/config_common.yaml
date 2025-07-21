@@ -1,6 +1,6 @@
 common:
   armor_detect_backend: tensorrt
-  rune_detect_backend: tensorrt
+  rune_detect_backend: onnxruntime
   detect_color: 0
   init_attack_mode: 0
   max_infer_running: 7
@@ -27,7 +27,7 @@ camera:
   reverse_y: false
   recorder: false
   video_player:
-    fps: 60
+    fps: 200
     loop: true
     #path: /home/hy/wust_data/video/1749800971.avi
     path: /home/hy/wust_data/video/jiao.avi

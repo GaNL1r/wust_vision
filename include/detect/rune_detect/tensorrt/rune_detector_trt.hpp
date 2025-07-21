@@ -47,6 +47,7 @@ public:
         float conf_threshold = 0.3; // 置信度阈值
         float nms_threshold = 0.5; // NMS阈值
         int top_k = 128; // 最大检测框数
+        int device_id = 0;
     };
 
 public:

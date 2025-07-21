@@ -1,10 +1,15 @@
 #pragma once
 
+#include "common/ThreadPool.h"
 #include "common/tf.hpp"
 #include "detect/mono_measure_tool.hpp"
 #include "yaml-cpp/yaml.h"
 #include <optional>
-
+#define OPENVINO_CONFIG "/home/hy/wust_vision/config/detect_openvino.yaml"
+#define TENSORRT_CONFIG "/home/hy/wust_vision/config/detect_trt.yaml"
+#define NCNN_CONFIG "/home/hy/wust_vision/config/detect_ncnn.yaml"
+#define ONNXRUNTIME_CONFIG "/home/hy/wust_vision/config/detect_ort.yaml"
+#define OPENCV_CONFIG "/home/hy/wust_vision/config/detect_opencv.yaml"
 namespace gobal {
 extern std::atomic<bool> exit_flag;
 extern std::unique_ptr<MonoMeasureTool> measure_tool;
@@ -34,5 +39,5 @@ extern enum AttackState { ATTACKONE, ATTACKWHOLECAR } attack_state;
 extern int use_detect_ncnn_count;
 extern std::vector<OneTarget> omni_targets;
 extern GimbalCmd last_cmd;
-
+extern std::unique_ptr<ThreadPool> thread_pool;
 } // namespace gobal

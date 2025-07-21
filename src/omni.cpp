@@ -131,7 +131,11 @@ OmniManager::OmniManager(const YAML::Node& config) {
         static bool first_is_inited = false;
 
         if (gobal::is_inited_) {
-            thread_pool_->enqueue(
+            img_recv_count_++;
+            if (infer_running_count_.load() >= max_infer_running_) {
+                return;
+            }
+            gobal::thread_pool->enqueue(
                 [frame = std::move(frame), R_gimbal2odom, v, this]() {
                     processImage(frame, R_gimbal2odom, v);
                 },
@@ -155,7 +159,6 @@ OmniManager::OmniManager(const YAML::Node& config) {
     }
     measure_tool_ = std::make_unique<MonoMeasureTool>();
     initDetector();
-    thread_pool_ = std::make_unique<ThreadPool>(std::thread::hardware_concurrency(), 100);
 }
 OmniManager::~OmniManager() {}
 void OmniManager::stop() {
@@ -170,10 +173,6 @@ void OmniManager::stop() {
     armor_detector_.reset();
     measure_tool_.reset();
 
-    if (thread_pool_) {
-        thread_pool_->waitUntilEmpty();
-        thread_pool_.reset();
-    }
     WUST_INFO(vision_logger) << "OmniManager shutdown complete.";
 }
 void OmniManager::initDetector() {
@@ -208,15 +207,15 @@ void OmniManager::initDetector() {
 
     auto getConfigPath = [](const std::string& backend) -> std::string {
         if (backend == "openvino")
-            return "/home/hy/wust_vision/config/detect_openvino.yaml";
+            return OPENVINO_CONFIG;
         if (backend == "tensorrt")
-            return "/home/hy/wust_vision/config/detect_trt.yaml";
+            return TENSORRT_CONFIG;
         if (backend == "ncnn")
-            return "/home/hy/wust_vision/config/detect_ncnn.yaml";
+            return NCNN_CONFIG;
         if (backend == "onnxruntime")
-            return "/home/hy/wust_vision/config/detect_ort.yaml";
+            return ONNXRUNTIME_CONFIG;
         if (backend == "opencv")
-            return "/home/hy/wust_vision/config/armor_detect_opencv.yaml";
+            return OPENCV_CONFIG;
         return "";
     };
 
@@ -306,10 +305,6 @@ void OmniManager::processImage(
     const Eigen::Matrix3d& R_gimbal2odom,
     const Eigen::Vector3d& v
 ) {
-    img_recv_count_++;
-    if (infer_running_count_.load() >= max_infer_running_) {
-        return;
-    }
     cv::Mat img;
     if (!omni_visions_[v.x()]->use_video) {
         img = convertToMatrgb(frame);

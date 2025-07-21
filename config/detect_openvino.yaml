@@ -30,7 +30,7 @@ rune_detector:
   detect_r_tag: true
   use_manual_r: true
   min_lightness: 80
-  device_type: GPU.0
+  device_type: CPU
   model: /home/hy/wust_vision/model/yolox_rune_3.6m.onnx
   nms_threshold: 0.3
   top_k: 128

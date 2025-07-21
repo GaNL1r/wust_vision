@@ -268,6 +268,8 @@ static void nmsMergeSortedBboxes(
 
 RuneDetectorTrt::RuneDetectorTrt(const std::filesystem::path& model_path, const Params& params):
     model_path_(model_path) {
+    int device_id = params_.device_id;
+    cudaSetDevice(device_id);
     buildEngine(model_path);
     TRT_ASSERT(context_ = engine_->createExecutionContext());
     TRT_ASSERT((input_idx_ = engine_->getBindingIndex("images")) == 0);

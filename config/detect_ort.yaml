@@ -19,7 +19,7 @@ armor_detect:
     min_ratio: 0.02
   model:
     conf_threshold: 0.7
-    use_gpu: true
+    use_gpu: false
     device_id: 0
     model_path: /home/hy/wust_vision/model/opt-1208-001.onnx
     nms_threshold: 0.3
@@ -31,7 +31,7 @@ rune_detector:
   use_manual_r: true
   min_lightness: 80
   model: /home/hy/wust_vision/model/yolox_rune_3.6m.onnx
-  use_gpu: true
+  use_gpu: false
   device_id: 1
   nms_threshold: 0.3
   top_k: 128
