@@ -51,6 +51,7 @@ void WustVision::stop() {
         }
 
         stopTimer();
+
         std::this_thread::sleep_for(std::chrono::seconds(1));
 
         armor_detector_.reset();
@@ -66,8 +67,8 @@ void WustVision::stop() {
             gobal::thread_pool->waitUntilEmpty();
             gobal::thread_pool.reset();
         }
-        if (toolsgobal::robot_cmd_plot_thread_.joinable()) {
-            toolsgobal::robot_cmd_plot_thread_.join();
+        if (toolsgobal::debug_thread_.joinable()) {
+            toolsgobal::debug_thread_.join();
         }
     }
     if (serial_) {
@@ -257,7 +258,9 @@ void WustVision::run() {
             omni_manager_->startTimer();
         }
         startTimer();
-        toolsgobal::robot_cmd_plot_thread_ = std::thread(&robotCmdLoggerThread);
+    }
+    if (gobal::debug_mode) {
+        toolsgobal::debug_thread_ = std::thread([this]() { this->debugThread(); });
     }
 
     WUST_MAIN(vision_logger_) << "WustVision run success";
@@ -943,7 +946,7 @@ void WustVision::timerCallback(double dt_ms) {
     }
 
     if (gobal::debug_mode) {
-        visualizeAndLog(mode, target, one_targets, gimbal_cmd, state, now);
+        //visualizeAndLog(mode, target, one_targets, gimbal_cmd, state, now);
     }
 }
 void WustVision::processImage(const ImageFrame& frame) {
@@ -1026,14 +1029,31 @@ void WustVision::printStats() {
         last_stat_time_steady_ = now;
     }
 }
-void WustVision::visualizeAndLog(
-    AttackMode mode,
-    const Target& target,
-    const std::vector<OneTarget>& one_targets,
-    const GimbalCmd& gimbal_cmd,
-    Tracker::State state,
-    const std::chrono::steady_clock::time_point& now
-) {
+void WustVision::debugThread() {
+    using namespace std::chrono;
+
+    double us_interval = 1e6 / static_cast<double>(toolsgobal::debug_fps);
+    auto kInterval = std::chrono::microseconds(static_cast<int64_t>(us_interval));
+    while (gobal::is_inited_) {
+        auto start_time = steady_clock::now();
+
+        visualizeAndLog(false);
+        writeCmdLogToJson();
+        auto elapsed = steady_clock::now() - start_time;
+        if (elapsed < kInterval) {
+            std::this_thread::sleep_for(kInterval - elapsed);
+        }
+    }
+}
+
+void WustVision::visualizeAndLog(bool auto_fps) {
+    auto now = std::chrono::steady_clock::now();
+    Target target = armor_target_;
+    std::vector<OneTarget> one_targets = one_armor_targets_;
+    AttackMode mode = toAttackMode(gobal::attack_mode);
+    bool appear = utils::checkTargetAppear(target, one_targets);
+    Tracker::State state = appear ? Tracker::TRACKING : Tracker::LOST;
+    GimbalCmd gimbal_cmd = gobal::last_cmd;
     cv::Mat src;
     {
         std::lock_guard<std::mutex> lock(img_mutex_);
@@ -1066,7 +1086,7 @@ void WustVision::visualizeAndLog(
             dbg.armors = armors;
             dbg.gimbal_cmd = gobal::last_cmd;
             dbg.tracker_state = state;
-            drawDebugOverlayWrite(dbg);
+            drawDebugOverlayWrite(dbg, auto_fps);
         } catch (const std::exception& e) {
             std::cerr << "drawDebugArmorWrite failed: " << e.what() << '\n';
         }
@@ -1081,7 +1101,7 @@ void WustVision::visualizeAndLog(
             dbg.predict_angle = predict_angle;
             dbg.gimbal_cmd = gobal::last_cmd;
             dbg.manual_r_box = manual_r_box_;
-            drawDebugOverlayWrite(dbg);
+            drawDebugOverlayWrite(dbg, auto_fps);
         } catch (const std::exception& e) {
             std::cerr << "drawRuneAndPrewrite failed: " << e.what() << '\n';
         }
@@ -1091,19 +1111,12 @@ void WustVision::visualizeAndLog(
     {
         std::lock_guard<std::mutex> lock(toolsgobal::robot_cmd_mutex_);
 
-        DebugLog log;
-        log.time_log = t;
-        log.cmd_yaw_log = gobal::last_cmd.yaw;
-        log.cmd_pitch_log = gobal::last_cmd.pitch;
-        log.rune_obs_log = rune_solver_->last_observed_angle_;
-        log.rune_pre_log = rune_solver_->last_pre_angle;
-
+        double armor_yaw = 0.0, ypd_y = 0.0, ypd_p = 0.0, armor_distance = 0.0;
         if (!armors.armors.empty()) {
             std::vector<Armor> ok_armors;
             for (const auto& armor: armors.armors) {
-                if (armor.number != ArmorNumber::OUTPOST) {
+                if (armor.number != ArmorNumber::OUTPOST)
                     ok_armors.push_back(armor);
-                }
             }
 
             if (!ok_armors.empty()) {
@@ -1117,40 +1130,63 @@ void WustVision::visualizeAndLog(
 
                 last_armor_ = min_armor;
 
-                last_distance_ = std::hypot(
+                armor_distance = std::hypot(
                     min_armor.target_pos.x,
                     min_armor.target_pos.y,
                     min_armor.target_pos.z
                 );
 
-                double armor_yaw = last_armor_.yaw;
-                armor_yaw =
-                    last_armor_yaw_ + angles::shortest_angular_distance(last_armor_yaw_, armor_yaw);
+                armor_yaw = last_armor_yaw_
+                    + angles::shortest_angular_distance(last_armor_yaw_, min_armor.yaw);
                 last_armor_yaw_ = armor_yaw;
 
-                double ypd_y = std::atan2(last_armor_.target_pos.y, last_armor_.target_pos.x);
+                ypd_y = std::atan2(min_armor.target_pos.y, min_armor.target_pos.x);
                 ypd_y = last_ypd_y_ + angles::shortest_angular_distance(last_ypd_y_, ypd_y);
                 last_ypd_y_ = ypd_y;
 
-                last_ypd_p_ = std::atan2(
-                    last_armor_.target_pos.z,
-                    std::hypot(last_armor_.target_pos.x, last_armor_.target_pos.y)
+                ypd_p = std::atan2(
+                    min_armor.target_pos.z,
+                    std::hypot(min_armor.target_pos.x, min_armor.target_pos.y)
                 );
+                last_ypd_p_ = ypd_p;
 
-                log.armor_yaw_log = last_armor_yaw_ * 180.0 / M_PI;
-                log.armor_x_log = last_armor_.target_pos.x;
-                log.armor_y_log = last_armor_.target_pos.y;
-                log.armor_z_log = last_armor_.target_pos.z;
-                log.ypd_y_log = last_ypd_y_ * 180.0 / M_PI;
-                log.ypd_p_log = last_ypd_p_ * 180.0 / M_PI;
-                log.armor_dis_log = last_distance_;
+                last_distance_ = armor_distance;
             }
         }
 
-        if (toolsgobal::debug_logs_.size() > 1000)
-            toolsgobal::debug_logs_.erase(toolsgobal::debug_logs_.begin());
+        DebugLogs& log = toolsgobal::debug_logs_;
 
-        toolsgobal::debug_logs_.emplace_back(std::move(log));
+        log.time_log.push_back(t);
+        log.cmd_yaw_log.push_back(gobal::last_cmd.yaw);
+        log.cmd_pitch_log.push_back(gobal::last_cmd.pitch);
+        log.rune_obs_log.push_back(rune_solver_->last_observed_angle_);
+        log.rune_pre_log.push_back(rune_solver_->last_pre_angle);
+        log.armor_yaw_log.push_back(armor_yaw * 180.0 / M_PI);
+        log.armor_x_log.push_back(last_armor_.target_pos.x);
+        log.armor_y_log.push_back(last_armor_.target_pos.y);
+        log.armor_z_log.push_back(last_armor_.target_pos.z);
+        log.ypd_y_log.push_back(last_ypd_y_ * 180.0 / M_PI);
+        log.ypd_p_log.push_back(last_ypd_p_ * 180.0 / M_PI);
+        log.armor_dis_log.push_back(last_distance_);
+
+        // 控制长度不超过 1000
+        auto trim = [](std::vector<double>& v) {
+            if (v.size() > 1000)
+                v.erase(v.begin());
+        };
+
+        trim(log.time_log);
+        trim(log.cmd_yaw_log);
+        trim(log.cmd_pitch_log);
+        trim(log.rune_obs_log);
+        trim(log.rune_pre_log);
+        trim(log.armor_yaw_log);
+        trim(log.armor_x_log);
+        trim(log.armor_y_log);
+        trim(log.armor_z_log);
+        trim(log.ypd_y_log);
+        trim(log.ypd_p_log);
+        trim(log.armor_dis_log);
     }
 }
 void WustVision::calculationManualR(const cv::Mat& src_img) {

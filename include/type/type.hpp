@@ -96,6 +96,30 @@ struct GridAndStride {
 enum class ArmorColor { BLUE = 0, RED, NONE, PURPLE };
 
 enum class ArmorNumber { SENTRY = 0, NO1, NO2, NO3, NO4, NO5, OUTPOST, BASE, UNKNOWN };
+inline std::ostream& operator<<(std::ostream& os, ArmorNumber number) {
+    switch (number) {
+        case ArmorNumber::SENTRY:
+            return os << "SENTRY";
+        case ArmorNumber::NO1:
+            return os << "NO1";
+        case ArmorNumber::NO2:
+            return os << "NO2";
+        case ArmorNumber::NO3:
+            return os << "NO3";
+        case ArmorNumber::NO4:
+            return os << "NO4";
+        case ArmorNumber::NO5:
+            return os << "NO5";
+        case ArmorNumber::OUTPOST:
+            return os << "OUTPOST";
+        case ArmorNumber::BASE:
+            return os << "BASE";
+        case ArmorNumber::UNKNOWN:
+            return os << "UNKNOWN";
+        default:
+            return os << "InvalidArmorNumber(" << static_cast<int>(number) << ")";
+    }
+}
 inline int formArmorColor(ArmorColor color) {
     switch (color) {
         case ArmorColor::RED:

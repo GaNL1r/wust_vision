@@ -20,11 +20,11 @@ std::string GetUniqueVideoFilename(const std::string& folder, const std::string&
 cv::Point2f normalize(const cv::Point2f& v);
 void writeCmdLogToJson();
 void robotCmdLoggerThread();
-void drawDebugOverlayWrite(const DebugArmor& dbg);
-void drawDebugOverlayShow(const DebugArmor& dbg);
+void drawDebugOverlayWrite(const DebugArmor& dbg, bool auto_fps);
+void drawDebugOverlayShow(const DebugArmor& dbg, bool auto_fps);
 cv::Mat drawDebugOverlayMat(const DebugArmor& dbg);
-void drawDebugOverlayWrite(const DebugRune& dbg);
-void drawDebugOverlayShow(const DebugRune& dbg);
+void drawDebugOverlayWrite(const DebugRune& dbg, bool auto_fps);
+void drawDebugOverlayShow(const DebugRune& dbg, bool auto_fps);
 cv::Mat drawDebugOverlayMat(const DebugRune& dbg);
 void drawDebugArmorContent(cv::Mat& debug_img, const DebugArmor& dbg);
 void drawDebugRuneContent(cv::Mat& debug_img, const DebugRune& dbg);

@@ -107,7 +107,7 @@ bool NumberClassifier::classifyNumber(ArmorObject& armor) {
 
         return true;
     } else {
-        armor.confidence = 0;
+        //armor.confidence = 0;
         return false;
     }
 }

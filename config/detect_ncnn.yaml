@@ -8,7 +8,7 @@ armor_detect:
     min_small_center_distance: 0.8
   classify:
     label_path: /home/hy/wust_vision/model/label.txt
-    model_path: /home/hy/wust_vision/model/mlp.onnx
+    model_path: /home/hy/wust_vision/model/reborn_number_classifier.onnx
     threshold: 0.5
   light:
     binary_thres: 85

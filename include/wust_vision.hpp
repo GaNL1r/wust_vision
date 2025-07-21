@@ -56,14 +56,8 @@ public:
         const std::vector<OneTarget>& one_targets,
         const std::chrono::steady_clock::time_point& now
     );
-    void visualizeAndLog(
-        AttackMode mode,
-        const Target& target,
-        const std::vector<OneTarget>& one_targets,
-        const GimbalCmd& gimbal_cmd,
-        Tracker::State state,
-        const std::chrono::steady_clock::time_point& now
-    );
+    void visualizeAndLog(bool auto_fps = true);
+    void debugThread();
 
     std::unique_ptr<HikCamera> camera_;
     std::unique_ptr<VideoPlayer> video_player_;
