@@ -108,7 +108,7 @@ bool WustVision::init() {
         toolsgobal::debug_h = gobal::config["debug"]["debug_h"].as<int>(480);
         debug_show_dt_ = gobal::config["debug"]["debug_show_dt"].as<double>(0.05);
         toolsgobal::debug_fps = gobal::config["debug"]["debug_fps"].as<double>(30);
-        gobal::use_calculation = gobal::config["common"]["use_calculation"].as<bool>();
+        use_calculation_ = gobal::config["common"]["use_calculation"].as<bool>();
 
         use_video_ = gobal::config["camera"]["video_player"]["use"].as<bool>(false);
         if (use_video_) {
@@ -238,7 +238,7 @@ bool WustVision::init() {
     WUST_MAIN(vision_logger_) << "WustVision init success";
     return true;
 }
-void WustVision::run() {
+void WustVision::start() {
     WUST_MAIN(vision_logger_) << "WustVision run start";
     if (serial_) {
         bool if_use_nav = gobal::config["control"]["use_nav"].as<bool>(false);
@@ -517,10 +517,6 @@ void WustVision::runeTargetCallback(
     if (rune_solver_->pnp_solver_ == nullptr) {
         return;
     }
-    // Keep the last detected target
-    if (!rune_target.is_lost) {
-        last_rune_target_ = rune_target;
-    }
     double observed_angle = 0;
     if (rune_solver_->tracker_state == RuneSolver::LOST) {
         observed_angle = rune_solver_->init(rune_target, T_camera_to_odom);
@@ -552,7 +548,7 @@ void WustVision::armorsCallback(
         imgframe_.timestamp = armors_.timestamp;
         armors_gobal_ = armors_;
     }
-    if (gobal::use_calculation) {
+    if (use_calculation_) {
         commandCallbackYpd(armors_);
     }
     armor::Target target_;
@@ -570,87 +566,6 @@ void WustVision::armorsCallback(
     toolsgobal::latency_ms = static_cast<double>(latency_nano) / 1e6;
 }
 
-armor::Armors WustVision::visualizeTargetProjection(
-    armor::Target armor_target_,
-    std::vector<armor::OneTarget> one_armor_targets_
-) {
-    armor::Armors armor_data;
-    armor_data.frame_id = "gimbal_odom";
-    armor_data.timestamp = armor_target_.timestamp;
-
-    if (armor_target_.tracking) {
-        tf::Position pos = armor_target_.position_;
-        tf::Position vel = armor_target_.velocity_;
-        utils::addVelFromAccDt(vel, armor_target_.acceleration_, debug_show_dt_);
-        utils::addPosFromVelDt(pos, vel, debug_show_dt_);
-        double yaw = armor_target_.yaw + armor_target_.v_yaw * debug_show_dt_;
-        double r1 = armor_target_.radius_1;
-        double r2 = armor_target_.radius_2;
-        double d_za = armor_target_.d_za;
-        double d_zc = armor_target_.d_zc;
-        float xc = pos.x;
-        float yc = pos.y;
-        float zc = pos.z;
-        bool is_current_pair = true;
-        armor_data.armors.clear();
-        size_t a_n = armor_target_.armors_num;
-        armor_data.armors.reserve(a_n);
-        for (size_t i = 0; i < a_n; ++i) {
-            double tmp_yaw = yaw + i * (2 * M_PI / a_n);
-            double cos_yaw = std::cos(tmp_yaw);
-            double sin_yaw = std::sin(tmp_yaw);
-
-            tf::Position pos;
-            if (a_n == 4) {
-                double r = is_current_pair ? r1 : r2;
-                pos.z = zc + d_zc + (is_current_pair ? 0 : d_za);
-                pos.x = xc - r * cos_yaw;
-                pos.y = yc - r * sin_yaw;
-                is_current_pair = !is_current_pair;
-            } else {
-                pos.z = zc;
-                pos.x = xc - r1 * cos_yaw;
-                pos.y = yc - r1 * sin_yaw;
-            }
-
-            tf::Quaternion ori;
-            ori.setRPY(
-                M_PI / 2,
-                armor_target_.id == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
-                tmp_yaw
-            );
-
-            armor_data.armors.emplace_back(armor::Armor { .type = armor_target_.type,
-                                                          .pos = pos,
-                                                          .ori = ori,
-                                                          .is_ok = true,
-                                                          .distance_to_image_center = 0.0f });
-        }
-    }
-    for (auto one_armor_target_: one_armor_targets_) {
-        if (one_armor_target_.tracking) {
-            tf::Position pos = one_armor_target_.position_;
-            tf::Position vel = one_armor_target_.velocity_;
-            utils::addVelFromAccDt(vel, one_armor_target_.acceleration_, debug_show_dt_);
-            utils::addPosFromVelDt(pos, vel, debug_show_dt_);
-            double tmp_yaw = one_armor_target_.yaw + one_armor_target_.v_yaw * debug_show_dt_;
-            tf::Quaternion ori;
-            ori.setRPY(
-                M_PI / 2,
-                one_armor_target_.id == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
-                tmp_yaw
-            );
-
-            armor_data.armors.emplace_back(armor::Armor { .type = one_armor_target_.type,
-                                                          .pos = pos,
-                                                          .ori = ori,
-                                                          .is_ok = false,
-                                                          .distance_to_image_center = 0.0f });
-        }
-    }
-
-    return armor_data;
-}
 void WustVision::ArmorDetectCallback(
     const std::vector<armor::ArmorObject>& objs,
     const CommonFrame& frame
@@ -921,7 +836,7 @@ void WustVision::timerCallback(double dt_ms) {
     }
 
     if (gobal::debug_mode) {
-        //visualizeAndLog(mode, target, one_targets, gimbal_cmd, state, now);
+        // visualizeAndLog(true);
     }
 }
 void WustVision::processImage(const ImageFrame& frame) {
@@ -1061,9 +976,9 @@ void WustVision::visualizeAndLog(bool auto_fps) {
             dbg.armors = armors;
             dbg.gimbal_cmd = gobal::last_cmd;
             dbg.tracker_state = state;
-            drawDebugOverlayWrite(dbg, auto_fps);
+            drawDebugOverlayShm(dbg, auto_fps);
         } catch (const std::exception& e) {
-            std::cerr << "drawDebugArmorWrite failed: " << e.what() << '\n';
+            std::cerr << "drawDebugArmor failed: " << e.what() << '\n';
         }
 
     } else {
@@ -1076,9 +991,9 @@ void WustVision::visualizeAndLog(bool auto_fps) {
             dbg.predict_angle = predict_angle;
             dbg.gimbal_cmd = gobal::last_cmd;
             dbg.manual_r_box = manual_r_box_;
-            drawDebugOverlayWrite(dbg, auto_fps);
+            drawDebugOverlayShm(dbg, auto_fps);
         } catch (const std::exception& e) {
-            std::cerr << "drawRuneAndPrewrite failed: " << e.what() << '\n';
+            std::cerr << "drawRuneAndPre failed: " << e.what() << '\n';
         }
     }
     double t = std::chrono::duration<double>(now - toolsgobal::start_time_).count();
@@ -1289,4 +1204,85 @@ void WustVision::saveAutoLabelData(
             auto_labeler_->save(img_save, csv_data);
         }
     }
+}
+armor::Armors WustVision::visualizeTargetProjection(
+    armor::Target armor_target_,
+    std::vector<armor::OneTarget> one_armor_targets_
+) {
+    armor::Armors armor_data;
+    armor_data.frame_id = "gimbal_odom";
+    armor_data.timestamp = armor_target_.timestamp;
+
+    if (armor_target_.tracking) {
+        tf::Position pos = armor_target_.position_;
+        tf::Position vel = armor_target_.velocity_;
+        utils::addVelFromAccDt(vel, armor_target_.acceleration_, debug_show_dt_);
+        utils::addPosFromVelDt(pos, vel, debug_show_dt_);
+        double yaw = armor_target_.yaw + armor_target_.v_yaw * debug_show_dt_;
+        double r1 = armor_target_.radius_1;
+        double r2 = armor_target_.radius_2;
+        double d_za = armor_target_.d_za;
+        double d_zc = armor_target_.d_zc;
+        float xc = pos.x;
+        float yc = pos.y;
+        float zc = pos.z;
+        bool is_current_pair = true;
+        armor_data.armors.clear();
+        size_t a_n = armor_target_.armors_num;
+        armor_data.armors.reserve(a_n);
+        for (size_t i = 0; i < a_n; ++i) {
+            double tmp_yaw = yaw + i * (2 * M_PI / a_n);
+            double cos_yaw = std::cos(tmp_yaw);
+            double sin_yaw = std::sin(tmp_yaw);
+
+            tf::Position pos;
+            if (a_n == 4) {
+                double r = is_current_pair ? r1 : r2;
+                pos.z = zc + d_zc + (is_current_pair ? 0 : d_za);
+                pos.x = xc - r * cos_yaw;
+                pos.y = yc - r * sin_yaw;
+                is_current_pair = !is_current_pair;
+            } else {
+                pos.z = zc;
+                pos.x = xc - r1 * cos_yaw;
+                pos.y = yc - r1 * sin_yaw;
+            }
+
+            tf::Quaternion ori;
+            ori.setRPY(
+                M_PI / 2,
+                armor_target_.id == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
+                tmp_yaw
+            );
+
+            armor_data.armors.emplace_back(armor::Armor { .type = armor_target_.type,
+                                                          .pos = pos,
+                                                          .ori = ori,
+                                                          .is_ok = true,
+                                                          .distance_to_image_center = 0.0f });
+        }
+    }
+    for (auto one_armor_target_: one_armor_targets_) {
+        if (one_armor_target_.tracking) {
+            tf::Position pos = one_armor_target_.position_;
+            tf::Position vel = one_armor_target_.velocity_;
+            utils::addVelFromAccDt(vel, one_armor_target_.acceleration_, debug_show_dt_);
+            utils::addPosFromVelDt(pos, vel, debug_show_dt_);
+            double tmp_yaw = one_armor_target_.yaw + one_armor_target_.v_yaw * debug_show_dt_;
+            tf::Quaternion ori;
+            ori.setRPY(
+                M_PI / 2,
+                one_armor_target_.id == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
+                tmp_yaw
+            );
+
+            armor_data.armors.emplace_back(armor::Armor { .type = one_armor_target_.type,
+                                                          .pos = pos,
+                                                          .ori = ori,
+                                                          .is_ok = false,
+                                                          .distance_to_image_center = 0.0f });
+        }
+    }
+
+    return armor_data;
 }

@@ -8,6 +8,7 @@
 #include "type/type.hpp"
 #include <chrono>
 #include <cstddef>
+#include <fcntl.h>
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <opencv2/core/mat.hpp>
@@ -15,6 +16,7 @@
 #include <opencv2/opencv.hpp>
 #include <optional>
 #include <string>
+#include <sys/mman.h>
 #include <vector>
 void drawDebugArmorContent(cv::Mat& debug_img, const DebugArmor& dbg) {
     static float yaw_diff = 0;
@@ -937,6 +939,72 @@ void drawDebugOverlayWrite(const DebugArmor& dbg, bool auto_fps) {
     ofs.close();
     std::rename("/dev/shm/debug_frame.jpg.tmp", "/dev/shm/debug_frame.jpg");
 }
+void drawDebugOverlayShm(const DebugArmor& dbg, bool auto_fps) {
+    static auto last_show_time = std::chrono::steady_clock::now();
+    const char* shm_name = "/debug_frame";
+    const size_t shm_max_size = 2 * 1024 * 1024; // 2MB 最大图像编码缓存
+
+    if (dbg.src_img->img.empty())
+        return;
+    cv::Mat src_img = dbg.src_img->img;
+
+    auto now = std::chrono::steady_clock::now();
+    const double min_interval_ms = 1000.0 / toolsgobal::debug_fps;
+    if (std::chrono::duration<double, std::milli>(now - last_show_time).count() < min_interval_ms
+        && auto_fps)
+        return;
+    last_show_time = now;
+
+    // 复制并转RGB
+    cv::Mat debug_img;
+    src_img.convertTo(debug_img, -1, 1, 0);
+    cv::cvtColor(debug_img, debug_img, cv::COLOR_BGR2RGB);
+    if (debug_img.empty())
+        return;
+
+    // 绘制内容
+    drawDebugArmorContent(debug_img, dbg);
+    // 编码为 JPG
+    std::vector<uchar> buf;
+    cv::imencode(".jpg", debug_img, buf);
+    size_t img_size = buf.size();
+
+    if (img_size > shm_max_size) {
+        std::cerr << "[drawDebugOverlayWrite] 图像过大: " << img_size << " bytes\n";
+        return;
+    }
+
+    // 创建/打开共享内存
+    int fd = shm_open(shm_name, O_CREAT | O_RDWR, 0666);
+    if (fd == -1) {
+        perror("shm_open failed");
+        return;
+    }
+
+    // 设置共享内存大小
+    if (ftruncate(fd, shm_max_size) == -1) {
+        perror("ftruncate failed");
+        close(fd);
+        return;
+    }
+
+    // 映射共享内存
+    void* ptr = mmap(nullptr, shm_max_size, PROT_WRITE, MAP_SHARED, fd, 0);
+    if (ptr == MAP_FAILED) {
+        perror("mmap failed");
+        close(fd);
+        return;
+    }
+
+    // 写入图像数据
+    uint32_t size = static_cast<uint32_t>(img_size);
+    std::memcpy(ptr, &size, 4); // 前4字节写入长度
+    std::memcpy(static_cast<char*>(ptr) + 4, buf.data(), img_size);
+
+    // 关闭映射和文件描述符
+    munmap(ptr, shm_max_size);
+    close(fd);
+}
 void drawDebugOverlayShow(const DebugArmor& dbg, bool auto_fps) {
     static auto last_show_time = std::chrono::steady_clock::now();
 
@@ -1017,6 +1085,72 @@ void drawDebugOverlayWrite(const DebugRune& dbg, bool auto_fps) {
     ofs.write(reinterpret_cast<const char*>(buf.data()), buf.size());
     ofs.close();
     std::rename("/dev/shm/debug_frame.jpg.tmp", "/dev/shm/debug_frame.jpg");
+}
+void drawDebugOverlayShm(const DebugRune& dbg, bool auto_fps) {
+    static auto last_show_time = std::chrono::steady_clock::now();
+    const char* shm_name = "/debug_frame";
+    const size_t shm_max_size = 2 * 1024 * 1024; // 2MB 最大图像编码缓存
+
+    if (dbg.src_img->img.empty())
+        return;
+    cv::Mat src_img = dbg.src_img->img;
+
+    auto now = std::chrono::steady_clock::now();
+    const double min_interval_ms = 1000.0 / toolsgobal::debug_fps;
+    if (std::chrono::duration<double, std::milli>(now - last_show_time).count() < min_interval_ms
+        && auto_fps)
+        return;
+    last_show_time = now;
+
+    // 复制并转RGB
+    cv::Mat debug_img;
+    src_img.convertTo(debug_img, -1, 1, 0);
+    cv::cvtColor(debug_img, debug_img, cv::COLOR_BGR2RGB);
+    if (debug_img.empty())
+        return;
+
+    // 绘制内容
+    drawDebugRuneContent(debug_img, dbg);
+    // 编码为 JPG
+    std::vector<uchar> buf;
+    cv::imencode(".jpg", debug_img, buf);
+    size_t img_size = buf.size();
+
+    if (img_size > shm_max_size) {
+        std::cerr << "[drawDebugOverlayWrite] 图像过大: " << img_size << " bytes\n";
+        return;
+    }
+
+    // 创建/打开共享内存
+    int fd = shm_open(shm_name, O_CREAT | O_RDWR, 0666);
+    if (fd == -1) {
+        perror("shm_open failed");
+        return;
+    }
+
+    // 设置共享内存大小
+    if (ftruncate(fd, shm_max_size) == -1) {
+        perror("ftruncate failed");
+        close(fd);
+        return;
+    }
+
+    // 映射共享内存
+    void* ptr = mmap(nullptr, shm_max_size, PROT_WRITE, MAP_SHARED, fd, 0);
+    if (ptr == MAP_FAILED) {
+        perror("mmap failed");
+        close(fd);
+        return;
+    }
+
+    // 写入图像数据
+    uint32_t size = static_cast<uint32_t>(img_size);
+    std::memcpy(ptr, &size, 4); // 前4字节写入长度
+    std::memcpy(static_cast<char*>(ptr) + 4, buf.data(), img_size);
+
+    // 关闭映射和文件描述符
+    munmap(ptr, shm_max_size);
+    close(fd);
 }
 void drawDebugOverlayShow(const DebugRune& dbg, bool auto_fps) {
     static auto last_show_time = std::chrono::steady_clock::now();

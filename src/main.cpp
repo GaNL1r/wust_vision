@@ -29,7 +29,7 @@ void signalHandler(int signum) {
 int main() {
     WustVision vision;
     if (vision.init()) {
-        vision.run();
+        vision.start();
     }
 
     std::signal(SIGINT, signalHandler);

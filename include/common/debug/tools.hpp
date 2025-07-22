@@ -23,9 +23,11 @@ std::string GetUniqueVideoFilename(const std::string& folder, const std::string&
 cv::Point2f normalize(const cv::Point2f& v);
 void writeCmdLogToJson();
 void robotCmdLoggerThread();
+void drawDebugOverlayShm(const DebugArmor& dbg, bool auto_fps);
 void drawDebugOverlayWrite(const DebugArmor& dbg, bool auto_fps);
 void drawDebugOverlayShow(const DebugArmor& dbg, bool auto_fps);
 cv::Mat drawDebugOverlayMat(const DebugArmor& dbg);
+void drawDebugOverlayShm(const DebugRune& dbg, bool auto_fps);
 void drawDebugOverlayWrite(const DebugRune& dbg, bool auto_fps);
 void drawDebugOverlayShow(const DebugRune& dbg, bool auto_fps);
 cv::Mat drawDebugOverlayMat(const DebugRune& dbg);

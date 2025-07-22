@@ -23,7 +23,7 @@ armor_detect:
     model_path_bin: /home/hy/wust_vision/model/opt-1208-001.bin
     input_name: images
     output_name: output
-    use_gpu: true
+    use_gpu: false
     use_lightmode: false
     device_id: 1
     cpu_threads: 1

@@ -14,7 +14,7 @@ reset="\033[0m"
 red="\033[1;31m"
 
 rm /dev/shm/debug_frame.jpg /dev/shm/cmd_log.json /dev/shm/aim_log.json /dev/shm/target_log.json
-
+sudo chmod 666 /dev/shm/debug_frame
 # 如果参数为 rebuild，则删除 build 文件夹
 if [ "$1" == "rebuild" ]; then
     echo -e "${yellow}<--- Rebuilding: Removing build directory --->${reset}"
@@ -38,7 +38,8 @@ fi
 
 echo -e "${yellow}\n<--- Start Make --->${reset}"
 max_threads=$(grep -c "processor" /proc/cpuinfo)
-make -j "$max_threads"
+# make -j "$max_threads"
+make -j$(nproc)
 if [ $? -ne 0 ]; then
     echo -e "${red}\n--- Make Failed ---${reset}"
     exit 1

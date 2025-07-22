@@ -28,7 +28,7 @@ find_package(G2O         REQUIRED)
 find_package(OpenGL      REQUIRED)
 find_package(Ceres       REQUIRED)
 find_package(HikSDK      REQUIRED)
-
+find_package(Drogon      REQUIRED)
 if(BUILD_WITH_OPENVINO)
   find_package(OpenVINO REQUIRED COMPONENTS Runtime ONNX)
 endif()

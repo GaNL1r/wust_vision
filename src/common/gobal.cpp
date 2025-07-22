@@ -20,7 +20,6 @@ double gimbal2camera_roll = 0;
 double gimbal2camera_pitch = 0;
 bool is_inited_ = false;
 YAML::Node config;
-bool use_calculation = false;
 bool use_serial = false;
 int attack_mode = 0;
 double communication_delay_μs;

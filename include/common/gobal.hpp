@@ -28,7 +28,6 @@ extern double last_v_z;
 extern double gimbal2camera_yaw, gimbal2camera_roll, gimbal2camera_pitch;
 extern bool is_inited_;
 extern YAML::Node config;
-extern bool use_calculation;
 extern bool use_serial;
 extern int attack_mode;
 extern double communication_delay_μs;
