@@ -76,16 +76,16 @@ public:
         const Eigen::Matrix3d& R_imu_camera,
         const std::string type
     ) noexcept;
-
-private:
-    Eigen::Matrix3d K_;
-    g2o::SparseOptimizer optimizer_;
-    g2o::OptimizationAlgorithmProperty solver_property_;
-    g2o::OptimizationAlgorithmLevenberg* lm_algorithm_;
     int max_iter_R_;
     int max_iter_t_;
     int step_R_;
     int step_t_;
     double min_error_R_;
     double min_error_t_;
+
+private:
+    Eigen::Matrix3d K_;
+    g2o::SparseOptimizer optimizer_;
+    g2o::OptimizationAlgorithmProperty solver_property_;
+    g2o::OptimizationAlgorithmLevenberg* lm_algorithm_;
 };

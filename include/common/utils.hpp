@@ -18,6 +18,7 @@
 
 #include "common/gobal.hpp"
 #include "common/logger.hpp"
+#include "control/manual_compensator.hpp"
 #include "type/type.hpp"
 #include <Eigen/Dense>
 #include <opencv2/calib3d.hpp>
@@ -248,5 +249,52 @@ inline void addPosFromVelDt(tf::Position pos, const tf::Position& vel, double dt
     pos.y += vel.y * dt;
     pos.z += vel.z * dt;
 }
+template<typename T>
+bool tryGetValue(const YAML::Node& node, const char* key, T& out_val) {
+    if (!node[key]) {
+        return false;
+    }
+    try {
+        out_val = node[key].template as<T>();
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+inline std::vector<OffsetEntry> getOffsetEntry(const YAML::Node& config) {
+    std::vector<OffsetEntry> entries;
+    if (config["trajectory_offset"]) {
+        for (const auto& node: config["trajectory_offset"]) {
+            OffsetEntry e;
+            bool valid = true;
 
+            auto tryGetValue = [](const YAML::Node& n, const char* key, double& out_val) -> bool {
+                if (!n[key])
+                    return false;
+                try {
+                    out_val = n[key].template as<double>();
+                    return true;
+                } catch (...) {
+                    return false;
+                }
+            };
+
+            valid &= tryGetValue(node, "d_min", e.d_min);
+            valid &= tryGetValue(node, "d_max", e.d_max);
+            valid &= tryGetValue(node, "h_min", e.h_min);
+            valid &= tryGetValue(node, "h_max", e.h_max);
+            valid &= tryGetValue(node, "pitch_off", e.pitch_off);
+            valid &= tryGetValue(node, "yaw_off", e.yaw_off);
+
+            if (valid) {
+                entries.push_back(e);
+            } else {
+                std::cerr
+                    << "Warning: skipping invalid trajectory_offset entry due to missing or invalid fields."
+                    << std::endl;
+            }
+        }
+    }
+    return entries;
+}
 } // namespace utils

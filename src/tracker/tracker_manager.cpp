@@ -525,7 +525,6 @@ void TrackerManager::update(
     const Eigen::Vector3d& v
 ) {
     this->R_gimbal2odom_ = R_gimbal2odom;
-
     updateTracker(target_, armors_, time, v);
     updateAttackState(std::abs(target_.v_yaw));
 

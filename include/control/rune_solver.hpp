@@ -59,7 +59,7 @@ public:
         TRACKING,
     } tracker_state;
 
-    RuneSolver(const RuneSolverParams& sr_params);
+    RuneSolver(const YAML::Node& config);
 
     // Return: initial angle
     double init(const rune::Rune received_target, Eigen::Matrix4d T_camera_to_odom);
@@ -102,6 +102,9 @@ public:
     // from the first detection (call init()) of the target without
     // any abrupt change in between.
     double last_observed_angle_;
+    int iteration_num_;
+    std::vector<double> yr_vec_;
+    std::vector<double> yq_vec_;
 
 private:
     double getNormalAngle(const rune::Rune received_target);

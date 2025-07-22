@@ -65,6 +65,20 @@ public:
     std::vector<std::pair<double, double>> getTrajectory() const noexcept;
 
     enum State { TRACKING_ARMOR = 0, TRACKING_CENTER = 1 };
+    double small_shooting_range_w_ = 0.135;
+    double small_shooting_range_h_ = 0.135;
+    double big_shooting_range_w_ = 0.135;
+    double big_shooting_range_h_ = 0.135;
+    double max_tracking_v_yaw_ = 6.0;
+    double prediction_delay_ = 0.0;
+    double side_angle_ = 15.0; // degrees
+    double min_switching_v_yaw_ = 1.0;
+    int transfer_thresh_ = 5;
+    double oneswitch_position_thres_ = 0.3;
+    double oneswitch_angle_thres_ = 30.0;
+    double oneswitch_hold_time_ = 1.5;
+    std::unique_ptr<TrajectoryCompensator> trajectory_compensator_;
+    std::unique_ptr<ManualCompensator> manual_compensator_;
 
 private:
     void init(const YAML::Node& config);
@@ -120,23 +134,6 @@ private:
     int selectBestTarget(const std::vector<armor::OneTarget>& targets, bool is_target_tracking)
         const noexcept;
 
-    double small_shooting_range_w_ = 0.135;
-    double small_shooting_range_h_ = 0.135;
-    double big_shooting_range_w_ = 0.135;
-    double big_shooting_range_h_ = 0.135;
-    double max_tracking_v_yaw_ = 6.0;
-    double prediction_delay_ = 0.0;
-    double side_angle_ = 15.0; // degrees
-    double min_switching_v_yaw_ = 1.0;
-    int transfer_thresh_ = 5;
-    int iteration_times_ = 20;
-    double bullet_speed_ = 20.0;
-    double gravity_ = 9.8;
-    double resistance_ = 0.001;
-    std::vector<std::pair<double, double>> manual_angle_offset_; // distance→{pitch°, yaw°}
-
-    std::unique_ptr<TrajectoryCompensator> trajectory_compensator_;
-    std::unique_ptr<ManualCompensator> manual_compensator_;
     State state_ = TRACKING_ARMOR;
     int overflow_count_ = 0;
     std::array<double, 3> rpy_ { 0, 0, 0 }; // roll, pitch, yaw
@@ -147,8 +144,4 @@ private:
     mutable armor::OneTarget pending_target_;
     mutable std::chrono::steady_clock::time_point pending_target_start_time_;
     mutable bool has_pending_target_ = false;
-
-    double oneswitch_position_thres_ = 0.3;
-    double oneswitch_angle_thres_ = 30.0;
-    double oneswitch_hold_time_ = 1.5;
 };

@@ -80,6 +80,7 @@ public:
         armor::Target armor_target_,
         std::vector<armor::OneTarget> one_armor_targets_
     );
+    void reloadConfig();
 
 private:
     // Camera & Video

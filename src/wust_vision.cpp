@@ -90,7 +90,7 @@ void WustVision::stopTimer() {
 }
 bool WustVision::init() {
     WUST_MAIN(vision_logger_) << "WustVision init start";
-    gobal::config = YAML::LoadFile("/home/hy/wust_vision/config/config_common.yaml");
+    gobal::config = YAML::LoadFile(ROOT_CONFIG);
 
     std::string log_level_ = gobal::config["logger"]["log_level"].as<std::string>("INFO");
     std::string log_path_ = gobal::config["logger"]["log_path"].as<std::string>("wust_log");
@@ -366,73 +366,8 @@ void WustVision::initRune(const std::string& camera_info_path) {
     use_manual_r_ = rune_detect_config_["rune_detector"]["use_manual_r"].as<bool>();
     rune_binary_thresh_ = rune_detect_config_["rune_detector"]["min_lightness"].as<int>();
 #endif
-    auto rune_solver_params = RuneSolver::RuneSolverParams {
-        .compensator_type = gobal::config["rune_solver"]["compensator_type"].as<std::string>(),
-        .gravity = gobal::config["rune_solver"]["gravity"].as<double>(9.8),
-        .bullet_speed = gobal::config["rune_solver"]["bullet_speed"].as<double>(25.0),
-        .angle_offset_thres = gobal::config["rune_solver"]["angle_offset_thres"].as<double>(0.78),
-        .lost_time_thres = gobal::config["rune_solver"]["lost_time_thres"].as<double>(0.5),
-        .auto_type_determined = gobal::config["rune_solver"]["auto_type_determined"].as<bool>(true),
-    };
-    rune_solver_ = std::make_unique<RuneSolver>(rune_solver_params);
-    rune_solver_->predict_offset_ = gobal::config["rune_solver"]["predict_offset"].as<double>(0.0);
-    rune_solver_->pnp_solver_ = std::make_unique<PnPSolver>();
-    rune_solver_->pnp_solver_->setObjectPoints("rune", RUNE_OBJECT_POINTS);
-    std::vector<OffsetEntry> entries;
-    if (gobal::config["rune_solver"]["trajectory_offset"]) {
-        for (const auto& node: gobal::config["rune_solver"]["trajectory_offset"]) {
-            OffsetEntry e;
-            e.d_min = node["d_min"].as<double>();
-            e.d_max = node["d_max"].as<double>();
-            e.h_min = node["h_min"].as<double>();
-            e.h_max = node["h_max"].as<double>();
-            e.pitch_off = node["pitch_off"].as<double>();
-            e.yaw_off = node["yaw_off"].as<double>();
-            entries.push_back(e);
-        }
-    }
-    rune_solver_->manual_compensator_->updateMapFlow(entries);
-    // EKF for filtering the position of R tag
-    // state: yaw, pitch, distance, orientation_yaw
-    // measurement: x, y, z, yaw
-    // f - Process function
-    auto yf = ypdrune_motion_model::Predict();
-    // h - Observation function
-    auto yh = ypdrune_motion_model::Measure();
-    // update_Q - process noise covariance matrix
 
-    std::vector<double> yq_vec =
-        gobal::config["rune_solver"]["ekf"]["q_ypdyaw"].as<std::vector<double>>();
-    auto yu_q = [yq_vec]() {
-        Eigen::Matrix<double, ypdrune_motion_model::X_N, ypdrune_motion_model::X_N> q =
-            Eigen::MatrixXd::Zero(4, 4);
-        q.diagonal() << yq_vec[0], yq_vec[1], yq_vec[2], yq_vec[3];
-        return q;
-    };
-    // update_R - measurement noise covariance matrix
-
-    std::vector<double> yr_vec =
-        gobal::config["rune_solver"]["ekf"]["r_ypdyaw"].as<std::vector<double>>();
-    auto yu_r = [yr_vec](const Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>& z) {
-        Eigen::Matrix<double, ypdrune_motion_model::Z_N, ypdrune_motion_model::Z_N> r =
-            Eigen::MatrixXd::Zero(4, 4);
-        // clang-format off
-            r <<pow(yr_vec[0] * M_PI / 180.0, 2), 0, 0, 0,
-                0, pow(yr_vec[1] * M_PI / 180.0, 2) , 0, 0,
-                0, 0, yr_vec[2] * std::abs(z[2]) *std::abs(z[2]), 0,
-                0, 0, 0, yr_vec[3];
-        // clang-format on
-        return r;
-    };
-    // P - error estimate covariance matrix
-    Eigen::MatrixXd p0 = Eigen::MatrixXd::Identity(4, 4);
-    Eigen::MatrixXd yp0 = Eigen::MatrixXd::Identity(4, 4);
-    int iteration_num = gobal::config["rune_solver"]["ekf"]["iteration_num"].as<int>(1);
-
-    rune_solver_->ekf_ypd_ =
-        std::make_unique<ypdrune_motion_model::RuneCenterEKF>(yf, yh, yu_q, yu_r, yp0);
-    rune_solver_->ekf_ypd_->setAngleDims({ 0, 3 });
-    rune_solver_->ekf_ypd_->setIterationNum(iteration_num);
+    rune_solver_ = std::make_unique<RuneSolver>(gobal::config);
 }
 
 void WustVision::startTimer() {
@@ -929,6 +864,7 @@ void WustVision::debugThread() {
 
         visualizeAndLog(false);
         writeCmdLogToJson();
+        reloadConfig();
         auto elapsed = steady_clock::now() - start_time;
         if (elapsed < kInterval) {
             std::this_thread::sleep_for(kInterval - elapsed);
@@ -1285,4 +1221,192 @@ armor::Armors WustVision::visualizeTargetProjection(
     }
 
     return armor_data;
+}
+void WustVision::reloadConfig() {
+    using namespace std::chrono;
+    static steady_clock::time_point last_reload_time =
+        steady_clock::now() - seconds(2); // 初始化为两秒前
+
+    auto now = steady_clock::now();
+    if (duration_cast<seconds>(now - last_reload_time).count() < 2) {
+        // 距离上次执行不到2秒，直接返回，不执行
+        return;
+    }
+    last_reload_time = now;
+    gobal::config = YAML::LoadFile(ROOT_CONFIG);
+    if (!gobal::config) {
+        std::cerr << "Failed to load config file or file empty." << std::endl;
+        return;
+    }
+    auto shoot_config = gobal::config["shoot"];
+    if (shoot_config) {
+        utils::tryGetValue<double>(shoot_config, "bullet_speed", gobal::velocity);
+    }
+    auto tracker_config = gobal::config["armor_tracker"];
+    if (tracker_config) {
+        auto ekf_config = tracker_config["ekf"];
+        if (ekf_config) {
+            utils::tryGetValue<double>(ekf_config, "ys2qx", tracker_manager_->ys2qx_);
+            utils::tryGetValue<double>(ekf_config, "ys2qy", tracker_manager_->ys2qy_);
+            utils::tryGetValue<double>(ekf_config, "ys2qz", tracker_manager_->ys2qz_);
+            utils::tryGetValue<double>(ekf_config, "ys2qyaw", tracker_manager_->ys2qyaw_);
+            utils::tryGetValue<double>(ekf_config, "ys2qr", tracker_manager_->ys2qr_);
+            utils::tryGetValue<double>(ekf_config, "ys2qd_zc", tracker_manager_->ys2qd_zc_);
+
+            utils::tryGetValue<double>(ekf_config, "yr_y", tracker_manager_->yr_y_);
+            utils::tryGetValue<double>(ekf_config, "yr_p", tracker_manager_->yr_p_);
+            utils::tryGetValue<double>(ekf_config, "yr_d_front", tracker_manager_->yr_d_front_);
+            utils::tryGetValue<double>(ekf_config, "yr_d_side", tracker_manager_->yr_d_side_);
+            utils::tryGetValue<double>(ekf_config, "yr_yaw_front", tracker_manager_->yr_yaw_front_);
+            utils::tryGetValue<double>(ekf_config, "yr_yaw_side", tracker_manager_->yr_yaw_side_);
+
+            utils::tryGetValue<double>(ekf_config, "oys2qx", tracker_manager_->oys2qx_);
+            utils::tryGetValue<double>(ekf_config, "oys2qy", tracker_manager_->oys2qy_);
+            utils::tryGetValue<double>(ekf_config, "oys2qz", tracker_manager_->oys2qz_);
+            utils::tryGetValue<double>(ekf_config, "oys2qyaw", tracker_manager_->oys2qyaw_);
+
+            utils::tryGetValue<double>(ekf_config, "oyr_y", tracker_manager_->oyr_y_);
+            utils::tryGetValue<double>(ekf_config, "oyr_p", tracker_manager_->oyr_p_);
+            utils::tryGetValue<double>(ekf_config, "oyr_d_front", tracker_manager_->oyr_d_front_);
+            utils::tryGetValue<double>(ekf_config, "oyr_d_side", tracker_manager_->oyr_d_side_);
+            utils::tryGetValue<double>(
+                ekf_config,
+                "oyr_yaw_front",
+                tracker_manager_->oyr_yaw_front_
+            );
+            utils::tryGetValue<double>(ekf_config, "oyr_yaw_side", tracker_manager_->oyr_yaw_side_);
+
+            utils::tryGetValue<double>(ekf_config, "r_v", tracker_manager_->r_v);
+            utils::tryGetValue<double>(ekf_config, "q_v", tracker_manager_->q_v);
+            utils::tryGetValue<double>(ekf_config, "q_a", tracker_manager_->q_a);
+        }
+    }
+
+    auto armor_solver_config = gobal::config["armor_solver"];
+    if (armor_solver_config) {
+        utils::tryGetValue<double>(
+            armor_solver_config,
+            "small_shooting_range_w",
+            armor_solver_->small_shooting_range_w_
+        );
+        utils::tryGetValue<double>(
+            armor_solver_config,
+            "small_shooting_range_h",
+            armor_solver_->small_shooting_range_h_
+        );
+        utils::tryGetValue<double>(
+            armor_solver_config,
+            "big_shooting_range_w",
+            armor_solver_->big_shooting_range_w_
+        );
+        utils::tryGetValue<double>(
+            armor_solver_config,
+            "big_shooting_range_h",
+            armor_solver_->big_shooting_range_h_
+        );
+        utils::tryGetValue<double>(
+            armor_solver_config,
+            "max_tracking_v_yaw",
+            armor_solver_->max_tracking_v_yaw_
+        );
+        utils::tryGetValue<double>(
+            armor_solver_config,
+            "prediction_delay",
+            armor_solver_->prediction_delay_
+        );
+        utils::tryGetValue<double>(armor_solver_config, "side_angle", armor_solver_->side_angle_);
+        utils::tryGetValue<double>(
+            armor_solver_config,
+            "min_switching_v_yaw",
+            armor_solver_->min_switching_v_yaw_
+        );
+        utils::tryGetValue<double>(
+            armor_solver_config,
+            "gravity",
+            armor_solver_->trajectory_compensator_->gravity_
+        );
+        utils::tryGetValue<double>(
+            armor_solver_config,
+            "resistance",
+            armor_solver_->trajectory_compensator_->resistance_
+        );
+        utils::tryGetValue<int>(
+            armor_solver_config,
+            "iteration_times",
+            armor_solver_->trajectory_compensator_->iteration_times_
+        );
+        utils::tryGetValue<double>(
+            armor_solver_config,
+            "oneswitch_position_thres",
+            armor_solver_->oneswitch_position_thres_
+        );
+        utils::tryGetValue<double>(
+            armor_solver_config,
+            "oneswitch_angle_thres",
+            armor_solver_->oneswitch_angle_thres_
+        );
+        utils::tryGetValue<double>(
+            armor_solver_config,
+            "oneswitch_hold_time",
+            armor_solver_->oneswitch_hold_time_
+        );
+        //armor_solver_->manual_compensator_->updateMapFlow(utils::getOffsetEntry(armor_solver_config));
+    }
+    auto armor_optimize_config = gobal::config["armor_optimize"];
+    if (armor_optimize_config) {
+        utils::tryGetValue<int>(
+            armor_solver_config,
+            "max_iter_R",
+            armor_pose_estimator_->ba_solver_->max_iter_R_
+        );
+        utils::tryGetValue<int>(
+            armor_solver_config,
+            "max_iter_t",
+            armor_pose_estimator_->ba_solver_->max_iter_t_
+        );
+        utils::tryGetValue<int>(
+            armor_solver_config,
+            "step_R",
+            armor_pose_estimator_->ba_solver_->step_R_
+        );
+        utils::tryGetValue<int>(
+            armor_solver_config,
+            "step_t",
+            armor_pose_estimator_->ba_solver_->step_t_
+        );
+        utils::tryGetValue<double>(
+            armor_solver_config,
+            "min_error_R",
+            armor_pose_estimator_->ba_solver_->min_error_R_
+        );
+        utils::tryGetValue<double>(
+            armor_solver_config,
+            "min_error_t",
+            armor_pose_estimator_->ba_solver_->min_error_t_
+        );
+    }
+    auto rune_solver_config = gobal::config["rune_solver"];
+    if (rune_solver_config) {
+        utils::tryGetValue<double>(
+            rune_solver_config,
+            "gravity",
+            rune_solver_->trajectory_compensator_->gravity_
+        );
+        utils::tryGetValue<double>(
+            rune_solver_config,
+            "resistance",
+            rune_solver_->trajectory_compensator_->resistance_
+        );
+        utils::tryGetValue<int>(
+            rune_solver_config,
+            "iteration_times",
+            rune_solver_->trajectory_compensator_->iteration_times_
+        );
+        //rune_solver_->manual_compensator_->updateMapFlow(utils::getOffsetEntry(rune_solver_config));
+        auto ekf_config = rune_solver_config["ekf"];
+        if (ekf_config) {
+            utils::tryGetValue<std::vector<double>>(ekf_config, "q_ypdyaw", rune_solver_->yq_vec_);
+            utils::tryGetValue<std::vector<double>>(ekf_config, "r_ypdyaw", rune_solver_->yr_vec_);
+        }
+    }
 }

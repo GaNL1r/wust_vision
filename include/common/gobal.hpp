@@ -5,6 +5,7 @@
 #include "detect/mono_measure_tool.hpp"
 #include "yaml-cpp/yaml.h"
 #include <optional>
+#define ROOT_CONFIG "/home/hy/wust_vision/config/config_common.yaml"
 #define OPENVINO_CONFIG "/home/hy/wust_vision/config/detect_openvino.yaml"
 #define TENSORRT_CONFIG "/home/hy/wust_vision/config/detect_trt.yaml"
 #define NCNN_CONFIG "/home/hy/wust_vision/config/detect_ncnn.yaml"

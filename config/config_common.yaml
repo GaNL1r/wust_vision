@@ -73,6 +73,9 @@ logger:
   use_logfile: true
   use_simplelog: true
 
+shoot:
+  bullet_speed: 21
+
 armor_optimize:
   max_iter_R: 3000
   max_iter_t: 1000
@@ -82,7 +85,6 @@ armor_optimize:
   min_error_t: 0.5
 
 armor_solver:
-  bullet_speed: 21
   compenstator_type: ideal
   controller_delay: 0.01
   gravity: 9.8
@@ -105,7 +107,7 @@ armor_solver:
       h_max: 0.4
       h_min: -1
       pitch_off: -1.5
-      yaw_off: 0
+      yaw_off: 20
     - d_max: 7
       d_min: 4
       h_max: 0.4
@@ -157,7 +159,6 @@ armor_tracker:
 
 rune_solver:
   auto_type_determined: true
-  bullet_speet: 20
   compensator_type: resistance
   ekf:
     iteration_num: 1

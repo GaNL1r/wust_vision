@@ -43,11 +43,11 @@ void ArmorSolver::init(const YAML::Node& config) {
     gobal::controller_delay = s["controller_delay"].as<double>(0.0);
     side_angle_ = s["side_angle"].as<double>(20.0);
     min_switching_v_yaw_ = s["min_switching_v_yaw"].as<double>(1.0);
-
-    bullet_speed_ = s["bullet_speed"].as<double>(25.0);
-    gravity_ = s["gravity"].as<double>(10.0);
-    resistance_ = s["resistance"].as<double>(0.092);
-    iteration_times_ = s["iteration_times"].as<int>(20);
+    auto shoot_config = config["shoot"];
+    double bullet_speed_ = shoot_config["bullet_speed"].as<double>(25.0);
+    double gravity_ = s["gravity"].as<double>(10.0);
+    double resistance_ = s["resistance"].as<double>(0.092);
+    int iteration_times_ = s["iteration_times"].as<int>(20);
     oneswitch_position_thres_ = s["oneswitch_position_thres"].as<double>(0.2);
     oneswitch_angle_thres_ = s["oneswitch_angle_thres"].as<double>(0.2);
 

@@ -44,6 +44,7 @@ public:
     void enableBA(bool enable) {
         use_ba_ = enable;
     }
+    std::unique_ptr<BaSolver> ba_solver_;
 
 private:
     // Select the best PnP solution according to the armor's direction in image,
@@ -64,6 +65,5 @@ private:
 
     Eigen::Matrix3d R_gimbal_camera_;
 
-    std::unique_ptr<BaSolver> ba_solver_;
     std::unique_ptr<PnPSolver> pnp_solver_;
 };

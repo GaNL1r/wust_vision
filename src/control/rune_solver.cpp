@@ -29,17 +29,80 @@
 #include "common/utils.hpp"
 #include "type/type.hpp"
 
-RuneSolver::RuneSolver(const RuneSolverParams& rsp): rune_solver_params_(rsp) {
+RuneSolver::RuneSolver(const YAML::Node& config) {
     // Init
+    rune_solver_params_ = RuneSolver::RuneSolverParams {
+        .compensator_type = gobal::config["rune_solver"]["compensator_type"].as<std::string>(),
+        .gravity = gobal::config["rune_solver"]["gravity"].as<double>(9.8),
+        .angle_offset_thres = gobal::config["rune_solver"]["angle_offset_thres"].as<double>(0.78),
+        .lost_time_thres = gobal::config["rune_solver"]["lost_time_thres"].as<double>(0.5),
+        .auto_type_determined = gobal::config["rune_solver"]["auto_type_determined"].as<bool>(true),
+    };
     tracker_state = LOST;
     curve_fitter_ = std::make_unique<CurveFitter>(MotionType::UNKNOWN);
-    curve_fitter_->setAutoTypeDetermined(rsp.auto_type_determined);
-    trajectory_compensator_ = CompensatorFactory::createCompensator(rsp.compensator_type);
-    trajectory_compensator_->gravity_ = rsp.gravity;
-    gobal::velocity = rsp.bullet_speed;
+    curve_fitter_->setAutoTypeDetermined(rune_solver_params_.auto_type_determined);
+    trajectory_compensator_ =
+        CompensatorFactory::createCompensator(rune_solver_params_.compensator_type);
+    trajectory_compensator_->gravity_ = rune_solver_params_.gravity;
     trajectory_compensator_->resistance_ = 0.01;
     ekf_state_ = Eigen::Vector4d::Zero();
     manual_compensator_ = std::make_unique<ManualCompensator>();
+    predict_offset_ = gobal::config["rune_solver"]["predict_offset"].as<double>(0.0);
+    pnp_solver_ = std::make_unique<PnPSolver>();
+    pnp_solver_->setObjectPoints("rune", RUNE_OBJECT_POINTS);
+    std::vector<OffsetEntry> entries;
+    auto shoot_config = config["shoot"];
+    if (gobal::config["rune_solver"]["trajectory_offset"]) {
+        for (const auto& node: gobal::config["rune_solver"]["trajectory_offset"]) {
+            OffsetEntry e;
+            e.d_min = node["d_min"].as<double>();
+            e.d_max = node["d_max"].as<double>();
+            e.h_min = node["h_min"].as<double>();
+            e.h_max = node["h_max"].as<double>();
+            e.pitch_off = node["pitch_off"].as<double>();
+            e.yaw_off = node["yaw_off"].as<double>();
+            entries.push_back(e);
+        }
+    }
+    manual_compensator_->updateMapFlow(entries);
+    // EKF for filtering the position of R tag
+    // state: yaw, pitch, distance, orientation_yaw
+    // measurement: x, y, z, yaw
+    // f - Process function
+    auto yf = ypdrune_motion_model::Predict();
+    // h - Observation function
+    auto yh = ypdrune_motion_model::Measure();
+    // update_Q - process noise covariance matrix
+
+    yq_vec_ = gobal::config["rune_solver"]["ekf"]["q_ypdyaw"].as<std::vector<double>>();
+    auto yu_q = [this]() {
+        Eigen::Matrix<double, ypdrune_motion_model::X_N, ypdrune_motion_model::X_N> q =
+            Eigen::MatrixXd::Zero(4, 4);
+        q.diagonal() << yq_vec_[0], yq_vec_[1], yq_vec_[2], yq_vec_[3];
+        return q;
+    };
+    // update_R - measurement noise covariance matrix
+
+    yr_vec_ = gobal::config["rune_solver"]["ekf"]["r_ypdyaw"].as<std::vector<double>>();
+    auto yu_r = [this](const Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>& z) {
+        Eigen::Matrix<double, ypdrune_motion_model::Z_N, ypdrune_motion_model::Z_N> r =
+            Eigen::MatrixXd::Zero(4, 4);
+        // clang-format off
+            r <<pow(yr_vec_[0] * M_PI / 180.0, 2), 0, 0, 0,
+                0, pow(yr_vec_[1] * M_PI / 180.0, 2) , 0, 0,
+                0, 0, yr_vec_[2] * std::abs(z[2]) *std::abs(z[2]), 0,
+                0, 0, 0, yr_vec_[3];
+        // clang-format on
+        return r;
+    };
+    // P - error estimate covariance matrix
+    Eigen::MatrixXd p0 = Eigen::MatrixXd::Identity(4, 4);
+    Eigen::MatrixXd yp0 = Eigen::MatrixXd::Identity(4, 4);
+    iteration_num_ = gobal::config["rune_solver"]["ekf"]["iteration_num"].as<int>(1);
+
+    ekf_ypd_ = std::make_unique<ypdrune_motion_model::RuneCenterEKF>(yf, yh, yu_q, yu_r, yp0);
+    ekf_ypd_->setAngleDims({ 0, 3 });
+    ekf_ypd_->setIterationNum(iteration_num_);
 }
 
 double RuneSolver::init(const rune::Rune received_target, Eigen::Matrix4d T_camera_to_odom) {
