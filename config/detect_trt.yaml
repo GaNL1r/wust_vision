@@ -15,7 +15,7 @@ armor_detect:
     expand_ratio_h: 1.2
     expand_ratio_w: 1.2
     max_angle: 45
-    max_ratio: 0.45
+    max_ratio: 0.6
     min_ratio: 0.03
   model:
     conf_threshold: 0.2

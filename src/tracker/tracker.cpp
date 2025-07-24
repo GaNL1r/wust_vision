@@ -58,7 +58,7 @@ void Tracker::init(const armor::Armors& armors_msg) noexcept {
     tracked_armor_ = armors_msg.armors[0];
     for (const auto& armor: armors_msg.armors) {
         if (!armor.is_ok) {
-            //    continue;
+            continue;
         }
         if (armor.distance_to_image_center < min_distance) {
             min_distance = armor.distance_to_image_center;

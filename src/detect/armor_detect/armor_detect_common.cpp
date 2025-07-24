@@ -77,7 +77,7 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, armor::ArmorObject& 
         new_height = src.rows - new_y;
 
     if (new_width <= 0 || new_height <= 0) {
-        std::cerr << "[extractImage] Invalid expanded ROI size!" << std::endl;
+        // std::cerr << "[extractImage] Invalid expanded ROI size!" << std::endl;
         return false;
     }
 

@@ -2,7 +2,7 @@ armor_detect_opencv:
   light:
     binary_thres: 85
     max_angle: 40
-    max_ratio: 0.45
+    max_ratio: 0.6
     min_ratio: 0.001
     color_diff_thresh: 20
   armor:

@@ -267,24 +267,12 @@ inline std::vector<OffsetEntry> getOffsetEntry(const YAML::Node& config) {
         for (const auto& node: config["trajectory_offset"]) {
             OffsetEntry e;
             bool valid = true;
-
-            auto tryGetValue = [](const YAML::Node& n, const char* key, double& out_val) -> bool {
-                if (!n[key])
-                    return false;
-                try {
-                    out_val = n[key].template as<double>();
-                    return true;
-                } catch (...) {
-                    return false;
-                }
-            };
-
-            valid &= tryGetValue(node, "d_min", e.d_min);
-            valid &= tryGetValue(node, "d_max", e.d_max);
-            valid &= tryGetValue(node, "h_min", e.h_min);
-            valid &= tryGetValue(node, "h_max", e.h_max);
-            valid &= tryGetValue(node, "pitch_off", e.pitch_off);
-            valid &= tryGetValue(node, "yaw_off", e.yaw_off);
+            valid &= tryGetValue<double>(node, "d_min", e.d_min);
+            valid &= tryGetValue<double>(node, "d_max", e.d_max);
+            valid &= tryGetValue<double>(node, "h_min", e.h_min);
+            valid &= tryGetValue<double>(node, "h_max", e.h_max);
+            valid &= tryGetValue<double>(node, "pitch_off", e.pitch_off);
+            valid &= tryGetValue<double>(node, "yaw_off", e.yaw_off);
 
             if (valid) {
                 entries.push_back(e);

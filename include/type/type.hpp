@@ -225,8 +225,8 @@ inline int formArmorNumber(ArmorNumber number) {
 }
 inline int retypetotracker(ArmorNumber a) {
     static const std::unordered_map<ArmorNumber, int> map = {
-        { ArmorNumber::SENTRY, 0 },  { ArmorNumber::NO1, 1 },  { ArmorNumber::NO2, 2 },
-        { ArmorNumber::NO3, 3 },     { ArmorNumber::NO4, 4 },  { ArmorNumber::NO5, 5 },
+        { ArmorNumber::SENTRY, 0 },  { ArmorNumber::NO1, 1 },  { ArmorNumber::NO2, 0 },
+        { ArmorNumber::NO3, 0 },     { ArmorNumber::NO4, 0 },  { ArmorNumber::NO5, 0 },
         { ArmorNumber::OUTPOST, 6 }, { ArmorNumber::BASE, 7 }, { ArmorNumber::UNKNOWN, -1 }
     };
 

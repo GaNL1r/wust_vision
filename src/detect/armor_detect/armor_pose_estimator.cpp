@@ -70,11 +70,6 @@ std::vector<armor::Armor> ArmorPoseEstimator::extractArmorPoses(
             continue;
         }
 
-        if (gobal::detect_color == 0 && armor.color != armor::ArmorColor::RED) {
-            continue;
-        } else if (gobal::detect_color == 1 && armor.color != armor::ArmorColor::BLUE) {
-            continue;
-        }
         std::vector<cv::Mat> rvecs, tvecs;
         armor::Armor armor_;
         armor::ArmorObject temp_armor = armor;

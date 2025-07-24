@@ -1,5 +1,5 @@
 common:
-  armor_detect_backend: opencv
+  armor_detect_backend: tensorrt
   rune_detect_backend: ncnn
   detect_color: 0
   init_attack_mode: 0
@@ -7,7 +7,7 @@ common:
   only_nav_enable: false
   use_auto_labeler: false
   use_calculation: false
-  use_ba: false
+  use_ba: true
   max_detect_armors: 10
   use_omni: false
   hit_omni_dt: 5.0
@@ -35,8 +35,8 @@ camera:
     #path: /home/hy/wust_data/video/rune.mp4
     #path: /home/hy/wust_data/video/Sentry.mp4
     start_frame: 0
-    alpha: 1.2
-    beta: 1
+    alpha: 1.0
+    beta: 0
     use: true
 
 control:

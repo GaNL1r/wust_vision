@@ -446,14 +446,6 @@ void MonoMeasureTool::processDetectedArmors(
         if (obj.is_ok) {
             continue;
         }
-
-        // 按照颜色过滤
-        if ((detect_color == 0 && obj.color != armor::ArmorColor::RED)
-            || (detect_color == 1 && obj.color != armor::ArmorColor::BLUE))
-        {
-            continue;
-        }
-
         cv::Point3f target_position;
         cv::Mat target_rvec;
         std::string armor_type;
