@@ -197,7 +197,7 @@ void Serial::aimCbk(ReceiveAimINFO& aim_data) {
     //gobal::velocity = aim_data.bullet_speed;
 
     if (gobal::debug_mode) {
-        writeAimLogToJson(aim_data);
+        writeSerialLogToJson(aim_data);
     }
 }
 

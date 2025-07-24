@@ -491,7 +491,9 @@ public:
     using Time = std::chrono::steady_clock::time_point;
     using Duration = std::chrono::steady_clock::duration;
     static constexpr Duration STATIC_THRESHOLD = std::chrono::hours(24); // 24小时视为静态
-    static constexpr Duration RECENT_THRESHOLD = std::chrono::milliseconds(1); // 1ms内视为最新
+    static constexpr std::chrono::duration<double, std::milli> RECENT_THRESHOLD {
+        0.1
+    }; // 0.1ms内视为最新
 
     // 设置变换关系，支持静态标记
     void setTransform(

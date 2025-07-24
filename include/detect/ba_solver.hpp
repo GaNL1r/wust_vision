@@ -76,6 +76,13 @@ public:
         const Eigen::Matrix3d& R_imu_camera,
         const std::string type
     ) noexcept;
+    Eigen::Vector3d solveBa_distanceOnly(
+        const armor::ArmorObject& armor,
+        const Eigen::Vector3d& t_camera_armor_init, // 初始估计的 t 向量
+        const Eigen::Matrix3d& R_camera_armor, // 固定旋转
+        const Eigen::Matrix3d& R_imu_camera,
+        const std::string& type
+    ) noexcept;
     int max_iter_R_;
     int max_iter_t_;
     int step_R_;

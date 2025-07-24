@@ -69,8 +69,8 @@ public:
     void timerCallback(double dt_ms);
 
     // Utilities
-    void update();
-    void visualizeAndLog(bool auto_fps = true);
+    void debugvisualize(bool auto_fps = true);
+    void debuglog();
     void printStats();
     void debugThread();
     void saveAutoLabelData(const std::vector<armor::ArmorObject>& objs, const CommonFrame& frame);

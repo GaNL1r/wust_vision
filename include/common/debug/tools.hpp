@@ -18,7 +18,7 @@ void dumpAimToFile(const ReceiveAimINFO& aim, const std::string& path = "/tmp/ai
 std::string formatAimInfo(const ReceiveAimINFO& aim);
 std::string formatImuInfo(const ReceiveImuData& imu);
 void writeTargetLogToJson(const armor::Target& target);
-void writeAimLogToJson(const ReceiveAimINFO& aim);
+void writeSerialLogToJson(const ReceiveAimINFO& aim);
 std::string GetUniqueVideoFilename(const std::string& folder, const std::string& prefix = "output");
 cv::Point2f normalize(const cv::Point2f& v);
 void writeCmdLogToJson();

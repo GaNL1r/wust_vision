@@ -157,37 +157,68 @@ private:
     Eigen::Vector3d P1_, P2_;
     Eigen::Matrix3d K_;
 };
+class VertexDistance: public g2o::BaseVertex<1, double> {
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-template<typename Func>
-inline static double fibonacci(double a, double b, double epsilone, Func concav_upward) {
-    if (b < a)
-        std::swap(a, b);
+    explicit VertexDistance(const Eigen::Vector3d& dir): dir_(dir.normalized()) {}
 
-    double fn1 = 2, fn2 = 3;
-    while ((b - a) / epsilone > fn2) {
-        fn2 = fn1 + fn2;
-        fn1 = fn2 - fn1;
-    }
+    void setToOriginImpl() override;
 
-    double x1 = a + (fn2 - fn1) / fn2 * (b - a), x2 = a + fn1 / fn2 * (b - a);
-    double cv1 = concav_upward(x1);
-    double cv2 = concav_upward(x2);
-    while ((b - a) > epsilone) {
-        fn1 = fn2 - fn1;
-        fn2 = fn2 - fn1;
-        if (cv1 < cv2) {
-            b = x2;
-            x2 = x1;
-            x1 = a + (fn2 - fn1) / fn2 * (b - a);
-            cv2 = cv1;
-            cv1 = concav_upward(x1);
-        } else {
-            a = x1;
-            x1 = x2;
-            x2 = a + fn1 / fn2 * (b - a);
-            cv1 = cv2;
-            cv2 = concav_upward(x2);
-        }
-    }
-    return (a + b) / 2;
-}
+    void oplusImpl(const double* update) override;
+
+    bool read(std::istream&) override;
+    bool write(std::ostream&) const override;
+    Eigen::Vector3d translation() const;
+
+    Eigen::Vector3d direction() const;
+
+private:
+    Eigen::Vector3d dir_;
+};
+class EdgeProjectionDistanceOnly: public g2o::BaseUnaryEdge<2, Eigen::Vector2d, VertexDistance> {
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+    EdgeProjectionDistanceOnly(
+        const Sophus::SO3d& R,
+        const Eigen::Vector3d& pt_obj,
+        const Eigen::Matrix3d& K
+    );
+
+    void computeError() override;
+
+    Eigen::Vector2d project(const Eigen::Vector3d& pt_cam) const;
+
+    bool read(std::istream&) override;
+    bool write(std::ostream&) const override;
+
+private:
+    Sophus::SO3d R_wc_;
+    Eigen::Vector3d pt_obj_;
+    Eigen::Matrix3d K_;
+};
+class EdgeSymmetryDistanceOnly: public g2o::BaseUnaryEdge<2, Eigen::Vector2d, VertexDistance> {
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+    EdgeSymmetryDistanceOnly(
+        const Sophus::SO3d& R_wc,
+        const Eigen::Vector3d& p1,
+        const Eigen::Vector3d& p2,
+        const Eigen::Vector2d& meas_center,
+        const Eigen::Matrix3d& K,
+        double weight = 1.0
+    );
+    void computeError() override;
+
+    bool read(std::istream&) override;
+    bool write(std::ostream&) const override;
+
+private:
+    Sophus::SO3d R_wc_;
+    Eigen::Vector3d p1_, p2_;
+    Eigen::Vector2d meas_center_;
+    Eigen::Matrix3d K_;
+    double weight_;
+};

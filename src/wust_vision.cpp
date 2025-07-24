@@ -219,7 +219,7 @@ bool WustVision::init() {
         gobal::detect_color = gobal::config["common"]["detect_color"].as<int>(0);
         max_infer_running_ = gobal::config["common"]["max_infer_running"].as<int>(4);
         initDetector();
-        initRune(camera_info_path); //仍然初始化rune_solver
+        initRune(camera_info_path); //无论是否使用仍然初始化rune_solver
         max_detect_armors_ = gobal::config["common"]["max_detect_armors"].as<int>(10);
         gobal::thread_pool = std::make_unique<ThreadPool>(std::thread::hardware_concurrency());
         armor_solver_ = std::make_unique<ArmorSolver>(gobal::config);
@@ -227,7 +227,7 @@ bool WustVision::init() {
         if (use_omni_) {
             hit_omni_dt_ = gobal::config["common"]["hit_omni_dt"].as<double>(0.1);
             receive_omni_dt_ = gobal::config["common"]["receive_omni_dt"].as<double>(0.1);
-            auto omni_config = YAML::LoadFile("/home/hy/wust_vision/config/omni_config.yaml");
+            auto omni_config = YAML::LoadFile(OMNI_CONFIG);
             omni_manager_ = std::make_unique<OmniManager>(omni_config);
         }
     } else {
@@ -251,7 +251,6 @@ void WustVision::start() {
         }
         if (camera_ && !use_video_) {
             bool if_recorder = gobal::config["camera"]["recorder"].as<bool>(false);
-
             camera_->startCamera(if_recorder);
         }
         if (use_omni_ && omni_manager_) {
@@ -771,7 +770,7 @@ void WustVision::timerCallback(double dt_ms) {
     }
 
     if (gobal::debug_mode) {
-        // visualizeAndLog(true);
+        debuglog();
     }
 }
 void WustVision::processImage(const ImageFrame& frame) {
@@ -862,7 +861,7 @@ void WustVision::debugThread() {
     while (gobal::is_inited_ && gobal::debug_mode) {
         auto start_time = steady_clock::now();
 
-        visualizeAndLog(false);
+        debugvisualize(false);
         writeCmdLogToJson();
         reloadConfig();
         auto elapsed = steady_clock::now() - start_time;
@@ -871,69 +870,13 @@ void WustVision::debugThread() {
         }
     }
 }
-
-void WustVision::visualizeAndLog(bool auto_fps) {
+void WustVision::debuglog() {
     auto now = std::chrono::steady_clock::now();
-    armor::Target target = armor_target_;
-    std::vector<armor::OneTarget> one_targets = one_armor_targets_;
-    AttackMode mode = toAttackMode(gobal::attack_mode);
-    bool appear = utils::checkTargetAppear(target, one_targets);
-    Tracker::State state = appear ? Tracker::TRACKING : Tracker::LOST;
-    GimbalCmd gimbal_cmd = gobal::last_cmd;
-    cv::Mat src;
-    {
-        std::lock_guard<std::mutex> lock(img_mutex_);
-        src = imgframe_.img.clone();
-    }
-
     armor::Armors armors;
-
     armors = armors_gobal_;
-
-    if (mode == AttackMode::ARMOR) {
-        armor::Armors armor_data = visualizeTargetProjection(target, one_targets);
-        utils::transformArmorData(armor_data, T_camera_to_odom_.inverse());
-        Target_info target_info;
-        target_info.select_id = gimbal_cmd.select_id;
-
-        if (!gobal::measure_tool->reprojectArmorsCorners(
-                armor_data,
-                target_info,
-                gobal::camera_intrinsic,
-                gobal::camera_distortion
-            ))
-            return;
-        writeTargetLogToJson(target);
-        try {
-            DebugArmor dbg;
-            dbg.src_img = imgframe_;
-            dbg.target = target;
-            dbg.target_info = target_info;
-            dbg.armors = armors;
-            dbg.gimbal_cmd = gobal::last_cmd;
-            dbg.tracker_state = state;
-            drawDebugOverlayShm(dbg, auto_fps);
-        } catch (const std::exception& e) {
-            std::cerr << "drawDebugArmor failed: " << e.what() << '\n';
-        }
-
-    } else {
-        double predict_angle = rune_solver_->last_pre_angle - rune_solver_->last_observed_angle_;
-
-        try {
-            DebugRune dbg;
-            dbg.src_img = imgframe_;
-            dbg.objs = rune_objects_;
-            dbg.predict_angle = predict_angle;
-            dbg.gimbal_cmd = gobal::last_cmd;
-            dbg.manual_r_box = manual_r_box_;
-            drawDebugOverlayShm(dbg, auto_fps);
-        } catch (const std::exception& e) {
-            std::cerr << "drawRuneAndPre failed: " << e.what() << '\n';
-        }
-    }
     double t = std::chrono::duration<double>(now - toolsgobal::start_time_).count();
-
+    armor::Target target = armor_target_;
+    writeTargetLogToJson(target);
     {
         std::lock_guard<std::mutex> lock(toolsgobal::robot_cmd_mutex_);
 
@@ -1013,6 +956,64 @@ void WustVision::visualizeAndLog(bool auto_fps) {
         trim(log.ypd_y_log);
         trim(log.ypd_p_log);
         trim(log.armor_dis_log);
+    }
+}
+void WustVision::debugvisualize(bool auto_fps) {
+    auto now = std::chrono::steady_clock::now();
+    armor::Armors armors = armors_gobal_;
+    armor::Target target = armor_target_;
+    std::vector<armor::OneTarget> one_targets = one_armor_targets_;
+    AttackMode mode = toAttackMode(gobal::attack_mode);
+    bool appear = utils::checkTargetAppear(target, one_targets);
+    Tracker::State state = appear ? Tracker::TRACKING : Tracker::LOST;
+    GimbalCmd gimbal_cmd = gobal::last_cmd;
+
+    cv::Mat src;
+    {
+        std::lock_guard<std::mutex> lock(img_mutex_);
+        src = imgframe_.img.clone();
+    }
+
+    if (mode == AttackMode::ARMOR) {
+        armor::Armors armor_data = visualizeTargetProjection(target, one_targets);
+        utils::transformArmorData(armor_data, T_camera_to_odom_.inverse());
+        Target_info target_info;
+        target_info.select_id = gimbal_cmd.select_id;
+
+        if (!gobal::measure_tool->reprojectArmorsCorners(
+                armor_data,
+                target_info,
+                gobal::camera_intrinsic,
+                gobal::camera_distortion
+            ))
+            return;
+        try {
+            DebugArmor dbg;
+            dbg.src_img = imgframe_;
+            dbg.target = target;
+            dbg.target_info = target_info;
+            dbg.armors = armors;
+            dbg.gimbal_cmd = gobal::last_cmd;
+            dbg.tracker_state = state;
+            drawDebugOverlayShm(dbg, auto_fps);
+        } catch (const std::exception& e) {
+            std::cerr << "drawDebugArmor failed: " << e.what() << '\n';
+        }
+
+    } else {
+        double predict_angle = rune_solver_->last_pre_angle - rune_solver_->last_observed_angle_;
+
+        try {
+            DebugRune dbg;
+            dbg.src_img = imgframe_;
+            dbg.objs = rune_objects_;
+            dbg.predict_angle = predict_angle;
+            dbg.gimbal_cmd = gobal::last_cmd;
+            dbg.manual_r_box = manual_r_box_;
+            drawDebugOverlayShm(dbg, auto_fps);
+        } catch (const std::exception& e) {
+            std::cerr << "drawRuneAndPre failed: " << e.what() << '\n';
+        }
     }
 }
 void WustVision::calculationManualR(const cv::Mat& src_img) {

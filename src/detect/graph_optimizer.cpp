@@ -181,3 +181,85 @@ bool EdgeSymmetryTvecOnly::read(std::istream&) {
 bool EdgeSymmetryTvecOnly::write(std::ostream&) const {
     return false;
 }
+void VertexDistance::setToOriginImpl() {
+    _estimate = 1.0;
+}
+void VertexDistance::oplusImpl(const double* update) {
+    _estimate += update[0];
+}
+
+bool VertexDistance::read(std::istream&) {
+    return false;
+}
+bool VertexDistance::write(std::ostream&) const {
+    return false;
+}
+
+Eigen::Vector3d VertexDistance::translation() const {
+    return _estimate * dir_;
+}
+
+Eigen::Vector3d VertexDistance::direction() const {
+    return dir_;
+}
+EdgeProjectionDistanceOnly::EdgeProjectionDistanceOnly(
+    const Sophus::SO3d& R,
+    const Eigen::Vector3d& pt_obj,
+    const Eigen::Matrix3d& K
+):
+    R_wc_(R),
+    pt_obj_(pt_obj),
+    K_(K) {}
+void EdgeProjectionDistanceOnly::computeError() {
+    const VertexDistance* v = static_cast<const VertexDistance*>(_vertices[0]);
+    Eigen::Vector3d t_wc = v->translation();
+    Eigen::Vector3d pt_cam = R_wc_ * pt_obj_ + t_wc;
+
+    Eigen::Vector2d proj = project(pt_cam);
+    _error = proj - _measurement;
+}
+
+Eigen::Vector2d EdgeProjectionDistanceOnly::project(const Eigen::Vector3d& pt_cam) const {
+    Eigen::Vector3d proj = K_ * pt_cam;
+    return proj.hnormalized();
+}
+
+bool EdgeProjectionDistanceOnly::read(std::istream&) {
+    return false;
+}
+bool EdgeProjectionDistanceOnly::write(std::ostream&) const {
+    return false;
+}
+EdgeSymmetryDistanceOnly::EdgeSymmetryDistanceOnly(
+    const Sophus::SO3d& R_wc,
+    const Eigen::Vector3d& p1,
+    const Eigen::Vector3d& p2,
+    const Eigen::Vector2d& meas_center,
+    const Eigen::Matrix3d& K,
+    double weight
+):
+    R_wc_(R_wc),
+    p1_(p1),
+    p2_(p2),
+    meas_center_(meas_center),
+    K_(K),
+    weight_(weight) {}
+
+void EdgeSymmetryDistanceOnly::computeError() {
+    const VertexDistance* v = static_cast<const VertexDistance*>(_vertices[0]);
+    Eigen::Vector3d t = v->translation();
+
+    Eigen::Vector3d pc1 = R_wc_ * p1_ + t;
+    Eigen::Vector3d pc2 = R_wc_ * p2_ + t;
+
+    Eigen::Vector2d proj_center = 0.5 * ((K_ * pc1).hnormalized() + (K_ * pc2).hnormalized());
+
+    _error = weight_ * (proj_center - _measurement); // _measurement 是 meas_center_
+}
+
+bool EdgeSymmetryDistanceOnly::read(std::istream&) {
+    return false;
+}
+bool EdgeSymmetryDistanceOnly::write(std::ostream&) const {
+    return false;
+}

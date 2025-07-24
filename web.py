@@ -21,6 +21,7 @@ fd = None
 # 权限修复锁
 permission_lock = threading.Lock()
 
+
 def ensure_shared_memory_permissions():
     """确保共享内存文件存在且权限正确"""
     with permission_lock:
@@ -29,20 +30,20 @@ def ensure_shared_memory_permissions():
             if not os.path.exists(shared_memory_path):
                 print(f"创建共享内存文件: {shared_memory_path}")
                 with open(shared_memory_path, "wb") as f:
-                    f.write(b'\0' * shared_size)
-            
+                    f.write(b"\0" * shared_size)
+
             # 2. 检查并修复权限
             current_mode = oct(os.stat(shared_memory_path).st_mode & 0o777)
             if current_mode != "0o666":
                 print(f"修复权限 (当前: {current_mode} -> 目标: 666)")
-                
+
                 # 使用 sudo 修复权限
                 result = subprocess.run(
-                    ['sudo', 'chmod', '666', shared_memory_path],
+                    ["sudo", "chmod", "666", shared_memory_path],
                     capture_output=True,
-                    text=True
+                    text=True,
                 )
-                
+
                 if result.returncode == 0:
                     print("权限修复成功")
                     return True
@@ -54,31 +55,32 @@ def ensure_shared_memory_permissions():
             print(f"权限修复异常: {str(e)}")
             return False
 
+
 def init_shared_memory():
     """初始化共享内存连接"""
     global use_shared_memory, mapfile, fd
-    
+
     # 确保权限正确
     if not ensure_shared_memory_permissions():
         print("[WARN] 权限修复失败，回退到文件模式")
         use_shared_memory = False
         return False
-    
+
     try:
         # 使用直接文件访问方式
         fd = os.open(shared_memory_path, os.O_RDONLY)
         mapfile = mmap.mmap(fd, shared_size, mmap.MAP_SHARED, mmap.PROT_READ)
-        
+
         # 设置非阻塞锁
         fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
-        
+
         use_shared_memory = True
         print("[INFO] 共享内存初始化成功")
         return True
     except Exception as e:
         print(f"[WARN] 共享内存初始化失败: {e}")
         use_shared_memory = False
-        
+
         # 清理资源
         if mapfile:
             try:
@@ -86,21 +88,23 @@ def init_shared_memory():
             except:
                 pass
             mapfile = None
-        
+
         if fd:
             try:
                 os.close(fd)
             except:
                 pass
             fd = None
-        
+
         return False
+
 
 # 初始连接尝试
 if init_shared_memory():
     print("✅ 使用共享内存模式")
 else:
     print("⚠️ 使用文件回退模式")
+
 
 # 清理函数
 @atexit.register
@@ -110,59 +114,60 @@ def cleanup():
             mapfile.close()
         except:
             pass
-    
+
     if fd:
         try:
             os.close(fd)
         except:
             pass
 
+
 # MJPEG 流生成器
 def mjpeg_stream():
     global use_shared_memory, mapfile
-    
+
     last_fix_attempt = 0
-    
+
     while True:
         try:
             if use_shared_memory and mapfile:
                 try:
                     # 重置到文件开头
                     mapfile.seek(0)
-                    
+
                     # 读取JPEG大小 (前4字节)
                     size_bytes = mapfile.read(4)
                     if len(size_bytes) < 4:
                         print("[WARN] 未读取到完整的大小头")
                         time.sleep(0.03)
                         continue
-                    
+
                     jpg_size = struct.unpack("I", size_bytes)[0]
-                    
+
                     # 验证大小有效性
                     if jpg_size <= 0 or jpg_size > shared_size - 4:
                         print(f"[WARN] 无效的JPEG大小: {jpg_size}")
                         time.sleep(0.03)
                         continue
-                    
+
                     # 读取JPEG数据
                     jpg_bytes = mapfile.read(jpg_size)
-                    
+
                     # 验证数据完整性
                     if len(jpg_bytes) != jpg_size:
                         print(f"[WARN] 数据不完整: {len(jpg_bytes)}/{jpg_size} 字节")
                         time.sleep(0.03)
                         continue
-                    
+
                     # 检查JPEG头部
-                    if jpg_bytes[0:3] != b'\xff\xd8\xff':
+                    if jpg_bytes[0:3] != b"\xff\xd8\xff":
                         print("[WARN] 无效的JPEG头部")
                         time.sleep(0.03)
                         continue
-                    
+
                 except (OSError, ValueError) as e:
                     print(f"[ERROR] 共享内存访问错误: {e}")
-                    
+
                     # 限流：每分钟最多尝试修复一次
                     current_time = time.time()
                     if current_time - last_fix_attempt > 60:
@@ -170,7 +175,7 @@ def mjpeg_stream():
                         if init_shared_memory():
                             continue
                         last_fix_attempt = current_time
-                    
+
                     # 暂时回退到文件模式
                     use_shared_memory = False
                     continue
@@ -180,9 +185,9 @@ def mjpeg_stream():
                 try:
                     with open(shared_frame_path, "rb") as f:
                         jpg_bytes = f.read()
-                    
+
                     # 验证JPEG文件
-                    if jpg_bytes[0:3] != b'\xff\xd8\xff':
+                    if jpg_bytes[0:3] != b"\xff\xd8\xff":
                         print("[WARN] 文件模式: 无效的JPEG头部")
                         time.sleep(0.03)
                         continue
@@ -197,15 +202,13 @@ def mjpeg_stream():
 
             # 生成MJPEG帧
             yield (
-                b"--frame\r\n"
-                b"Content-Type: image/jpeg\r\n\r\n" +
-                jpg_bytes +
-                b"\r\n"
+                b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + jpg_bytes + b"\r\n"
             )
             time.sleep(0.03)
         except Exception as e:
             print(f"[CRITICAL] MJPEG 生成器异常: {e}")
             time.sleep(0.5)
+
 
 @app.route("/")
 def index():
@@ -223,12 +226,13 @@ def index():
     url = f"http://{get_local_ip()}:5000"
     return render_template("index.html", server_url=url)
 
+
 @app.route("/video")
 def video_feed():
     return Response(
-        mjpeg_stream(), 
-        mimetype="multipart/x-mixed-replace; boundary=frame"
+        mjpeg_stream(), mimetype="multipart/x-mixed-replace; boundary=frame"
     )
+
 
 @app.route("/data")
 def get_data():
@@ -238,13 +242,15 @@ def get_data():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route("/aim_log")
-def aim_log():
+
+@app.route("/serial_log")
+def serial_log():
     try:
-        with open("/dev/shm/aim_log.json", "r") as f:
+        with open("/dev/shm/serial_log.json", "r") as f:
             return jsonify(json.load(f))
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 @app.route("/target_log")
 def target_log():
@@ -253,6 +259,7 @@ def target_log():
             return jsonify(json.load(f))
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
@@ -274,5 +281,5 @@ if __name__ == "__main__":
     print(f"✅ Web 调试器已启动: {url}")
     print(f"   - 共享内存模式: {'是' if use_shared_memory else '否'}")
     print(f"   - 访问地址: {url}")
-    
+
     app.run(host="0.0.0.0", port=5000, threaded=True)

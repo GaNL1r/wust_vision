@@ -163,8 +163,6 @@ Eigen::Matrix3d BaSolver::solveBa_R(
     }
 
     // 优化
-    // optimizer_.initializeOptimization();
-    // optimizer_.optimize(1000);
     optimizer_.initializeOptimization();
     double finalChi2 = std::numeric_limits<double>::infinity();
     int numEdges = optimizer_.edges().size();
@@ -194,7 +192,7 @@ Eigen::Matrix3d BaSolver::solveBa_R(
 Eigen::Vector3d BaSolver::solveBa_t(
     const armor::ArmorObject& armor,
     const Eigen::Vector3d& t_camera_armor_init,
-    const Eigen::Matrix3d& R_camera_armor, // 已优化的旋转
+    const Eigen::Matrix3d& R_camera_armor,
     const Eigen::Matrix3d& /*unused R_imu_camera*/,
     const std::string type
 ) noexcept {
@@ -273,6 +271,97 @@ Eigen::Vector3d BaSolver::solveBa_t(
 
     // 7) 获取并返回优化后的 tvec
     Eigen::Vector3d t_opt = v_tvec->estimate();
+    if (t_opt.hasNaN()) {
+        std::cerr << "ERROR: optimized tvec is NaN, return init\n";
+        return t_camera_armor_init;
+    }
+    return t_opt;
+}
+Eigen::Vector3d BaSolver::solveBa_distanceOnly(
+    const armor::ArmorObject& armor,
+    const Eigen::Vector3d& t_camera_armor_init,
+    const Eigen::Matrix3d& R_camera_armor, // 已优化的旋转
+    const Eigen::Matrix3d& /*unused R_imu_camera*/,
+    const std::string& type
+) noexcept {
+    optimizer_.clear();
+
+    // 1) 固定旋转
+    Sophus::SO3d R_fixed(R_camera_armor);
+
+    // 2) 构建装甲板模型点
+    Eigen::Vector2d armor_size;
+    if (type == "large") {
+        armor_size = { LARGE_ARMOR_WIDTH, LARGE_ARMOR_HEIGHT };
+    } else {
+        armor_size = { SMALL_ARMOR_WIDTH, SMALL_ARMOR_HEIGHT };
+    }
+
+    const auto object_points =
+        armor::ArmorObject::buildObjectPoints<Eigen::Vector3d>(armor_size.x(), armor_size.y());
+    const auto& landmarks = armor.landmarks();
+
+    // 3) 构建 distance 优化顶点（t = distance * dir）
+    Eigen::Vector3d dir = t_camera_armor_init.normalized();
+    double d_init = t_camera_armor_init.norm();
+
+    size_t id = 0;
+    auto* v_dist = new VertexDistance(dir);
+    v_dist->setId(id++);
+    v_dist->setEstimate(d_init);
+    optimizer_.addVertex(v_dist);
+
+    // 4) 添加重投影边
+    for (size_t i = 0; i < object_points.size(); ++i) {
+        auto* edge = new EdgeProjectionDistanceOnly(R_fixed, object_points[i], K_);
+        edge->setId(id++);
+        edge->setVertex(0, v_dist);
+        edge->setMeasurement({ landmarks[i].x, landmarks[i].y });
+        edge->setInformation(Eigen::Matrix2d::Identity());
+        edge->setRobustKernel(new g2o::RobustKernelHuber);
+        optimizer_.addEdge(edge);
+    }
+
+    // 5) 添加对称误差边
+    std::vector<std::pair<int, int>> sym { { 0, 5 }, { 1, 4 }, { 2, 3 } };
+    const double symWeight = 1.0;
+
+    for (auto& [i, j]: sym) {
+        Eigen::Vector2d meas_center = 0.5
+            * (Eigen::Vector2d(landmarks[i].x, landmarks[i].y)
+               + Eigen::Vector2d(landmarks[j].x, landmarks[j].y));
+
+        auto* es = new EdgeSymmetryDistanceOnly(
+            R_fixed,
+            object_points[i],
+            object_points[j],
+            meas_center,
+            K_,
+            symWeight
+        );
+        es->setId(id++);
+        es->setVertex(0, v_dist);
+        optimizer_.addEdge(es);
+    }
+
+    // 6) 优化流程
+    optimizer_.initializeOptimization();
+    double finalChi2 = std::numeric_limits<double>::infinity();
+    int numEdges = optimizer_.edges().size();
+
+    auto computeRMS = [&]() { return std::sqrt(optimizer_.chi2() / numEdges); };
+
+    for (int k = 0; k < max_iter_t_ / step_t_; ++k) {
+        optimizer_.optimize(step_t_);
+        finalChi2 = optimizer_.chi2();
+        double rms = computeRMS();
+        if (rms < min_error_t_) {
+            break;
+        }
+    }
+
+    // 7) 返回最终优化结果
+    Eigen::Vector3d t_opt = v_dist->translation();
     if (t_opt.hasNaN()) {
         std::cerr << "ERROR: optimized tvec is NaN, return init\n";
         return t_camera_armor_init;

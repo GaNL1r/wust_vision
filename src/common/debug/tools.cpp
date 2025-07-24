@@ -782,7 +782,7 @@ void dumpAimToFile(const ReceiveAimINFO& aim, const std::string& path) {
         file.close();
     }
 }
-void writeAimLogToJson(const ReceiveAimINFO& aim) {
+void writeSerialLogToJson(const ReceiveAimINFO& aim) {
     nlohmann::json j;
 
     j["timestamp"] = aim.time_stamp;
@@ -814,7 +814,7 @@ void writeAimLogToJson(const ReceiveAimINFO& aim) {
     }
     j["fps"] = fps;
 
-    std::ofstream file("/dev/shm/aim_log.json");
+    std::ofstream file("/dev/shm/serial_log.json");
     if (file.is_open()) {
         file << j.dump(2);
     }
