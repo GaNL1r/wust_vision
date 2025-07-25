@@ -39,7 +39,7 @@ void drawDebugArmorContent(cv::Mat& debug_img, const DebugArmor& dbg) {
                 continue;
 
             for (size_t i = 0; i < 4; ++i) {
-                cv::Scalar color = armor.is_ok ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 255, 255);
+                cv::Scalar color = armor.is_ok ? cv::Scalar(50, 255, 50) : cv::Scalar(50, 255, 255);
                 cv::line(debug_img, pts[i], pts[next_indices[i]], color, 2);
             }
 
@@ -190,6 +190,27 @@ void drawDebugArmorContent(cv::Mat& debug_img, const DebugArmor& dbg) {
                     5
                 );
             }
+            if (dbg.gimbal_cmd) {
+                double scale = 100.0;
+                double v_yaw = dbg.gimbal_cmd->v_yaw;
+                double v_pitch = dbg.gimbal_cmd->v_pitch;
+                double dx = -scale * v_yaw;
+                double dy = scale * v_pitch;
+
+                cv::Point2f start_pt = center + cv::Point2f(0, -200);
+                cv::Point2f end_pt = start_pt + cv::Point2f(dx, dy);
+
+                cv::arrowedLine(
+                    debug_img,
+                    start_pt,
+                    end_pt,
+                    cv::Scalar(0, 0, 255),
+                    4,
+                    cv::LINE_AA,
+                    0,
+                    0.2
+                );
+            }
         }
 
         if (!all_corners.empty()) {
@@ -293,11 +314,13 @@ void drawDebugArmorContent(cv::Mat& debug_img, const DebugArmor& dbg) {
     if (dbg.gimbal_cmd) {
         const auto& cmd = *dbg.gimbal_cmd;
         std::string gimbal_str = fmt::format(
-            "Pitch: {:.2f}, Yaw: {:.2f}, Pitch_diff: {:.2f}, Yaw_diff: {:.2f}",
+            "Pitch: {:.2f}, Yaw: {:.2f}, Pitch_diff: {:.2f}, Yaw_diff: {:.2f}, V_yaw: {:.2f}, V_pitch: {:.2f}",
             cmd.pitch,
             cmd.yaw,
             cmd.pitch_diff,
-            cmd.yaw_diff
+            cmd.yaw_diff,
+            cmd.v_yaw,
+            cmd.v_pitch
         );
         cv::putText(
             debug_img,

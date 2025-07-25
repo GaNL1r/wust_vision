@@ -38,8 +38,7 @@ fi
 
 echo -e "${yellow}\n<--- Start Make --->${reset}"
 max_threads=$(grep -c "processor" /proc/cpuinfo)
-# make -j "$max_threads"
-make -j$(nproc)
+make -j "$max_threads"
 if [ $? -ne 0 ]; then
     echo -e "${red}\n--- Make Failed ---${reset}"
     exit 1
@@ -64,6 +63,8 @@ total=$(find .. \
         -name "*.md" -o \
         -name "*.yaml" -o \
         -name "*.json" -o \
+        -name "*.css" -o \
+        -name "*.js" -o \
         -name "*.txt"\
     \) -exec wc -l {} + | awk 'END{print $1}')
 echo -e "${blue}        $total${reset}"

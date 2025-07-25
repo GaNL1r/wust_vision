@@ -45,6 +45,8 @@ Tracker::Tracker(
     max_match_yaw_diff_(max_match_yaw_diff),
     max_match_z_diff_(max_match_z_diff),
     jump_thresh_(jump_thresh),
+    yaw_diff_(0),
+    position_diff_(0),
     detect_count_(0),
     lost_count_(0),
     last_yaw_(0),

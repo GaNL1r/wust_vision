@@ -98,6 +98,7 @@ private:
         double& pitch
     ) const noexcept;
     void calcVYawAndVPitch(
+        const Eigen::Vector3d& p,
         const Eigen::Vector3d& v,
         const std::array<double, 3>& rpy,
         double& vyaw,

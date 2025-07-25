@@ -304,7 +304,6 @@ struct ArmorObject {
     static constexpr const int N_LANDMARKS = 6;
     static constexpr const int N_LANDMARKS_2 = N_LANDMARKS * 2;
 
-    // std::unique_ptr<LightCornerCorrector> corner_corrector;
     template<typename PointType>
     static inline std::vector<PointType>
     buildObjectPoints(const double& w, const double& h) noexcept {

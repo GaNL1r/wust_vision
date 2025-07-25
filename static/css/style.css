@@ -1,23 +1,38 @@
-/* style.css */
+:root {
+  --primary-color: #00bfff;
+  --primary-dark: #004f8c;
+  --accent-color: #00d4ff;
+  --bg-dark: #121720;
+  --text-light: #a0d6f5;
+  --shadow-glow: #00d4ffcc;
+}
 
+/* 基础样式 */
 html, body {
   height: 100%;
   margin: 0;
   padding: 0;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: linear-gradient(135deg, #0b0d14 0%, #121720 100%);
-  color: #a0d6f5;
+  background: linear-gradient(135deg, var(--bg-dark) 0%, #0f1526 100%);
+  color: var(--text-light);
   -webkit-user-select: text;
   user-select: text;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-shadow: 0 0 3px rgba(0, 12W0, 255, 0.4);
 }
 
+/* 头部区域 */
 #header {
   display: flex;
   align-items: center;
   padding: 12px 24px;
-  background: linear-gradient(90deg, #001f3f, #003366);
-  border-bottom: 3px solid #00d8ff;
-  box-shadow: 0 0 12px #00d8ff88;
+  background: rgba(0,31,63,0.85);
+  -webkit-backdrop-filter: saturate(180%) blur(6px);
+  backdrop-filter: saturate(180%) blur(6px);
+  background-image: linear-gradient(90deg, var(--primary-dark), #003366);
+  border-bottom: 3px solid var(--primary-color);
+  box-shadow: 0 0 14px var(--shadow-glow);
   height: 100px;
   box-sizing: border-box;
 }
@@ -27,13 +42,16 @@ html, body {
   height: 52px;
   margin-right: 20px;
   border-radius: 12px;
-  box-shadow: 0 0 12px #00d8ffaa;
+  box-shadow: 0 0 12px var(--primary-color);
   transition: transform 0.3s ease;
+  cursor: pointer;
 }
 #header img:hover {
+  animation: glowPulse 2s infinite ease-in-out;
   transform: scale(1.1);
 }
 
+/* 标签按钮栏 */
 #tab-buttons {
   padding: 10px 24px;
   background: #101425;
@@ -54,18 +72,29 @@ html, body {
   border-radius: 10px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 0 12px #00baffaa;
+  box-shadow:
+    inset 0 -2px 4px #004a6d99,
+    0 0 12px var(--primary-color);
   transition: all 0.3s ease;
   -webkit-user-select: text;
   user-select: text;
-  text-shadow: 0 0 4px #00cfffaa;
+  text-shadow: 0 0 4px var(--primary-color);
 }
 #tab-buttons button:hover, #tab-buttons button:focus {
-  background: linear-gradient(145deg, #00bfff, #0077aa);
-  box-shadow: 0 0 20px #00dfffcc;
+  background: linear-gradient(145deg, var(--primary-color), #0077aa);
+  box-shadow:
+    inset 0 -2px 6px #006db6cc,
+    0 0 22px var(--accent-color);
   outline: none;
 }
+#tab-buttons button:active {
+  transform: scale(0.97);
+  box-shadow:
+    inset 0 2px 4px #002d43cc,
+    0 0 16px #0088ccdd;
+}
 
+/* 视频区域 */
 #video-tab {
   height: calc(100vh - 60px - 44px);
   width: 100vw;
@@ -73,10 +102,10 @@ html, body {
   background: #0f131f;
   padding: 12px 20px;
   overflow: hidden;
-  /* subtle inner glow */
   box-shadow: inset 0 0 40px #003554aa;
 }
 
+/* 主网格布局 */
 #main-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -92,7 +121,7 @@ html, body {
     inset 0 0 20px #002b4daa;
 }
 
-/* panel内部样式去边框阴影，使用光泽背景和渐变边框 */
+/* 面板通用样式 */
 .panel {
   background: linear-gradient(145deg, #1b2237, #121a2e);
   padding: 16px;
@@ -107,6 +136,9 @@ html, body {
   position: relative;
   overflow: hidden;
   cursor: default;
+  box-shadow:
+    0 0 15px var(--primary-color),
+    inset 0 0 25px var(--primary-dark);
 }
 
 .panel::before {
@@ -116,34 +148,35 @@ html, body {
   border-radius: 14px;
   padding: 1.8px;
   pointer-events: none;
-  background: linear-gradient(60deg, #00bfff, #004f8c, #00d4ff);
-    -webkit-mask:
-      linear-gradient(#fff 0 0) content-box, 
-      linear-gradient(#fff 0 0);
-    mask:
-      linear-gradient(#fff 0 0) content-box, 
-      linear-gradient(#fff 0 0);
-    -webkit-mask-composite: destination-out;
-    mask-composite: exclude;
-    animation: pulseBorder 3s ease-in
+  background: linear-gradient(60deg, var(--primary-color), var(--primary-dark), var(--accent-color), #005fbc);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: destination-out;
+  mask-composite: exclude;
+  animation: pulseBorder 3s ease-in infinite;
 }
 
+/* 边框发光动画 */
 @keyframes pulseBorder {
   0% {
-    filter: drop-shadow(0 0 5px #00bfff88);
+    filter: drop-shadow(0 0 5px var(--primary-color));
   }
   100% {
-    filter: drop-shadow(0 0 15px #00d4ffcc);
+    filter: drop-shadow(0 0 15px var(--accent-color));
   }
 }
 
-/* 四个区域内边距微调 */
+/* 四个区域微调 */
 #video-panel { padding-right: 10px; }
 #json-info { padding-left: 10px; overflow-y: auto; }
 #main-chart-panel { padding-right: 10px; overflow-y: auto; }
 #individual-chart-panel { padding-left: 10px; overflow-y: auto; }
 
-/* 视频容器图片样式 */
+/* 视频容器 */
 .video-container {
   flex-grow: 1;
   display: flex;
@@ -161,15 +194,19 @@ html, body {
   border-radius: 12px;
   border: 2px solid #006db6;
   box-shadow:
-    0 0 15px #00aaffaa,
-    inset 0 0 20px #004975aa;
-  transition: transform 0.4s ease;
+    0 0 20px var(--primary-color),
+    inset 0 0 30px #004975cc;
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+  cursor: pointer;
 }
 .video-container img:hover {
   transform: scale(1.05);
+  box-shadow:
+    0 0 30px var(--accent-color),
+    inset 0 0 40px #0069c9cc;
 }
 
-/* JSON信息容器，滚动，固定宽度字体 */
+/* JSON信息容器 */
 #json-info {
   color: #a0cbdc;
   font-family: "Source Code Pro", monospace, monospace;
@@ -214,10 +251,11 @@ html, body {
     inset 0 0 18px #004575aa;
   border: 2px solid #0088ee;
   transition: box-shadow 0.3s ease;
+  cursor: default;
 }
 #mainChart:hover {
   box-shadow:
-    0 0 24px #00bbffdd,
+    0 0 24px var(--primary-color),
     inset 0 0 30px #0077ccbb;
 }
 
@@ -297,5 +335,15 @@ label {
   }
   .panel {
     height: auto;
+  }
+}
+
+/* 头部图片发光动画 */
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow: 0 0 10px var(--primary-color);
+  }
+  50% {
+    box-shadow: 0 0 20px var(--accent-color);
   }
 }

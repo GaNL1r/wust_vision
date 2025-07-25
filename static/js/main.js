@@ -7,7 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
   updateMainRange();
   setInterval(() => {
     fetchDataAndUpdateCharts();
-    fetchAndDisplayJsonWithTree("json-serial", "/serial_log");
     fetchAndDisplayJsonWithTree("json-target", "/target_log");
+    fetchAndDisplayJsonWithTree("json-serial", "/serial_log");
   }, 200);
 });

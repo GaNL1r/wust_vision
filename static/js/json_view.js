@@ -46,6 +46,7 @@ async function fetchAndDisplayJsonWithTree(id, url) {
     const res = await fetch(url);
     if (!res.ok) throw new Error(res.statusText);
     const data = await res.json();
+
     const prev = id === "json-serial" ? lastSerialData : lastTargetData;
     if (JSON.stringify(data) !== JSON.stringify(prev)) {
       jsonToHtml(data, cont);
@@ -53,7 +54,7 @@ async function fetchAndDisplayJsonWithTree(id, url) {
       else lastTargetData = data;
     }
   } catch (e) {
-    cont.textContent = `请求错误: ${e.message}`;
+    console.warn(`请求失败(${url}): ${e.message}`);
   } finally {
     parent.classList.remove("json-updating");
   }
