@@ -163,6 +163,11 @@ bool WustVision::init() {
                 gobal::config["camera"]["reverse_x"].as<bool>(false),
                 gobal::config["camera"]["reverse_y"].as<bool>(false)
             );
+            camera_->enablehighPriorityAndCpuidPriority(
+                gobal::config["camera"]["use_high_priority"].as<bool>(false),
+                gobal::config["camera"]["high_priority_cpu_id"].as<int>(0),
+                gobal::config["camera"]["high_priority_cpu_priority"].as<int>(0)
+            );
             camera_->setFrameCallback([this](const ImageFrame& frame) {
                 static bool first_is_inited = false;
 
@@ -1143,48 +1148,50 @@ armor::Armors WustVision::visualizeTargetProjection(
         tf::Position vel = armor_target_.velocity_;
         utils::addVelFromAccDt(vel, armor_target_.acceleration_, debug_show_dt_);
         utils::addPosFromVelDt(pos, vel, debug_show_dt_);
-        double yaw = armor_target_.yaw + armor_target_.v_yaw * debug_show_dt_;
-        double r1 = armor_target_.radius_1;
-        double r2 = armor_target_.radius_2;
-        double d_za = armor_target_.d_za;
-        double d_zc = armor_target_.d_zc;
-        float xc = pos.x;
-        float yc = pos.y;
-        float zc = pos.z;
-        bool is_current_pair = true;
-        armor_data.armors.clear();
-        size_t a_n = armor_target_.armors_num;
-        armor_data.armors.reserve(a_n);
-        for (size_t i = 0; i < a_n; ++i) {
-            double tmp_yaw = yaw + i * (2 * M_PI / a_n);
-            double cos_yaw = std::cos(tmp_yaw);
-            double sin_yaw = std::sin(tmp_yaw);
+        if (pos.norm() > 0.5) {
+            double yaw = armor_target_.yaw + armor_target_.v_yaw * debug_show_dt_;
+            double r1 = armor_target_.radius_1;
+            double r2 = armor_target_.radius_2;
+            double d_za = armor_target_.d_za;
+            double d_zc = armor_target_.d_zc;
+            float xc = pos.x;
+            float yc = pos.y;
+            float zc = pos.z;
+            bool is_current_pair = true;
+            armor_data.armors.clear();
+            size_t a_n = armor_target_.armors_num;
+            armor_data.armors.reserve(a_n);
+            for (size_t i = 0; i < a_n; ++i) {
+                double tmp_yaw = yaw + i * (2 * M_PI / a_n);
+                double cos_yaw = std::cos(tmp_yaw);
+                double sin_yaw = std::sin(tmp_yaw);
 
-            tf::Position pos;
-            if (a_n == 4) {
-                double r = is_current_pair ? r1 : r2;
-                pos.z = zc + d_zc + (is_current_pair ? 0 : d_za);
-                pos.x = xc - r * cos_yaw;
-                pos.y = yc - r * sin_yaw;
-                is_current_pair = !is_current_pair;
-            } else {
-                pos.z = zc;
-                pos.x = xc - r1 * cos_yaw;
-                pos.y = yc - r1 * sin_yaw;
+                tf::Position pos;
+                if (a_n == 4) {
+                    double r = is_current_pair ? r1 : r2;
+                    pos.z = zc + d_zc + (is_current_pair ? 0 : d_za);
+                    pos.x = xc - r * cos_yaw;
+                    pos.y = yc - r * sin_yaw;
+                    is_current_pair = !is_current_pair;
+                } else {
+                    pos.z = zc;
+                    pos.x = xc - r1 * cos_yaw;
+                    pos.y = yc - r1 * sin_yaw;
+                }
+
+                tf::Quaternion ori;
+                ori.setRPY(
+                    M_PI / 2,
+                    armor_target_.id == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
+                    tmp_yaw
+                );
+
+                armor_data.armors.emplace_back(armor::Armor { .type = armor_target_.type,
+                                                              .pos = pos,
+                                                              .ori = ori,
+                                                              .is_ok = true,
+                                                              .distance_to_image_center = 0.0f });
             }
-
-            tf::Quaternion ori;
-            ori.setRPY(
-                M_PI / 2,
-                armor_target_.id == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
-                tmp_yaw
-            );
-
-            armor_data.armors.emplace_back(armor::Armor { .type = armor_target_.type,
-                                                          .pos = pos,
-                                                          .ori = ori,
-                                                          .is_ok = true,
-                                                          .distance_to_image_center = 0.0f });
         }
     }
     for (auto one_armor_target_: one_armor_targets_) {
@@ -1193,19 +1200,21 @@ armor::Armors WustVision::visualizeTargetProjection(
             tf::Position vel = one_armor_target_.velocity_;
             utils::addVelFromAccDt(vel, one_armor_target_.acceleration_, debug_show_dt_);
             utils::addPosFromVelDt(pos, vel, debug_show_dt_);
-            double tmp_yaw = one_armor_target_.yaw + one_armor_target_.v_yaw * debug_show_dt_;
-            tf::Quaternion ori;
-            ori.setRPY(
-                M_PI / 2,
-                one_armor_target_.id == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
-                tmp_yaw
-            );
+            if (pos.norm() > 0.5) {
+                double tmp_yaw = one_armor_target_.yaw + one_armor_target_.v_yaw * debug_show_dt_;
+                tf::Quaternion ori;
+                ori.setRPY(
+                    M_PI / 2,
+                    one_armor_target_.id == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
+                    tmp_yaw
+                );
 
-            armor_data.armors.emplace_back(armor::Armor { .type = one_armor_target_.type,
-                                                          .pos = pos,
-                                                          .ori = ori,
-                                                          .is_ok = false,
-                                                          .distance_to_image_center = 0.0f });
+                armor_data.armors.emplace_back(armor::Armor { .type = one_armor_target_.type,
+                                                              .pos = pos,
+                                                              .ori = ori,
+                                                              .is_ok = false,
+                                                              .distance_to_image_center = 0.0f });
+            }
         }
     }
 

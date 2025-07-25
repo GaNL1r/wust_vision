@@ -106,7 +106,7 @@ GimbalCmd ArmorSolver::solve(
     }
 
     // 拿到 best_target
-    bool use_multi = (!best_target.tracking || target.tracking);
+    bool use_multi = (!best_target.tracking);
 
     if (use_multi) {
         // 3.1 预测位置、速度、yaw
@@ -325,8 +325,10 @@ GimbalCmd ArmorSolver::solve(
             cmd.yaw_diff += 360;
 
         cmd.pitch_diff = (control_pitch - rpy[1]) * 180.0 / M_PI;
+        cmd.v_yaw = v_yaw * 180.0 / M_PI;
         cmd.v_pitch = v_pitch * 180.0 / M_PI;
         cmd.select_id = one_idx + target.armors_num;
+
         return cmd;
     }
 }

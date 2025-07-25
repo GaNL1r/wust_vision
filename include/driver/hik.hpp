@@ -55,6 +55,13 @@ public:
     bool restartCamera();
     void stopCamera();
     bool enableTrigger(TriggerType type, const std::string& source, int64_t activation);
+    void enablehighPriorityAndCpuidPriority(bool enable, int cpu_id, int priority) {
+        use_high_priority_ = enable;
+        if (enable) {
+            cpu_id_ = cpu_id;
+            priority_ = priority;
+        }
+    }
     void disableTrigger();
     bool read();
     ImageFrame readImage();
@@ -84,4 +91,7 @@ private:
     int expected_height_ = 0;
     std::function<void(ImageFrame&)> on_frame_callback_;
     std::unique_ptr<Recorder> recorder_;
+    bool use_high_priority_ = false;
+    int cpu_id_;
+    int priority_;
 };

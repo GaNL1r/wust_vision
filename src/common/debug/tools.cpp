@@ -131,12 +131,15 @@ void drawDebugArmorContent(cv::Mat& debug_img, const DebugArmor& dbg) {
             const auto& ori = target_info.ori[i];
             const auto& is_ok = target_info.is_ok[i];
 
+            cv::Scalar color = is_ok ? cv::Scalar(255, 0, 0) : cv::Scalar(0, 0, 255);
+
             for (size_t j = 0; j < 4; ++j) {
-                cv::Scalar color = is_ok ? cv::Scalar(255, 0, 0) : cv::Scalar(0, 0, 255);
                 cv::line(debug_img, pts[j], pts[(j + 1) % 4], color, 2);
             }
 
-            all_corners.insert(all_corners.end(), pts.begin(), pts.end());
+            if (is_ok) {
+                all_corners.insert(all_corners.end(), pts.begin(), pts.end());
+            }
 
             double yaw = getYawFromQuaternion(ori);
             double distance = std::sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z);
@@ -162,15 +165,17 @@ void drawDebugArmorContent(cv::Mat& debug_img, const DebugArmor& dbg) {
                 );
             }
         }
+        int select_id = -1;
+        if (dbg.gimbal_cmd) {
+            select_id = dbg.gimbal_cmd->select_id;
+        }
 
-        if (target_info.select_id != -1 && target_info.select_id < target_info.pts.size()
-            && !target_info.pts[target_info.select_id].empty())
-        {
+        if (select_id != -1 && select_id < target_info.pts.size()
+            && !target_info.pts[select_id].empty()) {
             cv::Point2f center(0.f, 0.f);
             for (int i = 0; i < 4; ++i)
-                center += target_info.pts[target_info.select_id][i];
+                center += target_info.pts[select_id][i];
             center *= 0.25f;
-
             cv::circle(debug_img, center + cv::Point2f(0, -200), 20, cv::Scalar(0, 255, 255), 5);
 
             if (dbg.gimbal_cmd && dbg.gimbal_cmd->fire_advice) {
@@ -191,7 +196,7 @@ void drawDebugArmorContent(cv::Mat& debug_img, const DebugArmor& dbg) {
                 );
             }
             if (dbg.gimbal_cmd) {
-                double scale = 100.0;
+                double scale = 10.0;
                 double v_yaw = dbg.gimbal_cmd->v_yaw;
                 double v_pitch = dbg.gimbal_cmd->v_pitch;
                 double dx = -scale * v_yaw;
@@ -280,7 +285,7 @@ void drawDebugArmorContent(cv::Mat& debug_img, const DebugArmor& dbg) {
         int baseline = 0;
         cv::Size size = cv::getTextSize(id_str, cv::FONT_HERSHEY_SIMPLEX, 1.6, 2, &baseline);
         int x = std::max(0, debug_img.cols - size.width - 10);
-        int y = std::min(debug_img.rows - 1, 100);
+        int y = std::min(debug_img.rows - 1, 150);
         cv::putText(
             debug_img,
             id_str,

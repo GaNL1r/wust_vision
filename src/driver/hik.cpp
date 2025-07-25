@@ -251,7 +251,54 @@ void HikCamera::startCamera(bool if_recorder) {
         expected_height_ = stParam.nCurValue;
     }
     if (trigger_type_ != TriggerType::Software) {
-        capture_thread_ = std::thread(&HikCamera::hikCaptureLoop, this);
+        auto setThreadAffinityAndPriority = [](int cpu_id, int priority) -> bool {
+            pthread_t thread = pthread_self();
+
+            cpu_set_t cpuset;
+            CPU_ZERO(&cpuset);
+            CPU_SET(cpu_id, &cpuset);
+            int ret = pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
+            if (ret != 0) {
+                perror("pthread_setaffinity_np failed");
+                return false;
+            }
+
+            sched_param sch_params;
+            sch_params.sched_priority = priority;
+            ret = pthread_setschedparam(thread, SCHED_FIFO, &sch_params);
+            if (ret != 0) {
+                perror("pthread_setschedparam failed");
+                return false;
+            }
+            return true;
+        };
+
+        capture_thread_ = std::thread([this, setThreadAffinityAndPriority] {
+            if (use_high_priority_) {
+                if (!setThreadAffinityAndPriority(cpu_id_, priority_)) {
+                    WUST_WARN(hik_logger_) << "Failed to set thread affinity or priority.";
+                }
+
+                pthread_t thread = pthread_self();
+                cpu_set_t current_set;
+                CPU_ZERO(&current_set);
+                pthread_getaffinity_np(thread, sizeof(cpu_set_t), &current_set);
+
+                sched_param current_param;
+                int policy;
+                pthread_getschedparam(thread, &policy, &current_param);
+
+                WUST_INFO(hik_logger_) << "Capture thread CPU affinity set to:";
+                for (int i = 0; i < CPU_SETSIZE; ++i) {
+                    if (CPU_ISSET(i, &current_set))
+                        WUST_INFO(hik_logger_) << i << " ";
+                }
+                WUST_INFO(hik_logger_)
+                    << "Policy: " << policy << ", priority: " << current_param.sched_priority;
+            }
+
+            this->hikCaptureLoop();
+        });
     }
 
     if (if_recorder) {
@@ -341,7 +388,7 @@ void HikCamera::hikCaptureLoop() {
 
     try {
         while (!stop_signal_) {
-            int n_ret = MV_CC_GetImageBuffer(camera_handle_, &out_frame, 1);
+            int n_ret = MV_CC_GetImageBuffer(camera_handle_, &out_frame, 100);
             if (n_ret == MV_OK) {
                 in_fail_state = false;
                 ++frame_counter;
