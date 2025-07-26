@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "driver/tools/video_player.hpp"
 #include "common/logger.hpp"
+#include "common/utils.hpp"
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -45,6 +46,14 @@ bool VideoPlayer::start() {
 
     if (!trigger_mode_) {
         worker_ = std::thread(&VideoPlayer::run, this);
+        if (use_high_priority_) {
+            if (!utils::setThreadAffinityAndPriority(worker_, cpu_id_, priority_, use_sched_fifo_))
+            {
+                WUST_WARN("video") << "Failed to set thread affinity or priority.";
+            } else {
+                WUST_INFO("video") << "Thread affinity and priority set successfully.";
+            }
+        }
     }
 
     return true;
