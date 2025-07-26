@@ -24,6 +24,7 @@
 #include <opencv2/calib3d.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/core/eigen.hpp>
+#include <pwd.h>
 
 // util functions
 namespace utils {
@@ -284,5 +285,30 @@ inline std::vector<OffsetEntry> getOffsetEntry(const YAML::Node& config) {
         }
     }
     return entries;
+}
+inline void changeFileOwner(const std::string& filepath, const std::string& username) {
+    struct passwd* pwd = getpwnam(username.c_str());
+    if (pwd == nullptr) {
+        perror("getpwnam failed");
+        return;
+    }
+    uid_t uid = pwd->pw_uid;
+    gid_t gid = pwd->pw_gid;
+
+    if (chown(filepath.c_str(), uid, gid) != 0) {
+        perror("chown failed");
+    }
+}
+inline std::string getOriginalUsername() {
+    const char* sudo_user = std::getenv("SUDO_USER");
+    if (sudo_user) {
+        return std::string(sudo_user);
+    }
+    uid_t uid = getuid();
+    struct passwd* pw = getpwuid(uid);
+    if (pw) {
+        return std::string(pw->pw_name);
+    }
+    return "";
 }
 } // namespace utils

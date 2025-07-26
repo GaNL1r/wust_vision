@@ -16,6 +16,7 @@
 #include "driver/tools/recorder.hpp"
 // std
 #include <filesystem>
+#include <sys/stat.h>
 // OpenCV
 #include <opencv2/opencv.hpp>
 // project
@@ -32,6 +33,7 @@ void Recorder::start() {
     }
 
     writer_.open(path.string(), cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), fps_, size_, true);
+    chmod(path.c_str(), 0777);
     recoring_ = true;
     recorder_thread_ = std::thread(&Recorder::recorderThread, this);
 }

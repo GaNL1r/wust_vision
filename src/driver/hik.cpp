@@ -14,6 +14,7 @@
 #include "driver/hik.hpp"
 #include "common/gobal.hpp"
 #include "common/logger.hpp"
+#include "common/utils.hpp"
 #include <Eigen/Dense>
 #include <algorithm>
 #include <chrono>
@@ -30,9 +31,11 @@ HikCamera::HikCamera(): camera_handle_(nullptr), fail_count_(0) {}
 HikCamera::~HikCamera() {
     stopCamera();
     if (recorder_ != nullptr) {
-        recorder_->stop();
-        WUST_INFO(hik_logger_) << "Recorder stopped! Video file " << recorder_->path.string()
+        auto record_path = recorder_->path;
+        WUST_INFO(hik_logger_) << "Recorder stopped! Video file " << record_path.string()
                                << " has been saved";
+        recorder_.reset();
+        utils::changeFileOwner(record_path, utils::getOriginalUsername());
     }
     if (capture_thread_.joinable()) {
         capture_thread_.join();
@@ -237,7 +240,6 @@ void HikCamera::setParameters(
     WUST_INFO(hik_logger_) << "Camera parameters set successfully!";
 }
 
-// 启动图像采集，采集线程不断获取图像帧并推入队列
 void HikCamera::startCamera(bool if_recorder) {
     int n_ret = MV_CC_StartGrabbing(camera_handle_);
     if (n_ret != MV_OK) {
@@ -251,6 +253,8 @@ void HikCamera::startCamera(bool if_recorder) {
         expected_height_ = stParam.nCurValue;
     }
     if (trigger_type_ != TriggerType::Software) {
+#ifdef __linux__
+
         auto setThreadAffinityAndPriority = [](int cpu_id, int priority, bool use_sched_fifo
                                             ) -> bool {
             pthread_t thread = pthread_self();
@@ -305,6 +309,35 @@ void HikCamera::startCamera(bool if_recorder) {
 
             this->hikCaptureLoop();
         });
+
+#elif defined(_WIN32) || defined(_WIN64)
+
+        capture_thread_ = std::thread([this] {
+            if (use_high_priority_) {
+                HANDLE threadHandle = GetCurrentThread();
+
+                DWORD_PTR affinityMask = 1ULL << cpu_id_;
+                if (SetThreadAffinityMask(threadHandle, affinityMask) == 0) {
+                    WUST_WARN(hik_logger_) << "Failed to set thread affinity.";
+                }
+
+                BOOL ret = SetThreadPriority(threadHandle, THREAD_PRIORITY_HIGHEST);
+                if (!ret) {
+                    WUST_WARN(hik_logger_) << "Failed to set thread priority.";
+                }
+
+                WUST_INFO(hik_logger_)
+                    << "Capture thread CPU affinity and priority set on Windows.";
+            }
+
+            this->hikCaptureLoop();
+        });
+
+#else
+
+        capture_thread_ = std::thread([this] { this->hikCaptureLoop(); });
+
+#endif
     }
 
     if (if_recorder) {
@@ -330,10 +363,25 @@ void HikCamera::startCamera(bool if_recorder) {
         if (!home) {
             throw std::runtime_error("HOME environment variable not set.");
         }
+        auto getCurrentTimeString = []() -> std::string {
+            auto now = std::chrono::system_clock::now();
+            std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+
+            std::tm tm_buf;
+#ifdef _WIN32
+            localtime_s(&tm_buf, &now_c);
+#else
+            localtime_r(&now_c, &tm_buf);
+#endif
+
+            std::stringstream ss;
+            ss << std::put_time(&tm_buf, "%Y%m%d_%H%M%S");
+            return ss.str();
+        };
 
         namespace fs = std::filesystem;
-        std::filesystem::path video_path_ = fs::path(home) / "wust_data/video/"
-            / std::string(std::to_string(std::time(nullptr)) + ".avi");
+        std::filesystem::path video_path_ =
+            fs::path(home) / "wust_data/video/" / std::string(getCurrentTimeString() + ".avi");
 
         recorder_ = std::make_unique<Recorder>(
             video_path_,
