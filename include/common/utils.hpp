@@ -311,4 +311,51 @@ inline std::string getOriginalUsername() {
     }
     return "";
 }
+inline bool
+setThreadAffinityAndPriority(std::thread& thread, int cpu_id, int priority, bool use_sched_fifo) {
+#ifdef __linux__
+    pthread_t native = thread.native_handle();
+
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(cpu_id, &cpuset);
+    if (pthread_setaffinity_np(native, sizeof(cpu_set_t), &cpuset) != 0) {
+        perror("pthread_setaffinity_np failed");
+        return false;
+    }
+
+    sched_param sch_params;
+    sch_params.sched_priority = priority;
+    int policy = use_sched_fifo ? SCHED_FIFO : SCHED_RR;
+    if (pthread_setschedparam(native, policy, &sch_params) != 0) {
+        perror("pthread_setschedparam failed");
+        return false;
+    }
+
+    return true;
+
+#elif defined(_WIN32) || defined(_WIN64)
+    HANDLE native = (HANDLE)thread.native_handle();
+
+    DWORD_PTR affinityMask = 1ULL << cpu_id;
+    if (SetThreadAffinityMask(native, affinityMask) == 0) {
+        return false;
+    }
+
+    int win_priority = THREAD_PRIORITY_HIGHEST; // you can map `priority` if needed
+    if (!SetThreadPriority(native, win_priority)) {
+        return false;
+    }
+
+    return true;
+
+#else
+    // Unsupported platform
+    (void)thread;
+    (void)cpu_id;
+    (void)priority;
+    (void)use_sched_fifo;
+    return false;
+#endif
+}
 } // namespace utils
