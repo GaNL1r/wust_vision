@@ -18,7 +18,7 @@ omni_vision:
       gain: 16
       gamma: 0.7 #Bayer用不了
       pixel_format: BayerRG8
-      acquisitionFrameRateEnable: true
+      acquisition_frame_rate_enable: true
       reverse_x: false
       reverse_y: false
       recorder: false
@@ -44,7 +44,7 @@ omni_vision:
       gain: 16
       gamma: 0.7 #Bayer用不了
       pixel_format: BayerRG8
-      acquisitionFrameRateEnable: true
+      acquisition_frame_rate_enable: true
       reverse_x: false
       reverse_y: false
       recorder: false
@@ -70,7 +70,7 @@ omni_vision:
       gain: 16
       gamma: 0.7 #Bayer用不了
       pixel_format: BayerRG8
-      acquisitionFrameRateEnable: true
+      acquisition_frame_rate_enable: true
       reverse_x: false
       reverse_y: false
       recorder: false
@@ -96,7 +96,7 @@ omni_vision:
       gain: 16
       gamma: 0.7 #Bayer用不了
       pixel_format: BayerRG8
-      acquisitionFrameRateEnable: true
+      acquisition_frame_rate_enable: true
       reverse_x: false
       reverse_y: false
       recorder: false

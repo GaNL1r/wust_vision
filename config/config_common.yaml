@@ -23,7 +23,7 @@ camera:
   gain: 16.9
   gamma: 0.7 #Bayer用不了
   pixel_format: BayerRG8 #RGB8Packed
-  acquisitionFrameRateEnable: true
+  acquisition_frame_rate_enable: true
   reverse_x: false
   reverse_y: false
   recorder: true
