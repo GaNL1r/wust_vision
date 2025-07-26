@@ -3,12 +3,13 @@ common:
   rune_detect_backend: tensorrt
   detect_color: 0
   init_attack_mode: 0
+  max_detect_armors: 10
   max_infer_running: 10
+  thread_multiplier: 2
   only_nav_enable: false
   use_auto_labeler: false
   use_calculation: false
   use_ba: false
-  max_detect_armors: 10
   use_omni: false
   hit_omni_dt: 5.0
   receive_omni_dt: 1.0
@@ -31,7 +32,7 @@ camera:
   high_priority_cpu_priority: 90
   use_sched_fifo: true
   video_player:
-    fps: 400
+    fps: 200
     use_high_priority: true
     high_priority_cpu_id: 3
     high_priority_cpu_priority: 90

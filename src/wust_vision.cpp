@@ -233,7 +233,9 @@ bool WustVision::init() {
         initDetector();
         initRune(camera_info_path); //无论是否使用仍然初始化rune_solver
         max_detect_armors_ = gobal::config["common"]["max_detect_armors"].as<int>(10);
-        gobal::thread_pool = std::make_unique<ThreadPool>(std::thread::hardware_concurrency());
+        int thread_multiplier = gobal::config["common"]["thread_multiplier"].as<int>(1);
+        gobal::thread_pool =
+            std::make_unique<ThreadPool>(std::thread::hardware_concurrency() * thread_multiplier);
         armor_solver_ = std::make_unique<ArmorSolver>(gobal::config);
         use_omni_ = gobal::config["common"]["use_omni"].as<bool>(false);
         if (use_omni_) {
