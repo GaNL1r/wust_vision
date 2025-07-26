@@ -367,6 +367,7 @@ void drawDebugRuneContent(cv::Mat& debug_img, const DebugRune& dbg) {
     const auto& gimbal_cmd = dbg.gimbal_cmd.value();
     double predict_angle = dbg.predict_angle.value_or(0.0);
     const auto& manual_r_box = dbg.manual_r_box.value_or(std::vector<cv::Point2f> {});
+    const auto& debug_text = dbg.debug_text.value_or("");
 
     for (const auto& obj: objs) {
         if (obj.type == rune::RuneType::INACTIVATED) {
@@ -513,6 +514,26 @@ void drawDebugRuneContent(cv::Mat& debug_img, const DebugRune& dbg) {
         cv::Scalar(255, 255, 0),
         2
     );
+    if (dbg.debug_text) {
+        int baseline = 0;
+        cv::Size text_size =
+            cv::getTextSize(debug_text, cv::FONT_HERSHEY_SIMPLEX, 1.0, 2, &baseline);
+
+        int margin_x = 10;
+        int margin_y = 30;
+        int pos_x = debug_img.cols - text_size.width - margin_x;
+        int pos_y = margin_y + text_size.height;
+
+        cv::putText(
+            debug_img,
+            debug_text,
+            { pos_x, pos_y },
+            cv::FONT_HERSHEY_SIMPLEX,
+            1.0,
+            cv::Scalar(0, 0, 255),
+            2
+        );
+    }
 }
 
 void drawResult(const imgframe& src_img, const armor::Armors& armors) {
@@ -932,6 +953,7 @@ void writeCmdLogToJson() {
         j["ypd_p"] = log.ypd_p_log;
         j["rune_obs"] = log.rune_obs_log;
         j["rune_pre"] = log.rune_pre_log;
+        j["rune_v"] = log.rune_v_log;
     }
     std::ofstream file("/dev/shm/cmd_log.json");
     if (file.is_open()) {

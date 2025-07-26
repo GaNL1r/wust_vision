@@ -10,6 +10,7 @@ const chartMap = {
   ypd_y: { label: "Ypd Yaw" },
   rune_obs: { label: "Rune Obs" },
   rune_pre: { label: "Rune Pre" },
+  rune_v: { label: "Rune V" },
 };
 
 const mainCtx = document.getElementById("mainChart").getContext("2d");

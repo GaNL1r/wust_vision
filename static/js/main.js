@@ -11,3 +11,25 @@ document.addEventListener("DOMContentLoaded", () => {
     fetchAndDisplayJsonWithTree("json-serial", "/serial_log");
   }, 200);
 });
+function toggleFullscreen() {
+  const container = document.querySelector('.video-container');
+
+  if (!document.fullscreenElement) {
+    container.requestFullscreen().then(() => {
+      document.body.classList.add('fullscreen-mode');
+    }).catch((err) => {
+      alert(`无法进入全屏模式: ${err.message}`);
+    });
+  } else {
+    document.exitFullscreen().then(() => {
+      document.body.classList.remove('fullscreen-mode');
+    });
+  }
+}
+
+// 监听用户按 ESC 或其他方式退出全屏
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) {
+    document.body.classList.remove('fullscreen-mode');
+  }
+});

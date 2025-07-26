@@ -776,7 +776,7 @@ void WustVision::timerCallback(double dt_ms) {
     }
 
     if (gobal::debug_mode) {
-        debuglog();
+        //debuglog();
     }
 }
 void WustVision::processImage(const ImageFrame& frame) {
@@ -804,21 +804,37 @@ void WustVision::processImage(const ImageFrame& frame) {
             armor_detector_->pushInput(common_frame);
         } break;
         case AttackMode::SMALL_RUNE: {
-            if (use_manual_r_ && !manual_r_init_ && !manual_r_runing_) {
-                calculationManualR(common_frame.src_img);
-                detect_finish_count_++;
-                infer_running_count_--;
-                return;
+            // if (use_manual_r_ && !manual_r_init_ && !manual_r_runing_) {
+            //     cv::Point2f center(common_frame.src_img.cols/2.0,common_frame.src_img.rows/2.0);
+            //     calculationManualR(center);
+            //     detect_finish_count_++;
+            //     infer_running_count_--;
+            //     return;
+            // }
+            if (use_manual_r_ && gobal::if_manual_reset) {
+                cv::Point2f center(
+                    common_frame.src_img.cols / 2.0,
+                    common_frame.src_img.rows / 2.0
+                );
+                calculationManualR(center);
             }
             rune_detector_->pushInput(common_frame);
         } break;
         case AttackMode::BIG_RUNE: {
-            if (use_manual_r_ && !manual_r_init_ && !manual_r_runing_) {
-                calculationManualR(common_frame.src_img);
-                detect_finish_count_++;
-                infer_running_count_--;
-                return;
+            // if (use_manual_r_ && !manual_r_init_ && !manual_r_runing_) {
+            //     calculationManualR(common_frame.src_img);
+            //     detect_finish_count_++;
+            //     infer_running_count_--;
+            //     return;
+            // }
+            if (use_manual_r_ && gobal::if_manual_reset) {
+                cv::Point2f center(
+                    common_frame.src_img.cols / 2.0,
+                    common_frame.src_img.rows / 2.0
+                );
+                calculationManualR(center);
             }
+
             rune_detector_->pushInput(common_frame);
         } break;
         case AttackMode::UNKNOWN: {
@@ -868,6 +884,7 @@ void WustVision::debugThread() {
         auto start_time = steady_clock::now();
 
         debugvisualize(false);
+        debuglog();
         writeCmdLogToJson();
         reloadConfig();
         auto elapsed = steady_clock::now() - start_time;
@@ -936,6 +953,7 @@ void WustVision::debuglog() {
         log.cmd_pitch_log.push_back(gobal::last_cmd.pitch);
         log.rune_obs_log.push_back(rune_solver_->last_observed_angle_);
         log.rune_pre_log.push_back(rune_solver_->last_pre_angle);
+        log.rune_v_log.push_back(rune_solver_->curve_fitter_->getFittingParam()[0]);
         log.armor_yaw_log.push_back(armor_yaw * 180.0 / M_PI);
         log.armor_x_log.push_back(last_armor_.target_pos.x);
         log.armor_y_log.push_back(last_armor_.target_pos.y);
@@ -955,6 +973,7 @@ void WustVision::debuglog() {
         trim(log.cmd_pitch_log);
         trim(log.rune_obs_log);
         trim(log.rune_pre_log);
+        trim(log.rune_v_log);
         trim(log.armor_yaw_log);
         trim(log.armor_x_log);
         trim(log.armor_y_log);
@@ -1016,11 +1035,33 @@ void WustVision::debugvisualize(bool auto_fps) {
             dbg.predict_angle = predict_angle;
             dbg.gimbal_cmd = gobal::last_cmd;
             dbg.manual_r_box = manual_r_box_;
+            dbg.debug_text = rune_solver_->curve_fitter_->getDebugText();
             drawDebugOverlayShm(dbg, auto_fps);
         } catch (const std::exception& e) {
             std::cerr << "drawRuneAndPre failed: " << e.what() << '\n';
         }
     }
+}
+void WustVision::calculationManualR(const cv::Point2f center) {
+    manual_r_runing_ = true;
+    const int half_size = 5;
+    float x = center.x;
+    float y = center.y;
+    manual_r_center_ = { x, y };
+    manual_r_box_ = { {
+        { x - half_size, y - half_size }, // 左上 → 对应点0
+        { x - half_size, y + half_size }, // 左下 → 对应点1
+        { x + half_size, y + half_size }, // 右下 → 对应点2
+        { x + half_size, y - half_size } // 右上 → 对应点3
+    } };
+    gobal::measure_tool->calcRTarget(
+        manual_r_box_,
+        T_r_,
+        T_camera_to_odom_,
+        gobal::camera_intrinsic,
+        gobal::camera_distortion
+    );
+    manual_r_runing_ = false;
 }
 void WustVision::calculationManualR(const cv::Mat& src_img) {
     manual_r_runing_ = true;

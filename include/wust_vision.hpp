@@ -74,6 +74,7 @@ public:
     void printStats();
     void debugThread();
     void saveAutoLabelData(const std::vector<armor::ArmorObject>& objs, const CommonFrame& frame);
+    void calculationManualR(const cv::Point2f center);
     void calculationManualR(const cv::Mat& src_img);
     static void onMouse(int event, int x, int y, int, void* userdata);
     armor::Armors visualizeTargetProjection(

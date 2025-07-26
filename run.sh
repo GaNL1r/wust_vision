@@ -14,7 +14,7 @@ reset="\033[0m"
 red="\033[1;31m"
 
 rm /dev/shm/debug_frame.jpg /dev/shm/cmd_log.json /dev/shm/aim_log.json /dev/shm/target_log.json
-sudo chmod 666 /dev/shm/debug_frame
+chmod 666 /dev/shm/debug_frame
 # 如果参数为 rebuild，则删除 build 文件夹
 if [ "$1" == "rebuild" ]; then
     echo -e "${yellow}<--- Rebuilding: Removing build directory --->${reset}"
@@ -72,7 +72,7 @@ echo -e "${blue}        $total${reset}"
 # Only build
 if [ "$1" == "build" ] || [ "$1" == "rebuild" ]; then
     echo -e "${yellow}\n<--- Only building and copying executable --->${reset}"
-    sudo cp ./wust_vision /usr/local/bin/
+    cp ./wust_vision /usr/local/bin/
     if [ $? -ne 0 ]; then
         echo -e "${red}\n--- Failed to copy wust_vision to /usr/local/bin ---${reset}"
         exit 1
@@ -80,7 +80,7 @@ if [ "$1" == "build" ] || [ "$1" == "rebuild" ]; then
     exit 0
 fi
 
-sudo cp ./wust_vision /usr/local/bin/
+cp ./wust_vision /usr/local/bin/
 if [ $? -ne 0 ]; then
     echo -e "${red}\n--- Failed to copy wust_vision to /usr/local/bin ---${reset}"
     exit 1

@@ -1,6 +1,6 @@
 common:
   armor_detect_backend: tensorrt
-  rune_detect_backend: ncnn
+  rune_detect_backend: tensorrt
   detect_color: 0
   init_attack_mode: 0
   max_infer_running: 10
@@ -31,14 +31,14 @@ camera:
   high_priority_cpu_priority: 90
   use_sched_fifo: true
   video_player:
-    fps: 200
+    fps: 90
     loop: true
     #path: /home/hy/wust_data/video/222.MP4
-    path: /home/hy/wust_data/video/jiao.avi
+    path: /home/hy/wust_data/video/1.avi
     #path: /home/hy/wust_data/video/aaa.mp4
     #path: /home/hy/wust_data/video/rune.mp4
     #path: /home/hy/wust_data/video/Sentry.mp4
-    start_frame: 0
+    start_frame: 500
     alpha: 1.0
     beta: 0
     use: true

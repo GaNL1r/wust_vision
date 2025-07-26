@@ -22,10 +22,11 @@
       <div id="main-grid">
         <!-- 左上：视频流 -->
         <div class="panel" id="video-panel">
-          <div class="video-container">
-            <img src="{{ url_for('video_feed') }}" alt="视频流" />
-          </div>
-        </div>
+  <div class="video-container">
+    <img src="{{ url_for('video_feed') }}" alt="视频流" id="video-stream" />
+    <button class="fullscreen-btn" onclick="toggleFullscreen()">⛶ 全屏</button>
+  </div>
+</div>
 
         <!-- 右上：JSON -->
         <div class="panel" id="json-info">
@@ -139,6 +140,14 @@
                   onchange="updateCharts()"
                 />
                 Rune Pre</label
+              >
+              <label
+                ><input
+                  type="checkbox"
+                  data-key="rune_v"
+                  onchange="updateCharts()"
+                />
+                Rune V</label
               >
             </div>
 

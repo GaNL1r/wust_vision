@@ -34,6 +34,6 @@ rune_detector:
   use_manual_r: true
   min_lightness: 80
   model: /home/hy/wust_vision/model/yolox_rune_3.6m.onnx
-  device_id: 1
+  device_id: 0
   nms_threshold: 0.3
   top_k: 128

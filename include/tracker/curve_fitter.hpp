@@ -53,6 +53,10 @@ public:
     // Get the string of the fitting result
     std::string getDebugText();
 
+    std::array<double, 5> getFittingParam() {
+        return fitting_param_;
+    }
+
 private:
     // Perform double curve fitting
     // automated determination of the type of curve

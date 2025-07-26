@@ -18,6 +18,7 @@ struct DebugLogs {
     std::vector<double> ypd_p_log;
     std::vector<double> rune_obs_log;
     std::vector<double> rune_pre_log;
+    std::vector<double> rune_v_log;
 
     void clear() {
         time_log.clear();
@@ -32,6 +33,7 @@ struct DebugLogs {
         ypd_p_log.clear();
         rune_obs_log.clear();
         rune_pre_log.clear();
+        rune_v_log.clear();
     }
 
     void push_back(
@@ -46,7 +48,8 @@ struct DebugLogs {
         double ypd_y,
         double ypd_p,
         double rune_obs,
-        double rune_pre
+        double rune_pre,
+        double rune_v
     ) {
         time_log.push_back(time);
         cmd_yaw_log.push_back(cmd_yaw);
@@ -60,6 +63,7 @@ struct DebugLogs {
         ypd_p_log.push_back(ypd_p);
         rune_obs_log.push_back(rune_obs);
         rune_pre_log.push_back(rune_pre);
+        rune_v_log.push_back(rune_v);
     }
 };
 
@@ -76,6 +80,7 @@ struct DebugRune {
     std::optional<std::vector<rune::RuneObject>> objs;
     std::optional<double> predict_angle;
     std::optional<GimbalCmd> gimbal_cmd;
+    std::optional<std::string> debug_text;
     std::optional<std::vector<cv::Point2f>> manual_r_box;
 };
 
