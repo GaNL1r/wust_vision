@@ -94,9 +94,6 @@ Eigen::Matrix3d BaSolver::solveBa_R(
         initial_armor_yaw = R_imu_armor(1, 1) > 0 ? 0 : CV_PI;
     }
 
-    double armor_roll = 0.0;
-    Sophus::SO3d R_roll = Sophus::SO3d::exp(Eigen::Vector3d(armor_roll, 0, 0));
-
     // 固定 pitch
     double armor_pitch =
         (armor.number == armor::ArmorNumber::OUTPOST) ? -FIFTTEN_DEGREE_RAD : FIFTTEN_DEGREE_RAD;

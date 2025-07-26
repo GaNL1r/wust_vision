@@ -19,11 +19,11 @@ armor_detect:
     min_ratio: 0.02
   model:
     conf_threshold: 0.2
-    device_type: GPU
+    device_type: CPU
     model_path: /home/hy/wust_vision/model/opt-1208-001.onnx
     nms_threshold: 0.3
     top_k: 128
-    use_throughputmode: false
+    use_throughputmode: true
 
 rune_detector:
   confidence_threshold: 0.5

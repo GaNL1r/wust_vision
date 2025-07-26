@@ -29,8 +29,9 @@ camera:
   use_high_priority: true
   high_priority_cpu_id: 3
   high_priority_cpu_priority: 90
+  use_sched_fifo: true
   video_player:
-    fps: 20
+    fps: 200
     loop: true
     #path: /home/hy/wust_data/video/222.MP4
     path: /home/hy/wust_data/video/jiao.avi

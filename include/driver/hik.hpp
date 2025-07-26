@@ -55,11 +55,13 @@ public:
     bool restartCamera();
     void stopCamera();
     bool enableTrigger(TriggerType type, const std::string& source, int64_t activation);
-    void enablehighPriorityAndCpuidPriority(bool enable, int cpu_id, int priority) {
+    void
+    enablehighPriorityAndCpuidPriority(bool enable, int cpu_id, int priority, bool use_sched_fifo) {
         use_high_priority_ = enable;
         if (enable) {
             cpu_id_ = cpu_id;
             priority_ = priority;
+            use_sched_fifo_ = use_sched_fifo;
         }
     }
     void disableTrigger();
@@ -92,6 +94,7 @@ private:
     std::function<void(ImageFrame&)> on_frame_callback_;
     std::unique_ptr<Recorder> recorder_;
     bool use_high_priority_ = false;
+    bool use_sched_fifo_ = true;
     int cpu_id_;
     int priority_;
 };

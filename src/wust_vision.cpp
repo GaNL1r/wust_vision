@@ -166,7 +166,8 @@ bool WustVision::init() {
             camera_->enablehighPriorityAndCpuidPriority(
                 gobal::config["camera"]["use_high_priority"].as<bool>(false),
                 gobal::config["camera"]["high_priority_cpu_id"].as<int>(0),
-                gobal::config["camera"]["high_priority_cpu_priority"].as<int>(0)
+                gobal::config["camera"]["high_priority_cpu_priority"].as<int>(0),
+                gobal::config["camera"]["use_sched_fifo"].as<bool>(false)
             );
             camera_->setFrameCallback([this](const ImageFrame& frame) {
                 static bool first_is_inited = false;

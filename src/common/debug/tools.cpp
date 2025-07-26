@@ -130,8 +130,12 @@ void drawDebugArmorContent(cv::Mat& debug_img, const DebugArmor& dbg) {
             const auto& pos = target_info.pos[i];
             const auto& ori = target_info.ori[i];
             const auto& is_ok = target_info.is_ok[i];
-
-            cv::Scalar color = is_ok ? cv::Scalar(255, 0, 0) : cv::Scalar(0, 0, 255);
+            cv::Scalar color;
+            if (gobal::detect_color == 1) {
+                color = is_ok ? cv::Scalar(255, 0, 0) : cv::Scalar(0, 0, 255);
+            } else {
+                color = !is_ok ? cv::Scalar(255, 0, 0) : cv::Scalar(0, 0, 255);
+            }
 
             for (size_t j = 0; j < 4; ++j) {
                 cv::line(debug_img, pts[j], pts[(j + 1) % 4], color, 2);
@@ -204,17 +208,9 @@ void drawDebugArmorContent(cv::Mat& debug_img, const DebugArmor& dbg) {
 
                 cv::Point2f start_pt = center + cv::Point2f(0, -200);
                 cv::Point2f end_pt = start_pt + cv::Point2f(dx, dy);
-
-                cv::arrowedLine(
-                    debug_img,
-                    start_pt,
-                    end_pt,
-                    cv::Scalar(0, 0, 255),
-                    4,
-                    cv::LINE_AA,
-                    0,
-                    0.2
-                );
+                cv::Scalar color =
+                    gobal::detect_color ? cv::Scalar(255, 50, 50) : cv::Scalar(50, 50, 255);
+                cv::arrowedLine(debug_img, start_pt, end_pt, color, 4, cv::LINE_AA, 0, 0.2);
             }
         }
 
@@ -223,7 +219,23 @@ void drawDebugArmorContent(cv::Mat& debug_img, const DebugArmor& dbg) {
             for (const auto& pt: all_corners)
                 avg += pt;
             avg *= 1.0f / all_corners.size();
-            cv::circle(debug_img, avg, 5, cv::Scalar(0, 255, 0), -1);
+            cv::circle(debug_img, avg, 5, cv::Scalar(50, 255, 50), -1);
+            if (dbg.target) {
+                double scale = 10.0;
+                double dy = scale * target.v_yaw;
+                cv::Point2f start_pt = avg;
+                cv::Point2f end_pt = start_pt + cv::Point2f(0, dy);
+                cv::arrowedLine(
+                    debug_img,
+                    start_pt,
+                    end_pt,
+                    cv::Scalar(50, 255, 50),
+                    2,
+                    cv::LINE_AA,
+                    0,
+                    0.1
+                );
+            }
         }
 
         if (dbg.src_img) {

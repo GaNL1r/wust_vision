@@ -251,7 +251,8 @@ void HikCamera::startCamera(bool if_recorder) {
         expected_height_ = stParam.nCurValue;
     }
     if (trigger_type_ != TriggerType::Software) {
-        auto setThreadAffinityAndPriority = [](int cpu_id, int priority) -> bool {
+        auto setThreadAffinityAndPriority = [](int cpu_id, int priority, bool use_sched_fifo
+                                            ) -> bool {
             pthread_t thread = pthread_self();
 
             cpu_set_t cpuset;
@@ -265,7 +266,12 @@ void HikCamera::startCamera(bool if_recorder) {
 
             sched_param sch_params;
             sch_params.sched_priority = priority;
-            ret = pthread_setschedparam(thread, SCHED_FIFO, &sch_params);
+            if (use_sched_fifo) {
+                ret = pthread_setschedparam(thread, SCHED_FIFO, &sch_params);
+            } else {
+                ret = pthread_setschedparam(thread, SCHED_RR, &sch_params);
+            }
+
             if (ret != 0) {
                 perror("pthread_setschedparam failed");
                 return false;
@@ -275,7 +281,7 @@ void HikCamera::startCamera(bool if_recorder) {
 
         capture_thread_ = std::thread([this, setThreadAffinityAndPriority] {
             if (use_high_priority_) {
-                if (!setThreadAffinityAndPriority(cpu_id_, priority_)) {
+                if (!setThreadAffinityAndPriority(cpu_id_, priority_, use_sched_fifo_)) {
                     WUST_WARN(hik_logger_) << "Failed to set thread affinity or priority.";
                 }
 
