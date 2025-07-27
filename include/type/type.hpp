@@ -383,7 +383,8 @@ struct Armor {
     float distance_to_image_center;
     float yaw;
     std::chrono::steady_clock::time_point timestamp;
-    bool is_ok;
+    bool is_ok = false;
+    bool is_none_purple = false;
 };
 struct Armors {
     std::vector<Armor> armors;

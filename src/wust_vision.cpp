@@ -551,7 +551,6 @@ void WustVision::ArmorDetectCallback(
 
     gobal::measure_tool->processDetectedArmors(
         sorted_objs,
-        gobal::detect_color,
         armors,
         frame.T_camera_to_odom,
         gobal::camera_intrinsic,

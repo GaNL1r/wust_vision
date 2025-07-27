@@ -436,7 +436,6 @@ bool MonoMeasureTool::reprojectArmorsCorners(
 }
 void MonoMeasureTool::processDetectedArmors(
     const std::vector<armor::ArmorObject>& objs,
-    int detect_color,
     armor::Armors& armors_out,
     Eigen::Matrix4d T_camera_to_odom,
     const cv::Mat& camera_intrinsic,
@@ -510,6 +509,9 @@ void MonoMeasureTool::processDetectedArmors(
             armor.distance_to_image_center =
                 calcDistanceToCenter(obj, camera_intrinsic, camera_distortion);
             armor.is_ok = false;
+            if (obj.color == armor::ArmorColor::NONE || obj.color == armor::ArmorColor::PURPLE) {
+                armor.is_none_purple = true;
+            }
             armors_out.armors.emplace_back(armor);
 
         } catch (const cv::Exception& e) {

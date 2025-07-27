@@ -185,7 +185,6 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, armor::ArmorObject& 
     armor.number_img = flipped_image;
     armor.whole_binary_img = litroi_binary;
     armor.whole_rgb_img = litroi_color;
-
     return true;
 }
 
@@ -294,9 +293,6 @@ ArmorDetectCommon::detectNet(const cv::Mat& src_img, std::vector<armor::ArmorObj
     std::vector<armor::ArmorObject> armors;
 
     for (auto& armor: objs_result) {
-        // if (armor.color == ArmorColor::NONE || armor.color == ArmorColor::PURPLE) {
-        //     continue;
-        // }
         if (gobal::detect_color == 0 && armor.color == armor::ArmorColor::BLUE) {
             continue;
         } else if (gobal::detect_color == 1 && armor.color == armor::ArmorColor::RED) {
@@ -307,6 +303,12 @@ ArmorDetectCommon::detectNet(const cv::Mat& src_img, std::vector<armor::ArmorObj
             if (extractNetImage(src_img, armor)) {
                 number_classifier_->classifyNumber(armor);
                 if (armor.confidence < classifier_threshold_) {
+                    continue;
+                }
+                if (armor.color == armor::ArmorColor::NONE
+                    || armor.color == armor::ArmorColor::PURPLE) {
+                    armor.is_ok = false;
+                    armors.emplace_back(armor);
                     continue;
                 }
 

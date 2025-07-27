@@ -51,6 +51,9 @@ void OneCaTracker::init(const armor::Armors& armors_msg) noexcept {
     double min_distance = DBL_MAX;
     tracked_armor_ = armors_msg.armors[0];
     for (const auto& armor: armors_msg.armors) {
+        if (armor.is_none_purple) {
+            continue;
+        }
         if (armor.distance_to_image_center < min_distance) {
             min_distance = armor.distance_to_image_center;
             tracked_armor_ = armor;
@@ -64,6 +67,9 @@ void OneCaTracker::init(const armor::Armors& armors_msg) noexcept {
     tracker_state = DETECTING;
 }
 void OneCaTracker::init(const armor::Armor& armor_msg) noexcept {
+    if (armor_msg.is_none_purple) {
+        return;
+    }
     double min_distance = DBL_MAX;
     tracked_armor_ = armor_msg;
 

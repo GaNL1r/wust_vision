@@ -1,4 +1,5 @@
 #include "detect/armor_detect/onnxruntime/armor_detector_ort.hpp"
+#include "common/gobal.hpp"
 
 static const int INPUT_W = 416; // Width of input
 static const int INPUT_H = 416; // Height of input
@@ -393,17 +394,24 @@ bool ArmorDetectOnnxRuntime::processCallback(
         }
     }
 
+    std::vector<armor::ArmorObject> armors;
     if (use_armor_detect_common_) {
-        std::vector<armor::ArmorObject> armors =
-            armor_detect_common_->detectNet(frame.src_img, objs_result);
+        armors = armor_detect_common_->detectNet(frame.src_img, objs_result);
         // Call callback function
         if (this->infer_callback_) {
             this->infer_callback_(armors, frame);
             return true;
         }
     } else {
+        for (auto obj: objs_result) {
+            if (gobal::detect_color == 0 && obj.color == armor::ArmorColor::BLUE) {
+                continue;
+            } else if (gobal::detect_color == 1 && obj.color == armor::ArmorColor::RED) {
+                continue;
+            }
+        }
         if (this->infer_callback_) {
-            this->infer_callback_(objs_result, frame);
+            this->infer_callback_(armors, frame);
             return true;
         }
     }

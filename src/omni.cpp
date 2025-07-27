@@ -263,7 +263,6 @@ void OmniManager::ArmorDetectCallback(
 
     measure_tool_->processDetectedArmors(
         sorted_objs,
-        gobal::detect_color,
         armors,
         frame.T_camera_to_odom,
         camera_intrinsic_,
@@ -285,6 +284,9 @@ void OmniManager::ArmorDetectCallback(
 std::vector<armor::OneTarget> OmniManager::buildOneTargetsfromOmni(const armor::Armors& armors) {
     std::vector<armor::OneTarget> one_targets;
     for (const auto& armor: armors.armors) {
+        if (armor.is_none_purple) {
+            continue;
+        }
         armor::OneTarget target;
         target.type = armor.type;
         target.id = armor.number;

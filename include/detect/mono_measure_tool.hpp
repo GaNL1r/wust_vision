@@ -130,7 +130,6 @@ public:
     );
     void processDetectedArmors(
         const std::vector<armor::ArmorObject>& objs,
-        int detect_color,
         armor::Armors& armors_out,
         Eigen::Matrix4d T_camera_to_odom,
         const cv::Mat& camera_intrinsic_,

@@ -62,6 +62,9 @@ void Tracker::init(const armor::Armors& armors_msg) noexcept {
         if (!armor.is_ok) {
             continue;
         }
+        if (armor.is_none_purple) {
+            continue;
+        }
         if (armor.distance_to_image_center < min_distance) {
             min_distance = armor.distance_to_image_center;
             tracked_armor_ = armor;
