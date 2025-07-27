@@ -106,6 +106,7 @@ private:
 
     // Configuration
     YAML::Node rune_detect_config_;
+    YAML::Node armor_detect_config_;
     int max_detect_armors_ = 0;
     int max_infer_running_;
     bool only_nav_enable_ = false;
@@ -147,7 +148,6 @@ private:
     std::vector<armor::OneTarget> one_armor_targets_;
     armor::Armors armors_gobal_;
     rune::Rune rune_gobal_;
-
     std::vector<rune::RuneObject> rune_objects_;
 
     // Last target & tracking

@@ -1,5 +1,5 @@
 common:
-  armor_detect_backend: tensorrt
+  armor_detect_backend: openvino
   rune_detect_backend: tensorrt
   detect_color: 0
   init_attack_mode: 0
@@ -16,7 +16,7 @@ common:
 
 camera:
   target_sn: DA1094119
-  acquisition_frame_rate: 250
+  acquisition_frame_rate: 200
   adc_bit_depth: Bits_8
   camera_info_path: /home/hy/wust_vision/config/camera_info.yaml
   exposure_time: 1000

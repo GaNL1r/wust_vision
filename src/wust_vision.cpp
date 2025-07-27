@@ -331,7 +331,8 @@ void WustVision::initDetector() {
         if (config_path.empty()) {
             throw std::runtime_error("No config path for backend: " + backend);
         }
-        return DetectorFactory::createArmorDetector(backend, YAML::LoadFile(config_path), true);
+        armor_detect_config_ = YAML::LoadFile(config_path);
+        return DetectorFactory::createArmorDetector(backend, armor_detect_config_, true);
     };
 
     auto loadRuneDetectorBackend = [&](const std::string& backend) {
@@ -1275,6 +1276,7 @@ void WustVision::reloadConfig(
     using namespace std::chrono;
     static steady_clock::time_point last_reload_time = steady_clock::now() - seconds(2);
     static std::unordered_map<std::string, size_t> section_hashes;
+    static int count = 0;
 
     auto now = steady_clock::now();
     if (duration_cast<seconds>(now - last_reload_time).count() < 2) {
@@ -1296,11 +1298,55 @@ void WustVision::reloadConfig(
         std::hash<std::string> hasher;
         return hasher(emitter.c_str());
     };
+    auto camera_config = new_config["camera"];
+    size_t new_camera_hash = compute_hash(camera_config);
+    if (new_camera_hash != section_hashes["camera"]) {
+        if (camera_config && camera_ && count != 0) {
+            int acquisition_frame_rate;
+            utils::tryGetValue<int>(
+                camera_config,
+                "acquisition_frame_rate",
+                acquisition_frame_rate
+            );
+            int exposure_time;
+            utils::tryGetValue<int>(camera_config, "exposure_time", exposure_time);
+            double gain;
+            utils::tryGetValue<double>(camera_config, "gain", gain);
+            double gamma;
+            utils::tryGetValue<double>(camera_config, "gamma", gamma);
+            std::string adc_bit_depth;
+            utils::tryGetValue<std::string>(camera_config, "adc_bit_depth", adc_bit_depth);
+            std::string pixel_format;
+            utils::tryGetValue<std::string>(camera_config, "pixel_format", pixel_format);
+            bool acquisition_frame_rate_enable;
+            utils::tryGetValue<bool>(
+                camera_config,
+                "acquisition_frame_rate_enable",
+                acquisition_frame_rate_enable
+            );
+            bool reverse_x;
+            utils::tryGetValue<bool>(camera_config, "reverse_x", reverse_x);
+            bool reverse_y;
+            utils::tryGetValue<bool>(camera_config, "reverse_y", reverse_y);
+            camera_->setParameters(
+                acquisition_frame_rate,
+                exposure_time,
+                gain,
+                gamma,
+                adc_bit_depth,
+                pixel_format,
+                acquisition_frame_rate_enable,
+                reverse_x,
+                reverse_y
+            );
+        }
+        section_hashes["camera"] = new_camera_hash;
+    }
 
     auto shoot_config = new_config["shoot"];
     size_t new_shoot_hash = compute_hash(shoot_config);
     if (new_shoot_hash != section_hashes["shoot"]) {
-        if (shoot_config) {
+        if (shoot_config && count != 0) {
             utils::tryGetValue<double>(shoot_config, "bullet_speed", gobal::velocity);
         }
         section_hashes["shoot"] = new_shoot_hash;
@@ -1309,7 +1355,7 @@ void WustVision::reloadConfig(
     auto tracker_config = new_config["armor_tracker"];
     size_t new_tracker_hash = compute_hash(tracker_config);
     if (new_tracker_hash != section_hashes["armor_tracker"] && tracker_manager_) {
-        if (tracker_config) {
+        if (tracker_config && tracker_manager_ && count != 0) {
             auto ekf_config = tracker_config["ekf"];
             if (ekf_config) {
                 utils::tryGetValue<double>(ekf_config, "ys2qx", tracker_manager_->ys2qx_);
@@ -1369,7 +1415,7 @@ void WustVision::reloadConfig(
     auto armor_solver_config = new_config["armor_solver"];
     size_t new_armor_solver_hash = compute_hash(armor_solver_config);
     if (new_armor_solver_hash != section_hashes["armor_solver"]) {
-        if (armor_solver_config && armor_solver_) {
+        if (armor_solver_config && armor_solver_ && count != 0) {
             utils::tryGetValue<double>(
                 armor_solver_config,
                 "small_shooting_range_w",
@@ -1448,7 +1494,7 @@ void WustVision::reloadConfig(
     auto armor_optimize_config = new_config["armor_optimize"];
     size_t new_armor_optimize_hash = compute_hash(armor_optimize_config);
     if (new_armor_optimize_hash != section_hashes["armor_optimize"] && armor_pose_estimator_) {
-        if (armor_optimize_config) {
+        if (armor_optimize_config && armor_pose_estimator_ && count != 0) {
             utils::tryGetValue<int>(
                 armor_optimize_config,
                 "max_iter_R",
@@ -1486,7 +1532,7 @@ void WustVision::reloadConfig(
     auto rune_solver_config = new_config["rune_solver"];
     size_t new_rune_solver_hash = compute_hash(rune_solver_config);
     if (new_rune_solver_hash != section_hashes["rune_solver"] && rune_solver_) {
-        if (rune_solver_config) {
+        if (rune_solver_config && rune_solver_ && count != 0) {
             utils::tryGetValue<double>(
                 rune_solver_config,
                 "gravity",
@@ -1521,4 +1567,5 @@ void WustVision::reloadConfig(
     }
 
     gobal::config = new_config;
+    count++;
 }
