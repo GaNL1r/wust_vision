@@ -50,20 +50,23 @@ ArmorDetectorOrtWrapper::ArmorDetectorOrtWrapper(
                          config["armor_detect"]["armor"]["max_large_center_distance"].as<double>(1),
                      .max_angle = config["armor_detect"]["armor"]["max_angle"].as<double>(1) };
     }
+    ArmorDetectCommonParams armor_detect_common_params = {
+        .binary_thres = binary_thres,
+        .classifier_threshold = classify_threshold,
+        .classify_label_path = classify_label_path,
+        .classify_model_path = classify_model_path,
+        .expand_ratio_h = expand_ratio_h,
+        .expand_ratio_w = expand_ratio_w,
+        .armor_params = a_params,
+        .light_params = l_params
+    };
 
     detector_ = std::make_unique<ArmorDetectOnnxRuntime>(
         model_path,
-        classify_model_path,
-        classify_label_path,
-        l_params,
-        a_params,
-        classify_threshold,
+        armor_detect_common_params,
         conf_threshold,
         top_k,
         nms_threshold,
-        expand_ratio_w,
-        expand_ratio_h,
-        binary_thres,
         use_gpu,
         device_id,
         use_armor_detect_common

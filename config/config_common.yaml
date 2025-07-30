@@ -47,7 +47,7 @@ camera:
     start_frame: 500
     alpha: 1.0
     beta: 0
-    use: false
+    use: true
 
 control:
   alpha_pitch: 0.7
@@ -93,7 +93,7 @@ armor_optimize:
   step_t: 100
   min_error_R: 5
   min_error_t: 0.5
-  distance_fix_a2: 0.1
+  distance_fix_a2: 0.01
 
 armor_solver:
   compenstator_type: ideal

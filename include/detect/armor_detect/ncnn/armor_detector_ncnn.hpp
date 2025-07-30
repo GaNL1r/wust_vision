@@ -34,17 +34,10 @@ public:
         std::string output_name_,
         const std::string& model_path_param_,
         const std::string& model_path_bin_,
-        const std::string& classify_model_path,
-        const std::string& classify_label_path,
-        const armor::LightParams& l,
-        const armor::ArmorParams& a,
-        double classifier_threshold,
+        const ArmorDetectCommonParams& armor_detect_common_params,
         float conf_threshold = 0.25,
         int top_k = 128,
         float nms_threshold = 0.3,
-        float expand_ratio_w = 1.1f,
-        float expand_ratio_h = 1.1f,
-        int binary_thres_ = 85,
         bool use_gpu = false,
         int cpu_threads = 1,
         bool use_lightmode = true,
@@ -67,8 +60,6 @@ private:
     ncnn::Option opt_;
     std::string model_path_param_;
     std::string model_path_bin_;
-    armor::LightParams light_params_;
-    armor::ArmorParams armor_params_;
     DetectorCallback infer_callback_;
     std::vector<int> strides_;
     std::vector<GridAndStride> grid_strides_;

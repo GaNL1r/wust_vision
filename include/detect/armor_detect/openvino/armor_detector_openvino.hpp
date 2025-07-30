@@ -32,18 +32,11 @@ public:
 
     explicit ArmorDetectOpenVino(
         const std::filesystem::path& model_path,
-        const std::string& classify_model_path,
-        const std::string& classify_label_path,
         const std::string& device_name,
-        const armor::LightParams& l,
-        const armor::ArmorParams& a,
-        double classifier_threshold,
+        const ArmorDetectCommonParams& armor_detect_common_params,
         float conf_threshold = 0.25,
         int top_k = 128,
         float nms_threshold = 0.3,
-        float expand_ratio_w = 1.1f,
-        float expand_ratio_h = 1.1f,
-        int binary_thres_ = 85,
         bool use_throughputmode_ = false,
         bool use_armor_detect_common = true
     );

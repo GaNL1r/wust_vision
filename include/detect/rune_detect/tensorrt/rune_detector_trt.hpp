@@ -43,6 +43,8 @@ public:
         float nms_threshold = 0.5; // NMS阈值
         int top_k = 128; // 最大检测框数
         int device_id = 0;
+        int max_infer_running;
+        double min_free_mem_ratio;
     };
 
 public:
@@ -65,7 +67,8 @@ private:
     bool processCallback(
         const cv::Mat resized_img,
         Eigen::Matrix3f transform_matrix,
-        const CommonFrame& frame
+        const CommonFrame& frame,
+        nvinfer1::IExecutionContext* context
     );
     void buildEngine(const std::string& onnx_path);
     std::vector<rune::RuneObject> postProcess(
@@ -96,4 +99,7 @@ private:
     size_t input_sz_, output_sz_;
     TRTLogger g_logger_;
     nvinfer1::IRuntime* runtime_ = nullptr;
+    std::vector<std::unique_ptr<nvinfer1::IExecutionContext>> contexts_;
+    std::vector<MovableAtomicBool> infer_status_;
+    std::unique_ptr<ThreadPool> thread_pool_;
 };

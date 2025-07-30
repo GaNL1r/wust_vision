@@ -130,7 +130,7 @@ std::vector<armor::Armor> ArmorPoseEstimator::extractArmorPoses(
             armor_.number = armor.number;
             auto [yaw_rad, pitch_rad, dist] = utils::xyz2ypd_rad(t(0), t(1), t(2));
             dist = dist + distance_fix_a2_ * dist * dist;
-            auto [x_r, y_r, z_r] = utils::xyz2ypd_rad(yaw_rad, pitch_rad, dist);
+            auto [x_r, y_r, z_r] = utils::ypd2xyz_rad(yaw_rad, pitch_rad, dist);
             // Fill pose
             armor_.pos.x = x_r;
             armor_.pos.y = y_r;

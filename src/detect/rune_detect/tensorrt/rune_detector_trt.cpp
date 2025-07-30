@@ -285,6 +285,33 @@ RuneDetectorTrt::RuneDetectorTrt(const std::filesystem::path& model_path, const 
     TRT_ASSERT(cudaStreamCreate(&stream_) == 0);
     strides_ = { 8, 16, 32 };
     generateGridsAndStride(INPUT_W, INPUT_H, strides_, grid_strides_);
+    for (int i = 0; i < params.max_infer_running; ++i) {
+        auto ctx = engine_->createExecutionContext();
+        if (!ctx) {
+            WUST_ERROR("TRT") << "create execution context failed"
+                              << "index:" << i;
+            continue;
+        }
+        size_t free_mem, total_mem;
+        cudaMemGetInfo(&free_mem, &total_mem);
+        WUST_DEBUG("TRT") << "Free GPU memory:" << free_mem / 1024.0 / 1024.0 << "MB"
+                          << "Total GPU memory:" << total_mem / 1024.0 / 1024.0 << "MB";
+        double free_mem_ratio = static_cast<double>(free_mem) / static_cast<double>(total_mem);
+        if (free_mem_ratio < params.min_free_mem_ratio) {
+            WUST_WARN("TRT") << "GPU memory is not enough!"
+                             << "Free GPU memory:" << free_mem_ratio * 100 << "%";
+            WUST_INFO("TRT") << "Cut remaining infer";
+            break;
+        }
+        contexts_.emplace_back(ctx);
+        WUST_INFO("TRT") << "create execution context success"
+                         << "index:" << i;
+    }
+    infer_status_.reserve(contexts_.size());
+    for (size_t i = 0; i < contexts_.size(); ++i) {
+        infer_status_.emplace_back(false);
+    }
+    thread_pool_ = std::make_unique<ThreadPool>(contexts_.size(), 100);
 }
 void RuneDetectorTrt::buildEngine(const std::string& onnx_path) {
     std::string engine_path = onnx_path.substr(0, onnx_path.find_last_of('.')) + ".engine";
@@ -351,6 +378,11 @@ RuneDetectorTrt::~RuneDetectorTrt() {
     cudaFree(device_buffers_[input_idx_]);
     if (context_)
         context_->destroy();
+    for (size_t i = 0; i < contexts_.size(); i++) {
+        if (contexts_[i]) {
+            contexts_[i].reset();
+        }
+    }
     if (engine_)
         engine_->destroy();
     if (runtime_)
@@ -359,7 +391,47 @@ RuneDetectorTrt::~RuneDetectorTrt() {
 void RuneDetectorTrt::pushInput(const CommonFrame& frame) {
     Eigen::Matrix3f transform_matrix;
     cv::Mat resized_img = letterbox(frame.src_img, transform_matrix);
-    processCallback(resized_img, transform_matrix, frame);
+    for (size_t i = 0; i < infer_status_.size(); ++i) {
+        if (!infer_status_[i].load()) {
+            size_t free_mem, total_mem;
+            cudaMemGetInfo(&free_mem, &total_mem);
+            double free_mem_ratio = static_cast<double>(free_mem) / static_cast<double>(total_mem);
+            if (free_mem_ratio < params_.min_free_mem_ratio) {
+                WUST_WARN("TRT") << "GPU memory is not enough!"
+                                 << "Free GPU memory:" << free_mem_ratio * 100 << "%";
+
+                for (size_t j = i; j < infer_status_.size(); j++) {
+                    if (!infer_status_[j].load()) {
+                        infer_status_[j].store(true);
+                        contexts_[i]->destroy();
+                        contexts_[i].reset();
+                        WUST_INFO("TRT")
+                            << "Cut context index:" << j << " because of GPU memory is not enough!";
+                        break;
+                    }
+                }
+                break;
+            }
+            infer_status_[i].store(true);
+
+            thread_pool_->enqueue([this, i, frame, resized_img, transform_matrix]() {
+                try {
+                    if (!contexts_[i]) {
+                        std::cerr << "Fatal: infers[" << i << "] is nullptr\n";
+                        infer_status_[i].store(false);
+                        return;
+                    }
+
+                    this->processCallback(resized_img, transform_matrix, frame, contexts_[i].get());
+                } catch (const std::exception& e) {
+                    std::cerr << "Error in detect: " << e.what() << std::endl;
+                }
+                infer_status_[i].store(false);
+            });
+
+            return;
+        }
+    }
 }
 
 void RuneDetectorTrt::setCallback(CallbackType callback) {
@@ -369,7 +441,8 @@ void RuneDetectorTrt::setCallback(CallbackType callback) {
 bool RuneDetectorTrt::processCallback(
     const cv::Mat resized_img,
     Eigen::Matrix3f transform_matrix,
-    const CommonFrame& frame
+    const CommonFrame& frame,
+    nvinfer1::IExecutionContext* context
 ) {
     // BGR->RGB, u8(0-255)->f32(0.0-1.0), HWC->NCHW
     // note: TUP's model no need to normalize
@@ -388,7 +461,7 @@ bool RuneDetectorTrt::processCallback(
         cudaMemcpyHostToDevice,
         stream_
     );
-    context_->enqueueV2(device_buffers_, stream_, nullptr);
+    context->enqueueV2(device_buffers_, stream_, nullptr);
     cudaMemcpyAsync(
         output_buffer_,
         device_buffers_[output_idx_],
@@ -582,12 +655,6 @@ std::vector<rune::RuneObject> RuneDetectorTrt::postProcess(
             objs_result[i].pts = pts_final / N;
         }
     }
-    //     cv::dnn::NMSBoxes(
-    //     rects, scores, this->conf_threshold_, this->nms_threshold_,
-    //     indices, 1.0, this->top_k_);
-    //   for (size_t i = 0; i < indices.size(); ++i) {
-    //     objs_result.push_back(std::move(output_objs[i]));
-    //   }
 
     return objs_result;
 }

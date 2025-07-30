@@ -30,6 +30,8 @@ ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(
     params.nms_threshold = config["armor_detect"]["model"]["nms_threshold"].as<float>();
     params.top_k = config["armor_detect"]["model"]["top_k"].as<int>();
     params.device_id = config["armor_detect"]["model"]["device_id"].as<int>();
+    params.max_infer_running = config["armor_detect"]["model"]["max_infer_running"].as<int>();
+    params.min_free_mem_ratio = config["armor_detect"]["model"]["min_free_mem_ratio"].as<double>();
     WUST_INFO("armor_detector") << "model_path: " << model_path;
     int binary_thres;
     float expand_ratio_w, expand_ratio_h;
@@ -54,18 +56,21 @@ ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(
                          config["armor_detect"]["armor"]["max_large_center_distance"].as<double>(1),
                      .max_angle = config["armor_detect"]["armor"]["max_angle"].as<double>(1) };
     }
+    ArmorDetectCommonParams armor_detect_common_params = {
+        .binary_thres = binary_thres,
+        .classifier_threshold = classify_threshold,
+        .classify_label_path = classify_label_path,
+        .classify_model_path = classify_model_path,
+        .expand_ratio_h = expand_ratio_h,
+        .expand_ratio_w = expand_ratio_w,
+        .armor_params = a_params,
+        .light_params = l_params
+    };
 
     detector_ = std::make_unique<ArmorDetectTrt>(
         model_path,
         params,
-        expand_ratio_w,
-        expand_ratio_h,
-        binary_thres,
-        l_params,
-        a_params,
-        classify_model_path,
-        classify_label_path,
-        classify_threshold,
+        armor_detect_common_params,
         use_armor_detect_common
     );
 }

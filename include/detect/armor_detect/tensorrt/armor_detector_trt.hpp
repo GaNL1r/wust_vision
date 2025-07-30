@@ -25,6 +25,7 @@
 #include "common/logger.hpp"
 #include "detect/armor_detect/armor_detect_common.hpp"
 #include "detect/armor_detect/light_corner_corrector.hpp"
+#include "detect/armor_detect/tensorrt/infer.hpp"
 #include "detect/mono_measure_tool.hpp"
 #include "eigen3/Eigen/Dense"
 #include "fmt/color.h"
@@ -47,20 +48,15 @@ public:
         float nms_threshold = 0.5; // NMS阈值
         int top_k = 128; // 最大检测框数
         int device_id = 0;
+        int max_infer_running;
+        double min_free_mem_ratio;
     };
 
     // 构造函数：加载 ONNX 模型并构建 TensorRT 引擎
     explicit ArmorDetectTrt(
         const std::string& onnx_path,
         const Params& params,
-        double expand_ratio_w,
-        double expand_ratio_h,
-        int binary_thres,
-        armor::LightParams light_params,
-        armor::ArmorParams armor_params,
-        std::string classify_model_path,
-        std::string classify_label_path,
-        double classifier_threshold,
+        const ArmorDetectCommonParams& common_params,
         bool use_armor_detect_common = true
     );
 
@@ -69,11 +65,7 @@ public:
 
     void pushInput(const CommonFrame& frame);
 
-    bool processCallback(
-        const cv::Mat resized_img,
-        Eigen::Matrix3f transform_matrix,
-        const CommonFrame& frame
-    );
+    bool processCallback(const CommonFrame& frame, nvinfer1::IExecutionContext* context);
     void setCallback(DetectorCallback callback);
 
 private:
@@ -103,4 +95,8 @@ private:
     nvinfer1::IRuntime* runtime_ = nullptr;
     std::unique_ptr<ArmorDetectCommon> armor_detect_common_;
     bool use_armor_detect_common_ = true;
+    std::vector<std::unique_ptr<nvinfer1::IExecutionContext>> contexts_;
+    std::vector<MovableAtomicBool> infer_status_;
+    std::unique_ptr<ThreadPool> thread_pool_;
+    GPUGridAndStride* device_grid_strides_ = nullptr;
 };

@@ -16,19 +16,20 @@
 #include "detect/armor_detect/light_corner_corrector.hpp"
 #include "detect/armor_detect/number_classifier.hpp"
 #include "type/type.hpp"
+struct ArmorDetectCommonParams {
+    std::string classify_model_path;
+    std::string classify_label_path;
+    double classifier_threshold = 0.5;
+    armor::LightParams light_params;
+    armor::ArmorParams armor_params;
+    float expand_ratio_w = 1.1f;
+    float expand_ratio_h = 1.1f;
+    int binary_thres = 85;
+};
 
 class ArmorDetectCommon {
 public:
-    ArmorDetectCommon(
-        const std::string& classify_model_path,
-        const std::string& classify_label_path,
-        const armor::LightParams& l,
-        const armor::ArmorParams& a,
-        double classifier_threshold = 0.5,
-        float expand_ratio_w = 1.1f,
-        float expand_ratio_h = 1.1f,
-        int binary_thres_ = 85
-    );
+    ArmorDetectCommon(const ArmorDetectCommonParams& params);
 
     std::vector<armor::Light> findLights(
         const cv::Mat& rbg_img,
@@ -43,12 +44,7 @@ public:
     detectNet(const cv::Mat& src_img, std::vector<armor::ArmorObject>& objs_result);
     bool extractNetImage(const cv::Mat& src, armor::ArmorObject& armor);
     bool refineLightsFromArmorPts(armor::ArmorObject& armor) const;
-    armor::LightParams light_params_;
-    armor::ArmorParams armor_params_;
-    std::unique_ptr<LightCornerCorrector> corner_corrector;
+    std::unique_ptr<LightCornerCorrector> corner_corrector_;
     std::unique_ptr<NumberClassifier> number_classifier_;
-    float expand_ratio_w_;
-    float expand_ratio_h_;
-    int binary_thres_;
-    double classifier_threshold_;
+    ArmorDetectCommonParams params_;
 };

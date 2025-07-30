@@ -14,25 +14,13 @@
 #include "detect/armor_detect/armor_detect_common.hpp"
 #include "common/gobal.hpp"
 
-ArmorDetectCommon::ArmorDetectCommon(
-    const std::string& classify_model_path,
-    const std::string& classify_label_path,
-    const armor::LightParams& l,
-    const armor::ArmorParams& a,
-    double classifier_threshold,
-    float expand_ratio_w,
-    float expand_ratio_h,
-    int binary_thres_
-):
-    light_params_(l),
-    armor_params_(a),
-    binary_thres_(binary_thres_),
-    classifier_threshold_(classifier_threshold),
-    expand_ratio_w_(expand_ratio_w),
-    expand_ratio_h_(expand_ratio_h) {
-    number_classifier_ =
-        std::make_unique<NumberClassifier>(classify_model_path, classify_label_path);
-    corner_corrector = std::make_unique<LightCornerCorrector>();
+ArmorDetectCommon::ArmorDetectCommon(const ArmorDetectCommonParams& params) {
+    params_ = params;
+    number_classifier_ = std::make_unique<NumberClassifier>(
+        params_.classify_model_path,
+        params_.classify_label_path
+    );
+    corner_corrector_ = std::make_unique<LightCornerCorrector>();
 }
 bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, armor::ArmorObject& armor) {
     const int light_length = 12;
@@ -63,8 +51,8 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, armor::ArmorObject& 
     // Step 2: 计算并限制扩展的 bbox
     cv::Rect bbox = cv::boundingRect(pts_vec);
 
-    int new_width = static_cast<int>(bbox.width * expand_ratio_w_);
-    int new_height = static_cast<int>(bbox.height * expand_ratio_h_);
+    int new_width = static_cast<int>(bbox.width * params_.expand_ratio_w);
+    int new_height = static_cast<int>(bbox.height * params_.expand_ratio_h);
     int new_x = static_cast<int>(bbox.x - (new_width - bbox.width) / 2);
     int new_y = static_cast<int>(bbox.y - (new_height - bbox.height) / 2);
 
@@ -120,7 +108,7 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, armor::ArmorObject& 
         cv::threshold(
             litroi_gray,
             litroi_binary,
-            binary_thres_,
+            params_.binary_thres,
             255,
             cv::THRESH_BINARY | cv::THRESH_OTSU
         );
@@ -254,9 +242,10 @@ std::vector<armor::Light> ArmorDetectCommon::findLights(
 bool ArmorDetectCommon::isLight(const armor::Light& light) noexcept {
     // The ratio of light (short side / long side)
     float ratio = light.width / light.length;
-    bool ratio_ok = light_params_.min_ratio < ratio && ratio < light_params_.max_ratio;
+    bool ratio_ok =
+        params_.light_params.min_ratio < ratio && ratio < params_.light_params.max_ratio;
 
-    bool angle_ok = light.tilt_angle < light_params_.max_angle;
+    bool angle_ok = light.tilt_angle < params_.light_params.max_angle;
 
     bool is_light = ratio_ok && angle_ok;
 
@@ -269,20 +258,20 @@ bool ArmorDetectCommon::isArmor(const armor::Light& light_1, const armor::Light&
     // Ratio of the length of 2 lights (short side / long side)
     float light_length_ratio = light_1.length < light_2.length ? light_1.length / light_2.length
                                                                : light_2.length / light_1.length;
-    bool light_ratio_ok = light_length_ratio > armor_params_.min_light_ratio;
+    bool light_ratio_ok = light_length_ratio > params_.armor_params.min_light_ratio;
 
     // Distance between the center of 2 lights (unit : light length)
     float avg_light_length = (light_1.length + light_2.length) / 2;
     float center_distance = cv::norm(light_1.center - light_2.center) / avg_light_length;
-    bool center_distance_ok = (armor_params_.min_small_center_distance <= center_distance
-                               && center_distance < armor_params_.max_small_center_distance)
-        || (armor_params_.min_large_center_distance <= center_distance
-            && center_distance < armor_params_.max_large_center_distance);
+    bool center_distance_ok = (params_.armor_params.min_small_center_distance <= center_distance
+                               && center_distance < params_.armor_params.max_small_center_distance)
+        || (params_.armor_params.min_large_center_distance <= center_distance
+            && center_distance < params_.armor_params.max_large_center_distance);
 
     // Angle of light center connection
     cv::Point2f diff = light_1.center - light_2.center;
     float angle = std::abs(std::atan(diff.y / diff.x)) / CV_PI * 180;
-    bool angle_ok = angle < armor_params_.max_angle;
+    bool angle_ok = angle < params_.armor_params.max_angle;
 
     bool is_armor = light_ratio_ok && center_distance_ok && angle_ok;
 
@@ -302,9 +291,10 @@ ArmorDetectCommon::detectNet(const cv::Mat& src_img, std::vector<armor::ArmorObj
         try {
             if (extractNetImage(src_img, armor)) {
                 number_classifier_->classifyNumber(armor);
-                if (armor.confidence < classifier_threshold_) {
+                if (armor.confidence < params_.classifier_threshold) {
                     continue;
                 }
+
                 if (armor.color == armor::ArmorColor::NONE
                     || armor.color == armor::ArmorColor::PURPLE) {
                     armor.is_ok = false;
@@ -315,7 +305,7 @@ ArmorDetectCommon::detectNet(const cv::Mat& src_img, std::vector<armor::ArmorObj
                 findLights(armor.whole_rgb_img, armor.whole_binary_img, armor);
                 if (refineLightsFromArmorPts(armor)) {
                     if (isArmor(armor.lights[0], armor.lights[1])) {
-                        corner_corrector->correctCorners(armor);
+                        corner_corrector_->correctCorners(armor);
                     }
                 }
                 armors.emplace_back(armor);

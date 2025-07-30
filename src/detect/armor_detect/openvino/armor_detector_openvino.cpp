@@ -230,18 +230,11 @@ static void nms_merge_sorted_bboxes(
 }
 ArmorDetectOpenVino::ArmorDetectOpenVino(
     const std::filesystem::path& model_path,
-    const std::string& classify_model_path,
-    const std::string& classify_label_path,
     const std::string& device_name,
-    const armor::LightParams& l,
-    const armor::ArmorParams& a,
-    double classifier_threshold,
+    const ArmorDetectCommonParams& armor_detect_common_params,
     float conf_threshold,
     int top_k,
     float nms_threshold,
-    float expand_ratio_w,
-    float expand_ratio_h,
-    int binary_thres_,
     bool use_throughputmode,
     bool use_armor_detect_common
 ):
@@ -254,16 +247,7 @@ ArmorDetectOpenVino::ArmorDetectOpenVino(
     use_throughputmode_(use_throughputmode),
     use_armor_detect_common_(use_armor_detect_common) {
     if (use_armor_detect_common_) {
-        armor_detect_common_ = std::make_unique<ArmorDetectCommon>(
-            classify_model_path,
-            classify_label_path,
-            l,
-            a,
-            classifier_threshold,
-            expand_ratio_w,
-            expand_ratio_h,
-            binary_thres_
-        );
+        armor_detect_common_ = std::make_unique<ArmorDetectCommon>(armor_detect_common_params);
     }
 
     init();

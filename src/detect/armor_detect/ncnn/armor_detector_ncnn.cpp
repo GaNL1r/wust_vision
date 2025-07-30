@@ -218,17 +218,10 @@ ArmorDetectNCNN::ArmorDetectNCNN(
     std::string output_name_,
     const std::string& model_path_param,
     const std::string& model_path_bin,
-    const std::string& classify_model_path,
-    const std::string& classify_label_path,
-    const armor::LightParams& l,
-    const armor::ArmorParams& a,
-    double classifier_threshold,
+    const ArmorDetectCommonParams& armor_detect_common_params,
     float conf_threshold,
     int top_k,
     float nms_threshold,
-    float expand_ratio_w,
-    float expand_ratio_h,
-    int binary_thres_,
     bool use_gpu,
     int cpu_threads,
     bool use_lightmode,
@@ -237,8 +230,6 @@ ArmorDetectNCNN::ArmorDetectNCNN(
 ):
     input_name_(input_name_),
     output_name_(output_name_),
-    light_params_(l),
-    armor_params_(a),
     model_path_bin_(model_path_bin),
     model_path_param_(model_path_param),
     conf_threshold_(conf_threshold),
@@ -249,16 +240,7 @@ ArmorDetectNCNN::ArmorDetectNCNN(
     use_lightmode_(use_lightmode),
     use_armor_detect_common_(use_armor_detect_common) {
     if (use_armor_detect_common_) {
-        armor_detect_common_ = std::make_unique<ArmorDetectCommon>(
-            classify_model_path,
-            classify_label_path,
-            l,
-            a,
-            classifier_threshold,
-            expand_ratio_w,
-            expand_ratio_h,
-            binary_thres_
-        );
+        armor_detect_common_ = std::make_unique<ArmorDetectCommon>(armor_detect_common_params);
     }
 
     init(device_id);

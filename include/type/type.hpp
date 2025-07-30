@@ -580,3 +580,26 @@ struct GimbalCmd {
     bool fire_advice = false;
     int select_id = -1;
 };
+struct MovableAtomicBool {
+    std::atomic<bool> v;
+    explicit MovableAtomicBool(bool b = false) noexcept: v(b) {}
+
+    bool load(std::memory_order m = std::memory_order_seq_cst) const noexcept {
+        return v.load(m);
+    }
+    void store(bool b, std::memory_order m = std::memory_order_seq_cst) noexcept {
+        v.store(b, m);
+    }
+    bool exchange(bool b, std::memory_order m = std::memory_order_seq_cst) noexcept {
+        return v.exchange(b, m);
+    }
+
+    MovableAtomicBool(MovableAtomicBool&& o) noexcept: v(o.v.load(std::memory_order_relaxed)) {}
+    MovableAtomicBool& operator=(MovableAtomicBool&& o) noexcept {
+        v.store(o.v.load(std::memory_order_relaxed), std::memory_order_relaxed);
+        return *this;
+    }
+
+    MovableAtomicBool(const MovableAtomicBool&) = delete;
+    MovableAtomicBool& operator=(const MovableAtomicBool&) = delete;
+};

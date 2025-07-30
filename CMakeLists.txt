@@ -36,6 +36,12 @@ if(BUILD_WITH_TRT)
   find_package(CUDAToolkit REQUIRED)
   set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};/home/hy/TensorRT-8.5.2.2")
   find_package(TensorRT REQUIRED)
+  set(CMAKE_CUDA_COMPILER /usr/local/cuda/bin/nvcc)
+  set(CMAKE_CUDA_ARCHITECTURES 86)  
+  enable_language(CUDA)
+  set(CMAKE_CUDA_STANDARD 14)
+  set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+
 endif()
 if(BUILD_WITH_NCNN)
   find_package(ncnn REQUIRED)
@@ -95,6 +101,7 @@ set(TRT_SOURCES
   src/detect/armor_detect/tensorrt/armor_detector_trt_wrapper.cpp
   src/detect/rune_detect/tensorrt/rune_detector_trt.cpp
   src/detect/rune_detect/tensorrt/rune_detector_trt_wrapper.cpp
+  src/detect/armor_detect/tensorrt/infer.cu
 )
 set(NCNN_SOURCES
   src/detect/armor_detect/ncnn/armor_detector_ncnn.cpp
