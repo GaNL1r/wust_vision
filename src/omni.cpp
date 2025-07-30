@@ -129,7 +129,12 @@ OmniManager::OmniManager(const YAML::Node& config) {
                 return;
             }
             gobal::thread_pool->enqueue(
-                [frame = std::move(frame), this]() { processImage(frame); },
+                [frame = std::move(frame), this]() {
+                    infer_running_count_++;
+                    processImage(frame);
+                    detect_finish_count_++;
+                    infer_running_count_--;
+                },
                 -1
             );
         } else {
@@ -276,9 +281,6 @@ void OmniManager::ArmorDetectCallback(
     debug_img_frame.img = debug_img;
     debug_img_frame.timestamp = frame.timestamp;
     drawResult(debug_img_frame, armors);
-
-    detect_finish_count_++;
-    infer_running_count_--;
 }
 
 std::vector<armor::OneTarget> OmniManager::buildOneTargetsfromOmni(const armor::Armors& armors) {
@@ -325,7 +327,6 @@ void OmniManager::processImage(const ImageFrame& frame) {
         Eigen::Vector3d(0, 0, 0)
     );
 
-    infer_running_count_++;
     armor_detector_->pushInput(common_frame);
 }
 void OmniManager::stopTimer() {

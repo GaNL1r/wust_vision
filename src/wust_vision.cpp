@@ -141,7 +141,12 @@ bool WustVision::init() {
                         * Eigen::AngleAxisd(gobal::last_roll, Eigen::Vector3d::UnitX());
                     frame.v = Eigen::Vector3d(gobal::last_v_x, gobal::last_v_y, gobal::last_v_z);
                     gobal::thread_pool->enqueue(
-                        [frame = std::move(frame), this]() { processImage(frame); },
+                        [frame = std::move(frame), this]() {
+                            infer_running_count_++;
+                            processImage(frame);
+                            detect_finish_count_++;
+                            infer_running_count_--;
+                        },
                         -1
                     );
 
@@ -184,7 +189,12 @@ bool WustVision::init() {
                         return;
                     }
                     gobal::thread_pool->enqueue(
-                        [frame = std::move(frame), this]() { processImage(frame); },
+                        [frame = std::move(frame), this]() {
+                            infer_running_count_++;
+                            processImage(frame);
+                            detect_finish_count_++;
+                            infer_running_count_--;
+                        },
                         -1
                     );
 
@@ -566,8 +576,6 @@ void WustVision::ArmorDetectCallback(
 
     armorsCallback(armors, frame.src_img, R_gimbal2odom, frame.v);
     T_camera_to_odom_ = frame.T_camera_to_odom;
-    detect_finish_count_++;
-    infer_running_count_--;
 }
 
 void WustVision::RuneDetectCallback(std::vector<rune::RuneObject>& objs, const CommonFrame& frame) {
@@ -707,8 +715,6 @@ void WustVision::RuneDetectCallback(std::vector<rune::RuneObject>& objs, const C
         rune_gobal_ = rune_target;
         rune_objects_ = objs;
     }
-    detect_finish_count_++;
-    infer_running_count_--;
 }
 
 GimbalCmd WustVision::solveByMode(
@@ -803,7 +809,6 @@ void WustVision::processImage(const ImageFrame& frame) {
         t_gimbal_to_camera_
     );
 
-    infer_running_count_++;
     printStats();
 
     AttackMode mode = toAttackMode(gobal::attack_mode);
@@ -815,8 +820,6 @@ void WustVision::processImage(const ImageFrame& frame) {
             // if (use_manual_r_ && !manual_r_init_ && !manual_r_runing_) {
             //     cv::Point2f center(common_frame.src_img.cols/2.0,common_frame.src_img.rows/2.0);
             //     calculationManualR(center);
-            //     detect_finish_count_++;
-            //     infer_running_count_--;
             //     return;
             // }
             if (use_manual_r_ && gobal::if_manual_reset) {
@@ -831,8 +834,6 @@ void WustVision::processImage(const ImageFrame& frame) {
         case AttackMode::BIG_RUNE: {
             // if (use_manual_r_ && !manual_r_init_ && !manual_r_runing_) {
             //     calculationManualR(common_frame.src_img);
-            //     detect_finish_count_++;
-            //     infer_running_count_--;
             //     return;
             // }
             if (use_manual_r_ && gobal::if_manual_reset) {

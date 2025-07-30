@@ -1,5 +1,5 @@
 common:
-  armor_detect_backend: openvino
+  armor_detect_backend: tensorrt
   rune_detect_backend: tensorrt
   detect_color: 0
   init_attack_mode: 0
@@ -47,7 +47,7 @@ camera:
     start_frame: 500
     alpha: 1.0
     beta: 0
-    use: true
+    use: false
 
 control:
   alpha_pitch: 0.7

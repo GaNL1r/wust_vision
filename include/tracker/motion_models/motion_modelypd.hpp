@@ -47,6 +47,9 @@ struct Predict {
         for (int i = 0; i < X_N; i++) {
             x1[i] = x0[i];
         }
+        x1[0] -= T(vrx) * T(dt);
+        x1[2] -= T(vry) * T(dt);
+        x1[4] -= T(vrz) * T(dt);
 
         // v_xyz
         if (model == MotionModel::CONSTANT_VEL_ROT || model == MotionModel::CONSTANT_VELOCITY) {
@@ -60,9 +63,7 @@ struct Predict {
             x1[3] *= T(0.);
             x1[5] *= T(0.);
         }
-        x1[0] -= T(vrx) * T(dt);
-        x1[2] -= T(vry) * T(dt);
-        x1[4] -= T(vrz) * T(dt);
+
         // v_yaw
         if (model == MotionModel::CONSTANT_VEL_ROT || model == MotionModel::CONSTANT_ROTATION) {
             // angular velocity
