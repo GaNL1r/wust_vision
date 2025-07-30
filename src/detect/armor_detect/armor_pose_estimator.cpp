@@ -51,6 +51,7 @@ ArmorPoseEstimator::ArmorPoseEstimator() {
         gobal::config["armor_optimize"]["min_error_R"].as<double>(),
         gobal::config["armor_optimize"]["min_error_t"].as<double>()
     );
+    distance_fix_a2_ = gobal::config["armor_optimize"]["distance_fix_a2"].as<double>();
 
     R_gimbal_camera_ = Eigen::Matrix3d::Identity();
     R_gimbal_camera_ << 0, 0, 1, -1, 0, 0, 0, -1, 0;
@@ -127,11 +128,13 @@ std::vector<armor::Armor> ArmorPoseEstimator::extractArmorPoses(
             // Fill basic info
             armor_.type = temp_type;
             armor_.number = armor.number;
-
+            auto [yaw_rad, pitch_rad, dist] = utils::xyz2ypd_rad(t(0), t(1), t(2));
+            dist = dist + distance_fix_a2_ * dist * dist;
+            auto [x_r, y_r, z_r] = utils::xyz2ypd_rad(yaw_rad, pitch_rad, dist);
             // Fill pose
-            armor_.pos.x = t(0);
-            armor_.pos.y = t(1);
-            armor_.pos.z = t(2);
+            armor_.pos.x = x_r;
+            armor_.pos.y = y_r;
+            armor_.pos.z = z_r;
             armor_.ori.x = new_q.x();
             armor_.ori.y = new_q.y();
             armor_.ori.z = new_q.z();

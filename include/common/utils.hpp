@@ -358,4 +358,41 @@ setThreadAffinityAndPriority(std::thread& thread, int cpu_id, int priority, bool
     return false;
 #endif
 }
+inline double rad2deg(double rad) {
+    return rad * 180.0 / M_PI;
+}
+inline double deg2rad(double deg) {
+    return deg * M_PI / 180.0;
+}
+
+inline std::tuple<double, double, double> xyz2ypd_rad(double x, double y, double z) {
+    double distance = std::sqrt(x * x + y * y + z * z);
+    double yaw = std::atan2(y, x);
+    double pitch = std::atan2(z, std::sqrt(x * x + y * y));
+    return std::make_tuple(yaw, pitch, distance);
+}
+
+inline std::tuple<double, double, double> ypd2xyz_rad(double yaw, double pitch, double distance) {
+    double x = distance * std::cos(pitch) * std::cos(yaw);
+    double y = distance * std::cos(pitch) * std::sin(yaw);
+    double z = distance * std::sin(pitch);
+    return std::make_tuple(x, y, z);
+}
+
+inline std::tuple<double, double, double> xyz2ypd_deg(double x, double y, double z) {
+    double distance = std::sqrt(x * x + y * y + z * z);
+    double yaw = std::atan2(y, x);
+    double pitch = std::atan2(z, std::sqrt(x * x + y * y));
+    return std::make_tuple(rad2deg(yaw), rad2deg(pitch), distance);
+}
+
+inline std::tuple<double, double, double>
+ypd2xyz_deg(double yaw_deg, double pitch_deg, double distance) {
+    double yaw = deg2rad(yaw_deg);
+    double pitch = deg2rad(pitch_deg);
+    double x = distance * std::cos(pitch) * std::cos(yaw);
+    double y = distance * std::cos(pitch) * std::sin(yaw);
+    double z = distance * std::sin(pitch);
+    return std::make_tuple(x, y, z);
+}
 } // namespace utils

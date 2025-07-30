@@ -45,6 +45,7 @@ public:
         use_ba_ = enable;
     }
     std::unique_ptr<BaSolver> ba_solver_;
+    double distance_fix_a2_ = 0;
 
 private:
     // Select the best PnP solution according to the armor's direction in image,

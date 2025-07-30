@@ -1526,6 +1526,11 @@ void WustVision::reloadConfig(
                 "min_error_t",
                 armor_pose_estimator_->ba_solver_->min_error_t_
             );
+            utils::tryGetValue<double>(
+                armor_optimize_config,
+                "distance_fix_a2",
+                armor_pose_estimator_->distance_fix_a2_
+            );
         }
         section_hashes["armor_optimize"] = new_armor_optimize_hash;
     }
