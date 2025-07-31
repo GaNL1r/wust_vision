@@ -29,16 +29,17 @@
 #include "NvInfer.h"
 #include "NvInferRuntime.h"
 #include "common/ThreadPool.h"
+#include "rune_infer.hpp"
 #include "type/type.hpp"
 
 class RuneDetectorTrt {
 public:
     using CallbackType = std::function<void(std::vector<rune::RuneObject>&, const CommonFrame&)>;
     struct Params {
-        int input_w = 416; // 模型输入宽度
-        int input_h = 416; // 模型输入高度
-        int num_classes = 8; // 类别数 (0-7)
-        int num_colors = 4; // 颜色数 (0-3)
+        int input_w = 480; // 模型输入宽度
+        int input_h = 480; // 模型输入高度
+        int num_classes = 2; // 类别数 (0-7)
+        int num_colors = 2; // 颜色数 (0-3)
         float conf_threshold = 0.3; // 置信度阈值
         float nms_threshold = 0.5; // NMS阈值
         int top_k = 128; // 最大检测框数
@@ -64,12 +65,7 @@ public:
 
 private:
     // Do inference and call the infer_callback_ after inference
-    bool processCallback(
-        const cv::Mat resized_img,
-        Eigen::Matrix3f transform_matrix,
-        const CommonFrame& frame,
-        nvinfer1::IExecutionContext* context
-    );
+    bool processCallback(const CommonFrame& frame, nvinfer1::IExecutionContext* context);
     void buildEngine(const std::string& onnx_path);
     std::vector<rune::RuneObject> postProcess(
         std::vector<rune::RuneObject>& output_objs,
@@ -102,4 +98,5 @@ private:
     std::vector<std::unique_ptr<nvinfer1::IExecutionContext>> contexts_;
     std::vector<MovableAtomicBool> infer_status_;
     std::unique_ptr<ThreadPool> thread_pool_;
+    std::unique_ptr<rune_cuda_infer::CudaInfer> cuda_infer_;
 };

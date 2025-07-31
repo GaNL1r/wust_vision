@@ -28,7 +28,7 @@ armor_detect:
     num_colors: 4
     top_k: 128
     max_infer_running: 4
-    min_free_mem_ratio: 0.4
+    min_free_mem_ratio: 0.3
 
 rune_detector:
   confidence_threshold: 0.5
@@ -40,4 +40,4 @@ rune_detector:
   nms_threshold: 0.3
   top_k: 128
   max_infer_running: 4
-  min_free_mem_ratio: 0.4
+  min_free_mem_ratio: 0.3

@@ -267,6 +267,7 @@ static void nmsMergeSortedBboxes(
 }
 
 RuneDetectorTrt::RuneDetectorTrt(const std::filesystem::path& model_path, const Params& params):
+    params_(params),
     model_path_(model_path) {
     int device_id = params_.device_id;
     cudaSetDevice(device_id);
@@ -312,6 +313,13 @@ RuneDetectorTrt::RuneDetectorTrt(const std::filesystem::path& model_path, const 
         infer_status_.emplace_back(false);
     }
     thread_pool_ = std::make_unique<ThreadPool>(contexts_.size(), 100);
+    std::vector<int> strides = { 8, 16, 32 };
+    size_t num_grid_strides = 0;
+    rune_cuda_infer::GPUGridAndStride* device_grid_strides =
+        rune_cuda_infer::init_grid_strides_on_gpu(INPUT_W, INPUT_W, strides, num_grid_strides);
+    cuda_infer_ = std::make_unique<rune_cuda_infer::CudaInfer>();
+    size_t max_input_img = 1920 * 1440 * 3;
+    cuda_infer_->init(device_grid_strides, max_input_img, output_sz_ / 15);
 }
 void RuneDetectorTrt::buildEngine(const std::string& onnx_path) {
     std::string engine_path = onnx_path.substr(0, onnx_path.find_last_of('.')) + ".engine";
@@ -376,6 +384,9 @@ RuneDetectorTrt::~RuneDetectorTrt() {
     cudaStreamDestroy(stream_);
     cudaFree(device_buffers_[output_idx_]);
     cudaFree(device_buffers_[input_idx_]);
+    if (cuda_infer_) {
+        cuda_infer_.reset();
+    }
     if (context_)
         context_->destroy();
     for (size_t i = 0; i < contexts_.size(); i++) {
@@ -383,14 +394,13 @@ RuneDetectorTrt::~RuneDetectorTrt() {
             contexts_[i].reset();
         }
     }
+
     if (engine_)
         engine_->destroy();
     if (runtime_)
         runtime_->destroy();
 }
 void RuneDetectorTrt::pushInput(const CommonFrame& frame) {
-    Eigen::Matrix3f transform_matrix;
-    cv::Mat resized_img = letterbox(frame.src_img, transform_matrix);
     for (size_t i = 0; i < infer_status_.size(); ++i) {
         if (!infer_status_[i].load()) {
             size_t free_mem, total_mem;
@@ -403,7 +413,7 @@ void RuneDetectorTrt::pushInput(const CommonFrame& frame) {
                 for (size_t j = i; j < infer_status_.size(); j++) {
                     if (!infer_status_[j].load()) {
                         infer_status_[j].store(true);
-                        contexts_[i]->destroy();
+                        //contexts_[i]->destroy();
                         contexts_[i].reset();
                         WUST_INFO("TRT")
                             << "Cut context index:" << j << " because of GPU memory is not enough!";
@@ -414,7 +424,7 @@ void RuneDetectorTrt::pushInput(const CommonFrame& frame) {
             }
             infer_status_[i].store(true);
 
-            thread_pool_->enqueue([this, i, frame, resized_img, transform_matrix]() {
+            thread_pool_->enqueue([this, i, frame]() {
                 try {
                     if (!contexts_[i]) {
                         std::cerr << "Fatal: infers[" << i << "] is nullptr\n";
@@ -422,7 +432,7 @@ void RuneDetectorTrt::pushInput(const CommonFrame& frame) {
                         return;
                     }
 
-                    this->processCallback(resized_img, transform_matrix, frame, contexts_[i].get());
+                    this->processCallback(frame, contexts_[i].get());
                 } catch (const std::exception& e) {
                     std::cerr << "Error in detect: " << e.what() << std::endl;
                 }
@@ -439,79 +449,80 @@ void RuneDetectorTrt::setCallback(CallbackType callback) {
 }
 
 bool RuneDetectorTrt::processCallback(
-    const cv::Mat resized_img,
-    Eigen::Matrix3f transform_matrix,
     const CommonFrame& frame,
     nvinfer1::IExecutionContext* context
 ) {
+    Eigen::Matrix3f transform_matrix;
+    cv::Mat resized_img = letterbox(frame.src_img, transform_matrix);
     // BGR->RGB, u8(0-255)->f32(0.0-1.0), HWC->NCHW
     // note: TUP's model no need to normalize
-    cv::Mat blob = cv::dnn::blobFromImage(
-        resized_img,
-        1.,
-        cv::Size(INPUT_W, INPUT_H),
-        cv::Scalar(0, 0, 0),
-        true
-    );
+    // cv::Mat blob = cv::dnn::blobFromImage(
+    //     resized_img,
+    //     1.,
+    //     cv::Size(INPUT_W, INPUT_H),
+    //     cv::Scalar(0, 0, 0),
+    //     true
+    // );
 
-    cudaMemcpyAsync(
-        device_buffers_[input_idx_],
-        blob.ptr<float>(),
-        input_sz_ * sizeof(float),
-        cudaMemcpyHostToDevice,
-        stream_
-    );
-    context->enqueueV2(device_buffers_, stream_, nullptr);
-    cudaMemcpyAsync(
-        output_buffer_,
-        device_buffers_[output_idx_],
-        output_sz_ * sizeof(float),
-        cudaMemcpyDeviceToHost,
-        stream_
-    );
-    cudaStreamSynchronize(stream_);
-
+    // cudaMemcpyAsync(
+    //     device_buffers_[input_idx_],
+    //     blob.ptr<float>(),
+    //     input_sz_ * sizeof(float),
+    //     cudaMemcpyHostToDevice,
+    //     stream_
+    // );
     std::vector<rune::RuneObject> objs_tmp, objs_result;
     std::vector<cv::Rect> rects;
     std::vector<float> scores;
+    auto host_results = cuda_infer_->process_trt(
+        context,
+        device_buffers_,
+        input_idx_,
+        output_idx_,
+        frame.src_img.data,
+        frame.src_img.cols,
+        frame.src_img.rows,
+        transform_matrix,
+        stream_,
+        output_sz_ / 15,
+        params_.conf_threshold,
+        params_.nms_threshold,
+        params_.top_k
+    );
+    // cudaMemcpyAsync(
+    //     output_buffer_,
+    //     device_buffers_[output_idx_],
+    //     output_sz_ * sizeof(float),
+    //     cudaMemcpyDeviceToHost,
+    //     stream_
+    // );
+    // cudaStreamSynchronize(stream_);
+    // objs_result =
+    //     postProcess(objs_tmp, scores, rects, output_buffer_, output_sz_ / 15, transform_matrix);
 
-    // Parse YOLO output
-    //   generateProposals(objs_tmp, scores, rects, output_buffer,
-    //   transform_matrix,
-    //                     this->conf_threshold_, this->grid_strides_);
-    objs_result =
-        postProcess(objs_tmp, scores, rects, output_buffer_, output_sz_ / 15, transform_matrix);
-    // TopK
-    //   std::sort(
-    //       objs_tmp.begin(), objs_tmp.end(),
-    //       [](const RuneObject &a, const RuneObject &b) { return a.prob >
-    //       b.prob; });
-    //   if (objs_tmp.size() > static_cast<size_t>(this->top_k_)) {
-    //     objs_tmp.resize(this->top_k_);
-    //   }
+    for (const auto& gobj: host_results) {
+        if (gobj.valid == 0)
+            continue; // 过滤无效目标
 
-    //   nmsMergeSortedBboxes(objs_tmp, indices, this->nms_threshold_);
+        rune::RuneObject robj;
+        robj.prob = gobj.confidence;
+        robj.color = DNN_COLOR_TO_ENEMY_COLOR[gobj.color_id];
+        robj.type = static_cast<rune::RuneType>(gobj.type_id);
 
-    //   for (size_t i = 0; i < indices.size(); i++) {
-    //     objs_result.push_back(std::move(objs_tmp[indices[i]]));
+        // 填充 FeaturePoints
+        rune::FeaturePoints pts;
+        pts.r_center = cv::Point2f(gobj.x[0], gobj.y[0]);
+        pts.bottom_left = cv::Point2f(gobj.x[1], gobj.y[1]);
+        pts.top_left = cv::Point2f(gobj.x[2], gobj.y[2]);
+        pts.top_right = cv::Point2f(gobj.x[3], gobj.y[3]);
+        pts.bottom_right = cv::Point2f(gobj.x[4], gobj.y[4]);
 
-    //     if (objs_result[i].pts.children.size() > 0) {
-    //       const float N =
-    //           static_cast<float>(objs_result[i].pts.children.size() + 1);
-    //       FeaturePoints pts_final = std::accumulate(
-    //           objs_result[i].pts.children.begin(),
-    //           objs_result[i].pts.children.end(), objs_result[i].pts);
-    //       objs_result[i].pts = pts_final / N;
-    //     }
-    //   }
+        robj.pts = pts;
+        robj.box = cv::boundingRect(pts.toVector2f());
 
-    // NMS & TopK
-    //   cv::dnn::NMSBoxes(
-    //     rects, scores, this->conf_threshold_, this->nms_threshold_,
-    //     indices, 1.0, this->top_k_);
-    //   for (size_t i = 0; i < indices.size(); ++i) {
-    //     objs_result.push_back(std::move(objs_tmp[i]));
-    //   }
+        objs_result.push_back(std::move(robj));
+    }
+
     objs_result.erase(
         std::remove_if(
             objs_result.begin(),
@@ -549,7 +560,6 @@ std::vector<rune::RuneObject> RuneDetectorTrt::postProcess(
             continue;
         }
 
-        // std::cout<<"confidence: "<<confidence<<std::endl;
         const int grid0 = grid_strides_[anchor_idx].grid0;
         const int grid1 = grid_strides_[anchor_idx].grid1;
         const int stride = grid_strides_[anchor_idx].stride;
@@ -597,11 +607,11 @@ std::vector<rune::RuneObject> RuneDetectorTrt::postProcess(
         Eigen::Matrix<float, 3, 5> apex_dst;
 
         /* clang-format off */
-    /* *INDENT-OFF* */
-    apex_norm << x_1, x_2, x_3, x_4, x_5,
-                y_1, y_2, y_3, y_4, y_5,
-                1,   1,   1,   1,   1;
-    /* *INDENT-ON* */
+        /* *INDENT-OFF* */
+        apex_norm << x_1, x_2, x_3, x_4, x_5,
+                    y_1, y_2, y_3, y_4, y_5,
+                    1,   1,   1,   1,   1;
+        /* *INDENT-ON* */
         /* clang-format on */
 
         apex_dst = transform_matrix * apex_norm;

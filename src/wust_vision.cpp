@@ -135,6 +135,7 @@ bool WustVision::init() {
                     if (infer_running_count_.load() >= max_infer_running_) {
                         return;
                     }
+
                     frame.R_gimbal2odom =
                         Eigen::AngleAxisd(gobal::last_yaw, Eigen::Vector3d::UnitZ())
                         * Eigen::AngleAxisd(gobal::last_pitch, Eigen::Vector3d::UnitY())
@@ -142,6 +143,8 @@ bool WustVision::init() {
                     frame.v = Eigen::Vector3d(gobal::last_v_x, gobal::last_v_y, gobal::last_v_z);
                     gobal::thread_pool->enqueue(
                         [frame = std::move(frame), this]() {
+                            // auto now = std::chrono::steady_clock::now();
+                            // std::cout<<"start 2 now"<<std::chrono::duration_cast<std::chrono::microseconds>(now-frame.timestamp ).count()/1000.0<<std::endl;
                             infer_running_count_++;
                             processImage(frame);
                             detect_finish_count_++;

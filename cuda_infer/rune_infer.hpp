@@ -1,4 +1,3 @@
-// armor_cuda_infer.hpp
 #pragma once
 
 #include <Eigen/Dense>
@@ -7,47 +6,53 @@
 #include <iostream>
 #include <vector>
 
-namespace armor_cuda_infer {
-
+namespace rune_cuda_infer {
 struct GPUGridAndStride {
     int grid0, grid1, stride;
 };
+struct GPURuneFeaturePoints {
+    float r_center[2]; // x, y
+    float bottom_right[2];
+    float top_right[2];
+    float top_left[2];
+    float bottom_left[2];
+};
 
-struct GPUArmorObject {
-    float x[16];
-    float y[16];
+struct GPURuneObject {
+    float x[5]; // [r_center, bl, tl, tr, br]
+    float y[5];
     float confidence;
     int color_id;
-    int number_id;
+    int type_id;
     int valid;
     int num_pts;
-
-    __host__ __device__ GPUArmorObject() {
-        for (int i = 0; i < 4; ++i) {
-            x[i] = 0.0f;
-            y[i] = 0.0f;
+    __host__ __device__ GPURuneObject() {
+#pragma unroll
+        for (int i = 0; i < 5; ++i) {
+            x[i] = y[i] = 0.0f;
         }
-        confidence = 0.0f;
-        color_id = 0;
-        number_id = 0;
+        confidence = 0.f;
+        color_id = -1;
+        type_id = -1;
         valid = 0;
-        num_pts = 0;
+        num_pts = 5;
     }
 };
 
-// 用于 thrust::sort 的比较器
+template<typename T>
 struct ConfidenceComparator {
-    __host__ __device__ bool operator()(const GPUArmorObject& a, const GPUArmorObject& b) const {
+    __host__ __device__
+    bool operator()(const T& a, const T& b) const {
         return a.confidence > b.confidence;
     }
 };
+
 GPUGridAndStride* init_grid_strides_on_gpu(
     int input_w,
     int input_h,
     const std::vector<int>& strides,
     size_t& device_grid_count
 );
-
 class CudaInfer {
 public:
     CudaInfer();
@@ -82,7 +87,7 @@ public:
     /// @param  nms_th          NMS 阈值
     /// @param  top_k           保留前 K
     /// @return                  Host vector of valid detections
-    std::vector<GPUArmorObject> postprocess(
+    std::vector<GPURuneObject> postprocess(
         const float* output,
         int N,
         const Eigen::Matrix3f& tf_matrix,
@@ -91,7 +96,7 @@ public:
         int top_k
     );
 
-    std::vector<GPUArmorObject> process_trt(
+    std::vector<GPURuneObject> process_trt(
         nvinfer1::IExecutionContext* context,
         void* device_buffers[2],
         int input_idx_,
@@ -115,12 +120,11 @@ private:
     // 设备缓冲
     unsigned char* d_input_bgr_ = nullptr; // 原始 BGR
     float* d_nchw_ = nullptr; // letterbox 后的 NCHW
-    GPUArmorObject* d_objs_ = nullptr; // decode & sort 输出
+    GPURuneObject* d_objs_ = nullptr; // decode & sort 输出
     float* d_tf_ = nullptr; // 3×3 逆变换矩阵
     GPUGridAndStride* d_grid_strides_;
     // 缓冲大小
     size_t buf_image_bytes_;
     int buf_max_N_;
 };
-
-} // namespace armor_cuda_infer
+} // namespace rune_cuda_infer

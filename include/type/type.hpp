@@ -519,8 +519,6 @@ struct RuneObject {
     float prob;
     FeaturePoints pts;
     cv::Rect box;
-    cv::Mat M;
-    cv::Mat target_img;
 };
 struct RunePoint {
     float x;
