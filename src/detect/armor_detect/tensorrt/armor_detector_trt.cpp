@@ -228,6 +228,11 @@ ArmorDetectTrt::ArmorDetectTrt(
     for (size_t i = 0; i < contexts_.size(); ++i) {
         infer_status_.emplace_back(false);
     }
+    contexts_released_.reserve(contexts_.size());
+    for (size_t i = 0; i < contexts_.size(); ++i) {
+        contexts_released_.emplace_back(false);
+    }
+
     thread_pool_ = std::make_unique<ThreadPool>(contexts_.size(), 100);
     if (use_armor_detect_common_) {
         armor_detect_common_ = std::make_unique<ArmorDetectCommon>(armor_detect_common_params);
@@ -352,7 +357,13 @@ bool ArmorDetectTrt::processCallback(
     //     cudaMemcpyHostToDevice,
     //     stream_
     // );
+    // context->setTensorAddress("images", device_buffers_[input_idx_]);
+    // context->setTensorAddress("output", device_buffers_[output_idx_]);
 
+    // if (!context->enqueueV3(stream_)) {
+    //     std::cerr<<"enqueueV3 failed!";
+    //     return {};
+    // }
     auto host_results = cuda_infer_->process_trt(
         context,
         device_buffers_,
@@ -555,29 +566,57 @@ std::vector<armor::ArmorObject> ArmorDetectTrt::postProcess(
 }
 
 void ArmorDetectTrt::pushInput(const CommonFrame& frame) {
+    size_t free_mem = 0, total_mem = 0;
+    cudaMemGetInfo(&free_mem, &total_mem);
+    size_t used_mem = total_mem - free_mem;
+
+    int ctx_num = std::count(contexts_released_.begin(), contexts_released_.end(), false);
+    double used_ratio = (double)used_mem / total_mem;
+    double extra_margin = used_ratio * ctx_num * 0.1;
+
+    double free_mem_ratio = static_cast<double>(free_mem) / total_mem;
+
+    if (free_mem_ratio >= params_.min_free_mem_ratio + extra_margin) {
+        for (size_t i = 0; i < contexts_.size(); ++i) {
+            if (contexts_released_[i]) {
+                contexts_[i].reset(engine_->createExecutionContext());
+                if (contexts_[i]) {
+                    contexts_released_[i] = false;
+                    infer_status_[i].store(false);
+                    WUST_INFO("TRT") << "Restored context index: " << i;
+                }
+            }
+        }
+    }
+
     for (size_t i = 0; i < infer_status_.size(); ++i) {
-        if (!infer_status_[i].load()) {
-            size_t free_mem, total_mem;
-            cudaMemGetInfo(&free_mem, &total_mem);
-            double free_mem_ratio = static_cast<double>(free_mem) / static_cast<double>(total_mem);
+        if (!infer_status_[i].load() && !contexts_released_[i]) {
             if (free_mem_ratio < params_.min_free_mem_ratio) {
                 WUST_WARN("TRT") << "GPU memory is not enough!"
                                  << "Free GPU memory:" << free_mem_ratio * 100 << "%";
 
-                for (size_t j = i; j < infer_status_.size(); j++) {
-                    if (!infer_status_[j].load()) {
+                size_t active_contexts = 0;
+                for (size_t k = 0; k < contexts_released_.size(); ++k) {
+                    if (!contexts_released_[k])
+                        active_contexts++;
+                }
+
+                for (size_t j = i; j < infer_status_.size(); ++j) {
+                    if (!infer_status_[j].load() && !contexts_released_[j]) {
+                        if (active_contexts <= 1) {
+                            break;
+                        }
                         infer_status_[j].store(true);
-                        contexts_[i]->destroy();
-                        contexts_[i].reset();
-                        WUST_INFO("TRT")
-                            << "Cut context index:" << j << " because of GPU memory is not enough!";
+                        contexts_[j].reset();
+                        contexts_released_[j] = true;
+                        WUST_INFO("TRT") << "Cut context index:" << j << " due to GPU memory low";
                         break;
                     }
                 }
                 break;
             }
-            infer_status_[i].store(true);
 
+            infer_status_[i].store(true);
             thread_pool_->enqueue([this, i, frame]() {
                 try {
                     if (!contexts_[i]) {
@@ -585,14 +624,12 @@ void ArmorDetectTrt::pushInput(const CommonFrame& frame) {
                         infer_status_[i].store(false);
                         return;
                     }
-
                     this->processCallback(frame, contexts_[i].get());
                 } catch (const std::exception& e) {
                     std::cerr << "Error in detect: " << e.what() << std::endl;
                 }
                 infer_status_[i].store(false);
             });
-
             return;
         }
     }

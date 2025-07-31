@@ -41,8 +41,7 @@ struct GPURuneObject {
 
 template<typename T>
 struct ConfidenceComparator {
-    __host__ __device__
-    bool operator()(const T& a, const T& b) const {
+    __host__ __device__ bool operator()(const T& a, const T& b) const {
         return a.confidence > b.confidence;
     }
 };

@@ -83,6 +83,43 @@ static cv::Mat letterbox(
     return resized_img;
 }
 
+static void letterbox_into(
+    const cv::Mat& img,
+    uint8_t* dst_data,
+    Eigen::Matrix3f& transform_matrix,
+    int dst_w,
+    int dst_h
+) {
+    int img_h = img.rows;
+    int img_w = img.cols;
+
+    float scale = std::min(dst_h * 1.0f / img_h, dst_w * 1.0f / img_w);
+    int resize_h = static_cast<int>(round(img_h * scale));
+    int resize_w = static_cast<int>(round(img_w * scale));
+
+    int pad_h = dst_h - resize_h;
+    int pad_w = dst_w - resize_w;
+
+    float half_h = pad_h / 2.0f;
+    float half_w = pad_w / 2.0f;
+
+    int top = static_cast<int>(round(half_h - 0.1f));
+    int bottom = static_cast<int>(round(half_h + 0.1f));
+    int left = static_cast<int>(round(half_w - 0.1f));
+    int right = static_cast<int>(round(half_w + 0.1f));
+
+    transform_matrix << 1.0f / scale, 0, -half_w / scale, 0, 1.0f / scale, -half_h / scale, 0, 0, 1;
+
+    cv::Mat resized_img;
+    cv::resize(img, resized_img, cv::Size(resize_w, resize_h));
+
+    cv::Mat final_img(dst_h, dst_w, CV_8UC3, cv::Scalar(114, 114, 114));
+
+    resized_img.copyTo(final_img(cv::Rect(left, top, resize_w, resize_h)));
+
+    std::memcpy(dst_data, final_img.data, dst_h * dst_w * 3);
+}
+
 static void generate_grids_and_stride(
     const int target_w,
     const int target_h,
@@ -307,11 +344,10 @@ ArmorDetectOpenVino::~ArmorDetectOpenVino() {
 void ArmorDetectOpenVino::setCallback(DetectorCallback callback) {
     infer_callback_ = callback;
 }
-bool ArmorDetectOpenVino::processCallback(
-    const cv::Mat resized_img,
-    Eigen::Matrix3f transform_matrix,
-    const CommonFrame& frame
-) {
+bool ArmorDetectOpenVino::processCallback(const CommonFrame& frame) {
+    auto start = std::chrono::steady_clock::now();
+    Eigen::Matrix3f transform_matrix;
+
     // BGR->RGB, u8(0-255)->f32(0.0-1.0), HWC->NCHW
     // note: TUP's model no need to normalize
     // cv::Mat blob = cv::dnn::blobFromImage(
@@ -334,12 +370,19 @@ bool ArmorDetectOpenVino::processCallback(
     // auto infer_request = compiled_model_->create_infer_request();
     // infer_request.set_input_tensor(input_tensor);
     // infer_request.infer();
-    ov::Tensor input_tensor = ov::Tensor(
-        compiled_model_->input().get_element_type(), // u8
-        compiled_model_->input().get_shape(), // {1, H, W, 3}
-        resized_img.data // 原始 BGR 数据
+    // cv::Mat resized_img = letterbox(frame.src_img, transform_matrix);
+    // ov::Tensor input_tensor = ov::Tensor(
+    //     compiled_model_->input().get_element_type(),
+    //     compiled_model_->input().get_shape(),
+    //     resized_img.data
+    // );
+    auto input_tensor = ov::Tensor(
+        compiled_model_->input().get_element_type(),
+        compiled_model_->input().get_shape()
     );
+    auto* data_ptr = input_tensor.data<uint8_t>();
 
+    letterbox_into(frame.src_img, data_ptr, transform_matrix, INPUT_W, INPUT_H);
     // 3) InferRequest
     auto infer_request = compiled_model_->create_infer_request();
     infer_request.set_input_tensor(input_tensor);
@@ -367,6 +410,11 @@ bool ArmorDetectOpenVino::processCallback(
         this->conf_threshold_,
         this->grid_strides_
     );
+    auto end = std::chrono::steady_clock::now();
+    // WUST_INFO("TRT") << "TRT"
+    //                  << "Infer time: "
+    //                  << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
+    //         / 1000.0 << "ms";
     // TopK
     std::sort(
         objs_tmp.begin(),
@@ -424,7 +472,5 @@ bool ArmorDetectOpenVino::processCallback(
     return false;
 }
 void ArmorDetectOpenVino::pushInput(const CommonFrame& frame) {
-    Eigen::Matrix3f transform_matrix;
-    cv::Mat resized_img = letterbox(frame.src_img, transform_matrix);
-    processCallback(resized_img, transform_matrix, frame);
+    processCallback(frame);
 }

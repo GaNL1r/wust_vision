@@ -97,6 +97,7 @@ private:
     nvinfer1::IRuntime* runtime_ = nullptr;
     std::vector<std::unique_ptr<nvinfer1::IExecutionContext>> contexts_;
     std::vector<MovableAtomicBool> infer_status_;
+    std::vector<bool> contexts_released_;
     std::unique_ptr<ThreadPool> thread_pool_;
     std::unique_ptr<rune_cuda_infer::CudaInfer> cuda_infer_;
 };

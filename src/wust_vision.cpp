@@ -817,7 +817,9 @@ void WustVision::processImage(const ImageFrame& frame) {
     AttackMode mode = toAttackMode(gobal::attack_mode);
     switch (mode) {
         case AttackMode::ARMOR: {
-            armor_detector_->pushInput(common_frame);
+            if (armor_detector_) {
+                armor_detector_->pushInput(common_frame);
+            }
         } break;
         case AttackMode::SMALL_RUNE: {
             // if (use_manual_r_ && !manual_r_init_ && !manual_r_runing_) {
@@ -832,7 +834,10 @@ void WustVision::processImage(const ImageFrame& frame) {
                 );
                 calculationManualR(center);
             }
-            rune_detector_->pushInput(common_frame);
+            if (rune_detector_) {
+                rune_detector_->pushInput(common_frame);
+            }
+
         } break;
         case AttackMode::BIG_RUNE: {
             // if (use_manual_r_ && !manual_r_init_ && !manual_r_runing_) {
@@ -847,10 +852,14 @@ void WustVision::processImage(const ImageFrame& frame) {
                 calculationManualR(center);
             }
 
-            rune_detector_->pushInput(common_frame);
+            if (rune_detector_) {
+                rune_detector_->pushInput(common_frame);
+            }
         } break;
         case AttackMode::UNKNOWN: {
-            armor_detector_->pushInput(common_frame);
+            if (armor_detector_) {
+                armor_detector_->pushInput(common_frame);
+            }
         } break;
     }
 }

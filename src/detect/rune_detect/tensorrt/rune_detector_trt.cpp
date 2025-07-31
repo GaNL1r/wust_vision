@@ -81,14 +81,14 @@ static cv::Mat letterbox(
     int right = static_cast<int>(round(half_w + 0.1));
 
     /* clang-format off */
-  /* *INDENT-OFF* */
+    /* *INDENT-OFF* */
 
-  // Compute point transform_matrix
-  transform_matrix << 1.0 / scale, 0, -half_w / scale,
-                      0, 1.0 / scale, -half_h / scale,
-                      0, 0, 1;
+    // Compute point transform_matrix
+    transform_matrix << 1.0 / scale, 0, -half_w / scale,
+                        0, 1.0 / scale, -half_h / scale,
+                        0, 0, 1;
 
-  /* *INDENT-ON* */
+    /* *INDENT-ON* */
     /* clang-format on */
 
     // Add border
@@ -312,6 +312,11 @@ RuneDetectorTrt::RuneDetectorTrt(const std::filesystem::path& model_path, const 
     for (size_t i = 0; i < contexts_.size(); ++i) {
         infer_status_.emplace_back(false);
     }
+    contexts_released_.reserve(contexts_.size());
+    for (size_t i = 0; i < contexts_.size(); ++i) {
+        contexts_released_.emplace_back(false);
+    }
+
     thread_pool_ = std::make_unique<ThreadPool>(contexts_.size(), 100);
     std::vector<int> strides = { 8, 16, 32 };
     size_t num_grid_strides = 0;
@@ -400,49 +405,6 @@ RuneDetectorTrt::~RuneDetectorTrt() {
     if (runtime_)
         runtime_->destroy();
 }
-void RuneDetectorTrt::pushInput(const CommonFrame& frame) {
-    for (size_t i = 0; i < infer_status_.size(); ++i) {
-        if (!infer_status_[i].load()) {
-            size_t free_mem, total_mem;
-            cudaMemGetInfo(&free_mem, &total_mem);
-            double free_mem_ratio = static_cast<double>(free_mem) / static_cast<double>(total_mem);
-            if (free_mem_ratio < params_.min_free_mem_ratio) {
-                WUST_WARN("TRT") << "GPU memory is not enough!"
-                                 << "Free GPU memory:" << free_mem_ratio * 100 << "%";
-
-                for (size_t j = i; j < infer_status_.size(); j++) {
-                    if (!infer_status_[j].load()) {
-                        infer_status_[j].store(true);
-                        //contexts_[i]->destroy();
-                        contexts_[i].reset();
-                        WUST_INFO("TRT")
-                            << "Cut context index:" << j << " because of GPU memory is not enough!";
-                        break;
-                    }
-                }
-                break;
-            }
-            infer_status_[i].store(true);
-
-            thread_pool_->enqueue([this, i, frame]() {
-                try {
-                    if (!contexts_[i]) {
-                        std::cerr << "Fatal: infers[" << i << "] is nullptr\n";
-                        infer_status_[i].store(false);
-                        return;
-                    }
-
-                    this->processCallback(frame, contexts_[i].get());
-                } catch (const std::exception& e) {
-                    std::cerr << "Error in detect: " << e.what() << std::endl;
-                }
-                infer_status_[i].store(false);
-            });
-
-            return;
-        }
-    }
-}
 
 void RuneDetectorTrt::setCallback(CallbackType callback) {
     infer_callback_ = callback;
@@ -452,8 +414,9 @@ bool RuneDetectorTrt::processCallback(
     const CommonFrame& frame,
     nvinfer1::IExecutionContext* context
 ) {
+    auto start = std::chrono::steady_clock::now();
     Eigen::Matrix3f transform_matrix;
-    cv::Mat resized_img = letterbox(frame.src_img, transform_matrix);
+    //cv::Mat resized_img = letterbox(frame.src_img, transform_matrix);
     // BGR->RGB, u8(0-255)->f32(0.0-1.0), HWC->NCHW
     // note: TUP's model no need to normalize
     // cv::Mat blob = cv::dnn::blobFromImage(
@@ -471,9 +434,26 @@ bool RuneDetectorTrt::processCallback(
     //     cudaMemcpyHostToDevice,
     //     stream_
     // );
+    // context->setTensorAddress("images", device_buffers_[input_idx_]);
+    // context->setTensorAddress("output", device_buffers_[output_idx_]);
+
+    // if (!context->enqueueV3(stream_)) {
+    //     std::cerr<<"enqueueV3 failed!";
+    //     return {};
+    // }
     std::vector<rune::RuneObject> objs_tmp, objs_result;
     std::vector<cv::Rect> rects;
     std::vector<float> scores;
+    // cudaMemcpyAsync(
+    //     output_buffer_,
+    //     device_buffers_[output_idx_],
+    //     output_sz_ * sizeof(float),
+    //     cudaMemcpyDeviceToHost,
+    //     stream_
+    // );
+    // cudaStreamSynchronize(stream_);
+    // objs_result =
+    //     postProcess(objs_tmp, scores, rects, output_buffer_, output_sz_ / 15, transform_matrix);
     auto host_results = cuda_infer_->process_trt(
         context,
         device_buffers_,
@@ -489,17 +469,6 @@ bool RuneDetectorTrt::processCallback(
         params_.nms_threshold,
         params_.top_k
     );
-    // cudaMemcpyAsync(
-    //     output_buffer_,
-    //     device_buffers_[output_idx_],
-    //     output_sz_ * sizeof(float),
-    //     cudaMemcpyDeviceToHost,
-    //     stream_
-    // );
-    // cudaStreamSynchronize(stream_);
-    // objs_result =
-    //     postProcess(objs_tmp, scores, rects, output_buffer_, output_sz_ / 15, transform_matrix);
-
     for (const auto& gobj: host_results) {
         if (gobj.valid == 0)
             continue; // 过滤无效目标
@@ -522,6 +491,12 @@ bool RuneDetectorTrt::processCallback(
 
         objs_result.push_back(std::move(robj));
     }
+
+    auto end = std::chrono::steady_clock::now();
+    // WUST_INFO("TRT") << "TRT"
+    //                  << "Infer time: "
+    //                  << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
+    //         / 1000.0 << "ms";
 
     objs_result.erase(
         std::remove_if(
@@ -746,4 +721,73 @@ std::tuple<cv::Point2f, cv::Mat> RuneDetectorTrt::detectRTag(
     center += cv::Point2f(roi.tl());
 
     return { center, binary_img };
+}
+void RuneDetectorTrt::pushInput(const CommonFrame& frame) {
+    size_t free_mem = 0, total_mem = 0;
+    cudaMemGetInfo(&free_mem, &total_mem);
+    size_t used_mem = total_mem - free_mem;
+
+    int ctx_num = std::count(contexts_released_.begin(), contexts_released_.end(), false);
+    double used_ratio = (double)used_mem / total_mem;
+    double extra_margin = used_ratio * ctx_num * 0.1;
+
+    double free_mem_ratio = static_cast<double>(free_mem) / total_mem;
+
+    if (free_mem_ratio >= params_.min_free_mem_ratio + extra_margin) {
+        for (size_t i = 0; i < contexts_.size(); ++i) {
+            if (contexts_released_[i]) {
+                contexts_[i].reset(engine_->createExecutionContext());
+                if (contexts_[i]) {
+                    contexts_released_[i] = false;
+                    infer_status_[i].store(false);
+                    WUST_INFO("TRT") << "Restored context index: " << i;
+                }
+            }
+        }
+    }
+
+    for (size_t i = 0; i < infer_status_.size(); ++i) {
+        if (!infer_status_[i].load() && !contexts_released_[i]) {
+            if (free_mem_ratio < params_.min_free_mem_ratio) {
+                WUST_WARN("TRT") << "GPU memory is not enough!"
+                                 << "Free GPU memory:" << free_mem_ratio * 100 << "%";
+
+                size_t active_contexts = 0;
+                for (size_t k = 0; k < contexts_released_.size(); ++k) {
+                    if (!contexts_released_[k])
+                        active_contexts++;
+                }
+
+                for (size_t j = i; j < infer_status_.size(); ++j) {
+                    if (!infer_status_[j].load() && !contexts_released_[j]) {
+                        if (active_contexts <= 1) {
+                            break;
+                        }
+                        infer_status_[j].store(true);
+                        contexts_[j].reset();
+                        contexts_released_[j] = true;
+                        WUST_INFO("TRT") << "Cut context index:" << j << " due to GPU memory low";
+                        break;
+                    }
+                }
+                break;
+            }
+
+            infer_status_[i].store(true);
+            thread_pool_->enqueue([this, i, frame]() {
+                try {
+                    if (!contexts_[i]) {
+                        std::cerr << "Fatal: infers[" << i << "] is nullptr\n";
+                        infer_status_[i].store(false);
+                        return;
+                    }
+                    this->processCallback(frame, contexts_[i].get());
+                } catch (const std::exception& e) {
+                    std::cerr << "Error in detect: " << e.what() << std::endl;
+                }
+                infer_status_[i].store(false);
+            });
+            return;
+        }
+    }
 }

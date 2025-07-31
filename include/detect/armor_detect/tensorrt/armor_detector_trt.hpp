@@ -97,7 +97,7 @@ private:
     bool use_armor_detect_common_ = true;
     std::vector<std::unique_ptr<nvinfer1::IExecutionContext>> contexts_;
     std::vector<MovableAtomicBool> infer_status_;
+    std::vector<bool> contexts_released_;
     std::unique_ptr<ThreadPool> thread_pool_;
-    //armor_cuda_infer::GPUGridAndStride* device_grid_strides_ = nullptr;
     std::unique_ptr<armor_cuda_infer::CudaInfer> cuda_infer_;
 };
