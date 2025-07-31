@@ -25,7 +25,7 @@ armor_detect:
     output_name: output
     use_gpu: false
     use_lightmode: false
-    device_id: 1
+    device_id: 0
     cpu_threads: 1
     nms_threshold: 0.3
     top_k: 128

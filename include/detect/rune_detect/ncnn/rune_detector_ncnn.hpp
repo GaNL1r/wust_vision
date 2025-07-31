@@ -65,11 +65,7 @@ public:
 
 private:
     // Do inference and call the infer_callback_ after inference
-    bool processCallback(
-        const cv::Mat resized_img,
-        Eigen::Matrix3f transform_matrix,
-        const CommonFrame& frame
-    );
+    bool processCallback(const CommonFrame& frame);
 
 private:
     ncnn::Net net_;

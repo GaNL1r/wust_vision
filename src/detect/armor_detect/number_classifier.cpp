@@ -24,41 +24,37 @@ NumberClassifier::NumberClassifier(
     initNumberClassifier();
 }
 void NumberClassifier::initNumberClassifier() {
-    // 加载数字识别模型
     const std::string model_path = classify_model_path_;
-    number_net_ = cv::dnn::readNetFromONNX(model_path);
+    std::unique_ptr<cv::dnn::Net> number_net_ =
+        std::make_unique<cv::dnn::Net>(cv::dnn::readNetFromONNX(model_path));
 
-    // 检查模型是否成功加载
-    if (number_net_.empty()) {
+    if (number_net_->empty()) {
         WUST_ERROR("number_classifier")
             << "Failed to load number classifier model from " << model_path;
-        std::exit(EXIT_FAILURE); // 模型加载失败，退出程序
+        std::exit(EXIT_FAILURE);
     } else {
         WUST_INFO("number_classifier")
             << "Successfully loaded number classifier model from " << model_path;
     }
 
-    // 加载标签
     const std::string label_path = classify_label_path_;
     std::ifstream label_file(label_path);
     std::string line;
 
-    // 清空之前的标签
     class_names_.clear();
 
-    // 读取标签文件
     while (std::getline(label_file, line)) {
         class_names_.push_back(line);
     }
 
-    // 检查标签是否成功加载
     if (class_names_.empty()) {
         WUST_ERROR("number_classifier") << "Failed to load labels from " << label_path;
-        std::exit(EXIT_FAILURE); // 标签加载失败，退出程序
+        std::exit(EXIT_FAILURE);
     } else {
         WUST_INFO("number_classifier")
             << "Successfully loaded " << class_names_.size() << " labels from " << label_path;
     }
+    number_net_.reset();
 }
 bool NumberClassifier::classifyNumber(armor::ArmorObject& armor) {
     static thread_local std::unique_ptr<cv::dnn::Net> thread_net;
@@ -68,8 +64,10 @@ bool NumberClassifier::classifyNumber(armor::ArmorObject& armor) {
 
     if (!thread_net) {
         thread_net = std::make_unique<cv::dnn::Net>(cv::dnn::readNetFromONNX(classify_model_path_));
+        WUST_INFO("number_classifier") << "Loaded number classifier model for this thread";
         if (thread_net->empty()) {
-            std::cerr << "Failed to load thread-local number classifier model." << std::endl;
+            WUST_ERROR("number_classifier")
+                << "Failed to load thread-local number classifier model.";
             return false;
         }
     }

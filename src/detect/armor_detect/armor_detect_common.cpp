@@ -13,7 +13,7 @@
 // limitations under the License.
 #include "detect/armor_detect/armor_detect_common.hpp"
 #include "common/gobal.hpp"
-
+#include <execution>
 ArmorDetectCommon::ArmorDetectCommon(const ArmorDetectCommonParams& params) {
     params_ = params;
     number_classifier_ = std::make_unique<NumberClassifier>(
@@ -280,26 +280,28 @@ bool ArmorDetectCommon::isArmor(const armor::Light& light_1, const armor::Light&
 std::vector<armor::ArmorObject>
 ArmorDetectCommon::detectNet(const cv::Mat& src_img, std::vector<armor::ArmorObject>& objs_result) {
     std::vector<armor::ArmorObject> armors;
+    std::mutex armors_mutex;
 
-    for (auto& armor: objs_result) {
+    std::for_each(std::execution::par, objs_result.begin(), objs_result.end(), [&](auto& armor) {
         if (gobal::detect_color == 0 && armor.color == armor::ArmorColor::BLUE) {
-            continue;
+            return;
         } else if (gobal::detect_color == 1 && armor.color == armor::ArmorColor::RED) {
-            continue;
+            return;
         }
 
         try {
             if (extractNetImage(src_img, armor)) {
                 number_classifier_->classifyNumber(armor);
                 if (armor.confidence < params_.classifier_threshold) {
-                    continue;
+                    return;
                 }
 
                 if (armor.color == armor::ArmorColor::NONE
                     || armor.color == armor::ArmorColor::PURPLE) {
                     armor.is_ok = false;
+                    std::lock_guard<std::mutex> lock(armors_mutex);
                     armors.emplace_back(armor);
-                    continue;
+                    return;
                 }
 
                 findLights(armor.whole_rgb_img, armor.whole_binary_img, armor);
@@ -308,11 +310,12 @@ ArmorDetectCommon::detectNet(const cv::Mat& src_img, std::vector<armor::ArmorObj
                         corner_corrector_->correctCorners(armor);
                     }
                 }
+                std::lock_guard<std::mutex> lock(armors_mutex);
                 armors.emplace_back(armor);
             }
         } catch (...) {
-            std::cout << "[ArmorDetectCommon::detectNet] extractNetImage failed." << std::endl;
+            std::cout << "[ArmorDetectCommon::detectNet] someting failed." << std::endl;
         }
-    }
+    });
     return armors;
 }

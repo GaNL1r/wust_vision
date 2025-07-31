@@ -65,6 +65,49 @@ static cv::Mat letterbox(
 
     return resized_img;
 }
+static void letterbox_into_CHW_uint8_rgb(
+    const cv::Mat& img,
+    float* output_ptr,
+    Eigen::Matrix3f& transform_matrix,
+    int dst_width,
+    int dst_height
+) {
+    int img_h = img.rows;
+    int img_w = img.cols;
+
+    float scale = std::min(dst_height * 1.0f / img_h, dst_width * 1.0f / img_w);
+    int resize_h = static_cast<int>(round(img_h * scale));
+    int resize_w = static_cast<int>(round(img_w * scale));
+
+    int pad_h = dst_height - resize_h;
+    int pad_w = dst_width - resize_w;
+    int top = static_cast<int>(round(pad_h / 2.0f - 0.1f));
+    int left = static_cast<int>(round(pad_w / 2.0f - 0.1f));
+
+    // Compute inverse affine transform matrix
+    transform_matrix << 1.0f / scale, 0, -left / scale, 0, 1.0f / scale, -top / scale, 0, 0, 1;
+
+    // Resize input image first
+    cv::Mat resized;
+    cv::resize(img, resized, cv::Size(resize_w, resize_h), 0, 0, cv::INTER_LINEAR);
+
+    // Fill CHW uint8 RGB into output_ptr with padding (but still stored in float)
+    for (int c = 0; c < 3; ++c) {
+        for (int y = 0; y < dst_height; ++y) {
+            for (int x = 0; x < dst_width; ++x) {
+                int out_index = c * dst_height * dst_width + y * dst_width + x;
+                if (y >= top && y < top + resize_h && x >= left && x < left + resize_w) {
+                    int ry = y - top;
+                    int rx = x - left;
+                    cv::Vec3b pixel = resized.at<cv::Vec3b>(ry, rx); // BGR
+                    output_ptr[out_index] = static_cast<float>(pixel[2 - c]); // R,G,B → CHW
+                } else {
+                    output_ptr[out_index] = 114.0f; // padding value (not normalized)
+                }
+            }
+        }
+    }
+}
 
 static void generate_grids_and_stride(
     const int target_w,
@@ -237,38 +280,30 @@ ArmorDetectOnnxRuntime::ArmorDetectOnnxRuntime(
 }
 
 void ArmorDetectOnnxRuntime::init() {
-    // 1) 初始化 ORT 环境
     env_ = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "ArmorDetectONNX");
     Ort::SessionOptions session_options;
     session_options.SetIntraOpNumThreads(4);
 
-    // 启用优化
     session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
 
-    // 如果需要使用 GPU
     if (use_gpu_) {
-        OrtSessionOptionsAppendExecutionProvider_CUDA(session_options, 0); // GPU: CUDA 0 号设备
+        OrtSessionOptionsAppendExecutionProvider_CUDA(session_options, device_id_);
     }
 
-    // 2) 加载模型
     session_ = std::make_unique<Ort::Session>(*env_, model_path_.c_str(), session_options);
 
-    // 3) 获取输入输出信息
     Ort::AllocatorWithDefaultOptions allocator;
 
-    // ✅ GetInputNameAllocated 返回智能指针，自动释放
     Ort::AllocatedStringPtr input_name_ptr = session_->GetInputNameAllocated(0, allocator);
-    input_name_ = std::string(input_name_ptr.get()); // ✅ 正确复制字符串内容
+    input_name_ = std::string(input_name_ptr.get());
 
     auto input_type_info = session_->GetInputTypeInfo(0);
     auto input_tensor_info = input_type_info.GetTensorTypeAndShapeInfo();
-    input_dims_ = input_tensor_info.GetShape(); // 一般是 {1, 3, 640, 640}
+    input_dims_ = input_tensor_info.GetShape();
 
-    // ✅ GetOutputNameAllocated 同理
     Ort::AllocatedStringPtr output_name_ptr = session_->GetOutputNameAllocated(0, allocator);
-    output_name_ = std::string(output_name_ptr.get()); // ✅ 避免悬空指针
+    output_name_ = std::string(output_name_ptr.get());
 
-    // 4) 初始化 strides/grid 等（YOLO 结构需要）
     strides_ = { 8, 16, 32 };
     generate_grids_and_stride(INPUT_W, INPUT_H, strides_, grid_strides_);
 }
@@ -282,52 +317,36 @@ ArmorDetectOnnxRuntime::~ArmorDetectOnnxRuntime() {
 void ArmorDetectOnnxRuntime::setCallback(DetectorCallback callback) {
     infer_callback_ = callback;
 }
-bool ArmorDetectOnnxRuntime::processCallback(
-    const cv::Mat resized_img,
-    Eigen::Matrix3f transform_matrix,
-    const CommonFrame& frame
-) {
-    // BGR->RGB, u8(0-255)->f32(0.0-1.0), HWC->NCHW
-    // note: TUP's model no need to normalize
-    cv::Mat img_float;
-    resized_img.convertTo(img_float, CV_32F, 1.0); // 归一化到 0~1
-    cv::cvtColor(img_float, img_float, cv::COLOR_BGR2RGB);
+bool ArmorDetectOnnxRuntime::processCallback(const CommonFrame& frame) {
+    Eigen::Matrix3f transform_matrix;
 
-    // HWC -> CHW
     std::vector<float> input_tensor_values(INPUT_W * INPUT_H * 3);
-    int channel_size = INPUT_W * INPUT_H;
-    for (int c = 0; c < 3; ++c)
-        for (int h = 0; h < INPUT_H; ++h)
-            for (int w = 0; w < INPUT_W; ++w)
-                input_tensor_values[c * channel_size + h * INPUT_W + w] =
-                    img_float.at<cv::Vec3f>(h, w)[c];
+    letterbox_into_CHW_uint8_rgb(
+        frame.src_img,
+        input_tensor_values.data(),
+        transform_matrix,
+        INPUT_W,
+        INPUT_H
+    );
 
-    // 2) 创建输入张量
     Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
     Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
         memory_info,
         input_tensor_values.data(),
         input_tensor_values.size(),
-        input_dims_.data(), // e.g. {1,3,640,640}
+        input_dims_.data(),
         input_dims_.size()
     );
 
-    // 3) 推理
     const char* input_names[] = { input_name_.c_str() };
     const char* output_names[] = { output_name_.c_str() };
-
     auto output_tensors =
         session_->Run(Ort::RunOptions { nullptr }, input_names, &input_tensor, 1, output_names, 1);
 
-    // 4) 获取输出张量数据
     float* output_data = output_tensors.front().GetTensorMutableData<float>();
-
-    // 假设输出维度已知，例如 [1, 3549, 21]
     auto output_shape = output_tensors.front().GetTensorTypeAndShapeInfo().GetShape();
     int rows = static_cast<int>(output_shape[1]);
     int cols = static_cast<int>(output_shape[2]);
-
-    // 5) 用 cv::Mat 包装输出，方便后续处理
     cv::Mat output_buffer(rows, cols, CV_32F, output_data);
 
     // Parsed variable
@@ -403,7 +422,5 @@ bool ArmorDetectOnnxRuntime::processCallback(
     return false;
 }
 void ArmorDetectOnnxRuntime::pushInput(const CommonFrame& frame) {
-    Eigen::Matrix3f transform_matrix;
-    cv::Mat resized_img = letterbox(frame.src_img, transform_matrix);
-    processCallback(resized_img, transform_matrix, frame);
+    processCallback(frame);
 }

@@ -46,11 +46,7 @@ public:
     );
     ~ArmorDetectNCNN();
     void init(int device_id);
-    bool processCallback(
-        const cv::Mat resized_img,
-        Eigen::Matrix3f transform_matrix,
-        const CommonFrame& frame
-    );
+    bool processCallback(const CommonFrame& frame);
 
     void setCallback(DetectorCallback callback);
     void pushInput(const CommonFrame& frame);

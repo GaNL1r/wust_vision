@@ -14,7 +14,6 @@
 // limitations under the License.
 #pragma once
 #include "type/type.hpp"
-
 class NumberClassifier {
 public:
     NumberClassifier(
@@ -25,7 +24,6 @@ public:
     bool classifyNumber(armor::ArmorObject& armor);
 
 private:
-    cv::dnn::Net number_net_;
     std::vector<std::string> class_names_;
     std::string classify_model_path_;
     std::string classify_label_path_;

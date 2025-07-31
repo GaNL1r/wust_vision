@@ -66,6 +66,53 @@ static cv::Mat letterbox(
 
     return resized_img;
 }
+static ncnn::Mat letterbox_to_ncnn(
+    const cv::Mat& img,
+    Eigen::Matrix3f& transform_matrix,
+    int out_w = INPUT_W,
+    int out_h = INPUT_H
+) {
+    const int img_w = img.cols;
+    const int img_h = img.rows;
+
+    float scale = std::min(out_w * 1.0f / img_w, out_h * 1.0f / img_h);
+    int resize_w = static_cast<int>(round(img_w * scale));
+    int resize_h = static_cast<int>(round(img_h * scale));
+
+    int pad_w = out_w - resize_w;
+    int pad_h = out_h - resize_h;
+    int pad_left = static_cast<int>(round(pad_w / 2.0f - 0.1f));
+    int pad_top = static_cast<int>(round(pad_h / 2.0f - 0.1f));
+
+    transform_matrix << 1.0f / scale, 0, -pad_left / scale, 0, 1.0f / scale, -pad_top / scale, 0, 0,
+        1;
+
+    ncnn::Mat out = ncnn::Mat::from_pixels_resize(
+        img.data,
+        ncnn::Mat::PIXEL_BGR2RGB,
+        img_w,
+        img_h,
+        resize_w,
+        resize_h
+    );
+
+    int pad_right = out_w - resize_w - pad_left;
+    int pad_bottom = out_h - resize_h - pad_top;
+
+    ncnn::Mat padded;
+    ncnn::copy_make_border(
+        out,
+        padded,
+        pad_top,
+        pad_bottom,
+        pad_left,
+        pad_right,
+        ncnn::BORDER_CONSTANT,
+        114.f
+    );
+
+    return padded;
+}
 
 static void generate_grids_and_stride(
     const int target_w,
@@ -300,16 +347,15 @@ void ArmorDetectNCNN::init(int device_id) {
 void ArmorDetectNCNN::setCallback(DetectorCallback callback) {
     infer_callback_ = callback;
 }
-bool ArmorDetectNCNN::processCallback(
-    const cv::Mat resized_img,
-    Eigen::Matrix3f transform_matrix,
-    const CommonFrame& frame
-) {
-    ncnn::Mat in =
-        ncnn::Mat::from_pixels(resized_img.data, ncnn::Mat::PIXEL_BGR2RGB, INPUT_W, INPUT_H);
+bool ArmorDetectNCNN::processCallback(const CommonFrame& frame) {
+    // Eigen::Matrix3f transform_matrix;
+    // cv::Mat resized_img = letterbox(frame.src_img, transform_matrix);
+    // ncnn::Mat in =
+    //     ncnn::Mat::from_pixels(resized_img.data, ncnn::Mat::PIXEL_BGR2RGB, INPUT_W, INPUT_H);
+    Eigen::Matrix3f transform_matrix;
+    ncnn::Mat in = letterbox_to_ncnn(frame.src_img, transform_matrix);
 
     ncnn::Extractor ex = net_.create_extractor();
-
     ex.input(input_name_.c_str(), in);
 
     ncnn::Mat out;
@@ -389,7 +435,5 @@ bool ArmorDetectNCNN::processCallback(
     return false;
 }
 void ArmorDetectNCNN::pushInput(const CommonFrame& frame) {
-    Eigen::Matrix3f transform_matrix;
-    cv::Mat resized_img = letterbox(frame.src_img, transform_matrix);
-    processCallback(resized_img, transform_matrix, frame);
+    processCallback(frame);
 }

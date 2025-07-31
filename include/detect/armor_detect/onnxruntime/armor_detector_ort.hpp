@@ -28,11 +28,7 @@ public:
     ~ArmorDetectOnnxRuntime();
 
     void init();
-    bool processCallback(
-        const cv::Mat resized_img,
-        Eigen::Matrix3f transform_matrix,
-        const CommonFrame& frame
-    );
+    bool processCallback(const CommonFrame& frame);
 
     void drawResult(const cv::Mat& src_img, std::vector<armor::ArmorObject>& armor_objects);
 
