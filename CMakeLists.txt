@@ -41,7 +41,8 @@ if(BUILD_WITH_TRT)
   enable_language(CUDA)
   set(CMAKE_CUDA_STANDARD 14)
   set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-
+  add_subdirectory(cuda_infer)
+  include_directories("cuda_infer")
 endif()
 if(BUILD_WITH_NCNN)
   find_package(ncnn REQUIRED)
@@ -52,6 +53,7 @@ if(BUILD_WITH_ORT)
 endif()
 
 add_subdirectory(KalmanHyLib)
+
 # 公共源码
 set(COMMON_SOURCES
   src/main.cpp
@@ -101,7 +103,7 @@ set(TRT_SOURCES
   src/detect/armor_detect/tensorrt/armor_detector_trt_wrapper.cpp
   src/detect/rune_detect/tensorrt/rune_detector_trt.cpp
   src/detect/rune_detect/tensorrt/rune_detector_trt_wrapper.cpp
-  src/detect/armor_detect/tensorrt/infer.cu
+
 )
 set(NCNN_SOURCES
   src/detect/armor_detect/ncnn/armor_detector_ncnn.cpp
@@ -167,7 +169,7 @@ if(BUILD_WITH_OPENVINO)
   list(APPEND BUILD_LIBS openvino::runtime openvino::frontend::onnx)
 endif()
 if(BUILD_WITH_TRT)
-  list(APPEND BUILD_LIBS TensorRT::TensorRT CUDA::cudart /home/hy/TensorRT-8.5.2.2/lib/libnvonnxparser.so)
+  list(APPEND BUILD_LIBS TensorRT::TensorRT CUDA::cudart /home/hy/TensorRT-8.5.2.2/lib/libnvonnxparser.so cuda_infer)
 endif()
 if(BUILD_WITH_NCNN)
   list(APPEND BUILD_LIBS ncnn)

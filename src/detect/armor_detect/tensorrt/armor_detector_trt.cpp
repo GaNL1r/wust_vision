@@ -14,7 +14,6 @@
 // limitations under the License.
 
 #include "detect/armor_detect/tensorrt/armor_detector_trt.hpp"
-#include "detect/armor_detect/tensorrt/infer.hpp"
 #include <fstream>
 
 #include "NvOnnxParser.h"
@@ -48,45 +47,6 @@ static constexpr int NUM_COLORS = 4; // Number of color
 static constexpr float MERGE_CONF_ERROR = 0.15;
 static constexpr float MERGE_MIN_IOU = 0.9;
 // 辅助函数：生成网格和步长
-GPUGridAndStride* init_grid_strides_on_gpu(
-    int input_w,
-    int input_h,
-    const std::vector<int>& strides,
-    size_t& device_grid_count // 输出：网格数量
-) {
-    std::vector<GPUGridAndStride> host_grid_strides;
-
-    for (auto stride: strides) {
-        int num_grid_w = input_w / stride;
-        int num_grid_h = input_h / stride;
-        for (int y = 0; y < num_grid_h; ++y) {
-            for (int x = 0; x < num_grid_w; ++x) {
-                host_grid_strides.emplace_back(GPUGridAndStride { x, y, stride });
-            }
-        }
-    }
-
-    device_grid_count = host_grid_strides.size();
-    if (device_grid_count == 0) {
-        std::cerr << "Error: no grid strides generated." << std::endl;
-        return nullptr;
-    }
-
-    GPUGridAndStride* device_grid_strides = nullptr;
-    CUDA_CHECK(cudaMalloc(
-        reinterpret_cast<void**>(&device_grid_strides),
-        device_grid_count * sizeof(GPUGridAndStride)
-    ));
-
-    CUDA_CHECK(cudaMemcpy(
-        device_grid_strides,
-        host_grid_strides.data(),
-        device_grid_count * sizeof(GPUGridAndStride),
-        cudaMemcpyHostToDevice
-    ));
-
-    return device_grid_strides;
-}
 
 static void
 generate_grids_and_stride(std::vector<int>& strides, std::vector<GridAndStride>& grid_strides) {
@@ -274,7 +234,11 @@ ArmorDetectTrt::ArmorDetectTrt(
     }
     std::vector<int> strides = { 8, 16, 32 };
     size_t num_grid_strides = 0;
-    device_grid_strides_ = init_grid_strides_on_gpu(INPUT_W, INPUT_W, strides, num_grid_strides);
+    armor_cuda_infer::GPUGridAndStride* device_grid_strides =
+        armor_cuda_infer::init_grid_strides_on_gpu(INPUT_W, INPUT_W, strides, num_grid_strides);
+    cuda_infer_ = std::make_unique<armor_cuda_infer::CudaInfer>();
+    size_t max_input_img = 1920 * 1440 * 3;
+    cuda_infer_->init(device_grid_strides, max_input_img, 1024);
 }
 
 ArmorDetectTrt::~ArmorDetectTrt() {
@@ -282,7 +246,7 @@ ArmorDetectTrt::~ArmorDetectTrt() {
     cudaStreamDestroy(stream_);
     cudaFree(device_buffers_[output_idx_]);
     cudaFree(device_buffers_[input_idx_]);
-    cudaFree(device_grid_strides_);
+    cuda_infer_.reset();
     if (context_)
         context_->destroy();
     for (size_t i = 0; i < contexts_.size(); i++) {
@@ -367,6 +331,7 @@ bool ArmorDetectTrt::processCallback(
     const CommonFrame& frame,
     nvinfer1::IExecutionContext* context
 ) {
+    auto start = std::chrono::high_resolution_clock::now();
     Eigen::Matrix3f transform_matrix;
     // cv::Mat resized_img = letterbox(frame.src_img, transform_matrix);
     // cv::Mat blob = cv::dnn::blobFromImage(
@@ -384,24 +349,56 @@ bool ArmorDetectTrt::processCallback(
     //     cudaMemcpyHostToDevice,
     //     stream_
     // );
-    // context->enqueueV2(device_buffers_, stream_, nullptr);
 
-    cuda_letterbox_blob(
-        frame.src_img.data, // CPU uchar* BGR
-        frame.src_img.cols, // img_w
-        frame.src_img.rows, // img_h
-        static_cast<float*>(device_buffers_[input_idx_]), // 输出 NCHW float* GPU
-        INPUT_W, // 输出宽度
-        INPUT_H, // 输出高度
+    float* output_nchw = cuda_infer_->preprocess(
+        frame.src_img.data,
+        frame.src_img.cols,
+        frame.src_img.rows,
         transform_matrix,
         stream_
     );
+    device_buffers_[input_idx_] = output_nchw;
 
     // 直接启动推理
     context->enqueueV2(device_buffers_, stream_, nullptr);
     std::vector<armor::ArmorObject> objs_tmp, objs_result;
     std::vector<cv::Rect> rects;
     std::vector<float> scores;
+    // auto host_results = armor_cuda_infer::postProcessGpu(
+    //     static_cast<const float*>(device_buffers_[output_idx_]),
+    //     output_sz_ / 21,
+    //     transform_matrix,
+    //     device_grid_strides_,
+    //     params_.conf_threshold,
+    //     params_.nms_threshold,
+    //     params_.top_k
+    // );
+    auto host_results = cuda_infer_->postprocess(
+        static_cast<const float*>(device_buffers_[output_idx_]),
+        output_sz_ / 21,
+        transform_matrix,
+        params_.conf_threshold,
+        params_.nms_threshold,
+        params_.top_k
+    );
+    for (const auto& gobj: host_results) {
+        if (gobj.valid == 0)
+            continue;
+
+        armor::ArmorObject obj;
+        obj.prob = gobj.confidence;
+        obj.color = static_cast<armor::ArmorColor>(gobj.color_id);
+        obj.number = static_cast<armor::ArmorNumber>(gobj.number_id);
+
+        obj.pts.resize(4);
+        for (int i = 0; i < 4; ++i) {
+            obj.pts[i] = cv::Point2f(gobj.x[i], gobj.y[i]);
+        }
+        obj.box = cv::boundingRect(obj.pts);
+
+        objs_result.push_back(std::move(obj));
+    }
+
     cudaMemcpyAsync(
         output_buffer_,
         device_buffers_[output_idx_],
@@ -415,32 +412,11 @@ bool ArmorDetectTrt::processCallback(
 
     // 后处理
 
-    // auto host_results = postProcessGpu(
-    //     static_cast<const float*>(device_buffers_[output_idx_]),
-    //     output_sz_ / 21,
-    //     transform_matrix,
-    //     device_grid_strides_,
-    //     params_.conf_threshold,
-    //     params_.nms_threshold,
-    //     params_.top_k
-    // );
-    // for (const auto& gobj: host_results) {
-    //     if (gobj.valid == 0)
-    //         continue;
-
-    //     armor::ArmorObject obj;
-    //     obj.prob = gobj.confidence;
-    //     obj.color = static_cast<armor::ArmorColor>(gobj.color_id);
-    //     obj.number = static_cast<armor::ArmorNumber>(gobj.number_id);
-
-    //     obj.pts.resize(4);
-    //     for (int i = 0; i < 4; ++i) {
-    //         obj.pts[i] = cv::Point2f(gobj.x[i], gobj.y[i]);
-    //     }
-    //     obj.box = cv::boundingRect(obj.pts);
-
-    //     objs_result.push_back(std::move(obj));
-    // }
+    auto end = std::chrono::high_resolution_clock::now();
+    WUST_INFO("TRT") << "TRT"
+                     << "Infer time: "
+                     << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
+            / 1000.0 << "ms";
     std::vector<armor::ArmorObject> armors;
     if (use_armor_detect_common_) {
         armors = armor_detect_common_->detectNet(frame.src_img, objs_result);

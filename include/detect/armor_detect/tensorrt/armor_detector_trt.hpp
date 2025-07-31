@@ -21,11 +21,11 @@
 
 #include "NvInfer.h"
 #include "NvInferRuntime.h"
+#include "armor_infer.hpp"
 #include "common/ThreadPool.h"
 #include "common/logger.hpp"
 #include "detect/armor_detect/armor_detect_common.hpp"
 #include "detect/armor_detect/light_corner_corrector.hpp"
-#include "detect/armor_detect/tensorrt/infer.hpp"
 #include "detect/mono_measure_tool.hpp"
 #include "eigen3/Eigen/Dense"
 #include "fmt/color.h"
@@ -98,5 +98,6 @@ private:
     std::vector<std::unique_ptr<nvinfer1::IExecutionContext>> contexts_;
     std::vector<MovableAtomicBool> infer_status_;
     std::unique_ptr<ThreadPool> thread_pool_;
-    GPUGridAndStride* device_grid_strides_ = nullptr;
+    //armor_cuda_infer::GPUGridAndStride* device_grid_strides_ = nullptr;
+    std::unique_ptr<armor_cuda_infer::CudaInfer> cuda_infer_;
 };
