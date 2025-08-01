@@ -203,7 +203,11 @@ void CudaInfer::release() {
 float* CudaInfer::preprocess(const unsigned char* input_bgr_host,
     int img_w, int img_h, Eigen::Matrix3f& tf_matrix,
     cudaStream_t stream)
-{
+{   
+    if (!input_bgr_host || !d_input_bgr_ || !d_nchw_) {
+        fprintf(stderr, "[Error] Null pointer in postprocess input\n");
+        return {};
+    }
     float scale = fminf(INPUT_W / (float)img_w, INPUT_H / (float)img_h);
     int rw = round(img_w * scale), rh = round(img_h * scale);
     int pad_l = (INPUT_W - rw) / 2, pad_t = (INPUT_H - rh) / 2;
