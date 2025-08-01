@@ -27,6 +27,31 @@ void signalHandler(int signum) {
 }
 
 int main() {
+    const char* ld_path = std::getenv("LD_LIBRARY_PATH");
+    std::string ld_path_str = ld_path ? ld_path : "";
+
+    WUST_MAIN("main"
+    ) << "环境变量：\n"
+      << "MVCAM_SDK_PATH="
+      << (std::getenv("MVCAM_SDK_PATH") ? std::getenv("MVCAM_SDK_PATH") : "NULL") << '\n'
+      << "MVCAM_COMMON_RUNENV="
+      << (std::getenv("MVCAM_COMMON_RUNENV") ? std::getenv("MVCAM_COMMON_RUNENV") : "NULL") << '\n'
+      << "MVCAM_GENICAM_CLPROTOCOL="
+      << (std::getenv("MVCAM_GENICAM_CLPROTOCOL") ? std::getenv("MVCAM_GENICAM_CLPROTOCOL") : "NULL"
+         )
+      << '\n'
+      << "ALLUSERSPROFILE="
+      << (std::getenv("ALLUSERSPROFILE") ? std::getenv("ALLUSERSPROFILE") : "NULL") << '\n'
+      << "LD_LIBRARY_PATH=" << ld_path_str;
+
+    const std::string required_path = "/opt/MVS/lib/64:/opt/MVS/lib/32";
+    if (ld_path_str.find(required_path) == std::string::npos) {
+        WUST_ERROR("main") << "错误: LD_LIBRARY_PATH 不包含必需路径: " << required_path;
+        system("export LD_LIBRARY_PATH=/opt/MVS/lib/64:/opt/MVS/lib/32:$LD_LIBRARY_PATH");
+        WUST_INFO("main"
+        ) << "运行： export LD_LIBRARY_PATH=/opt/MVS/lib/64:/opt/MVS/lib/32:$LD_LIBRARY_PATH";
+        return EXIT_FAILURE;
+    }
     WustVision vision;
     if (vision.init()) {
         vision.start();

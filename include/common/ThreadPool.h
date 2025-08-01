@@ -93,7 +93,11 @@ public:
                     fn();
                 prom->set_value();
             } catch (...) {
-                prom->set_exception(std::current_exception());
+                try {
+                    prom->set_exception(std::current_exception());
+                } catch (const std::future_error&) {
+                    // promise 已被设置，忽略异常
+                }
             }
         };
 
@@ -142,7 +146,6 @@ private:
 
     // Return node to pool
     void cleanupNode(TaskItem* node) {
-        // clear functor to free captures
         node->func = nullptr;
         pool_.push(node);
     }
@@ -162,7 +165,6 @@ private:
                     return stop_.load(std::memory_order_relaxed) || !high_q_.empty()
                         || !normal_q_.empty();
                 });
-                // try once more
                 high_q_.pop(item) || normal_q_.pop(item);
             }
 
