@@ -155,6 +155,7 @@ OmniManager::OmniManager(const YAML::Node& config) {
     }
     measure_tool_ = std::make_unique<MonoMeasureTool>();
     initDetector();
+    timer_ = std::make_unique<Timer>();
 }
 OmniManager::~OmniManager() {}
 void OmniManager::stop() {
@@ -163,8 +164,10 @@ void OmniManager::stop() {
         omni_vision.reset();
     }
     omni_visions_.clear();
-    stopTimer();
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    if (timer_) {
+        timer_->stop();
+        timer_.reset();
+    }
 
     armor_detector_.reset();
     measure_tool_.reset();
@@ -237,6 +240,13 @@ void OmniManager::initDetector() {
         std::placeholders::_1,
         std::placeholders::_2
     ));
+}
+void OmniManager::start() {
+    if (timer_) {
+        auto timercallback = std::bind(&OmniManager::timerCallback, this, std::placeholders::_1);
+        double rate_hz = static_cast<double>(total_fps_);
+        timer_->start(rate_hz, timercallback);
+    }
 }
 void OmniManager::ArmorDetectCallback(
     const std::vector<armor::ArmorObject>& objs,
@@ -329,55 +339,7 @@ void OmniManager::processImage(const ImageFrame& frame) {
 
     armor_detector_->pushInput(common_frame);
 }
-void OmniManager::stopTimer() {
-    {
-        std::lock_guard<std::mutex> lk(timer_mtx_);
-        timer_running_ = false;
-    }
-    timer_cv_.notify_one();
-    if (timer_thread_.joinable()) {
-        timer_thread_.join();
-    }
-    WUST_INFO(vision_logger) << "OmniManager timer stopped.";
-}
-void OmniManager::startTimer() {
-    if (timer_running_)
-        return;
-    WUST_INFO(vision_logger) << "starting timer";
 
-    timer_running_ = true;
-
-    double us_interval = 1e6 / static_cast<double>(total_fps_);
-    auto interval = std::chrono::microseconds(static_cast<int64_t>(us_interval));
-
-    constexpr auto spin_margin = std::chrono::microseconds(200);
-
-    timer_thread_ = std::thread([this, interval, spin_margin]() {
-        auto next_time = std::chrono::steady_clock::now() + interval;
-        auto last_time = std::chrono::steady_clock::now();
-
-        while (true) {
-            {
-                std::unique_lock<std::mutex> lk(timer_mtx_);
-                auto sleep_until = next_time - spin_margin;
-                timer_cv_.wait_until(lk, sleep_until, [this]() { return !timer_running_; });
-                if (!timer_running_)
-                    break;
-            }
-
-            while (std::chrono::steady_clock::now() < next_time) {
-                // busy‐wait
-            }
-
-            auto now = std::chrono::steady_clock::now();
-            double dt_ms = std::chrono::duration<double, std::milli>(now - last_time).count();
-            last_time = now;
-
-            this->timerCallback(dt_ms);
-            next_time += interval;
-        }
-    });
-}
 void OmniManager::timerCallback(double dt_ms) {
     size_t index = count_ % omni_num_;
     ++count_;

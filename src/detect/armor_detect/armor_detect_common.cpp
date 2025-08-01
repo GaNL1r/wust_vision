@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "detect/armor_detect/armor_detect_common.hpp"
 #include "common/gobal.hpp"
+#include "common/timer.hpp"
 #include <execution>
 ArmorDetectCommon::ArmorDetectCommon(const ArmorDetectCommonParams& params) {
     params_ = params;

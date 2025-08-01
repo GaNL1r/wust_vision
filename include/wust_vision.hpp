@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common/gobal.hpp"
+#include "common/timer.hpp"
 #include "control/armor_solver.hpp"
 #include "control/rune_solver.hpp"
 #include "detect/armor_detect/armor_pose_estimator.hpp"
@@ -63,9 +64,6 @@ public:
     void initRune(const std::string& camera_info_path);
 
     // Timer control
-    void startTimer();
-    void stopTimer();
-    void restartTimerThread();
     void timerCallback(double dt_ms);
 
     // Utilities
@@ -127,16 +125,13 @@ private:
     std::mutex img_mutex_;
 
     // Threading & synchronization
+    std::unique_ptr<Timer> timer_;
     std::mutex callback_mutex_;
-    std::atomic<int> infer_running_count_ { 0 };
-    std::atomic<bool> timer_running_ { false };
-    std::thread timer_thread_;
     int timer_count_ = 0;
-    std::mutex timer_mtx_;
-    std::condition_variable timer_cv_;
 
     // Statistics
     std::string vision_logger_ = "wust_vision";
+    std::atomic<int> infer_running_count_ { 0 };
     size_t img_recv_count_ = 0;
     size_t detect_finish_count_ = 0;
     size_t fire_count_ = 0;

@@ -22,7 +22,7 @@ armor_detect:
     input_h: 416
     input_w: 416
     model_path: /home/hy/wust_vision/model/opt-1208-001.onnx
-    device_id: 1
+    device_id: 0
     nms_threshold: 0.3
     num_classes: 8
     num_colors: 4

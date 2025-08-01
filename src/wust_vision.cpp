@@ -49,10 +49,10 @@ void WustVision::stop() {
             omni_manager_->stop();
             omni_manager_.reset();
         }
-
-        stopTimer();
-
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        if (timer_) {
+            timer_->stop();
+            timer_.reset();
+        }
 
         armor_detector_.reset();
         rune_detector_.reset();
@@ -77,16 +77,6 @@ void WustVision::stop() {
     }
 
     WUST_MAIN(vision_logger_) << "WustVision shutdown complete.";
-}
-void WustVision::stopTimer() {
-    {
-        std::lock_guard<std::mutex> lk(timer_mtx_);
-        timer_running_ = false;
-    }
-    timer_cv_.notify_one();
-    if (timer_thread_.joinable()) {
-        timer_thread_.join();
-    }
 }
 bool WustVision::init() {
     WUST_MAIN(vision_logger_) << "WustVision init start";
@@ -143,8 +133,6 @@ bool WustVision::init() {
                     frame.v = Eigen::Vector3d(gobal::last_v_x, gobal::last_v_y, gobal::last_v_z);
                     gobal::thread_pool->enqueue(
                         [frame = std::move(frame), this]() {
-                            // auto now = std::chrono::steady_clock::now();
-                            // std::cout<<"start 2 now"<<std::chrono::duration_cast<std::chrono::microseconds>(now-frame.timestamp ).count()/1000.0<<std::endl;
                             infer_running_count_++;
                             processImage(frame);
                             detect_finish_count_++;
@@ -257,6 +245,7 @@ bool WustVision::init() {
             auto omni_config = YAML::LoadFile(OMNI_CONFIG);
             omni_manager_ = std::make_unique<OmniManager>(omni_config);
         }
+        timer_ = std::make_unique<Timer>();
     } else {
         WUST_MAIN(vision_logger_) << "only nav mode";
     }
@@ -281,9 +270,13 @@ void WustVision::start() {
             camera_->startCamera(if_recorder);
         }
         if (use_omni_ && omni_manager_) {
-            omni_manager_->startTimer();
+            omni_manager_->start();
         }
-        startTimer();
+        if (timer_) {
+            auto timercallback = std::bind(&WustVision::timerCallback, this, std::placeholders::_1);
+            double rate_hz = static_cast<double>(gobal::control_rate);
+            timer_->start(rate_hz, timercallback);
+        }
     }
     if (gobal::debug_mode) {
         toolsgobal::debug_thread_ = std::thread([this]() { this->debugThread(); });
@@ -395,45 +388,6 @@ void WustVision::initRune(const std::string& camera_info_path) {
 #endif
 
     rune_solver_ = std::make_unique<RuneSolver>(gobal::config);
-}
-
-void WustVision::startTimer() {
-    if (timer_running_)
-        return;
-    WUST_INFO(vision_logger_) << "starting timer";
-
-    timer_running_ = true;
-
-    double us_interval = 1e6 / static_cast<double>(gobal::control_rate);
-    auto interval = std::chrono::microseconds(static_cast<int64_t>(us_interval));
-
-    constexpr auto spin_margin = std::chrono::microseconds(200);
-
-    timer_thread_ = std::thread([this, interval, spin_margin]() {
-        auto next_time = std::chrono::steady_clock::now() + interval;
-        auto last_time = std::chrono::steady_clock::now();
-
-        while (true) {
-            {
-                std::unique_lock<std::mutex> lk(timer_mtx_);
-                auto sleep_until = next_time - spin_margin;
-                timer_cv_.wait_until(lk, sleep_until, [this]() { return !timer_running_; });
-                if (!timer_running_)
-                    break;
-            }
-
-            while (std::chrono::steady_clock::now() < next_time) {
-                // busy‐wait
-            }
-
-            auto now = std::chrono::steady_clock::now();
-            double dt_ms = std::chrono::duration<double, std::milli>(now - last_time).count();
-            last_time = now;
-
-            this->timerCallback(dt_ms);
-            next_time += interval;
-        }
-    });
 }
 
 void WustVision::initTF() {
@@ -881,8 +835,12 @@ void WustVision::printStats() {
             timer_check_count++;
         }
         if (timer_check_count > 5) {
-            stopTimer();
-            startTimer();
+            if (timer_) {
+                auto timercallback =
+                    std::bind(&WustVision::timerCallback, this, std::placeholders::_1);
+                double rate_hz = static_cast<double>(gobal::control_rate);
+                timer_->start(rate_hz, timercallback);
+            }
             timer_check_count = 0;
         }
         WUST_INFO(vision_logger_) << "Rec: " << img_recv_count_ << ", Det: " << detect_finish_count_

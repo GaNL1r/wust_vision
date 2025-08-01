@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common/gobal.hpp"
+#include "common/timer.hpp"
 #include "control/armor_solver.hpp"
 #include "control/rune_solver.hpp"
 #include "detect/armor_detect/armor_pose_estimator.hpp"
@@ -49,17 +50,12 @@ public:
     ~OmniManager();
     void stop();
     void initDetector();
-    void run();
+    void start();
     void processImage(const ImageFrame& frame);
     void ArmorDetectCallback(const std::vector<armor::ArmorObject>& objs, const CommonFrame& frame);
     std::vector<armor::OneTarget> buildOneTargetsfromOmni(const armor::Armors& armors);
-    void startTimer();
-    void stopTimer();
     void timerCallback(double dt_ms);
-    std::atomic<bool> timer_running_ { false };
-    std::thread timer_thread_;
-    std::mutex timer_mtx_;
-    std::condition_variable timer_cv_;
+    std::unique_ptr<Timer> timer_;
     int total_fps_ = 0;
     YAML::Node config_;
 

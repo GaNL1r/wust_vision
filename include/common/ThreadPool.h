@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #pragma once
 
 #include <atomic>
@@ -21,198 +22,205 @@
 #include <iostream>
 #include <mutex>
 #include <optional>
-#include <queue>
 #include <stop_token>
 #include <thread>
 #include <type_traits>
 #include <vector>
 
+#include <boost/lockfree/queue.hpp>
+#include <boost/lockfree/stack.hpp>
+
 /**
- * @brief Dynamic thread pool with task timeout interrupts, priority scheduling,
- *        overload protection, and execution monitoring using C++20 features.
- * 
- * Features:
- *   - Supports both interruptible (void(std::stop_token)) and regular (void()) tasks
- *   - Priority-based task scheduling (high/low priority)
- *   - Per-task timeout interrupts
- *   - Dynamic queue size adjustment
- *   - Task execution monitoring
- *   - Automatic thread management with std::jthread
- * 
- * Usage:
- *   - For interruptible tasks: void your_task(std::stop_token tok)
- *   - Check tok.stop_requested() for interruption points
+ * @brief Highly optimized thread pool:
+ *   - Two lock-free MPMC queues (high/normal)
+ *   - Object pool for TaskItem nodes (no per-task new/delete)
+ *   - Spin-then-block wait strategy
+ *   - Cache-line–padded counters to avoid false sharing
+ *   - Per-task timeout via std::jthread
  */
 class ThreadPool {
 public:
-    /// Construct thread pool with configurable parameters
     explicit ThreadPool(
-        size_t num_threads, ///< Number of worker threads
-        size_t max_pending_tasks = 100 ///< Initial max queue capacity
+        size_t num_threads,
+        size_t max_pending = 100,
+        size_t queue_capacity = 1024,
+        size_t pool_capacity = 1024
     ):
-        stop_(false),
-        max_pending_tasks_(max_pending_tasks) {
-        // Create worker threads
-        for (size_t i = 0; i < num_threads; ++i) {
-            workers_.emplace_back([this](std::stop_token st) { workerThread(st); });
+        max_pending_(max_pending),
+        high_q_(queue_capacity),
+        normal_q_(queue_capacity),
+        pool_(pool_capacity) {
+        // Pre-allocate TaskItem nodes
+        for (size_t i = 0; i < pool_capacity; ++i)
+            pool_.push(new TaskItem);
+
+        // Launch workers
+        for (size_t i = 0; i < num_threads; ++i)
+            workers_.emplace_back([this](std::stop_token st) { workerLoop(st); });
+    }
+
+    ~ThreadPool() {
+        stop_.store(true, std::memory_order_relaxed);
+        cv_.notify_all();
+        // workers (std::jthread) join automatically
+        // cleanup pool
+        TaskItem* item;
+        while (pool_.pop(item))
+            delete item;
+    }
+
+    /// Enqueue a task, optionally high-priority or with timeout_ms
+    template<class F>
+    std::future<void> enqueue(F&& fn, int timeout_ms = -1, bool high_priority = false) {
+        auto prom = std::make_shared<std::promise<void>>();
+        auto fut = prom->get_future();
+        std::stop_source stop_src;
+
+        // Fetch node from pool
+        TaskItem* node = nullptr;
+        if (!pool_.pop(node)) {
+            node = new TaskItem; // fallback
         }
 
-        // Create controller thread for dynamic adjustments
-        controller_ = std::jthread([this](std::stop_token st) { controlThread(st); });
-    }
-
-    /// Destructor waits for task completion and stops threads
-    ~ThreadPool() {
-        waitUntilEmpty(); // Wait for all tasks to finish
-        stop_ = true; // Signal termination
-        cond_var_.notify_all(); // Wake all workers
-        task_done_cv_.notify_all(); // Wake any waiters
-        // std::jthread automatically joins on destruction
-    }
-
-    /// Enqueue a task with optional priority
-    template<class F>
-    std::future<void> enqueue(F&& f, int timeout_ms = -1, bool high_priority = false) {
-        // Create promise-future pair for task result
-        auto prom = std::make_shared<std::promise<void>>();
-        std::future<void> fut = prom->get_future();
-
-        // Create dedicated stop source for this task
-        std::stop_source src;
-        std::stop_token task_tok = src.get_token();
-
-        // Wrap user function to handle different signatures
-        auto wrapped = [f = std::forward<F>(f), prom](std::stop_token st) mutable {
+        // Bind user function
+        node->timeout_ms = timeout_ms;
+        node->stop_src = stop_src;
+        node->func = [fn = std::forward<F>(fn), prom](std::stop_token tok) mutable {
             try {
-                // Detect function signature and call appropriately
-                if constexpr (std::is_invocable_v<F, std::stop_token>) {
-                    f(st); // Interruptible version
-                } else {
-                    f(); // Regular version
-                }
-                prom->set_value(); // Set result on success
+                if constexpr (std::is_invocable_v<F, std::stop_token>)
+                    fn(tok);
+                else
+                    fn();
+                prom->set_value();
             } catch (...) {
-                prom->set_exception(std::current_exception()); // Propagate exceptions
+                prom->set_exception(std::current_exception());
             }
         };
 
-        {
-            std::unique_lock lock(mutex_);
-            // Apply overload protection - drop oldest task when queue full
-            if (tasks_.size() >= max_pending_tasks_) {
-                tasks_.pop();
-                std::cerr << "[ThreadPool] Warning: Dropped oldest pending task\n";
+        // Overload protection
+        size_t prev = pending_.fetch_add(1, std::memory_order_relaxed);
+        if (prev >= max_pending_) {
+            TaskItem* dropped = nullptr;
+            normal_q_.pop(dropped);
+            if (dropped) {
+                std::cerr << "[ThreadPool] Warning: Dropped oldest task\n";
+                cleanupNode(dropped);
+                pending_.fetch_sub(1, std::memory_order_relaxed);
             }
-            // Add task to priority queue
-            tasks_.push(TaskItem { std::move(wrapped), high_priority, std::move(src), timeout_ms });
         }
 
-        cond_var_.notify_one(); // Wake one worker
-        return fut; // Return future for task result
+        // Enqueue to appropriate queue
+        if (high_priority)
+            high_q_.push(node);
+        else
+            normal_q_.push(node);
+
+        cv_.notify_one();
+        return fut;
     }
 
-    /// Get current number of pending tasks
+    /// Number of tasks waiting or running
     size_t pendingTasks() const {
-        std::unique_lock lock(mutex_);
-        return tasks_.size();
+        return pending_.load(std::memory_order_relaxed);
     }
 
-    /// Block until all tasks complete and queue is empty
+    /// Block until all tasks complete
     void waitUntilEmpty() {
-        std::unique_lock lock(mutex_);
-        task_done_cv_.wait(lock, [this] { return tasks_.empty() && busy_workers_ == 0; });
+        std::unique_lock<std::mutex> lk(done_mtx_);
+        done_cv_.wait(lk, [this] {
+            return pending_.load(std::memory_order_relaxed) == 0
+                && busy_.load(std::memory_order_relaxed) == 0;
+        });
     }
 
 private:
-    /// Task representation in the queue
     struct TaskItem {
-        std::function<void(std::stop_token)> func; ///< Wrapped task function
-        bool high_priority; ///< Priority flag
-        std::stop_source stop_src; ///< Task-specific stop source
-        int timeout_ms = 0;
-
-        /// Priority comparison (high priority first)
-        bool operator<(TaskItem const& o) const {
-            // Priority_queue returns largest first, so invert comparison
-            return (!high_priority && o.high_priority);
-        }
+        std::function<void(std::stop_token)> func;
+        std::stop_source stop_src;
+        int timeout_ms;
     };
 
-    /// Worker thread processing loop
-    void workerThread(std::stop_token pool_stop) {
-        while (!pool_stop.stop_requested()) {
-            TaskItem item;
-            {
-                std::unique_lock lock(mutex_);
-                // Wait for task or termination signal
-                cond_var_.wait(lock, [this] { return stop_ || !tasks_.empty(); });
-                // Exit if termination requested and no tasks remain
-                if (stop_ && tasks_.empty())
-                    return;
+    // Return node to pool
+    void cleanupNode(TaskItem* node) {
+        // clear functor to free captures
+        node->func = nullptr;
+        pool_.push(node);
+    }
 
-                // Get highest priority task
-                item = std::move(tasks_.top());
-                tasks_.pop();
-                ++busy_workers_; // Update busy counter
+    void workerLoop(std::stop_token pool_stop) {
+        while (!pool_stop.stop_requested() && !stop_.load(std::memory_order_relaxed)) {
+            TaskItem* item = nullptr;
+            // spin-then-block:
+            for (int i = 0; i < 100; ++i) {
+                if (high_q_.pop(item) || normal_q_.pop(item))
+                    break;
+                __asm__ volatile("pause");
             }
-            std::optional<std::jthread> timer;
-            if (item.timeout_ms > 0) {
-                timer.emplace([&, ms = item.timeout_ms](std::stop_token st) {
-                    if (!st.stop_requested())
+            if (!item) {
+                std::unique_lock<std::mutex> lk(wait_mtx_);
+                cv_.wait(lk, [this] {
+                    return stop_.load(std::memory_order_relaxed) || !high_q_.empty()
+                        || !normal_q_.empty();
+                });
+                // try once more
+                high_q_.pop(item) || normal_q_.pop(item);
+            }
+
+            if (!item)
+                continue; // spurious wake
+
+            busy_.fetch_add(1, std::memory_order_relaxed);
+
+            // timeout thread
+            std::jthread timer;
+            if (item->timeout_ms > 0) {
+                timer = std::jthread([&, ms = item->timeout_ms](std::stop_token t) {
+                    if (!t.stop_requested())
                         std::this_thread::sleep_for(std::chrono::milliseconds(ms));
-                    if (!st.stop_requested())
-                        item.stop_src.request_stop();
+                    if (!t.stop_requested())
+                        item->stop_src.request_stop();
                 });
             }
 
-            // Execute task with its dedicated stop_token
-            item.func(item.stop_src.get_token());
+            // execute
+            item->func(item->stop_src.get_token());
+            if (timer.joinable())
+                timer.request_stop();
 
-            // Stop timeout timer
-            if (timer)
-                timer->request_stop();
-
-            {
-                std::unique_lock lock(mutex_);
-                --busy_workers_; // Update busy counter
-                // Notify if all work completed
-                if (tasks_.empty() && busy_workers_ == 0)
-                    task_done_cv_.notify_all();
+            // cleanup
+            busy_.fetch_sub(1, std::memory_order_relaxed);
+            pending_.fetch_sub(1, std::memory_order_relaxed);
+            if (pending_.load() == 0 && busy_.load() == 0) {
+                std::lock_guard<std::mutex> lk(done_mtx_);
+                done_cv_.notify_all();
             }
+            cleanupNode(item);
         }
     }
 
-    /// Controller thread for dynamic adjustments
-    void controlThread(std::stop_token pool_stop) {
-        using namespace std::chrono_literals;
-        while (!pool_stop.stop_requested()) {
-            {
-                std::unique_lock lock(mutex_);
-                size_t pending = tasks_.size();
+    // Workers
+    std::vector<std::jthread> workers_;
+    std::atomic<bool> stop_ { false };
 
-                // Dynamic queue adjustment logic:
-                if (pending > max_pending_tasks_ * 0.8) {
-                    // Reduce queue size under heavy load
-                    max_pending_tasks_ = std::max<size_t>(10, max_pending_tasks_ * 0.8);
-                    std::cerr << "[ThreadPool] Warning: Queue overloaded, shrink to "
-                              << max_pending_tasks_ << "\n";
-                } else if (pending < max_pending_tasks_ * 0.3) {
-                    // Increase queue size during light load
-                    max_pending_tasks_ = std::min<size_t>(500, max_pending_tasks_ + 5);
-                }
-            }
-            std::this_thread::sleep_for(500ms); // Adjustment interval
-        }
-    }
+    // Two lock-free queues
+    boost::lockfree::queue<TaskItem*> high_q_;
+    boost::lockfree::queue<TaskItem*> normal_q_;
 
-    // Member variables
-    std::vector<std::jthread> workers_; ///< Worker threads
-    std::priority_queue<TaskItem> tasks_; ///< Priority task queue
-    mutable std::mutex mutex_; ///< Synchronization lock
-    std::condition_variable cond_var_; ///< Task notification CV
-    std::condition_variable task_done_cv_; ///< Completion notification CV
-    std::atomic<size_t> busy_workers_ { 0 }; ///< Count of active workers
-    std::atomic<bool> stop_ { false }; ///< Global stop flag
-    size_t max_pending_tasks_; ///< Current queue capacity
-    std::jthread controller_; ///< Control thread
+    // Object pool for TaskItem nodes
+    boost::lockfree::stack<TaskItem*> pool_;
+
+    // Counters (cache-line padded)
+    alignas(64) std::atomic<size_t> pending_ { 0 };
+    alignas(64) std::atomic<size_t> busy_ { 0 };
+
+    // Config
+    size_t max_pending_;
+
+    // Waiting
+    std::mutex wait_mtx_;
+    std::condition_variable cv_;
+
+    // Completion notification
+    std::mutex done_mtx_;
+    std::condition_variable done_cv_;
 };

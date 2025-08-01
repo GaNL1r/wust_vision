@@ -64,7 +64,7 @@ bool NumberClassifier::classifyNumber(armor::ArmorObject& armor) {
 
     if (!thread_net) {
         thread_net = std::make_unique<cv::dnn::Net>(cv::dnn::readNetFromONNX(classify_model_path_));
-        WUST_INFO("number_classifier") << "Loaded number classifier model for this thread";
+        WUST_DEBUG("number_classifier") << "Loaded number classifier model for this thread";
         if (thread_net->empty()) {
             WUST_ERROR("number_classifier")
                 << "Failed to load thread-local number classifier model.";

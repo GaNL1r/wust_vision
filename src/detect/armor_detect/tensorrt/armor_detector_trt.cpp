@@ -242,7 +242,7 @@ ArmorDetectTrt::ArmorDetectTrt(
     armor_cuda_infer::GPUGridAndStride* device_grid_strides =
         armor_cuda_infer::init_grid_strides_on_gpu(INPUT_W, INPUT_W, strides, num_grid_strides);
     cuda_infer_ = std::make_unique<armor_cuda_infer::CudaInfer>();
-    size_t max_input_img = 1920 * 1440 * 3;
+    size_t max_input_img = 4096 * 2160 * 3;
     cuda_infer_->init(device_grid_strides, max_input_img, output_sz_ / 21);
 }
 

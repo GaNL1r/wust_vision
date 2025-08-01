@@ -161,7 +161,7 @@ __global__ void nms_kernel(GPURuneObject* objs, int N, float thresh) {
         if (!b.valid) continue;
 
         if (a.color_id == b.color_id && a.type_id == b.type_id) {
-            // 计算两个对象的包围框
+      
             float ax_min = fminf(fminf(fminf(fminf(a.x[0], a.x[1]), a.x[2]), a.x[3]), a.x[4]);
             float ax_max = fmaxf(fmaxf(fmaxf(fmaxf(a.x[0], a.x[1]), a.x[2]), a.x[3]), a.x[4]);
             float ay_min = fminf(fminf(fminf(fminf(a.y[0], a.y[1]), a.y[2]), a.y[3]), a.y[4]);
