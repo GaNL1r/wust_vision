@@ -56,6 +56,10 @@ void WustVision::stop() {
 
         armor_detector_.reset();
         rune_detector_.reset();
+#ifdef USE_TRT
+        cudaDeviceSynchronize();
+        cudaDeviceReset();
+#endif
 #ifdef USE_NCNN
         if (gobal::use_detect_ncnn_count > 0) {
             ncnn::destroy_gpu_instance();

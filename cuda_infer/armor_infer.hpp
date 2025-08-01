@@ -1,10 +1,9 @@
-// armor_cuda_infer.hpp
 #pragma once
 
 #include <Eigen/Dense>
 #include <NvInferRuntime.h>
 #include <cuda_runtime.h>
-#include <iostream>
+#include <memory>
 #include <vector>
 
 namespace armor_cuda_infer {
@@ -35,12 +34,13 @@ struct GPUArmorObject {
     }
 };
 
-// 用于 thrust::sort 的比较器
 struct ConfidenceComparator {
     __host__ __device__ bool operator()(const GPUArmorObject& a, const GPUArmorObject& b) const {
         return a.confidence > b.confidence;
     }
 };
+
+// Allocate and upload grid+stride information to GPU
 GPUGridAndStride* init_grid_strides_on_gpu(
     int input_w,
     int input_h,
@@ -53,18 +53,18 @@ public:
     CudaInfer();
     ~CudaInfer();
 
-    /// 一次性申请所有 GPU 资源
+    // Initialize GPU buffers: grid strides, image buffer size, and maximum detections
     void init(GPUGridAndStride* grid_strides, size_t img_bytes, int max_N);
 
-    /// 释放所有 GPU 资源
+    // Release all GPU resources
     void release();
 
-    /// 预处理：letterbox + NCHW 转存
-    /// @param  input_bgr_host  host 侧 BGR 图数据
-    /// @param  img_w, img_h    原图宽高
-    /// @param  output_nchw     返回 device 侧 NCHW 缓冲指针
-    /// @param  tf_matrix       输出逆变换矩阵，用于后处理映射
-    /// @param  stream          CUDA stream
+    // Preprocess: letterbox + convert BGR to NCHW on device
+    // @param input_bgr_host Host-side BGR image pointer
+    // @param img_w, img_h   Input image width and height
+    // @param tf_matrix      Output inverse transform for postprocessing
+    // @param stream         CUDA stream for async copy and kernel launch
+    // @returns Device pointer to NCHW buffer
     float* preprocess(
         const unsigned char* input_bgr_host,
         int img_w,
@@ -73,15 +73,14 @@ public:
         cudaStream_t stream
     );
 
-    /// 后处理：decode + TopK + NMS
-    /// @param  output          device 侧模型原始输出
-    /// @param  N               网格总点数
-    /// @param  tf_matrix       preprocess 返回的逆变换矩阵
-    /// @param  grid_strides    device 侧 grid+stride 数组
-    /// @param  conf_th         置信度阈值
-    /// @param  nms_th          NMS 阈值
-    /// @param  top_k           保留前 K
-    /// @return                  Host vector of valid detections
+    // Postprocess: decode detections, top-K filter, and NMS
+    // @param output     Device pointer to raw network output
+    // @param N          Number of grid points
+    // @param tf_matrix  Inverse transform from preprocess
+    // @param conf_th    Confidence threshold for decoding
+    // @param nms_th     IoU threshold for NMS
+    // @param top_k      Maximum detections to retain
+    // @returns Vector of detected objects on host
     std::vector<GPUArmorObject> postprocess(
         const float* output,
         int N,
@@ -91,11 +90,12 @@ public:
         int top_k
     );
 
+    // Full pipeline: preprocess, infer (enqueueV3), then postprocess
     std::vector<GPUArmorObject> process_trt(
         nvinfer1::IExecutionContext* context,
         void* device_buffers[2],
-        int input_idx_,
-        int output_idx_,
+        int input_idx,
+        int output_idx,
         const unsigned char* input_bgr_host,
         int img_w,
         int img_h,
@@ -107,20 +107,13 @@ public:
         int top_k
     );
 
-private:
-    // 禁用拷贝
+    // disable copy
     CudaInfer(const CudaInfer&) = delete;
     CudaInfer& operator=(const CudaInfer&) = delete;
 
-    // 设备缓冲
-    unsigned char* d_input_bgr_ = nullptr; // 原始 BGR
-    float* d_nchw_ = nullptr; // letterbox 后的 NCHW
-    GPUArmorObject* d_objs_ = nullptr; // decode & sort 输出
-    float* d_tf_ = nullptr; // 3×3 逆变换矩阵
-    GPUGridAndStride* d_grid_strides_;
-    // 缓冲大小
-    size_t buf_image_bytes_;
-    int buf_max_N_;
+private:
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
 };
 
 } // namespace armor_cuda_infer

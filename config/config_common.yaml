@@ -44,7 +44,7 @@ camera:
     #path: /home/hy/data/4k.MP4
     #path: /home/hy/wust_data/video/rune.mp4
     #path: /home/hy/wust_data/video/Sentry.mp4
-    start_frame: 500
+    start_frame: 0
     alpha: 1.0
     beta: 0
     use: true

@@ -381,6 +381,9 @@ void ArmorDetectTrt::setCallback(DetectorCallback callback) {
 bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
     auto start = std::chrono::high_resolution_clock::now();
     Eigen::Matrix3f transform_matrix;
+    std::vector<armor::ArmorObject> objs_tmp, objs_result;
+    std::vector<cv::Rect> rects;
+    std::vector<float> scores;
     // cv::Mat resized_img = letterbox(frame.src_img, transform_matrix);
     // cv::Mat blob = cv::dnn::blobFromImage(
     //     resized_img,
@@ -404,51 +407,50 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
     //     std::cerr<<"enqueueV3 failed!";
     //     return {};
     // }
-    auto host_results = infer->cuda_infer->process_trt(
-        infer->context.get(),
-        device_buffers_,
-        input_idx_,
-        output_idx_,
-        frame.src_img.data,
-        frame.src_img.cols,
-        frame.src_img.rows,
-        transform_matrix,
-        stream_,
-        output_sz_ / 21,
-        params_.conf_threshold,
-        params_.nms_threshold,
-        params_.top_k
-    );
-    std::vector<armor::ArmorObject> objs_tmp, objs_result;
-    std::vector<cv::Rect> rects;
-    std::vector<float> scores;
+    if (infer->cuda_infer && infer->context) {
+        auto host_results = infer->cuda_infer->process_trt(
+            infer->context.get(),
+            device_buffers_,
+            input_idx_,
+            output_idx_,
+            frame.src_img.data,
+            frame.src_img.cols,
+            frame.src_img.rows,
+            transform_matrix,
+            stream_,
+            output_sz_ / 21,
+            params_.conf_threshold,
+            params_.nms_threshold,
+            params_.top_k
+        );
 
-    for (const auto& gobj: host_results) {
-        if (gobj.valid == 0)
-            continue;
+        for (const auto& gobj: host_results) {
+            if (gobj.valid == 0)
+                continue;
 
-        armor::ArmorObject obj;
-        obj.prob = gobj.confidence;
-        obj.color = static_cast<armor::ArmorColor>(gobj.color_id);
-        obj.number = static_cast<armor::ArmorNumber>(gobj.number_id);
+            armor::ArmorObject obj;
+            obj.prob = gobj.confidence;
+            obj.color = static_cast<armor::ArmorColor>(gobj.color_id);
+            obj.number = static_cast<armor::ArmorNumber>(gobj.number_id);
 
-        int n = std::max(4, gobj.num_pts); // 防止 num_pts 没填（兼容性）
-        cv::Point2f avg_pts[4] = {};
+            int n = std::max(4, gobj.num_pts); // 防止 num_pts 没填（兼容性）
+            cv::Point2f avg_pts[4] = {};
 
-        for (int i = 0; i < n; ++i) {
-            int idx = i % 4;
-            avg_pts[idx].x += gobj.x[i];
-            avg_pts[idx].y += gobj.y[i];
+            for (int i = 0; i < n; ++i) {
+                int idx = i % 4;
+                avg_pts[idx].x += gobj.x[i];
+                avg_pts[idx].y += gobj.y[i];
+            }
+
+            obj.pts.resize(4);
+            for (int i = 0; i < 4; ++i) {
+                obj.pts[i].x = avg_pts[i].x / (n / 4.0f);
+                obj.pts[i].y = avg_pts[i].y / (n / 4.0f);
+            }
+
+            obj.box = cv::boundingRect(obj.pts);
+            objs_result.push_back(std::move(obj));
         }
-
-        obj.pts.resize(4);
-        for (int i = 0; i < 4; ++i) {
-            obj.pts[i].x = avg_pts[i].x / (n / 4.0f);
-            obj.pts[i].y = avg_pts[i].y / (n / 4.0f);
-        }
-
-        obj.box = cv::boundingRect(obj.pts);
-        objs_result.push_back(std::move(obj));
     }
 
     // cudaMemcpyAsync(
