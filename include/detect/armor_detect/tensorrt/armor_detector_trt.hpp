@@ -23,6 +23,7 @@
 #include "NvInferRuntime.h"
 #include "armor_infer.hpp"
 #include "common/ThreadPool.h"
+#include "common/adaptive_resource_pool.hpp"
 #include "common/logger.hpp"
 #include "detect/armor_detect/armor_detect_common.hpp"
 #include "detect/armor_detect/light_corner_corrector.hpp"
@@ -51,6 +52,10 @@ public:
         int max_infer_running;
         double min_free_mem_ratio;
     };
+    struct Infer {
+        std::unique_ptr<nvinfer1::IExecutionContext> context;
+        std::unique_ptr<armor_cuda_infer::CudaInfer> cuda_infer;
+    };
 
     // 构造函数：加载 ONNX 模型并构建 TensorRT 引擎
     explicit ArmorDetectTrt(
@@ -65,7 +70,7 @@ public:
 
     void pushInput(const CommonFrame& frame);
 
-    bool processCallback(const CommonFrame& frame, nvinfer1::IExecutionContext* context);
+    bool processCallback(const CommonFrame& frame, Infer* infer);
     void setCallback(DetectorCallback callback);
 
 private:
@@ -95,9 +100,6 @@ private:
     nvinfer1::IRuntime* runtime_ = nullptr;
     std::unique_ptr<ArmorDetectCommon> armor_detect_common_;
     bool use_armor_detect_common_ = true;
-    std::vector<std::unique_ptr<nvinfer1::IExecutionContext>> contexts_;
-    std::vector<MovableAtomicBool> infer_status_;
-    std::vector<bool> contexts_released_;
-    std::unique_ptr<ThreadPool> thread_pool_;
-    std::unique_ptr<armor_cuda_infer::CudaInfer> cuda_infer_;
+    std::shared_ptr<ThreadPool> thread_pool_;
+    std::unique_ptr<AdaptiveResourcePool<Infer>> infer_pool_;
 };

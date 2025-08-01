@@ -32,7 +32,7 @@ camera:
   high_priority_cpu_priority: 90
   use_sched_fifo: true
   video_player:
-    fps: 30
+    fps: 200
     use_high_priority: true
     high_priority_cpu_id: 3
     high_priority_cpu_priority: 90
@@ -47,7 +47,7 @@ camera:
     start_frame: 500
     alpha: 1.0
     beta: 0
-    use: false
+    use: true
 
 control:
   alpha_pitch: 0.7

@@ -202,48 +202,97 @@ ArmorDetectTrt::ArmorDetectTrt(
     TRT_ASSERT(cudaMalloc(&device_buffers_[output_idx_], output_sz_ * sizeof(float)) == 0);
     output_buffer_ = new float[output_sz_];
     TRT_ASSERT(cudaStreamCreate(&stream_) == 0);
-    for (int i = 0; i < params.max_infer_running; ++i) {
+    std::vector<int> strides = { 8, 16, 32 };
+    AdaptiveResourcePool<Infer>::Params pool_params;
+    pool_params.resource_initializer = [=]() {
+        std::vector<std::unique_ptr<Infer>> infers;
+        for (int i = 0; i < params.max_infer_running; ++i) {
+            auto infer = std::make_unique<Infer>();
+            auto ctx = engine_->createExecutionContext();
+            infer->context = std::unique_ptr<nvinfer1::IExecutionContext>(ctx);
+            infer->cuda_infer = std::make_unique<armor_cuda_infer::CudaInfer>();
+            size_t max_input_img = 4096 * 2160 * 3;
+            size_t num_grid_strides = 0;
+            armor_cuda_infer::GPUGridAndStride* device_grid_strides =
+                armor_cuda_infer::init_grid_strides_on_gpu(
+                    INPUT_W,
+                    INPUT_W,
+                    strides,
+                    num_grid_strides
+                );
+            infer->cuda_infer->init(device_grid_strides, max_input_img, output_sz_ / 21);
+            if (!infer->context || !infer->cuda_infer) {
+                WUST_ERROR("TRT") << "create infer failed"
+                                  << "index:" << i;
+                continue;
+            }
+            size_t free_mem, total_mem;
+            cudaMemGetInfo(&free_mem, &total_mem);
+            WUST_DEBUG("TRT") << "Free GPU memory:" << free_mem / 1024.0 / 1024.0 << "MB"
+                              << "Total GPU memory:" << total_mem / 1024.0 / 1024.0 << "MB";
+            double free_mem_ratio = static_cast<double>(free_mem) / static_cast<double>(total_mem);
+            if (free_mem_ratio < params.min_free_mem_ratio) {
+                WUST_WARN("TRT") << "GPU memory is not enough!"
+                                 << "Free GPU memory:" << free_mem_ratio * 100 << "%";
+                WUST_INFO("TRT") << "Cut remaining infer";
+                break;
+            }
+            infers.emplace_back(std::move(infer));
+            WUST_INFO("TRT") << "create execution context success"
+                             << "index:" << i;
+        }
+        return infers;
+    };
+    auto release_func = [](std::unique_ptr<Infer>& resource) {
+        if (resource) {
+        }
+    };
+    auto restore_func = [=](size_t idx) -> std::unique_ptr<Infer> {
+        auto infer = std::make_unique<Infer>();
         auto ctx = engine_->createExecutionContext();
-        if (!ctx) {
-            WUST_ERROR("TRT") << "create execution context failed"
-                              << "index:" << i;
-            continue;
+        infer->context = std::unique_ptr<nvinfer1::IExecutionContext>(ctx);
+        infer->cuda_infer = std::make_unique<armor_cuda_infer::CudaInfer>();
+        size_t max_input_img = 4096 * 2160 * 3;
+        size_t num_grid_strides = 0;
+        armor_cuda_infer::GPUGridAndStride* device_grid_strides =
+            armor_cuda_infer::init_grid_strides_on_gpu(INPUT_W, INPUT_W, strides, num_grid_strides);
+        infer->cuda_infer->init(device_grid_strides, max_input_img, output_sz_ / 21);
+        if (!infer->context || !infer->cuda_infer) {
+            WUST_ERROR("TRT") << "create infer failed";
+            return nullptr;
+            ;
         }
-        size_t free_mem, total_mem;
-        cudaMemGetInfo(&free_mem, &total_mem);
-        WUST_DEBUG("TRT") << "Free GPU memory:" << free_mem / 1024.0 / 1024.0 << "MB"
-                          << "Total GPU memory:" << total_mem / 1024.0 / 1024.0 << "MB";
-        double free_mem_ratio = static_cast<double>(free_mem) / static_cast<double>(total_mem);
-        if (free_mem_ratio < params.min_free_mem_ratio) {
-            WUST_WARN("TRT") << "GPU memory is not enough!"
-                             << "Free GPU memory:" << free_mem_ratio * 100 << "%";
-            WUST_INFO("TRT") << "Cut remaining infer";
-            break;
-        }
-        contexts_.emplace_back(ctx);
-        WUST_INFO("TRT") << "create execution context success"
-                         << "index:" << i;
-    }
-    infer_status_.reserve(contexts_.size());
-    for (size_t i = 0; i < contexts_.size(); ++i) {
-        infer_status_.emplace_back(false);
-    }
-    contexts_released_.reserve(contexts_.size());
-    for (size_t i = 0; i < contexts_.size(); ++i) {
-        contexts_released_.emplace_back(false);
-    }
+        return infer;
+    };
+    pool_params.restore_func = restore_func;
 
-    thread_pool_ = std::make_unique<ThreadPool>(contexts_.size(), 100);
+    pool_params.release_func = release_func;
+
+    pool_params.can_restore = [=]() {
+        // 例如检测当前GPU内存，或者某种条件
+        size_t free_mem = 0, total_mem = 0;
+        cudaMemGetInfo(&free_mem, &total_mem);
+        double free_ratio = static_cast<double>(free_mem) / total_mem;
+        return free_ratio > params_.min_free_mem_ratio * 2; // 满足内存充足则恢复
+    };
+
+    pool_params.should_release = [=]() {
+        // 内存紧张，或者其他业务条件时返回true
+        size_t free_mem = 0, total_mem = 0;
+        cudaMemGetInfo(&free_mem, &total_mem);
+        double free_ratio = static_cast<double>(free_mem) / total_mem;
+        return free_ratio < params_.min_free_mem_ratio; // 内存不足则需要释放
+    };
+
+    thread_pool_ = std::make_shared<ThreadPool>(params.max_infer_running);
+    pool_params.thread_pool = thread_pool_;
+    pool_params.logger = [](const std::string& msg) {
+        WUST_INFO("ArmorDetectTrt:infer pool") << msg;
+    };
+    infer_pool_ = std::make_unique<AdaptiveResourcePool<Infer>>(pool_params);
     if (use_armor_detect_common_) {
         armor_detect_common_ = std::make_unique<ArmorDetectCommon>(armor_detect_common_params);
     }
-    std::vector<int> strides = { 8, 16, 32 };
-    size_t num_grid_strides = 0;
-    armor_cuda_infer::GPUGridAndStride* device_grid_strides =
-        armor_cuda_infer::init_grid_strides_on_gpu(INPUT_W, INPUT_W, strides, num_grid_strides);
-    cuda_infer_ = std::make_unique<armor_cuda_infer::CudaInfer>();
-    size_t max_input_img = 4096 * 2160 * 3;
-    cuda_infer_->init(device_grid_strides, max_input_img, output_sz_ / 21);
 }
 
 ArmorDetectTrt::~ArmorDetectTrt() {
@@ -251,17 +300,11 @@ ArmorDetectTrt::~ArmorDetectTrt() {
     cudaStreamDestroy(stream_);
     cudaFree(device_buffers_[output_idx_]);
     cudaFree(device_buffers_[input_idx_]);
-    if (cuda_infer_) {
-        cuda_infer_.reset();
+    if (infer_pool_) {
+        infer_pool_.reset();
     }
-
     if (context_)
         context_->destroy();
-    for (size_t i = 0; i < contexts_.size(); i++) {
-        if (contexts_[i]) {
-            contexts_[i].reset();
-        }
-    }
 
     if (engine_)
         engine_->destroy();
@@ -335,10 +378,7 @@ void ArmorDetectTrt::setCallback(DetectorCallback callback) {
 }
 
 // 推理函数
-bool ArmorDetectTrt::processCallback(
-    const CommonFrame& frame,
-    nvinfer1::IExecutionContext* context
-) {
+bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
     auto start = std::chrono::high_resolution_clock::now();
     Eigen::Matrix3f transform_matrix;
     // cv::Mat resized_img = letterbox(frame.src_img, transform_matrix);
@@ -364,8 +404,8 @@ bool ArmorDetectTrt::processCallback(
     //     std::cerr<<"enqueueV3 failed!";
     //     return {};
     // }
-    auto host_results = cuda_infer_->process_trt(
-        context,
+    auto host_results = infer->cuda_infer->process_trt(
+        infer->context.get(),
         device_buffers_,
         input_idx_,
         output_idx_,
@@ -566,71 +606,7 @@ std::vector<armor::ArmorObject> ArmorDetectTrt::postProcess(
 }
 
 void ArmorDetectTrt::pushInput(const CommonFrame& frame) {
-    size_t free_mem = 0, total_mem = 0;
-    cudaMemGetInfo(&free_mem, &total_mem);
-    size_t used_mem = total_mem - free_mem;
-
-    int ctx_num = std::count(contexts_released_.begin(), contexts_released_.end(), false);
-    double used_ratio = (double)used_mem / total_mem;
-    double extra_margin = used_ratio * ctx_num * 0.1;
-
-    double free_mem_ratio = static_cast<double>(free_mem) / total_mem;
-
-    if (free_mem_ratio >= params_.min_free_mem_ratio + extra_margin) {
-        for (size_t i = 0; i < contexts_.size(); ++i) {
-            if (contexts_released_[i]) {
-                contexts_[i].reset(engine_->createExecutionContext());
-                if (contexts_[i]) {
-                    contexts_released_[i] = false;
-                    infer_status_[i].store(false);
-                    WUST_INFO("TRT") << "Restored context index: " << i;
-                }
-            }
-        }
-    }
-
-    for (size_t i = 0; i < infer_status_.size(); ++i) {
-        if (!infer_status_[i].load() && !contexts_released_[i]) {
-            if (free_mem_ratio < params_.min_free_mem_ratio) {
-                WUST_WARN("TRT") << "GPU memory is not enough!"
-                                 << "Free GPU memory:" << free_mem_ratio * 100 << "%";
-
-                size_t active_contexts = 0;
-                for (size_t k = 0; k < contexts_released_.size(); ++k) {
-                    if (!contexts_released_[k])
-                        active_contexts++;
-                }
-
-                for (size_t j = i; j < infer_status_.size(); ++j) {
-                    if (!infer_status_[j].load() && !contexts_released_[j]) {
-                        if (active_contexts <= 1) {
-                            break;
-                        }
-                        infer_status_[j].store(true);
-                        contexts_[j].reset();
-                        contexts_released_[j] = true;
-                        WUST_INFO("TRT") << "Cut context index:" << j << " due to GPU memory low";
-                        break;
-                    }
-                }
-                break;
-            }
-
-            infer_status_[i].store(true);
-            thread_pool_->enqueue([this, i, frame]() {
-                try {
-                    if (!contexts_[i]) {
-                        std::cerr << "Fatal: infers[" << i << "] is nullptr\n";
-                        infer_status_[i].store(false);
-                        return;
-                    }
-                    this->processCallback(frame, contexts_[i].get());
-                } catch (const std::exception& e) {
-                    std::cerr << "Error in detect: " << e.what() << std::endl;
-                }
-                infer_status_[i].store(false);
-            });
-            return;
-        }
+    if (infer_pool_) {
+        infer_pool_->enqueue([=](Infer& infer) { this->processCallback(frame, &infer); });
     }
 }

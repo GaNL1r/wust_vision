@@ -37,6 +37,7 @@
  *   - Spin-then-block wait strategy
  *   - Cache-line–padded counters to avoid false sharing
  *   - Per-task timeout via std::jthread
+ *   - Added atomic in_pool flag for safer memory management and to avoid double free
  */
 class ThreadPool {
 public:
@@ -50,9 +51,12 @@ public:
         high_q_(queue_capacity),
         normal_q_(queue_capacity),
         pool_(pool_capacity) {
-        // Pre-allocate TaskItem nodes
-        for (size_t i = 0; i < pool_capacity; ++i)
-            pool_.push(new TaskItem);
+        // Pre-allocate TaskItem nodes, mark them as in pool
+        for (size_t i = 0; i < pool_capacity; ++i) {
+            TaskItem* node = new TaskItem;
+            node->in_pool.store(true, std::memory_order_relaxed);
+            pool_.push(node);
+        }
 
         // Launch workers
         for (size_t i = 0; i < num_threads; ++i)
@@ -63,6 +67,7 @@ public:
         stop_.store(true, std::memory_order_relaxed);
         cv_.notify_all();
         // workers (std::jthread) join automatically
+
         // cleanup pool
         TaskItem* item;
         while (pool_.pop(item))
@@ -74,17 +79,21 @@ public:
     std::future<void> enqueue(F&& fn, int timeout_ms = -1, bool high_priority = false) {
         auto prom = std::make_shared<std::promise<void>>();
         auto fut = prom->get_future();
-        std::stop_source stop_src;
 
         // Fetch node from pool
         TaskItem* node = nullptr;
         if (!pool_.pop(node)) {
-            node = new TaskItem; // fallback
+            node = new TaskItem;
+            node->in_pool.store(false, std::memory_order_relaxed);
+        } else {
+            // Mark as out of pool, now in use
+            node->in_pool.store(false, std::memory_order_relaxed);
         }
 
-        // Bind user function
+        // Setup task node
         node->timeout_ms = timeout_ms;
-        node->stop_src = stop_src;
+        node->prom = prom;
+        node->stop_src = std::stop_source {};
         node->func = [fn = std::forward<F>(fn), prom](std::stop_token tok) mutable {
             try {
                 if constexpr (std::is_invocable_v<F, std::stop_token>)
@@ -101,15 +110,24 @@ public:
             }
         };
 
-        // Overload protection
+        // Overload protection: if too many pending, drop oldest normal priority task
         size_t prev = pending_.fetch_add(1, std::memory_order_relaxed);
         if (prev >= max_pending_) {
             TaskItem* dropped = nullptr;
-            normal_q_.pop(dropped);
-            if (dropped) {
-                std::cerr << "[ThreadPool] Warning: Dropped oldest task\n";
-                cleanupNode(dropped);
-                pending_.fetch_sub(1, std::memory_order_relaxed);
+            if (normal_q_.pop(dropped)) {
+                if (dropped) {
+                    if (dropped->prom) {
+                        try {
+                            dropped->prom->set_exception(std::make_exception_ptr(
+                                std::runtime_error("task dropped due to overload")
+                            ));
+                        } catch (...) {
+                        }
+                    }
+                    cleanupNode(dropped);
+                    pending_.fetch_sub(1, std::memory_order_relaxed);
+                    std::cerr << "[ThreadPool] Warning: Dropped oldest task due to overload\n";
+                }
             }
         }
 
@@ -141,12 +159,27 @@ private:
     struct TaskItem {
         std::function<void(std::stop_token)> func;
         std::stop_source stop_src;
-        int timeout_ms;
+        int timeout_ms = -1;
+        std::shared_ptr<std::promise<void>> prom;
+        std::atomic<bool> in_pool { true }; // true means node is in pool and available
     };
 
-    // Return node to pool
+    // Return node to pool safely, avoid double return
     void cleanupNode(TaskItem* node) {
+        if (!node)
+            return;
+        bool expected = false;
+        // Only if node is currently out of pool (in use), mark as in pool and recycle
+        if (!node->in_pool.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
+            // Already in pool, do nothing (avoid double recycle)
+            return;
+        }
+
         node->func = nullptr;
+        node->stop_src = std::stop_source {};
+        node->timeout_ms = -1;
+        node->prom.reset();
+
         pool_.push(node);
     }
 
@@ -173,6 +206,14 @@ private:
 
             busy_.fetch_add(1, std::memory_order_relaxed);
 
+            // Check func validity before calling
+            if (!item->func) {
+                busy_.fetch_sub(1, std::memory_order_relaxed);
+                pending_.fetch_sub(1, std::memory_order_relaxed);
+                cleanupNode(item);
+                continue;
+            }
+
             // timeout thread
             std::jthread timer;
             if (item->timeout_ms > 0) {
@@ -184,18 +225,21 @@ private:
                 });
             }
 
-            // execute
+            // execute task
             item->func(item->stop_src.get_token());
+
             if (timer.joinable())
                 timer.request_stop();
 
-            // cleanup
             busy_.fetch_sub(1, std::memory_order_relaxed);
             pending_.fetch_sub(1, std::memory_order_relaxed);
-            if (pending_.load() == 0 && busy_.load() == 0) {
+
+            if (pending_.load(std::memory_order_relaxed) == 0
+                && busy_.load(std::memory_order_relaxed) == 0) {
                 std::lock_guard<std::mutex> lk(done_mtx_);
                 done_cv_.notify_all();
             }
+
             cleanupNode(item);
         }
     }

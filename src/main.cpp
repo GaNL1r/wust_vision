@@ -47,7 +47,7 @@ int main() {
     const std::string required_path = "/opt/MVS/lib/64:/opt/MVS/lib/32";
     if (ld_path_str.find(required_path) == std::string::npos) {
         WUST_ERROR("main") << "错误: LD_LIBRARY_PATH 不包含必需路径: " << required_path;
-        system("export LD_LIBRARY_PATH=/opt/MVS/lib/64:/opt/MVS/lib/32:$LD_LIBRARY_PATH");
+        system(" export LD_LIBRARY_PATH=/opt/MVS/lib/64:/opt/MVS/lib/32:$LD_LIBRARY_PATH ");
         WUST_INFO("main"
         ) << "运行： export LD_LIBRARY_PATH=/opt/MVS/lib/64:/opt/MVS/lib/32:$LD_LIBRARY_PATH";
         return EXIT_FAILURE;

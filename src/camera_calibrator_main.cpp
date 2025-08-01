@@ -28,7 +28,7 @@ int main() {
         config["camera"]["gamma"].as<double>(),
         config["camera"]["adc_bit_depth"].as<std::string>(),
         config["camera"]["pixel_format"].as<std::string>(),
-        config["camera"]["acquisitionFrameRateEnable"].as<bool>(),
+        config["camera"]["acquisition_frame_rate_enable"].as<bool>(),
         config["camera"]["reverse_x"].as<bool>(false),
         config["camera"]["reverse_y"].as<bool>(false)
     );

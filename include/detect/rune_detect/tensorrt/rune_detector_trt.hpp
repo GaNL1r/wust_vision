@@ -29,6 +29,7 @@
 #include "NvInfer.h"
 #include "NvInferRuntime.h"
 #include "common/ThreadPool.h"
+#include "common/adaptive_resource_pool.hpp"
 #include "rune_infer.hpp"
 #include "type/type.hpp"
 
@@ -46,6 +47,10 @@ public:
         int device_id = 0;
         int max_infer_running;
         double min_free_mem_ratio;
+    };
+    struct Infer {
+        std::unique_ptr<nvinfer1::IExecutionContext> context;
+        std::unique_ptr<rune_cuda_infer::CudaInfer> cuda_infer;
     };
 
 public:
@@ -65,7 +70,7 @@ public:
 
 private:
     // Do inference and call the infer_callback_ after inference
-    bool processCallback(const CommonFrame& frame, nvinfer1::IExecutionContext* context);
+    bool processCallback(const CommonFrame& frame, Infer* infer);
     void buildEngine(const std::string& onnx_path);
     std::vector<rune::RuneObject> postProcess(
         std::vector<rune::RuneObject>& output_objs,
@@ -95,9 +100,6 @@ private:
     size_t input_sz_, output_sz_;
     TRTLogger g_logger_;
     nvinfer1::IRuntime* runtime_ = nullptr;
-    std::vector<std::unique_ptr<nvinfer1::IExecutionContext>> contexts_;
-    std::vector<MovableAtomicBool> infer_status_;
-    std::vector<bool> contexts_released_;
-    std::unique_ptr<ThreadPool> thread_pool_;
-    std::unique_ptr<rune_cuda_infer::CudaInfer> cuda_infer_;
+    std::shared_ptr<ThreadPool> thread_pool_;
+    std::unique_ptr<AdaptiveResourcePool<Infer>> infer_pool_;
 };
