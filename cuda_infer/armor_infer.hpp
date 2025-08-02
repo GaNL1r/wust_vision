@@ -23,7 +23,7 @@ struct GPUArmorObject {
     int num_pts;
 
     __host__ __device__ GPUArmorObject() {
-        for (int i = 0; i < 4; ++i) {
+        for (int i = 0; i < 16; ++i) {
             x[i] = 0.0f;
             y[i] = 0.0f;
         }
@@ -37,10 +37,14 @@ struct GPUArmorObject {
 
 // 用于 thrust::sort 的比较器
 struct ConfidenceComparator {
-    __host__ __device__ bool operator()(const GPUArmorObject& a, const GPUArmorObject& b) const {
+    __host__ __device__
+    bool operator()(const GPUArmorObject& a, const GPUArmorObject& b) const {
+        if (!a.valid && b.valid) return false;
+        if (a.valid && !b.valid) return true;
         return a.confidence > b.confidence;
     }
 };
+
 GPUGridAndStride* init_grid_strides_on_gpu(
     int input_w,
     int input_h,
@@ -58,6 +62,10 @@ public:
 
     /// 释放所有 GPU 资源
     void release();
+    bool isInitialized() const {
+    return d_input_bgr_ && d_nchw_ && d_tf_ && d_objs_ && d_grid_strides_;
+    }
+
 
     /// 预处理：letterbox + NCHW 转存
     /// @param  input_bgr_host  host 侧 BGR 图数据
