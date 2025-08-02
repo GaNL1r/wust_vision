@@ -353,20 +353,25 @@ RuneDetectorTrt::RuneDetectorTrt(const std::filesystem::path& model_path, const 
 
     pool_params.release_func = release_func;
 
-    pool_params.can_restore = [=]() {
-        // 例如检测当前GPU内存，或者某种条件
+    pool_params.can_restore = [=](size_t active_count) {
         size_t free_mem = 0, total_mem = 0;
         cudaMemGetInfo(&free_mem, &total_mem);
+
         double free_ratio = static_cast<double>(free_mem) / total_mem;
-        return free_ratio > params_.min_free_mem_ratio * 2; // 满足内存充足则恢复
+        size_t used_mem = total_mem - free_mem;
+        size_t avg_used_per_resource = active_count > 0 ? used_mem / active_count : 1;
+        size_t safe_margin = avg_used_per_resource;
+
+        bool enough_for_one_more = free_mem > (avg_used_per_resource + safe_margin);
+
+        return free_ratio > params_.min_free_mem_ratio * 1.2 && enough_for_one_more;
     };
 
-    pool_params.should_release = [=]() {
-        // 内存紧张，或者其他业务条件时返回true
+    pool_params.should_release = [=](size_t active_count) {
         size_t free_mem = 0, total_mem = 0;
         cudaMemGetInfo(&free_mem, &total_mem);
         double free_ratio = static_cast<double>(free_mem) / total_mem;
-        return free_ratio < params_.min_free_mem_ratio; // 内存不足则需要释放
+        return free_ratio < params_.min_free_mem_ratio && active_count > 1;
     };
 
     thread_pool_ = std::make_shared<ThreadPool>(params.max_infer_running);
@@ -439,7 +444,9 @@ RuneDetectorTrt::~RuneDetectorTrt() {
     cudaStreamDestroy(stream_);
     cudaFree(device_buffers_[output_idx_]);
     cudaFree(device_buffers_[input_idx_]);
-
+    if (infer_pool_) {
+        infer_pool_.reset();
+    }
     if (infer_pool_) {
         infer_pool_.reset();
     }
@@ -455,63 +462,10 @@ RuneDetectorTrt::~RuneDetectorTrt() {
 void RuneDetectorTrt::setCallback(CallbackType callback) {
     infer_callback_ = callback;
 }
-
-bool RuneDetectorTrt::processCallback(const CommonFrame& frame, Infer* infer) {
-    auto start = std::chrono::steady_clock::now();
-    Eigen::Matrix3f transform_matrix;
-    //cv::Mat resized_img = letterbox(frame.src_img, transform_matrix);
-    // BGR->RGB, u8(0-255)->f32(0.0-1.0), HWC->NCHW
-    // note: TUP's model no need to normalize
-    // cv::Mat blob = cv::dnn::blobFromImage(
-    //     resized_img,
-    //     1.,
-    //     cv::Size(INPUT_W, INPUT_H),
-    //     cv::Scalar(0, 0, 0),
-    //     true
-    // );
-
-    // cudaMemcpyAsync(
-    //     device_buffers_[input_idx_],
-    //     blob.ptr<float>(),
-    //     input_sz_ * sizeof(float),
-    //     cudaMemcpyHostToDevice,
-    //     stream_
-    // );
-    // context->setTensorAddress("images", device_buffers_[input_idx_]);
-    // context->setTensorAddress("output", device_buffers_[output_idx_]);
-
-    // if (!context->enqueueV3(stream_)) {
-    //     std::cerr<<"enqueueV3 failed!";
-    //     return {};
-    // }
-    std::vector<rune::RuneObject> objs_tmp, objs_result;
-    std::vector<cv::Rect> rects;
-    std::vector<float> scores;
-    // cudaMemcpyAsync(
-    //     output_buffer_,
-    //     device_buffers_[output_idx_],
-    //     output_sz_ * sizeof(float),
-    //     cudaMemcpyDeviceToHost,
-    //     stream_
-    // );
-    // cudaStreamSynchronize(stream_);
-    // objs_result =
-    //     postProcess(objs_tmp, scores, rects, output_buffer_, output_sz_ / 15, transform_matrix);
-    auto host_results = infer->cuda_infer->process_trt(
-        infer->context.get(),
-        device_buffers_,
-        input_idx_,
-        output_idx_,
-        frame.src_img.data,
-        frame.src_img.cols,
-        frame.src_img.rows,
-        transform_matrix,
-        stream_,
-        output_sz_ / 15,
-        params_.conf_threshold,
-        params_.nms_threshold,
-        params_.top_k
-    );
+static void buildCpuResult(
+    const std::vector<rune_cuda_infer::GPURuneObject>& host_results,
+    std::vector<rune::RuneObject>& objs_result
+) {
     for (const auto& gobj: host_results) {
         if (gobj.valid == 0)
             continue; // 过滤无效目标
@@ -534,6 +488,89 @@ bool RuneDetectorTrt::processCallback(const CommonFrame& frame, Infer* infer) {
 
         objs_result.push_back(std::move(robj));
     }
+}
+bool RuneDetectorTrt::processCallback(const CommonFrame& frame, Infer* infer) {
+    auto start = std::chrono::steady_clock::now();
+    Eigen::Matrix3f transform_matrix;
+    std::vector<rune::RuneObject> objs_tmp, objs_result;
+    std::vector<cv::Rect> rects;
+    std::vector<float> scores;
+    void* input_tensor_ptr;
+    if (infer->cuda_infer && params_.use_cuda_pre) {
+        input_tensor_ptr = infer->cuda_infer->preprocess(
+            frame.src_img.data,
+            frame.src_img.cols,
+            frame.src_img.rows,
+            transform_matrix,
+            stream_
+        );
+    } else { // BGR->RGB, u8(0-255)->f32(0.0-1.0), HWC->NCHW
+        // note: TUP's model no need to normalize
+        cv::Mat resized_img = letterbox(frame.src_img, transform_matrix);
+
+        cv::Mat blob = cv::dnn::blobFromImage(
+            resized_img,
+            1.,
+            cv::Size(INPUT_W, INPUT_H),
+            cv::Scalar(0, 0, 0),
+            true
+        );
+        cudaMemcpyAsync(
+            device_buffers_[input_idx_],
+            blob.ptr<float>(),
+            input_sz_ * sizeof(float),
+            cudaMemcpyHostToDevice,
+            stream_
+        );
+        input_tensor_ptr = device_buffers_[input_idx_];
+    }
+    if (infer->context && input_tensor_ptr) {
+        infer->context->setTensorAddress("images", input_tensor_ptr);
+        infer->context->setTensorAddress("output", device_buffers_[output_idx_]);
+
+        if (!infer->context->enqueueV3(stream_)) {
+            std::cerr << "enqueueV3 failed!";
+            return {};
+        }
+    }
+    if (infer->cuda_infer && params_.use_cuda_post) {
+        auto host_results = infer->cuda_infer->postprocess(
+            (float*)device_buffers_[output_idx_],
+            output_sz_ / 15,
+            transform_matrix,
+            params_.conf_threshold,
+            params_.nms_threshold,
+            params_.top_k
+        );
+        buildCpuResult(host_results, objs_result);
+    } else {
+        cudaMemcpyAsync(
+            output_buffer_,
+            device_buffers_[output_idx_],
+            output_sz_ * sizeof(float),
+            cudaMemcpyDeviceToHost,
+            stream_
+        );
+        cudaStreamSynchronize(stream_);
+        objs_result =
+            postProcess(objs_tmp, scores, rects, output_buffer_, output_sz_ / 15, transform_matrix);
+    }
+
+    auto host_results = infer->cuda_infer->process_trt(
+        infer->context.get(),
+        device_buffers_,
+        input_idx_,
+        output_idx_,
+        frame.src_img.data,
+        frame.src_img.cols,
+        frame.src_img.rows,
+        transform_matrix,
+        stream_,
+        output_sz_ / 15,
+        params_.conf_threshold,
+        params_.nms_threshold,
+        params_.top_k
+    );
 
     auto end = std::chrono::steady_clock::now();
     // WUST_INFO("TRT") << "TRT"

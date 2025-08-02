@@ -1,8 +1,8 @@
 common:
   armor_detect_backend: tensorrt
   rune_detect_backend: tensorrt
-  detect_color: 1
-  init_attack_mode: 1
+  detect_color: 0
+  init_attack_mode: 0
   max_detect_armors: 12
   max_infer_running: 10
   thread_multiplier: 2
@@ -32,7 +32,7 @@ camera:
   high_priority_cpu_priority: 90
   use_sched_fifo: true
   video_player:
-    fps: 50
+    fps: 200
     use_high_priority: true
     high_priority_cpu_id: 3
     high_priority_cpu_priority: 90
@@ -40,9 +40,9 @@ camera:
     loop: true
     #path: /home/hy/wust_data/video/222.MP4
     #path: /home/hy/wust_data/video/20250726_233351.avi
-    #path: /home/hy/wust_data/video/jiao.avi
+    path: /home/hy/wust_data/video/jiao.avi
     #path: /home/hy/data/4k.MP4
-    path: /home/hy/wust_data/video/rune.mp4
+    #path: /home/hy/wust_data/video/rune.mp4
     #path: /home/hy/wust_data/video/Sentry.mp4
     start_frame: 0
     alpha: 1.0
@@ -143,7 +143,7 @@ armor_tracker:
     oys2qy: 40
     oys2qyaw: 30
     oys2qz: 5
-#----------------
+    #----------------
     yr_d_front_a: 0.02 #1m处
     yr_d_side_a: 0.07 #1m处
     yr_p_a: 10 #角度
@@ -157,7 +157,7 @@ armor_tracker:
     ys2qy_a: 22
     ys2qyaw_a: 35
     ys2qz_a: 1.0
-#----------------
+    #----------------
     yr_d_front_c: 0.02 #1m处
     yr_d_side_c: 0.07 #1m处
     yr_p_c: 10 #角度
@@ -171,7 +171,7 @@ armor_tracker:
     ys2qy_c: 22
     ys2qyaw_c: 35
     ys2qz_c: 1.0
-#----------------
+    #----------------
     r_v: 20
     q_v: 5.0
     q_a: 1.0

@@ -37,10 +37,11 @@ struct GPUArmorObject {
 
 // 用于 thrust::sort 的比较器
 struct ConfidenceComparator {
-    __host__ __device__
-    bool operator()(const GPUArmorObject& a, const GPUArmorObject& b) const {
-        if (!a.valid && b.valid) return false;
-        if (a.valid && !b.valid) return true;
+    __host__ __device__ bool operator()(const GPUArmorObject& a, const GPUArmorObject& b) const {
+        if (!a.valid && b.valid)
+            return false;
+        if (a.valid && !b.valid)
+            return true;
         return a.confidence > b.confidence;
     }
 };
@@ -55,17 +56,16 @@ GPUGridAndStride* init_grid_strides_on_gpu(
 class CudaInfer {
 public:
     CudaInfer();
-    ~CudaInfer()noexcept;
+    ~CudaInfer() noexcept;
 
     /// 一次性申请所有 GPU 资源
-    void init(GPUGridAndStride* grid_strides, size_t img_bytes, int max_N,size_t grid_count);
+    void init(GPUGridAndStride* grid_strides, size_t img_bytes, int max_N, size_t grid_count);
 
     /// 释放所有 GPU 资源
     void release();
     bool isInitialized() const {
-    return d_input_bgr_ && d_nchw_ && d_tf_ && d_objs_ && d_grid_strides_;
+        return d_input_bgr_ && d_nchw_ && d_tf_ && d_objs_ && d_grid_strides_;
     }
-
 
     /// 预处理：letterbox + NCHW 转存
     /// @param  input_bgr_host  host 侧 BGR 图数据

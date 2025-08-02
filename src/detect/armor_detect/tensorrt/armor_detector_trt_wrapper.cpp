@@ -32,6 +32,8 @@ ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(
     params.device_id = config["armor_detect"]["model"]["device_id"].as<int>();
     params.max_infer_running = config["armor_detect"]["model"]["max_infer_running"].as<int>();
     params.min_free_mem_ratio = config["armor_detect"]["model"]["min_free_mem_ratio"].as<double>();
+    params.use_cuda_pre = config["armor_detect"]["model"]["use_cuda_pre"].as<bool>();
+    params.use_cuda_post = config["armor_detect"]["model"]["use_cuda_post"].as<bool>();
     WUST_INFO("armor_detector") << "model_path: " << model_path;
     int binary_thres;
     float expand_ratio_w, expand_ratio_h;

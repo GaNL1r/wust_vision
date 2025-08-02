@@ -6,6 +6,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <vector>
 
 struct MovableAtomicBool {
@@ -35,25 +36,12 @@ template<typename T>
 class AdaptiveResourcePool {
 public:
     struct Params {
-        // 资源初始化函数，返回一个 unique_ptr<T> 数组
         std::function<std::vector<std::unique_ptr<T>>()> resource_initializer;
-
-        // 判断是否可以恢复资源
-        std::function<bool()> can_restore;
-
-        // 判断是否需要释放资源
-        std::function<bool()> should_release;
-
-        // 恢复资源（由池内调用），传 index，返回是否成功
+        std::function<bool(size_t)> can_restore;
+        std::function<bool(size_t)> should_release;
         std::function<std::unique_ptr<T>(size_t)> restore_func;
-
-        // 释放资源（由池内调用）
         std::function<void(std::unique_ptr<T>&)> release_func;
-
-        // 后台线程池
         std::shared_ptr<ThreadPool> thread_pool;
-
-        // 日志函数（可选）
         std::function<void(const std::string&)> logger = [](const std::string&) {};
     };
 
@@ -62,8 +50,8 @@ public:
         busy_.resize(resources_.size());
         released_.resize(resources_.size(), false);
     }
+
     ~AdaptiveResourcePool() {
-        // 逐个释放资源
         for (size_t i = 0; i < resources_.size(); ++i) {
             if (!released_[i]) {
                 if (params_.release_func) {
@@ -72,11 +60,9 @@ public:
                 resources_[i].reset();
             }
         }
-
         resources_.clear();
         busy_.clear();
         released_.clear();
-
         params_.logger("AdaptiveResourcePool destroyed.");
     }
 
@@ -87,7 +73,7 @@ public:
 
         for (size_t i = 0; i < resources_.size(); ++i) {
             if (!busy_[i].load() && !released_[i]) {
-                if (params_.should_release && params_.should_release()) {
+                if (params_.should_release && params_.should_release(activeCount())) {
                     maybeReleaseOne(i);
                     break;
                 }
@@ -109,15 +95,19 @@ public:
 
                     busy_[i].store(false);
                 });
-
                 return;
             }
         }
     }
 
 private:
+    size_t activeCount() const {
+        return std::count(released_.begin(), released_.end(), false);
+    }
+
     void maybeRecover() {
-        if (!params_.can_restore || !params_.can_restore())
+        size_t active = activeCount();
+        if (!params_.can_restore || !params_.can_restore(active))
             return;
 
         for (size_t i = 0; i < resources_.size(); ++i) {
@@ -136,7 +126,7 @@ private:
     }
 
     void maybeReleaseOne(size_t start_index) {
-        size_t active = std::count(released_.begin(), released_.end(), false);
+        size_t active = activeCount();
         for (size_t i = start_index; i < resources_.size(); ++i) {
             if (!busy_[i].load() && !released_[i]) {
                 if (active <= 1)
@@ -144,7 +134,7 @@ private:
 
                 busy_[i].store(true);
                 params_.release_func(resources_[i]);
-                resources_[i].reset(); // 确保释放指针
+                resources_[i].reset();
                 released_[i] = true;
                 params_.logger("Released resource[" + std::to_string(i) + "]");
                 break;

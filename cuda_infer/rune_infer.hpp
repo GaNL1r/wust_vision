@@ -58,7 +58,7 @@ public:
     ~CudaInfer();
 
     /// 一次性申请所有 GPU 资源
-    void init(GPUGridAndStride* grid_strides, size_t img_bytes, int max_N,size_t grid_count);
+    void init(GPUGridAndStride* grid_strides, size_t img_bytes, int max_N, size_t grid_count);
 
     /// 释放所有 GPU 资源
     void release();

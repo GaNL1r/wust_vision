@@ -47,6 +47,8 @@ public:
         int device_id = 0;
         int max_infer_running;
         double min_free_mem_ratio;
+        bool use_cuda_pre = false;
+        bool use_cuda_post = false;
     };
     struct Infer {
         std::unique_ptr<nvinfer1::IExecutionContext> context;

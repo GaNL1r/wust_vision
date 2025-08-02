@@ -262,7 +262,6 @@ ArmorDetectTrt::ArmorDetectTrt(
         if (!infer->context || !infer->cuda_infer) {
             WUST_ERROR("TRT") << "create infer failed";
             return nullptr;
-            ;
         }
         return infer;
     };
@@ -270,20 +269,25 @@ ArmorDetectTrt::ArmorDetectTrt(
 
     pool_params.release_func = release_func;
 
-    pool_params.can_restore = [=]() {
-        // 例如检测当前GPU内存，或者某种条件
+    pool_params.can_restore = [=](size_t active_count) {
         size_t free_mem = 0, total_mem = 0;
         cudaMemGetInfo(&free_mem, &total_mem);
+
         double free_ratio = static_cast<double>(free_mem) / total_mem;
-        return free_ratio > params_.min_free_mem_ratio * 2; // 满足内存充足则恢复
+        size_t used_mem = total_mem - free_mem;
+        size_t avg_used_per_resource = active_count > 0 ? used_mem / active_count : 1;
+        size_t safe_margin = avg_used_per_resource;
+
+        bool enough_for_one_more = free_mem > (avg_used_per_resource + safe_margin);
+
+        return free_ratio > params_.min_free_mem_ratio * 1.2 && enough_for_one_more;
     };
 
-    pool_params.should_release = [=]() {
-        // 内存紧张，或者其他业务条件时返回true
+    pool_params.should_release = [=](size_t active_count) {
         size_t free_mem = 0, total_mem = 0;
         cudaMemGetInfo(&free_mem, &total_mem);
         double free_ratio = static_cast<double>(free_mem) / total_mem;
-        return free_ratio < params_.min_free_mem_ratio; // 内存不足则需要释放
+        return free_ratio < params_.min_free_mem_ratio && active_count > 1;
     };
 
     thread_pool_ = std::make_shared<ThreadPool>(params.max_infer_running);
@@ -378,7 +382,38 @@ void ArmorDetectTrt::buildEngine(const std::string& onnx_path) {
 void ArmorDetectTrt::setCallback(DetectorCallback callback) {
     infer_callback_ = callback;
 }
+static void buildCpuResult(
+    const std::vector<armor_cuda_infer::GPUArmorObject>& host_results,
+    std::vector<armor::ArmorObject>& objs_result
+) {
+    for (const auto& gobj: host_results) {
+        if (gobj.valid == 0)
+            continue;
 
+        armor::ArmorObject obj;
+        obj.prob = gobj.confidence;
+        obj.color = static_cast<armor::ArmorColor>(gobj.color_id);
+        obj.number = static_cast<armor::ArmorNumber>(gobj.number_id);
+
+        int n = std::max(4, gobj.num_pts); // 防止 num_pts 没填（兼容性）
+        cv::Point2f avg_pts[4] = {};
+
+        for (int i = 0; i < n; ++i) {
+            int idx = i % 4;
+            avg_pts[idx].x += gobj.x[i];
+            avg_pts[idx].y += gobj.y[i];
+        }
+
+        obj.pts.resize(4);
+        for (int i = 0; i < 4; ++i) {
+            obj.pts[i].x = avg_pts[i].x / (n / 4.0f);
+            obj.pts[i].y = avg_pts[i].y / (n / 4.0f);
+        }
+
+        obj.box = cv::boundingRect(obj.pts);
+        objs_result.push_back(std::move(obj));
+    }
+}
 // 推理函数
 bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
     auto start = std::chrono::high_resolution_clock::now();
@@ -386,85 +421,65 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
     std::vector<armor::ArmorObject> objs_tmp, objs_result;
     std::vector<cv::Rect> rects;
     std::vector<float> scores;
-    // cv::Mat resized_img = letterbox(frame.src_img, transform_matrix);
-    // cv::Mat blob = cv::dnn::blobFromImage(
-    //     resized_img,
-    //     1.,
-    //     cv::Size(INPUT_W, INPUT_H),
-    //     cv::Scalar(0, 0, 0),
-    //     true
-    // );
-    // // 拷贝数据到显存
-    // cudaMemcpyAsync(
-    //     device_buffers_[input_idx_],
-    //     blob.ptr<float>(),
-    //     input_sz_ * sizeof(float),
-    //     cudaMemcpyHostToDevice,
-    //     stream_
-    // );
-    // context->setTensorAddress("images", device_buffers_[input_idx_]);
-    // context->setTensorAddress("output", device_buffers_[output_idx_]);
-
-    // if (!context->enqueueV3(stream_)) {
-    //     std::cerr<<"enqueueV3 failed!";
-    //     return {};
-    // }
-    if (infer->cuda_infer && infer->context) {
-        auto host_results = infer->cuda_infer->process_trt(
-            infer->context.get(),
-            device_buffers_,
-            input_idx_,
-            output_idx_,
+    void* input_tensor_ptr;
+    if (infer->cuda_infer && params_.use_cuda_pre) {
+        input_tensor_ptr = infer->cuda_infer->preprocess(
             frame.src_img.data,
             frame.src_img.cols,
             frame.src_img.rows,
             transform_matrix,
-            stream_,
+            stream_
+        );
+    } else {
+        cv::Mat resized_img = letterbox(frame.src_img, transform_matrix);
+        cv::Mat blob = cv::dnn::blobFromImage(
+            resized_img,
+            1.,
+            cv::Size(INPUT_W, INPUT_H),
+            cv::Scalar(0, 0, 0),
+            true
+        );
+        // 拷贝数据到显存
+        cudaMemcpyAsync(
+            device_buffers_[input_idx_],
+            blob.ptr<float>(),
+            input_sz_ * sizeof(float),
+            cudaMemcpyHostToDevice,
+            stream_
+        );
+        input_tensor_ptr = device_buffers_[input_idx_];
+    }
+    if (infer->context && input_tensor_ptr) {
+        infer->context->setTensorAddress("images", input_tensor_ptr);
+        infer->context->setTensorAddress("output", device_buffers_[output_idx_]);
+
+        if (!infer->context->enqueueV3(stream_)) {
+            std::cerr << "enqueueV3 failed!";
+            return {};
+        }
+    }
+    if (infer->cuda_infer && params_.use_cuda_post) {
+        auto host_results = infer->cuda_infer->postprocess(
+            (float*)device_buffers_[output_idx_],
             output_sz_ / 21,
+            transform_matrix,
             params_.conf_threshold,
             params_.nms_threshold,
             params_.top_k
         );
-
-        for (const auto& gobj: host_results) {
-            if (gobj.valid == 0)
-                continue;
-
-            armor::ArmorObject obj;
-            obj.prob = gobj.confidence;
-            obj.color = static_cast<armor::ArmorColor>(gobj.color_id);
-            obj.number = static_cast<armor::ArmorNumber>(gobj.number_id);
-
-            int n = std::max(4, gobj.num_pts); // 防止 num_pts 没填（兼容性）
-            cv::Point2f avg_pts[4] = {};
-
-            for (int i = 0; i < n; ++i) {
-                int idx = i % 4;
-                avg_pts[idx].x += gobj.x[i];
-                avg_pts[idx].y += gobj.y[i];
-            }
-
-            obj.pts.resize(4);
-            for (int i = 0; i < 4; ++i) {
-                obj.pts[i].x = avg_pts[i].x / (n / 4.0f);
-                obj.pts[i].y = avg_pts[i].y / (n / 4.0f);
-            }
-
-            obj.box = cv::boundingRect(obj.pts);
-            objs_result.push_back(std::move(obj));
-        }
+        buildCpuResult(host_results, objs_result);
+    } else {
+        cudaMemcpyAsync(
+            output_buffer_,
+            device_buffers_[output_idx_],
+            output_sz_ * sizeof(float),
+            cudaMemcpyDeviceToHost,
+            stream_
+        );
+        cudaStreamSynchronize(stream_);
+        objs_result =
+            postProcess(objs_tmp, scores, rects, output_buffer_, output_sz_ / 21, transform_matrix);
     }
-
-    // cudaMemcpyAsync(
-    //     output_buffer_,
-    //     device_buffers_[output_idx_],
-    //     output_sz_ * sizeof(float),
-    //     cudaMemcpyDeviceToHost,
-    //     stream_
-    // );
-    // cudaStreamSynchronize(stream_);
-    // objs_result =
-    //     postProcess(objs_tmp, scores, rects, output_buffer_, output_sz_ / 21, transform_matrix);
 
     // 后处理
 
