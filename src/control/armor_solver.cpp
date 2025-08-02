@@ -81,7 +81,7 @@ void ArmorSolver::init(const YAML::Node& config) {
     manual_compensator_->updateMapFlow(entries);
 
     // 5. 状态机初值
-    state_ = State::TRACKING_ARMOR;
+    gobal::armor_slove_state = gobal::ArmorSloveState::TRACKING_ARMOR;
     overflow_count_ = 0;
     transfer_thresh_ = 5;
 }
@@ -161,15 +161,15 @@ GimbalCmd ArmorSolver::solve(
         Eigen::Vector3d chosen;
         bool is_large =
             (target.id == armor::ArmorNumber::NO1 || target.id == armor::ArmorNumber::BASE);
-        switch (state_) {
-            case TRACKING_ARMOR:
+        switch (gobal::armor_slove_state) {
+            case gobal::ArmorSloveState::TRACKING_ARMOR:
                 if (std::abs(target.v_yaw) > max_tracking_v_yaw_) {
                     ++overflow_count_;
                 } else {
                     overflow_count_ = 0;
                 }
                 if (overflow_count_ > transfer_thresh_) {
-                    state_ = TRACKING_CENTER;
+                    gobal::armor_slove_state = gobal::ArmorSloveState::TRACKING_CENTER;
                     overflow_count_ = 0;
                 }
                 chosen = armors[idx];
@@ -203,14 +203,14 @@ GimbalCmd ArmorSolver::solve(
                 control_pitch = fire_pitch;
                 break;
 
-            case TRACKING_CENTER:
+            case gobal::ArmorSloveState::TRACKING_CENTER:
                 if (std::abs(target.v_yaw) < max_tracking_v_yaw_) {
                     ++overflow_count_;
                 } else {
                     overflow_count_ = 0;
                 }
                 if (overflow_count_ > transfer_thresh_) {
-                    state_ = TRACKING_ARMOR;
+                    gobal::armor_slove_state = gobal::ArmorSloveState::TRACKING_ARMOR;
                     overflow_count_ = 0;
                 }
                 chosen = armors[idx];
@@ -247,7 +247,7 @@ GimbalCmd ArmorSolver::solve(
                 break;
 
             default:
-                state_ = TRACKING_ARMOR;
+                gobal::armor_slove_state = gobal::ArmorSloveState::TRACKING_ARMOR;
                 break;
         }
 

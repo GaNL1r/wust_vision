@@ -64,7 +64,7 @@ public:
     // Retrieve a compensated trajectory (same API as before)
     std::vector<std::pair<double, double>> getTrajectory() const noexcept;
 
-    enum State { TRACKING_ARMOR = 0, TRACKING_CENTER = 1 };
+    //enum State { TRACKING_ARMOR = 0, TRACKING_CENTER = 1 };
     double small_shooting_range_w_ = 0.135;
     double small_shooting_range_h_ = 0.135;
     double big_shooting_range_w_ = 0.135;
@@ -135,7 +135,7 @@ private:
     int selectBestTarget(const std::vector<armor::OneTarget>& targets, bool is_target_tracking)
         const noexcept;
 
-    State state_ = TRACKING_ARMOR;
+    //State state_ = TRACKING_ARMOR;
     int overflow_count_ = 0;
     std::array<double, 3> rpy_ { 0, 0, 0 }; // roll, pitch, yaw
     std::string solver_logger = "armor_solver";

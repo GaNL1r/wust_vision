@@ -37,6 +37,7 @@ extern MotionBuffer motion_buffer;
 extern cv::Mat camera_intrinsic;
 extern cv::Mat camera_distortion;
 extern enum AttackState { ATTACKONE, ATTACKWHOLECAR } attack_state;
+extern enum ArmorSloveState { TRACKING_ARMOR = 0, TRACKING_CENTER = 1 } armor_slove_state;
 extern int use_detect_ncnn_count;
 extern std::vector<armor::OneTarget> omni_targets;
 extern GimbalCmd last_cmd;

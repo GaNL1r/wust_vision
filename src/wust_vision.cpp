@@ -1333,26 +1333,64 @@ void WustVision::reloadConfig(
         if (tracker_config && tracker_manager_ && count != 0) {
             auto ekf_config = tracker_config["ekf"];
             if (ekf_config) {
-                utils::tryGetValue<double>(ekf_config, "ys2qx", tracker_manager_->ys2qx_);
-                utils::tryGetValue<double>(ekf_config, "ys2qy", tracker_manager_->ys2qy_);
-                utils::tryGetValue<double>(ekf_config, "ys2qz", tracker_manager_->ys2qz_);
-                utils::tryGetValue<double>(ekf_config, "ys2qyaw", tracker_manager_->ys2qyaw_);
-                utils::tryGetValue<double>(ekf_config, "ys2qr", tracker_manager_->ys2qr_);
-                utils::tryGetValue<double>(ekf_config, "ys2qd_zc", tracker_manager_->ys2qd_zc_);
+                utils::tryGetValue<double>(ekf_config, "ys2qx_a", tracker_manager_->ys2qx_a_);
+                utils::tryGetValue<double>(ekf_config, "ys2qy_a", tracker_manager_->ys2qy_a_);
+                utils::tryGetValue<double>(ekf_config, "ys2qz_a", tracker_manager_->ys2qz_a_);
+                utils::tryGetValue<double>(ekf_config, "ys2qyaw_a", tracker_manager_->ys2qyaw_a_);
+                utils::tryGetValue<double>(ekf_config, "ys2qr_a", tracker_manager_->ys2qr_a_);
+                utils::tryGetValue<double>(ekf_config, "ys2qd_zc_a", tracker_manager_->ys2qd_zc_a_);
 
-                utils::tryGetValue<double>(ekf_config, "yr_y", tracker_manager_->yr_y_);
-                utils::tryGetValue<double>(ekf_config, "yr_p", tracker_manager_->yr_p_);
-                utils::tryGetValue<double>(ekf_config, "yr_d_front", tracker_manager_->yr_d_front_);
-                utils::tryGetValue<double>(ekf_config, "yr_d_side", tracker_manager_->yr_d_side_);
+                utils::tryGetValue<double>(ekf_config, "yr_y_a", tracker_manager_->yr_y_a_);
+                utils::tryGetValue<double>(ekf_config, "yr_p_a", tracker_manager_->yr_p_a_);
                 utils::tryGetValue<double>(
                     ekf_config,
-                    "yr_yaw_front",
-                    tracker_manager_->yr_yaw_front_
+                    "yr_d_front_a",
+                    tracker_manager_->yr_d_front_a_
                 );
                 utils::tryGetValue<double>(
                     ekf_config,
-                    "yr_yaw_side",
-                    tracker_manager_->yr_yaw_side_
+                    "yr_d_side_a",
+                    tracker_manager_->yr_d_side_a_
+                );
+                utils::tryGetValue<double>(
+                    ekf_config,
+                    "yr_yaw_front_a",
+                    tracker_manager_->yr_yaw_front_a_
+                );
+                utils::tryGetValue<double>(
+                    ekf_config,
+                    "yr_yaw_side_a",
+                    tracker_manager_->yr_yaw_side_a_
+                );
+
+                utils::tryGetValue<double>(ekf_config, "ys2qx_c", tracker_manager_->ys2qx_c_);
+                utils::tryGetValue<double>(ekf_config, "ys2qy_c", tracker_manager_->ys2qy_c_);
+                utils::tryGetValue<double>(ekf_config, "ys2qz_c", tracker_manager_->ys2qz_c_);
+                utils::tryGetValue<double>(ekf_config, "ys2qyaw_c", tracker_manager_->ys2qyaw_c_);
+                utils::tryGetValue<double>(ekf_config, "ys2qr_c", tracker_manager_->ys2qr_c_);
+                utils::tryGetValue<double>(ekf_config, "ys2qd_zc_c", tracker_manager_->ys2qd_zc_c_);
+
+                utils::tryGetValue<double>(ekf_config, "yr_y_c", tracker_manager_->yr_y_c_);
+                utils::tryGetValue<double>(ekf_config, "yr_p_c", tracker_manager_->yr_p_c_);
+                utils::tryGetValue<double>(
+                    ekf_config,
+                    "yr_d_front_c",
+                    tracker_manager_->yr_d_front_c_
+                );
+                utils::tryGetValue<double>(
+                    ekf_config,
+                    "yr_d_side_c",
+                    tracker_manager_->yr_d_side_c_
+                );
+                utils::tryGetValue<double>(
+                    ekf_config,
+                    "yr_yaw_front_c",
+                    tracker_manager_->yr_yaw_front_c_
+                );
+                utils::tryGetValue<double>(
+                    ekf_config,
+                    "yr_yaw_side_c",
+                    tracker_manager_->yr_yaw_side_c_
                 );
 
                 utils::tryGetValue<double>(ekf_config, "oys2qx", tracker_manager_->oys2qx_);

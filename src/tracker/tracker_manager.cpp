@@ -54,19 +54,33 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     tracker_->use_esekf_ = use_esekf;
     // EKF 噪声参数
 
-    ys2qx_ = config_["ekf"]["ys2qx"].as<double>(20.0);
-    ys2qy_ = config_["ekf"]["ys2qy"].as<double>(20.0);
-    ys2qz_ = config_["ekf"]["ys2qz"].as<double>(20.0);
-    ys2qyaw_ = config_["ekf"]["ys2qyaw"].as<double>(100.0);
-    ys2qr_ = config_["ekf"]["ys2qr"].as<double>(800.0);
-    ys2qd_zc_ = config_["ekf"]["ys2qd_zc"].as<double>(800.0);
+    ys2qx_a_ = config_["ekf"]["ys2qx_a"].as<double>(20.0);
+    ys2qy_a_ = config_["ekf"]["ys2qy_a"].as<double>(20.0);
+    ys2qz_a_ = config_["ekf"]["ys2qz_a"].as<double>(20.0);
+    ys2qyaw_a_ = config_["ekf"]["ys2qyaw_a"].as<double>(100.0);
+    ys2qr_a_ = config_["ekf"]["ys2qr_a"].as<double>(800.0);
+    ys2qd_zc_a_ = config_["ekf"]["ys2qd_zc_a"].as<double>(800.0);
 
-    yr_y_ = config_["ekf"]["yr_y"].as<double>(0.05);
-    yr_p_ = config_["ekf"]["yr_p"].as<double>(0.05);
-    yr_d_front_ = config_["ekf"]["yr_d_front"].as<double>(0.05);
-    yr_d_side_ = config_["ekf"]["yr_d_side"].as<double>(0.05);
-    yr_yaw_front_ = config_["ekf"]["yr_yaw_front"].as<double>(0.02);
-    yr_yaw_side_ = config_["ekf"]["yr_yaw_side"].as<double>(0.02);
+    yr_y_a_ = config_["ekf"]["yr_y_a"].as<double>(0.05);
+    yr_p_a_ = config_["ekf"]["yr_p_a"].as<double>(0.05);
+    yr_d_front_a_ = config_["ekf"]["yr_d_front_a"].as<double>(0.05);
+    yr_d_side_a_ = config_["ekf"]["yr_d_side_a"].as<double>(0.05);
+    yr_yaw_front_a_ = config_["ekf"]["yr_yaw_front_a"].as<double>(0.02);
+    yr_yaw_side_a_ = config_["ekf"]["yr_yaw_side_a"].as<double>(0.02);
+
+    ys2qx_c_ = config_["ekf"]["ys2qx_c"].as<double>(20.0);
+    ys2qy_c_ = config_["ekf"]["ys2qy_c"].as<double>(20.0);
+    ys2qz_c_ = config_["ekf"]["ys2qz_c"].as<double>(20.0);
+    ys2qyaw_c_ = config_["ekf"]["ys2qyaw_c"].as<double>(100.0);
+    ys2qr_c_ = config_["ekf"]["ys2qr_c"].as<double>(800.0);
+    ys2qd_zc_c_ = config_["ekf"]["ys2qd_zc_c"].as<double>(800.0);
+
+    yr_y_c_ = config_["ekf"]["yr_y_c"].as<double>(0.05);
+    yr_p_c_ = config_["ekf"]["yr_p_c"].as<double>(0.05);
+    yr_d_front_c_ = config_["ekf"]["yr_d_front_c"].as<double>(0.05);
+    yr_d_side_c_ = config_["ekf"]["yr_d_side_c"].as<double>(0.05);
+    yr_yaw_front_c_ = config_["ekf"]["yr_yaw_front_c"].as<double>(0.02);
+    yr_yaw_side_c_ = config_["ekf"]["yr_yaw_side_c"].as<double>(0.02);
 
     oys2qx_ = config_["ekf"]["oys2qx"].as<double>(20.0);
     oys2qy_ = config_["ekf"]["oys2qy"].as<double>(20.0);
@@ -103,8 +117,16 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     };
     auto yu_q = [this]() {
         Eigen::Matrix<double, ypdarmor_motion_model::X_N, ypdarmor_motion_model::X_N> q;
-        double t = dt_, x = ys2qx_, y = ys2qy_, z = ys2qz_, yaw = ys2qyaw_, r = ys2qr_,
-               d_zc = ys2qd_zc_;
+        double t = dt_;
+        double x, y, z, yaw, r, d_zc;
+        if (gobal::armor_slove_state == gobal::ArmorSloveState::TRACKING_ARMOR) {
+            x = ys2qx_a_, y = ys2qy_a_, z = ys2qz_a_, yaw = ys2qyaw_a_, r = ys2qr_a_,
+            d_zc = ys2qd_zc_a_;
+        } else {
+            x = ys2qx_c_, y = ys2qy_c_, z = ys2qz_c_, yaw = ys2qyaw_c_, r = ys2qr_c_,
+            d_zc = ys2qd_zc_c_;
+        }
+
         double q_x_x = pow(t, 4) / 4 * x, q_x_vx = pow(t, 3) / 2 * x, q_vx_vx = pow(t, 2) * x;
         double q_y_y = pow(t, 4) / 4 * y, q_y_vy = pow(t, 3) / 2 * y, q_vy_vy = pow(t, 2) * y;
         double q_z_z = pow(t, 4) / 4 * z, q_z_vz = pow(t, 3) / 2 * z, q_vz_vz = pow(t, 2) * z;
@@ -166,12 +188,19 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
         Eigen::Vector3d dir_gimbal = this->R_gimbal2odom_.transpose() * dir_odom;
 
         double camera_yaw = std::atan2(dir_gimbal.y(), dir_gimbal.x()) * 180.0 / M_PI;
-
+        double ry, rp, rd_front, rd_side, ryaw_front, ryaw_side;
+        if (gobal::armor_slove_state == gobal::ArmorSloveState::TRACKING_ARMOR) {
+            ry = yr_y_a_, rp = yr_p_a_, rd_front = yr_d_front_a_, rd_side = yr_d_side_a_,
+            ryaw_front = yr_yaw_front_a_, ryaw_side = yr_yaw_side_a_;
+        } else {
+            ry = yr_y_c_, rp = yr_p_c_, rd_front = yr_d_front_c_, rd_side = yr_d_side_c_,
+            ryaw_front = yr_yaw_front_c_, ryaw_side = yr_yaw_side_c_;
+        }
         // clang-format off
-        r <<pow(yr_y_ * M_PI / 180.0, 2), 0, 0, 0,
-                0, pow(yr_p_ * M_PI / 180.0, 2) , 0, 0,
-                0, 0, utils::getNoiseVarFromCameraYaw(camera_yaw ,yr_d_front_ , yr_d_side_) * std::abs(z[2]) *std::abs(z[2]), 0,//pnp得到的distance的误差与distance的平方正相关
-                0, 0, 0, utils::getNoiseVarFromCameraYaw(camera_yaw ,yr_yaw_front_ , yr_yaw_side_);//相机系下yaw正对误差大
+        r <<pow(ry * M_PI / 180.0, 2), 0, 0, 0,
+                0, pow(rp * M_PI / 180.0, 2) , 0, 0,
+                0, 0, utils::getNoiseVarFromCameraYaw(camera_yaw ,rd_front , rd_side) * std::abs(z[2]) *std::abs(z[2]), 0,//pnp得到的distance的误差与distance的平方正相关
+                0, 0, 0, utils::getNoiseVarFromCameraYaw(camera_yaw ,ryaw_front , ryaw_side);//相机系下yaw正对误差大
         // clang-format on
         return r;
     };
@@ -206,26 +235,29 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
             const std::unique_ptr<ypdarmor_motion_model::RobotStateESEKF>& esekf) {
             Eigen::VectorXd x1 = ekf->predict();
             Eigen::VectorXd x2 = esekf->predict();
-
-            if (fusion_esekf_ekf) {
-                const double eps = 1e-6;
-                Eigen::MatrixXd P1 = ekf->getPriorCovariance();
-                Eigen::MatrixXd P2 = esekf->getPriorCovariance();
-                Eigen::MatrixXd info1 = P1.inverse();
-                Eigen::MatrixXd info2 = P2.inverse();
-                double norm1 = ekf->getResidualNorm();
-                double norm2 = esekf->getResidualNorm();
-                double w1 = 1.0 / (norm1 + eps);
-                double w2 = 1.0 / (norm2 + eps);
-                double sum_w = w1 + w2;
-                w1 /= sum_w;
-                w2 /= sum_w;
-                Eigen::MatrixXd info_fused = w1 * info1 + w2 * info2;
-                Eigen::MatrixXd P_fused = info_fused.inverse();
-                Eigen::VectorXd x_fused = P_fused * (w1 * info1 * x1 + w2 * info2 * x2);
-                return x_fused;
+            if (gobal::armor_slove_state == gobal::ArmorSloveState::TRACKING_ARMOR) {
+                if (fusion_esekf_ekf) {
+                    const double eps = 1e-6;
+                    Eigen::MatrixXd P1 = ekf->getPriorCovariance();
+                    Eigen::MatrixXd P2 = esekf->getPriorCovariance();
+                    Eigen::MatrixXd info1 = P1.inverse();
+                    Eigen::MatrixXd info2 = P2.inverse();
+                    double norm1 = ekf->getResidualNorm();
+                    double norm2 = esekf->getResidualNorm();
+                    double w1 = 1.0 / (norm1 + eps);
+                    double w2 = 1.0 / (norm2 + eps);
+                    double sum_w = w1 + w2;
+                    w1 /= sum_w;
+                    w2 /= sum_w;
+                    Eigen::MatrixXd info_fused = w1 * info1 + w2 * info2;
+                    Eigen::MatrixXd P_fused = info_fused.inverse();
+                    Eigen::VectorXd x_fused = P_fused * (w1 * info1 * x1 + w2 * info2 * x2);
+                    return x_fused;
+                } else {
+                    return use_esekf ? x2 : x1;
+                }
             } else {
-                return use_esekf ? x2 : x1;
+                return x1;
             }
         };
     auto tracker_update_func =

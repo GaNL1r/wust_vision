@@ -65,6 +65,7 @@ total=$(find .. \
         -name "*.json" -o \
         -name "*.css" -o \
         -name "*.js" -o \
+        -name "*.cu" -o \
         -name "*.txt"\
     \) -exec wc -l {} + | awk 'END{print $1}')
 echo -e "${blue}        $total${reset}"

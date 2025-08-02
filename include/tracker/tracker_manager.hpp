@@ -59,9 +59,11 @@ public:
     int track_one_num_;
     std::vector<std::unique_ptr<OneTracker>> one_trackers_;
 
-    double ys2qx_, ys2qy_, ys2qz_, ys2qyaw_, ys2qr_, ys2qd_zc_;
+    double ys2qx_a_, ys2qy_a_, ys2qz_a_, ys2qyaw_a_, ys2qr_a_, ys2qd_zc_a_;
+    double yr_y_a_, yr_p_a_, yr_d_front_a_, yr_d_side_a_, yr_yaw_front_a_, yr_yaw_side_a_;
+    double ys2qx_c_, ys2qy_c_, ys2qz_c_, ys2qyaw_c_, ys2qr_c_, ys2qd_zc_c_;
+    double yr_y_c_, yr_p_c_, yr_d_front_c_, yr_d_side_c_, yr_yaw_front_c_, yr_yaw_side_c_;
     double oys2qx_, oys2qy_, oys2qz_, oys2qyaw_;
-    double yr_y_, yr_p_, yr_d_front_, yr_d_side_, yr_yaw_front_, yr_yaw_side_;
     double oyr_y_, oyr_p_, oyr_d_front_, oyr_d_side_, oyr_yaw_front_, oyr_yaw_side_;
     double r_v, q_a, q_v;
     double lost_time_thres_;

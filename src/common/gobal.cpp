@@ -27,6 +27,7 @@ MotionBuffer motion_buffer;
 cv::Mat camera_intrinsic;
 cv::Mat camera_distortion;
 AttackState attack_state;
+ArmorSloveState armor_slove_state = TRACKING_ARMOR;
 int use_detect_ncnn_count = 0;
 std::vector<armor::OneTarget> omni_targets;
 GimbalCmd last_cmd;
