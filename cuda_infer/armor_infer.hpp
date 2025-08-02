@@ -51,10 +51,10 @@ GPUGridAndStride* init_grid_strides_on_gpu(
 class CudaInfer {
 public:
     CudaInfer();
-    ~CudaInfer();
+    ~CudaInfer()noexcept;
 
     /// 一次性申请所有 GPU 资源
-    void init(GPUGridAndStride* grid_strides, size_t img_bytes, int max_N);
+    void init(GPUGridAndStride* grid_strides, size_t img_bytes, int max_N,size_t grid_count);
 
     /// 释放所有 GPU 资源
     void release();
@@ -121,6 +121,7 @@ private:
     // 缓冲大小
     size_t buf_image_bytes_;
     int buf_max_N_;
+    size_t grid_count_;
 };
 
 } // namespace armor_cuda_infer

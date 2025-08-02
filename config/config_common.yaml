@@ -1,8 +1,8 @@
 common:
   armor_detect_backend: tensorrt
   rune_detect_backend: tensorrt
-  detect_color: 0
-  init_attack_mode: 0
+  detect_color: 1
+  init_attack_mode: 1
   max_detect_armors: 12
   max_infer_running: 10
   thread_multiplier: 2
@@ -66,7 +66,7 @@ tf:
   gimbal2camera_roll: 0
   gimbal2camera_x: 0.07
   gimbal2camera_y: 0.05
-  gimbal2camera_yaw: 0.5
+  gimbal2camera_yaw: 0.0
   gimbal2camera_z: 0.0
 
 debug:
@@ -118,7 +118,7 @@ armor_solver:
       h_max: 0.4
       h_min: -1
       pitch_off: -1.5
-      yaw_off: 20
+      yaw_off: 0
     - d_max: 7
       d_min: 4
       h_max: 0.4
@@ -131,40 +131,47 @@ armor_tracker:
     use_esekf: false
     fusion_esekf_ekf: true
     iteration_num: 2
+
     oyr_d_front: 0.0002 #1m处
     oyr_d_side: 0.0007 #1m处
     oyr_p: 1 #角度
     oyr_y: 1 #角度
     oyr_yaw_front: 8
     oyr_yaw_side: 5
+
     oys2qx: 40
     oys2qy: 40
     oys2qyaw: 30
     oys2qz: 5
+#----------------
     yr_d_front_a: 0.02 #1m处
     yr_d_side_a: 0.07 #1m处
     yr_p_a: 10 #角度
     yr_y_a: 7 #角度
     yr_yaw_front_a: 8
     yr_yaw_side_a: 8
+
     ys2qd_zc_a: 700
     ys2qr_a: 70
     ys2qx_a: 22
     ys2qy_a: 22
     ys2qyaw_a: 35
     ys2qz_a: 1.0
+#----------------
     yr_d_front_c: 0.02 #1m处
     yr_d_side_c: 0.07 #1m处
     yr_p_c: 10 #角度
     yr_y_c: 7 #角度
     yr_yaw_front_c: 8
     yr_yaw_side_c: 8
+
     ys2qd_zc_c: 700
     ys2qr_c: 70
     ys2qx_c: 22
     ys2qy_c: 22
     ys2qyaw_c: 35
     ys2qz_c: 1.0
+#----------------
     r_v: 20
     q_v: 5.0
     q_a: 1.0

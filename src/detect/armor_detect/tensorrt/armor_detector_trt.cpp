@@ -220,7 +220,8 @@ ArmorDetectTrt::ArmorDetectTrt(
                     strides,
                     num_grid_strides
                 );
-            infer->cuda_infer->init(device_grid_strides, max_input_img, output_sz_ / 21);
+            infer->cuda_infer
+                ->init(device_grid_strides, max_input_img, output_sz_ / 21, num_grid_strides);
             if (!infer->context || !infer->cuda_infer) {
                 WUST_ERROR("TRT") << "create infer failed"
                                   << "index:" << i;
@@ -256,7 +257,8 @@ ArmorDetectTrt::ArmorDetectTrt(
         size_t num_grid_strides = 0;
         armor_cuda_infer::GPUGridAndStride* device_grid_strides =
             armor_cuda_infer::init_grid_strides_on_gpu(INPUT_W, INPUT_W, strides, num_grid_strides);
-        infer->cuda_infer->init(device_grid_strides, max_input_img, output_sz_ / 21);
+        infer->cuda_infer
+            ->init(device_grid_strides, max_input_img, output_sz_ / 21, num_grid_strides);
         if (!infer->context || !infer->cuda_infer) {
             WUST_ERROR("TRT") << "create infer failed";
             return nullptr;

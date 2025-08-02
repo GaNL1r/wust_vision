@@ -303,7 +303,8 @@ RuneDetectorTrt::RuneDetectorTrt(const std::filesystem::path& model_path, const 
                     strides_,
                     num_grid_strides
                 );
-            infer->cuda_infer->init(device_grid_strides, max_input_img, output_sz_ / 15);
+            infer->cuda_infer
+                ->init(device_grid_strides, max_input_img, output_sz_ / 15, num_grid_strides);
             if (!infer->context || !infer->cuda_infer) {
                 WUST_ERROR("TRT") << "create infer failed"
                                   << "index:" << i;
@@ -339,7 +340,8 @@ RuneDetectorTrt::RuneDetectorTrt(const std::filesystem::path& model_path, const 
         size_t num_grid_strides = 0;
         rune_cuda_infer::GPUGridAndStride* device_grid_strides =
             rune_cuda_infer::init_grid_strides_on_gpu(INPUT_W, INPUT_W, strides_, num_grid_strides);
-        infer->cuda_infer->init(device_grid_strides, max_input_img, output_sz_ / 15);
+        infer->cuda_infer
+            ->init(device_grid_strides, max_input_img, output_sz_ / 15, num_grid_strides);
         if (!infer->context || !infer->cuda_infer) {
             WUST_ERROR("TRT") << "create infer failed";
             return nullptr;
