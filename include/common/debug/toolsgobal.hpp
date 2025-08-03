@@ -4,7 +4,41 @@
 #include "detect/mono_measure_tool.hpp"
 #include "tracker/tracker.hpp"
 #include <thread>
+class LatencyAveragerDeque {
+public:
+    explicit LatencyAveragerDeque(size_t window_size = 100): window_size_(window_size) {}
 
+    void add(int64_t latency_ns) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        buffer_.push_back(latency_ns);
+        if (buffer_.size() > window_size_) {
+            buffer_.pop_front();
+        }
+    }
+
+    double average_ms() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (buffer_.empty())
+            return 0.0;
+        int64_t sum = 0;
+        for (auto val: buffer_)
+            sum += val;
+        return static_cast<double>(sum) / buffer_.size() / 1e6;
+    }
+
+    void setWindowSize(size_t new_size) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        window_size_ = new_size;
+        while (buffer_.size() > window_size_) {
+            buffer_.pop_front();
+        }
+    }
+
+private:
+    mutable std::mutex mutex_;
+    std::deque<int64_t> buffer_;
+    size_t window_size_;
+};
 struct DebugLogs {
     std::vector<double> time_log;
     std::vector<double> cmd_yaw_log;
@@ -97,4 +131,5 @@ extern int debug_h;
 
 extern double latency_ms;
 extern double debug_fps;
+extern LatencyAveragerDeque latency_averager;
 } // namespace toolsgobal

@@ -139,6 +139,9 @@ bool WustVision::init() {
                         [frame = std::move(frame), this]() {
                             infer_running_count_++;
                             processImage(frame);
+                            // auto t0 =time_utils::now();
+                            // double time_used = time_utils::durationMs(frame.timestamp, t0);
+                            // std::cout << "time used: " << time_used << std::endl;
                             detect_finish_count_++;
                             infer_running_count_--;
                         },
@@ -483,7 +486,8 @@ void WustVision::armorsCallback(
 
     auto latency_nano =
         std::chrono::duration_cast<std::chrono::nanoseconds>(now - target_.timestamp).count();
-    toolsgobal::latency_ms = static_cast<double>(latency_nano) / 1e6;
+    toolsgobal::latency_averager.add(latency_nano);
+    toolsgobal::latency_ms = toolsgobal::latency_averager.average_ms();
 }
 
 void WustVision::ArmorDetectCallback(
@@ -667,7 +671,8 @@ void WustVision::RuneDetectCallback(std::vector<rune::RuneObject>& objs, const C
 
     auto latency_nano =
         std::chrono::duration_cast<std::chrono::nanoseconds>(now - rune_target.timestamp).count();
-    toolsgobal::latency_ms = static_cast<double>(latency_nano) / 1e6;
+    toolsgobal::latency_averager.add(latency_nano);
+    toolsgobal::latency_ms = toolsgobal::latency_averager.average_ms();
 
     if (gobal::debug_mode) {
         std::lock_guard<std::mutex> target_lock(img_mutex_);

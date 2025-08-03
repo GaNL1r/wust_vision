@@ -19,7 +19,7 @@ struct MovableAtomicBool {
         v.store(b, m);
     }
     bool exchange(bool b, std::memory_order m = std::memory_order_seq_cst) noexcept {
-        return v.exchange(b);
+        return v.exchange(b, m);
     }
 
     MovableAtomicBool(MovableAtomicBool&& o) noexcept: v(o.v.load(std::memory_order_relaxed)) {}
@@ -66,9 +66,9 @@ public:
         params_.logger("AdaptiveResourcePool destroyed.");
     }
 
-    using TaskFn = std::function<void(T&)>;
-
-    void enqueue(TaskFn task) {
+    // 修改为模板，支持可移动但不可拷贝的任务对象
+    template<typename Func>
+    void enqueue(Func&& task) {
         maybeRecover();
 
         for (size_t i = 0; i < resources_.size(); ++i) {
@@ -79,22 +79,24 @@ public:
                 }
 
                 busy_[i].store(true);
-                params_.thread_pool->enqueue([this, i, task]() {
+
+                // 捕获并移动任务对象，保证可移动lambda能正常工作
+                auto task_wrapper = [this, i, task = std::forward<Func>(task)]() mutable {
                     T* res = resources_[i].get();
                     if (!res) {
                         params_.logger("Resource[" + std::to_string(i) + "] is null");
                         busy_[i].store(false);
                         return;
                     }
-
                     try {
                         task(*res);
                     } catch (const std::exception& e) {
                         params_.logger("Task exception: " + std::string(e.what()));
                     }
-
                     busy_[i].store(false);
-                });
+                };
+
+                params_.thread_pool->enqueue(std::move(task_wrapper));
                 return;
             }
         }

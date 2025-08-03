@@ -804,6 +804,8 @@ std::tuple<cv::Point2f, cv::Mat> RuneDetectorTrt::detectRTag(
 }
 void RuneDetectorTrt::pushInput(const CommonFrame& frame) {
     if (infer_pool_) {
-        infer_pool_->enqueue([=](Infer& infer) { this->processCallback(frame, &infer); });
+        infer_pool_->enqueue([this, frame = std::move(frame)](Infer& infer) {
+            this->processCallback(frame, &infer);
+        });
     }
 }

@@ -19,6 +19,7 @@
 #include "NvOnnxParser.h"
 #include "common/gobal.hpp"
 #include "common/logger.hpp"
+#include "common/timer.hpp"
 #include "cuda_runtime_api.h"
 #include <cuda.h>
 #include <device_launch_parameters.h>
@@ -416,7 +417,7 @@ static void buildCpuResult(
 }
 // 推理函数
 bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
-    auto start = std::chrono::high_resolution_clock::now();
+    auto t0 = time_utils::now();
     Eigen::Matrix3f transform_matrix;
     std::vector<armor::ArmorObject> objs_tmp, objs_result;
     std::vector<cv::Rect> rects;
@@ -449,6 +450,7 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
         );
         input_tensor_ptr = device_buffers_[input_idx_];
     }
+    auto t1 = time_utils::now();
     if (infer->context && input_tensor_ptr) {
         infer->context->setTensorAddress("images", input_tensor_ptr);
         infer->context->setTensorAddress("output", device_buffers_[output_idx_]);
@@ -458,6 +460,7 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
             return {};
         }
     }
+    auto t2 = time_utils::now();
     if (infer->cuda_infer && params_.use_cuda_post) {
         auto host_results = infer->cuda_infer->postprocess(
             (float*)device_buffers_[output_idx_],
@@ -480,20 +483,20 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
         objs_result =
             postProcess(objs_tmp, scores, rects, output_buffer_, output_sz_ / 21, transform_matrix);
     }
+    auto t3 = time_utils::now();
+    std::cout << std::fixed << std::setprecision(3) << "pre " << time_utils::durationMs(t0, t1)
+              << " "
+              << "infer " << time_utils::durationMs(t1, t2) << " "
+              << "post " << time_utils::durationMs(t2, t3) << " "
+              << "total " << time_utils::durationMs(t0, t3) << std::endl;
 
-    // 后处理
-
-    auto end = std::chrono::high_resolution_clock::now();
-    // WUST_INFO("TRT") << "TRT"
-    //                  << "Infer time: "
-    //                  << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
-    //         / 1000.0 << "ms";
     std::vector<armor::ArmorObject> armors;
     if (use_armor_detect_common_) {
         armors = armor_detect_common_->detectNet(frame.src_img, objs_result);
         // Call callback function
         if (this->infer_callback_) {
             this->infer_callback_(armors, frame);
+
             return true;
         }
     } else {
@@ -626,6 +629,8 @@ std::vector<armor::ArmorObject> ArmorDetectTrt::postProcess(
 
 void ArmorDetectTrt::pushInput(const CommonFrame& frame) {
     if (infer_pool_) {
-        infer_pool_->enqueue([=](Infer& infer) { this->processCallback(frame, &infer); });
+        infer_pool_->enqueue([this, frame = std::move(frame)](Infer& infer) {
+            this->processCallback(frame, &infer);
+        });
     }
 }

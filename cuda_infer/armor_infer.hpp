@@ -1,12 +1,12 @@
 // armor_cuda_infer.hpp
 #pragma once
 
-#include <Eigen/Dense>
 #include <NvInferRuntime.h>
+#include <Eigen/Dense>
+#include <cuda_fp16.h>
 #include <cuda_runtime.h>
 #include <iostream>
 #include <vector>
-
 namespace armor_cuda_infer {
 
 struct GPUGridAndStride {

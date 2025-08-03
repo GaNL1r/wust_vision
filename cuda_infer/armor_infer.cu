@@ -1,18 +1,24 @@
 // armor_cuda_infer.cu
 #include "armor_infer.hpp"
+#include <cmath>
+#include <cstdio>
+#include <cuda_fp16.h>
 #include <thrust/device_ptr.h>
 #include <thrust/sort.h>
-#include <cstdio>
-#include <cmath>
-
-#define CUDA_CHECK(call) do {                                \
-    cudaError_t err = call;                                  \
-    if (err != cudaSuccess) {                                \
-        fprintf(stderr, "CUDA error at %s:%d: %s\n",         \
-                __FILE__, __LINE__, cudaGetErrorString(err));\
-        exit(EXIT_FAILURE);                                  \
-    }                                                        \
-} while (0)
+#define CUDA_CHECK(call) \
+    do { \
+        cudaError_t err = call; \
+        if (err != cudaSuccess) { \
+            fprintf( \
+                stderr, \
+                "CUDA error at %s:%d: %s\n", \
+                __FILE__, \
+                __LINE__, \
+                cudaGetErrorString(err) \
+            ); \
+            exit(EXIT_FAILURE); \
+        } \
+    } while (0)
 static const int INPUT_W = 416; // Width of input
 static const int INPUT_H = 416; // Height of input
 static constexpr int NUM_CLASSES = 8; // Number of classes
@@ -25,88 +31,127 @@ GPUGridAndStride* init_grid_strides_on_gpu(
     int in_w,
     int in_h,
     const std::vector<int>& strides,
-    size_t& device_grid_count)
-{
+    size_t& device_grid_count
+) {
     std::vector<GPUGridAndStride> host_grid_strides;
-    for (auto stride : strides) {
+    for (auto stride: strides) {
         int num_grid_w = in_w / stride;
         int num_grid_h = in_h / stride;
         for (int y = 0; y < num_grid_h; ++y) {
             for (int x = 0; x < num_grid_w; ++x) {
-                host_grid_strides.emplace_back(GPUGridAndStride{
-                    x,
-                    y,
-                    stride});
+                host_grid_strides.emplace_back(GPUGridAndStride { x, y, stride });
             }
         }
     }
     device_grid_count = host_grid_strides.size();
-    if (device_grid_count == 0) return nullptr;
+    if (device_grid_count == 0)
+        return nullptr;
 
     GPUGridAndStride* device_grid_strides = nullptr;
-    CUDA_CHECK(cudaMalloc(reinterpret_cast<void**>(&device_grid_strides),
-        device_grid_count * sizeof(GPUGridAndStride)));
-    CUDA_CHECK(cudaMemcpy(device_grid_strides, host_grid_strides.data(),
+    CUDA_CHECK(cudaMalloc(
+        reinterpret_cast<void**>(&device_grid_strides),
+        device_grid_count * sizeof(GPUGridAndStride)
+    ));
+    CUDA_CHECK(cudaMemcpy(
+        device_grid_strides,
+        host_grid_strides.data(),
         device_grid_count * sizeof(GPUGridAndStride),
-        cudaMemcpyHostToDevice));
+        cudaMemcpyHostToDevice
+    ));
 
     return device_grid_strides;
 }
 __global__ void check_invalid_objs(GPUArmorObject* objs, int N) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i >= N) return;
+    if (i >= N)
+        return;
 
     if (objs[i].valid && !isfinite(objs[i].confidence)) {
         printf("[GPU] Invalid obj[%d]: valid=%d, conf=%f\n", i, objs[i].valid, objs[i].confidence);
     }
 }
 
+__device__ float3 bilinear_interpolate_rgb(const uchar3* __restrict__ img, int w, int h, float x, float y) {
+    x = fminf(fmaxf(x, 0.f), w - 1.001f);
+    y = fminf(fmaxf(y, 0.f), h - 1.001f);
 
-__device__ float bilinear_interpolate(const unsigned char* img, int w, int h, float x, float y, int c) {
-    x = fminf(fmaxf(x, 0.f), w - 1.f);
-    y = fminf(fmaxf(y, 0.f), h - 1.f);
-    int x0 = floorf(x), x1 = min(x0 + 1, w - 1);
-    int y0 = floorf(y), y1 = min(y0 + 1, h - 1);
+    int x0 = floorf(x), x1 = x0 + 1;
+    int y0 = floorf(y), y1 = y0 + 1;
+
     float dx = x - x0, dy = y - y0;
-    float v00 = img[(y0 * w + x0) * 3 + c];
-    float v01 = img[(y0 * w + x1) * 3 + c];
-    float v10 = img[(y1 * w + x0) * 3 + c];
-    float v11 = img[(y1 * w + x1) * 3 + c];
-    return (1 - dx) * (1 - dy) * v00 + dx * (1 - dy) * v01 + (1 - dx) * dy * v10 + dx * dy * v11;
+    float dx1 = 1.0f - dx, dy1 = 1.0f - dy;
+
+    // 读取四邻域 uchar3
+    uchar3 v00 = img[y0 * w + x0];
+    uchar3 v01 = img[y0 * w + x1];
+    uchar3 v10 = img[y1 * w + x0];
+    uchar3 v11 = img[y1 * w + x1];
+
+    // 对每个通道分别插值
+    float3 out;
+    out.x = dx1 * dy1 * v00.x + dx * dy1 * v01.x + dx1 * dy * v10.x + dx * dy * v11.x;  // B
+    out.y = dx1 * dy1 * v00.y + dx * dy1 * v01.y + dx1 * dy * v10.y + dx * dy * v11.y;  // G
+    out.z = dx1 * dy1 * v00.z + dx * dy1 * v01.z + dx1 * dy * v10.z + dx * dy * v11.z;  // R
+    return out;
 }
 
-__global__ void letterbox_kernel(const unsigned char* input_bgr, int img_w, int img_h, float* output_nchw,
-    int out_w, int out_h, float scale, int pad_top, int pad_left) {
+
+__global__ void letterbox_kernel(
+    const uchar3* __restrict__ input_bgr, int img_w, int img_h,
+    float* __restrict__ output_nchw, int out_w, int out_h,
+    float scale, int pad_top, int pad_left) {
+
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     if (x >= out_w || y >= out_h) return;
+
     float in_x = (x - pad_left) / scale;
     float in_y = (y - pad_top) / scale;
-    bool pad = (in_x < 0 || in_y < 0 || in_x >= img_w || in_y >= img_h);
-    for (int c = 0; c < 3; ++c) {
-        int oc = 2 - c;
-        float v = pad ? 114.f : bilinear_interpolate(input_bgr, img_w, img_h, in_x, in_y, c);
-        output_nchw[oc * out_h * out_w + y * out_w + x] = v;
+    int out_idx = y * out_w + x;
+
+    float3 rgb;
+    if (in_x < 0 || in_y < 0 || in_x >= img_w || in_y >= img_h) {
+        rgb = make_float3(114.f, 114.f, 114.f);
+    } else {
+        rgb = bilinear_interpolate_rgb(input_bgr, img_w, img_h, in_x, in_y);
     }
+
+    // 转 NCHW：RGB 顺序
+    output_nchw[0 * out_h * out_w + out_idx] = rgb.z; // R <- from BGR
+    output_nchw[1 * out_h * out_w + out_idx] = rgb.y; // G
+    output_nchw[2 * out_h * out_w + out_idx] = rgb.x; // B
 }
 
+
+
 __device__ int argmax(const float* ptr, int len) {
-    float m = ptr[0]; int idx = 0;
+    float m = ptr[0];
+    int idx = 0;
     for (int i = 1; i < len; ++i) {
-        if (ptr[i] > m) { m = ptr[i]; idx = i; }
+        if (ptr[i] > m) {
+            m = ptr[i];
+            idx = i;
+        }
     }
     return idx;
 }
 
-__global__ void decode_kernel(const float* output, const GPUGridAndStride* grid_strides,
-    int N, const float* t, GPUArmorObject* results, float conf_thresh) {
-
+__global__ void decode_kernel(
+    const float* output,
+    const GPUGridAndStride* grid_strides,
+    int N,
+    const float* t,
+    GPUArmorObject* results,
+    float conf_thresh
+) {
     __shared__ float tf[9];
-    if (threadIdx.x < 9) tf[threadIdx.x] = t[threadIdx.x];
+    if (threadIdx.x < 9)
+        tf[threadIdx.x] = t[threadIdx.x];
     __syncthreads();
 
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i >= N || output == nullptr || grid_strides == nullptr || results == nullptr) return;
+    if (i >= N || output == nullptr || grid_strides == nullptr || results == nullptr)
+        return;
 
     const float* det = output + i * 21;
     float conf = det[8];
@@ -129,43 +174,46 @@ __global__ void decode_kernel(const float* output, const GPUGridAndStride* grid_
 
     float gx = grid_strides[i].grid0;
     float gy = grid_strides[i].grid1;
-    float s  = grid_strides[i].stride;
+    float s = grid_strides[i].stride;
 
     for (int j = 0; j < 4; ++j) {
         float px = (det[2 * j] + gx) * s;
         float py = (det[2 * j + 1] + gy) * s;
-        float w  = tf[6] * px + tf[7] * py + tf[8];
-        if (fabsf(w) < 1e-6f) w = 1e-6f;
+        float w = tf[6] * px + tf[7] * py + tf[8];
+        if (fabsf(w) < 1e-6f)
+            w = 1e-6f;
         obj.x[j] = (tf[0] * px + tf[1] * py + tf[2]) / w;
         obj.y[j] = (tf[3] * px + tf[4] * py + tf[5]) / w;
     }
 
     obj.confidence = conf;
-    obj.color_id   = argmax(det + 9, NUM_COLORS);
-    obj.number_id  = argmax(det + 9 + NUM_COLORS, NUM_CLASSES);
-    obj.valid      = 1;
-    obj.num_pts    = 4;
+    obj.color_id = argmax(det + 9, NUM_COLORS);
+    obj.number_id = argmax(det + 9 + NUM_COLORS, NUM_CLASSES);
+    obj.valid = 1;
+    obj.num_pts = 4;
 
     results[i] = obj;
 }
 
-
-
 __global__ void clear_invalid_topk(GPUArmorObject* objs, int N, int k) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i >= N) return;
-    if (i >= k) objs[i].valid = 0;
+    if (i >= N)
+        return;
+    if (i >= k)
+        objs[i].valid = 0;
 }
 
 __global__ void nms_kernel(GPUArmorObject* objs, int N, float thresh) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i >= N || !objs[i].valid) return;
+    if (i >= N || !objs[i].valid)
+        return;
 
     GPUArmorObject& a = objs[i];
 
     for (int j = 0; j < i; ++j) {
         GPUArmorObject& b = objs[j];
-        if (!b.valid) continue;
+        if (!b.valid)
+            continue;
 
         if (a.color_id == b.color_id && a.number_id == b.number_id) {
             // Compute IoU
@@ -200,9 +248,16 @@ __global__ void nms_kernel(GPUArmorObject* objs, int N, float thresh) {
 }
 
 CudaInfer::CudaInfer() = default;
-CudaInfer::~CudaInfer() { release(); }
+CudaInfer::~CudaInfer() {
+    release();
+}
 
-void CudaInfer::init(GPUGridAndStride* grid_strides, size_t img_bytes, int max_N,size_t grid_count) {
+void CudaInfer::init(
+    GPUGridAndStride* grid_strides,
+    size_t img_bytes,
+    int max_N,
+    size_t grid_count
+) {
     d_grid_strides_ = grid_strides;
     buf_image_bytes_ = img_bytes;
     buf_max_N_ = max_N;
@@ -214,24 +269,34 @@ void CudaInfer::init(GPUGridAndStride* grid_strides, size_t img_bytes, int max_N
 }
 
 void CudaInfer::release() {
-    if (d_grid_strides_) cudaFree(d_grid_strides_), d_grid_strides_ = nullptr;
-    if (d_input_bgr_) cudaFree(d_input_bgr_), d_input_bgr_ = nullptr;
-    if (d_nchw_) cudaFree(d_nchw_), d_nchw_ = nullptr;
-    if (d_objs_) cudaFree(d_objs_), d_objs_ = nullptr;
-    if (d_tf_) cudaFree(d_tf_), d_tf_ = nullptr;
+    if (d_grid_strides_)
+        cudaFree(d_grid_strides_), d_grid_strides_ = nullptr;
+    if (d_input_bgr_)
+        cudaFree(d_input_bgr_), d_input_bgr_ = nullptr;
+    if (d_nchw_)
+        cudaFree(d_nchw_), d_nchw_ = nullptr;
+    if (d_objs_)
+        cudaFree(d_objs_), d_objs_ = nullptr;
+    if (d_tf_)
+        cudaFree(d_tf_), d_tf_ = nullptr;
 }
 
-float* CudaInfer::preprocess(const unsigned char* input_bgr_host,
-    int img_w, int img_h, Eigen::Matrix3f& tf_matrix,
-    cudaStream_t stream)
-{    if (!isInitialized()) {
-    throw std::runtime_error("CudaInfer not initialized properly.");
-}
+float* CudaInfer::preprocess(
+    const unsigned char* input_bgr_host,
+    int img_w,
+    int img_h,
+    Eigen::Matrix3f& tf_matrix,
+    cudaStream_t stream
+) {
+    if (!isInitialized()) {
+        throw std::runtime_error("CudaInfer not initialized properly.");
+    }
 
     if (!input_bgr_host || !d_input_bgr_ || !d_nchw_) {
         fprintf(stderr, "[Error] Null pointer in postprocess input\n");
         return {};
     }
+
     float scale = fminf(INPUT_W / (float)img_w, INPUT_H / (float)img_h);
     int rw = round(img_w * scale), rh = round(img_h * scale);
     int pad_l = (INPUT_W - rw) / 2, pad_t = (INPUT_H - rh) / 2;
@@ -241,21 +306,35 @@ float* CudaInfer::preprocess(const unsigned char* input_bgr_host,
                  0, 0, 1;
 
     size_t img_size = img_w * img_h * 3;
-    CUDA_CHECK(cudaMemcpyAsync(d_input_bgr_, input_bgr_host, img_size,
-        cudaMemcpyHostToDevice, stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_input_bgr_, input_bgr_host, img_size, cudaMemcpyHostToDevice, stream));
 
     dim3 threads(32, 32);
     dim3 blocks((INPUT_W + 31) / 32, (INPUT_H + 31) / 32);
-    letterbox_kernel<<<blocks, threads, 0, stream>>>(d_input_bgr_, img_w, img_h,
-        d_nchw_, INPUT_W, INPUT_H, scale, pad_t, pad_l);
+    letterbox_kernel<<<blocks, threads, 0, stream>>>(
+        reinterpret_cast<const uchar3*>(d_input_bgr_),
+        img_w,
+        img_h,
+        d_nchw_,
+        INPUT_W,
+        INPUT_H,
+        scale,
+        pad_t,
+        pad_l
+    );
+
     CUDA_CHECK(cudaGetLastError());
     return d_nchw_;
 }
 
+
 std::vector<GPUArmorObject> CudaInfer::postprocess(
-    const float* output, int N, const Eigen::Matrix3f& tfm,
-    float conf_th, float nms_th, int top_k) 
-{
+    const float* output,
+    int N,
+    const Eigen::Matrix3f& tfm,
+    float conf_th,
+    float nms_th,
+    int top_k
+) {
     if (!isInitialized()) {
         throw std::runtime_error("CudaInfer not initialized properly.");
     }
@@ -269,16 +348,14 @@ std::vector<GPUArmorObject> CudaInfer::postprocess(
     }
 
     if (N > (int)buf_max_N_) {
-        std::cerr << "[Warn] Requested N=" << N << " exceeds max buf size=" << buf_max_N_ << ", clamping." << std::endl;
-        N = buf_max_N_;  // truncate to prevent overflow
+        std::cerr << "[Warn] Requested N=" << N << " exceeds max buf size=" << buf_max_N_
+                  << ", clamping." << std::endl;
+        N = buf_max_N_; // truncate to prevent overflow
     }
 
     // Copy TF matrix
-    float h_tf[9] = {
-        tfm(0, 0), tfm(0, 1), tfm(0, 2),
-        tfm(1, 0), tfm(1, 1), tfm(1, 2),
-        tfm(2, 0), tfm(2, 1), tfm(2, 2)
-    };
+    float h_tf[9] = { tfm(0, 0), tfm(0, 1), tfm(0, 2), tfm(1, 0), tfm(1, 1),
+                      tfm(1, 2), tfm(2, 0), tfm(2, 1), tfm(2, 2) };
     CUDA_CHECK(cudaMemcpy(d_tf_, h_tf, sizeof(h_tf), cudaMemcpyHostToDevice));
 
     // Kernel: decode
@@ -308,58 +385,42 @@ std::vector<GPUArmorObject> CudaInfer::postprocess(
     nms_kernel<<<blocks, threads>>>(d_objs_, top_k, nms_th);
     CUDA_CHECK(cudaGetLastError());
 
-
     // Copy back result
     std::vector<GPUArmorObject> results(top_k);
-    CUDA_CHECK(cudaMemcpy(results.data(), d_objs_, top_k * sizeof(GPUArmorObject), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(
+        cudaMemcpy(results.data(), d_objs_, top_k * sizeof(GPUArmorObject), cudaMemcpyDeviceToHost)
+    );
 
     return results;
 }
 
-
-
 std::vector<GPUArmorObject> CudaInfer::process_trt(
-        nvinfer1::IExecutionContext* context,
-        void* device_buffers[2],
-        int input_idx_,
-        int output_idx_,
-        const unsigned char* input_bgr_host,
-        int img_w,
-        int img_h,
-        Eigen::Matrix3f& tf_matrix,
-        cudaStream_t stream,
-        int N,
-        float conf_th,
-        float nms_th,
-        int top_k
-    )
-{
-
-    void* input_tensor_ptr = preprocess(
-        input_bgr_host,
-        img_w,
-        img_h,
-        tf_matrix,
-        stream
-    );
+    nvinfer1::IExecutionContext* context,
+    void* device_buffers[2],
+    int input_idx_,
+    int output_idx_,
+    const unsigned char* input_bgr_host,
+    int img_w,
+    int img_h,
+    Eigen::Matrix3f& tf_matrix,
+    cudaStream_t stream,
+    int N,
+    float conf_th,
+    float nms_th,
+    int top_k
+) {
+    void* input_tensor_ptr = preprocess(input_bgr_host, img_w, img_h, tf_matrix, stream);
 
     context->setTensorAddress("images", input_tensor_ptr);
     context->setTensorAddress("output", device_buffers[output_idx_]);
 
-
     if (!context->enqueueV3(stream)) {
-        std::cerr<<"enqueueV3 failed!";
+        std::cerr << "enqueueV3 failed!";
         return {};
     }
 
-    std::vector<GPUArmorObject> results = postprocess(
-        (float*)device_buffers[output_idx_],
-        N,
-        tf_matrix,
-        conf_th,
-        nms_th,
-        top_k
-    );
+    std::vector<GPUArmorObject> results =
+        postprocess((float*)device_buffers[output_idx_], N, tf_matrix, conf_th, nms_th, top_k);
     return results;
 }
 
