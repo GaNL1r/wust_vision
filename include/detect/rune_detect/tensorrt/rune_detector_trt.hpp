@@ -49,6 +49,7 @@ public:
         double min_free_mem_ratio;
         bool use_cuda_pre = false;
         bool use_cuda_post = false;
+        bool log_time = false;
     };
     struct Infer {
         std::unique_ptr<nvinfer1::IExecutionContext> context;

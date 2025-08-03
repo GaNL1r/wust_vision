@@ -31,6 +31,7 @@ armor_detect:
     min_free_mem_ratio: 0.3
     use_cuda_pre: true
     use_cuda_post: false
+    log_time: false
 
 rune_detector:
   confidence_threshold: 0.5
@@ -43,5 +44,6 @@ rune_detector:
   top_k: 128
   max_infer_running: 4
   min_free_mem_ratio: 0.3
-  use_cuda_pre: false
+  use_cuda_pre: true
   use_cuda_post: false
+  log_time: false

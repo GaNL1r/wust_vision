@@ -1,7 +1,7 @@
 common:
   armor_detect_backend: tensorrt
   rune_detect_backend: tensorrt
-  detect_color: 1
+  detect_color: 0
   init_attack_mode: 0
   max_detect_armors: 12
   max_infer_running: 10
@@ -41,13 +41,13 @@ camera:
     #path: /home/hy/wust_data/video/222.MP4
     #path: /home/hy/wust_data/video/20250726_233351.avi
     #path: /home/hy/wust_data/video/jiao.avi
-    path: /home/hy/data/4k.MP4
-    #path: /home/hy/wust_data/video/rune.mp4
+    #path: /home/hy/data/4k.MP4
+    path: /home/hy/wust_data/video/rune.mp4
     #path: /home/hy/wust_data/video/Sentry.mp4
     start_frame: 0
     alpha: 1.0
     beta: 0
-    use: false
+    use: true
 
 control:
   alpha_pitch: 0.7

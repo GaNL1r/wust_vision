@@ -14,8 +14,6 @@
 // limitations under the License.
 
 #include "detect/armor_detect/tensorrt/armor_detector_trt.hpp"
-#include <fstream>
-
 #include "NvOnnxParser.h"
 #include "common/gobal.hpp"
 #include "common/logger.hpp"
@@ -23,6 +21,7 @@
 #include "cuda_runtime_api.h"
 #include <cuda.h>
 #include <device_launch_parameters.h>
+#include <fstream>
 // #include <logger.h>
 #define TRT_ASSERT(expr) \
     do { \
@@ -484,11 +483,13 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
             postProcess(objs_tmp, scores, rects, output_buffer_, output_sz_ / 21, transform_matrix);
     }
     auto t3 = time_utils::now();
-    std::cout << std::fixed << std::setprecision(3) << "pre " << time_utils::durationMs(t0, t1)
-              << " "
-              << "infer " << time_utils::durationMs(t1, t2) << " "
-              << "post " << time_utils::durationMs(t2, t3) << " "
-              << "total " << time_utils::durationMs(t0, t3) << std::endl;
+    if (params_.log_time) {
+        WUST_INFO("TRT") << std::fixed << std::setprecision(3) << "pre "
+                         << time_utils::durationMs(t0, t1) << " "
+                         << "infer " << time_utils::durationMs(t1, t2) << " "
+                         << "post " << time_utils::durationMs(t2, t3) << " "
+                         << "total " << time_utils::durationMs(t0, t3);
+    }
 
     std::vector<armor::ArmorObject> armors;
     if (use_armor_detect_common_) {

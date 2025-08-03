@@ -4,7 +4,7 @@
 #include <opencv2/core/hal/interface.h>
 #include <thrust/device_ptr.h>
 #include <thrust/sort.h>
-
+#include "letter_box.hpp"
 #define CUDA_CHECK(call) \
     do { \
         cudaError_t err = call; \
@@ -27,6 +27,8 @@ static constexpr int NUM_POINTS = 5;
 static constexpr int NUM_POINTS_2 = 2 * NUM_POINTS;
 static constexpr float MERGE_CONF_ERROR = 0.15;
 static constexpr float MERGE_MIN_IOU = 0.9;
+
+
 namespace rune_cuda_infer {
 GPUGridAndStride* init_grid_strides_on_gpu(
     int in_w,
@@ -91,83 +93,8 @@ __device__ float3 bilinear_interpolate_rgb_fast(const uchar* img, int w, int h, 
 }
 
 
-#define TILE_W 32
-#define TILE_H 32
 
-__global__ void letterbox_kernel_shared(
-    const uchar* __restrict__ input_bgr, int in_w, int in_h,
-    float* __restrict__ output_nchw, int out_w, int out_h,
-    float scale, int pad_t, int pad_l
-) {
-    // 输出图像坐标
-    int x = blockIdx.x * TILE_W + threadIdx.x;
-    int y = blockIdx.y * TILE_H + threadIdx.y;
-    int out_idx = y * out_w + x;
 
-    // 输入图像坐标（浮点）
-    float in_x = (x - pad_l) / scale;
-    float in_y = (y - pad_t) / scale;
-
-    // 线程块内共享内存（RGB 分开存）
-    __shared__ uchar smem_r[TILE_H + 1][TILE_W + 1];
-    __shared__ uchar smem_g[TILE_H + 1][TILE_W + 1];
-    __shared__ uchar smem_b[TILE_H + 1][TILE_W + 1];
-
-    // 加载共享内存中所需的 input patch
-    float patch_x = (blockIdx.x * TILE_W + threadIdx.x - pad_l) / scale;
-    float patch_y = (blockIdx.y * TILE_H + threadIdx.y - pad_t) / scale;
-
-    int px = floorf(patch_x);
-    int py = floorf(patch_y);
-
-    uchar r = 114, g = 114, b = 114;
-    if (px >= 0 && py >= 0 && px < in_w && py < in_h) {
-        int offset = (py * in_w + px) * 3;
-        b = input_bgr[offset + 0];
-        g = input_bgr[offset + 1];
-        r = input_bgr[offset + 2];
-    }
-
-    if (threadIdx.x <= TILE_W && threadIdx.y <= TILE_H) {
-        smem_r[threadIdx.y][threadIdx.x] = r;
-        smem_g[threadIdx.y][threadIdx.x] = g;
-        smem_b[threadIdx.y][threadIdx.x] = b;
-    }
-    __syncthreads();
-
-    if (x >= out_w || y >= out_h) return;
-
-    float3 out_rgb = make_float3(114.f, 114.f, 114.f);
-    if (in_x >= 0 && in_y >= 0 && in_x < in_w - 1 && in_y < in_h - 1) {
-        float dx = in_x - floorf(in_x);
-        float dy = in_y - floorf(in_y);
-        float dx1 = 1.f - dx, dy1 = 1.f - dy;
-
-        // 从共享内存中读取邻域像素
-        uchar v00r = smem_r[threadIdx.y][threadIdx.x];
-        uchar v01r = smem_r[threadIdx.y][threadIdx.x + 1];
-        uchar v10r = smem_r[threadIdx.y + 1][threadIdx.x];
-        uchar v11r = smem_r[threadIdx.y + 1][threadIdx.x + 1];
-
-        uchar v00g = smem_g[threadIdx.y][threadIdx.x];
-        uchar v01g = smem_g[threadIdx.y][threadIdx.x + 1];
-        uchar v10g = smem_g[threadIdx.y + 1][threadIdx.x];
-        uchar v11g = smem_g[threadIdx.y + 1][threadIdx.x + 1];
-
-        uchar v00b = smem_b[threadIdx.y][threadIdx.x];
-        uchar v01b = smem_b[threadIdx.y][threadIdx.x + 1];
-        uchar v10b = smem_b[threadIdx.y + 1][threadIdx.x];
-        uchar v11b = smem_b[threadIdx.y + 1][threadIdx.x + 1];
-
-        out_rgb.x = dx1 * dy1 * v00r + dx * dy1 * v01r + dx1 * dy * v10r + dx * dy * v11r;
-        out_rgb.y = dx1 * dy1 * v00g + dx * dy1 * v01g + dx1 * dy * v10g + dx * dy * v11g;
-        out_rgb.z = dx1 * dy1 * v00b + dx * dy1 * v01b + dx1 * dy * v10b + dx * dy * v11b;
-    }
-
-    output_nchw[out_idx + 0 * out_w * out_h] = out_rgb.x;  // R
-    output_nchw[out_idx + 1 * out_w * out_h] = out_rgb.y;  // G
-    output_nchw[out_idx + 2 * out_w * out_h] = out_rgb.z;  // B
-}
 
 __global__ void init_objs_kernel(GPURuneObject* objs, int N) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -343,6 +270,7 @@ void CudaInfer::init(
     grid_count_ = grid_count;
     CUDA_CHECK(cudaMalloc(&d_input_bgr_, buf_image_bytes_));
     CUDA_CHECK(cudaMalloc(&d_nchw_, INPUT_W * INPUT_H * 3 * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(&d_input_float4_, buf_image_bytes_*sizeof(float4)));
     CUDA_CHECK(cudaMalloc(&d_objs_, buf_max_N_ * sizeof(GPURuneObject)));
     CUDA_CHECK(cudaMalloc(&d_tf_, 9 * sizeof(float)));
 }
@@ -350,6 +278,8 @@ void CudaInfer::init(
 void CudaInfer::release() {
     if (d_grid_strides_)
         cudaFree(d_grid_strides_), d_grid_strides_ = nullptr;
+    if (d_input_float4_)
+        cudaFree(d_input_float4_), d_input_float4_ = nullptr;
     if (d_input_bgr_)
         cudaFree(d_input_bgr_), d_input_bgr_ = nullptr;
     if (d_nchw_)
@@ -367,30 +297,75 @@ float* CudaInfer::preprocess(
     Eigen::Matrix3f& tf_matrix,
     cudaStream_t stream
 ) {
+    if (!isInitialized()) {
+        throw std::runtime_error("CudaInfer not initialized properly.");
+    }
+
+    if (!input_bgr_host || !d_input_bgr_ || !d_nchw_) {
+        fprintf(stderr, "[Error] Null pointer in preprocess input\n");
+        return nullptr;
+    }
+
     float scale = fminf(INPUT_W / (float)img_w, INPUT_H / (float)img_h);
     int rw = round(img_w * scale), rh = round(img_h * scale);
     int pad_l = (INPUT_W - rw) / 2, pad_t = (INPUT_H - rh) / 2;
 
-    tf_matrix << 1.f / scale, 0, -pad_l / scale, 0, 1.f / scale, -pad_t / scale, 0, 0, 1;
+    tf_matrix << 1.f / scale, 0, -pad_l / scale,
+                 0, 1.f / scale, -pad_t / scale,
+                 0, 0, 1;
 
     size_t img_size = img_w * img_h * 3;
-    CUDA_CHECK(
-        cudaMemcpyAsync(d_input_bgr_, input_bgr_host, img_size, cudaMemcpyHostToDevice, stream)
-    );
+    CUDA_CHECK(cudaMemcpyAsync(d_input_bgr_, input_bgr_host, img_size, cudaMemcpyHostToDevice, stream));
 
     dim3 threads(TILE_W, TILE_H);
     dim3 blocks((INPUT_W + TILE_W - 1) / TILE_W, (INPUT_H + TILE_H - 1) / TILE_H);
-    letterbox_kernel_shared<<<blocks, threads, 0, stream>>>(
-        d_input_bgr_,
-        img_w, img_h,
-        d_nchw_,
-        INPUT_W, INPUT_H,
-        scale,
-        pad_t, pad_l
-    );
+
+    switch (preprocess_mode_) {
+        case PreprocessMode::SharedMemory:
+            letterbox_kernel_shared<<<blocks, threads, 0, stream>>>(
+                d_input_bgr_, img_w, img_h,
+                d_nchw_,
+                INPUT_W, INPUT_H,
+                scale, pad_t, pad_l
+            );
+            break;
+
+        case PreprocessMode::TextureMemory: {
+            // 先将 uchar3 BGR 转 float4
+            dim3 cvt_blocks((img_w + TILE_W - 1) / TILE_W, (img_h + TILE_H - 1) / TILE_H);
+            convertBGRUcharToFloat4Kernel<<<cvt_blocks, threads, 0, stream>>>(
+                d_input_bgr_, d_input_float4_, img_w, img_h
+            );
+
+            // 创建纹理对象
+            cudaTextureObject_t texture = createTextureObject(d_input_float4_, img_w, img_h);
+
+            letterbox_kernel_texture<<<blocks, threads, 0, stream>>>(
+                d_nchw_,
+                INPUT_W, INPUT_H,
+                scale, pad_t, pad_l,
+                texture
+            );
+
+            cudaDestroyTextureObject(texture);
+            break;
+        }
+
+        case PreprocessMode::GlobalMemory:
+            letterbox_kernel_uchar_textureless<<<blocks, threads, 0, stream>>>(
+                d_input_bgr_,
+                d_nchw_,
+                img_w, img_h,
+                INPUT_W, INPUT_H,
+                scale, pad_t, pad_l
+            );
+            break;
+    }
+
     CUDA_CHECK(cudaGetLastError());
     return d_nchw_;
 }
+
 std::vector<GPURuneObject> CudaInfer::postprocess(
     const float* output,
     int N,

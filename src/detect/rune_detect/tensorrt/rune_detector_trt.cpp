@@ -560,11 +560,13 @@ bool RuneDetectorTrt::processCallback(const CommonFrame& frame, Infer* infer) {
     }
 
     auto t3 = time_utils::now();
-    std::cout << std::fixed << std::setprecision(3) << "pre " << time_utils::durationMs(t0, t1)
-              << " "
-              << "infer " << time_utils::durationMs(t1, t2) << " "
-              << "post " << time_utils::durationMs(t2, t3) << " "
-              << "total " << time_utils::durationMs(t0, t3) << std::endl;
+    if (params_.log_time) {
+        WUST_INFO("TRT") << std::fixed << std::setprecision(3) << "pre "
+                         << time_utils::durationMs(t0, t1) << " "
+                         << "infer " << time_utils::durationMs(t1, t2) << " "
+                         << "post " << time_utils::durationMs(t2, t3) << " "
+                         << "total " << time_utils::durationMs(t0, t3);
+    }
 
     objs_result.erase(
         std::remove_if(
