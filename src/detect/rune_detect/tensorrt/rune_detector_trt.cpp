@@ -24,6 +24,7 @@
 #include "NvOnnxParser.h"
 #include "common/gobal.hpp"
 #include "common/logger.hpp"
+#include "common/timer.hpp"
 #include "fmt/core.h"
 #include "type/type.hpp"
 
@@ -490,7 +491,7 @@ static void buildCpuResult(
     }
 }
 bool RuneDetectorTrt::processCallback(const CommonFrame& frame, Infer* infer) {
-    auto start = std::chrono::steady_clock::now();
+    auto t0 = time_utils::now();
     Eigen::Matrix3f transform_matrix;
     std::vector<rune::RuneObject> objs_tmp, objs_result;
     std::vector<cv::Rect> rects;
@@ -524,6 +525,7 @@ bool RuneDetectorTrt::processCallback(const CommonFrame& frame, Infer* infer) {
         );
         input_tensor_ptr = device_buffers_[input_idx_];
     }
+    auto t1 = time_utils::now();
     if (infer->context && input_tensor_ptr) {
         infer->context->setTensorAddress("images", input_tensor_ptr);
         infer->context->setTensorAddress("output", device_buffers_[output_idx_]);
@@ -533,6 +535,7 @@ bool RuneDetectorTrt::processCallback(const CommonFrame& frame, Infer* infer) {
             return {};
         }
     }
+    auto t2 = time_utils::now();
     if (infer->cuda_infer && params_.use_cuda_post) {
         auto host_results = infer->cuda_infer->postprocess(
             (float*)device_buffers_[output_idx_],
@@ -556,27 +559,12 @@ bool RuneDetectorTrt::processCallback(const CommonFrame& frame, Infer* infer) {
             postProcess(objs_tmp, scores, rects, output_buffer_, output_sz_ / 15, transform_matrix);
     }
 
-    auto host_results = infer->cuda_infer->process_trt(
-        infer->context.get(),
-        device_buffers_,
-        input_idx_,
-        output_idx_,
-        frame.src_img.data,
-        frame.src_img.cols,
-        frame.src_img.rows,
-        transform_matrix,
-        stream_,
-        output_sz_ / 15,
-        params_.conf_threshold,
-        params_.nms_threshold,
-        params_.top_k
-    );
-
-    auto end = std::chrono::steady_clock::now();
-    // WUST_INFO("TRT") << "TRT"
-    //                  << "Infer time: "
-    //                  << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
-    //         / 1000.0 << "ms";
+    auto t3 = time_utils::now();
+    std::cout << std::fixed << std::setprecision(3) << "pre " << time_utils::durationMs(t0, t1)
+              << " "
+              << "infer " << time_utils::durationMs(t1, t2) << " "
+              << "post " << time_utils::durationMs(t2, t3) << " "
+              << "total " << time_utils::durationMs(t0, t3) << std::endl;
 
     objs_result.erase(
         std::remove_if(

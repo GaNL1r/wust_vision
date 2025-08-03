@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cuda_fp16.h>
+#include <opencv2/core/hal/interface.h>
 #include <thrust/device_ptr.h>
 #include <thrust/sort.h>
 #define CUDA_CHECK(call) \
@@ -71,7 +72,7 @@ __global__ void check_invalid_objs(GPUArmorObject* objs, int N) {
     }
 }
 
-__device__ float3 bilinear_interpolate_rgb(const uchar3* __restrict__ img, int w, int h, float x, float y) {
+__device__ float3 bilinear_interpolate_rgb_fast(const uchar* img, int w, int h, float x, float y) {
     x = fminf(fmaxf(x, 0.f), w - 1.001f);
     y = fminf(fmaxf(y, 0.f), h - 1.001f);
 
@@ -79,47 +80,103 @@ __device__ float3 bilinear_interpolate_rgb(const uchar3* __restrict__ img, int w
     int y0 = floorf(y), y1 = y0 + 1;
 
     float dx = x - x0, dy = y - y0;
-    float dx1 = 1.0f - dx, dy1 = 1.0f - dy;
+    float dx1 = 1.f - dx, dy1 = 1.f - dy;
 
-    // 读取四邻域 uchar3
-    uchar3 v00 = img[y0 * w + x0];
-    uchar3 v01 = img[y0 * w + x1];
-    uchar3 v10 = img[y1 * w + x0];
-    uchar3 v11 = img[y1 * w + x1];
+    const int s0 = (y0 * w + x0) * 3;
+    const int s1 = (y0 * w + x1) * 3;
+    const int s2 = (y1 * w + x0) * 3;
+    const int s3 = (y1 * w + x1) * 3;
 
-    // 对每个通道分别插值
     float3 out;
-    out.x = dx1 * dy1 * v00.x + dx * dy1 * v01.x + dx1 * dy * v10.x + dx * dy * v11.x;  // B
-    out.y = dx1 * dy1 * v00.y + dx * dy1 * v01.y + dx1 * dy * v10.y + dx * dy * v11.y;  // G
-    out.z = dx1 * dy1 * v00.z + dx * dy1 * v01.z + dx1 * dy * v10.z + dx * dy * v11.z;  // R
+    #pragma unroll
+    for (int c = 0; c < 3; ++c) {
+        float v00 = img[s0 + c];
+        float v01 = img[s1 + c];
+        float v10 = img[s2 + c];
+        float v11 = img[s3 + c];
+        float val = dx1 * dy1 * v00 + dx * dy1 * v01 + dx1 * dy * v10 + dx * dy * v11;
+        (&out.x)[c] = val;
+    }
     return out;
 }
 
 
-__global__ void letterbox_kernel(
-    const uchar3* __restrict__ input_bgr, int img_w, int img_h,
+#define TILE_W 32
+#define TILE_H 32
+
+__global__ void letterbox_kernel_shared(
+    const uchar* __restrict__ input_bgr, int in_w, int in_h,
     float* __restrict__ output_nchw, int out_w, int out_h,
-    float scale, int pad_top, int pad_left) {
-
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= out_w || y >= out_h) return;
-
-    float in_x = (x - pad_left) / scale;
-    float in_y = (y - pad_top) / scale;
+    float scale, int pad_t, int pad_l
+) {
+    // 输出图像坐标
+    int x = blockIdx.x * TILE_W + threadIdx.x;
+    int y = blockIdx.y * TILE_H + threadIdx.y;
     int out_idx = y * out_w + x;
 
-    float3 rgb;
-    if (in_x < 0 || in_y < 0 || in_x >= img_w || in_y >= img_h) {
-        rgb = make_float3(114.f, 114.f, 114.f);
-    } else {
-        rgb = bilinear_interpolate_rgb(input_bgr, img_w, img_h, in_x, in_y);
+    // 输入图像坐标（浮点）
+    float in_x = (x - pad_l) / scale;
+    float in_y = (y - pad_t) / scale;
+
+    // 线程块内共享内存（RGB 分开存）
+    __shared__ uchar smem_r[TILE_H + 1][TILE_W + 1];
+    __shared__ uchar smem_g[TILE_H + 1][TILE_W + 1];
+    __shared__ uchar smem_b[TILE_H + 1][TILE_W + 1];
+
+    // 加载共享内存中所需的 input patch
+    float patch_x = (blockIdx.x * TILE_W + threadIdx.x - pad_l) / scale;
+    float patch_y = (blockIdx.y * TILE_H + threadIdx.y - pad_t) / scale;
+
+    int px = floorf(patch_x);
+    int py = floorf(patch_y);
+
+    uchar r = 114, g = 114, b = 114;
+    if (px >= 0 && py >= 0 && px < in_w && py < in_h) {
+        int offset = (py * in_w + px) * 3;
+        b = input_bgr[offset + 0];
+        g = input_bgr[offset + 1];
+        r = input_bgr[offset + 2];
     }
 
-    // 转 NCHW：RGB 顺序
-    output_nchw[0 * out_h * out_w + out_idx] = rgb.z; // R <- from BGR
-    output_nchw[1 * out_h * out_w + out_idx] = rgb.y; // G
-    output_nchw[2 * out_h * out_w + out_idx] = rgb.x; // B
+    if (threadIdx.x <= TILE_W && threadIdx.y <= TILE_H) {
+        smem_r[threadIdx.y][threadIdx.x] = r;
+        smem_g[threadIdx.y][threadIdx.x] = g;
+        smem_b[threadIdx.y][threadIdx.x] = b;
+    }
+    __syncthreads();
+
+    if (x >= out_w || y >= out_h) return;
+
+    float3 out_rgb = make_float3(114.f, 114.f, 114.f);
+    if (in_x >= 0 && in_y >= 0 && in_x < in_w - 1 && in_y < in_h - 1) {
+        float dx = in_x - floorf(in_x);
+        float dy = in_y - floorf(in_y);
+        float dx1 = 1.f - dx, dy1 = 1.f - dy;
+
+        // 从共享内存中读取邻域像素
+        uchar v00r = smem_r[threadIdx.y][threadIdx.x];
+        uchar v01r = smem_r[threadIdx.y][threadIdx.x + 1];
+        uchar v10r = smem_r[threadIdx.y + 1][threadIdx.x];
+        uchar v11r = smem_r[threadIdx.y + 1][threadIdx.x + 1];
+
+        uchar v00g = smem_g[threadIdx.y][threadIdx.x];
+        uchar v01g = smem_g[threadIdx.y][threadIdx.x + 1];
+        uchar v10g = smem_g[threadIdx.y + 1][threadIdx.x];
+        uchar v11g = smem_g[threadIdx.y + 1][threadIdx.x + 1];
+
+        uchar v00b = smem_b[threadIdx.y][threadIdx.x];
+        uchar v01b = smem_b[threadIdx.y][threadIdx.x + 1];
+        uchar v10b = smem_b[threadIdx.y + 1][threadIdx.x];
+        uchar v11b = smem_b[threadIdx.y + 1][threadIdx.x + 1];
+
+        out_rgb.x = dx1 * dy1 * v00r + dx * dy1 * v01r + dx1 * dy * v10r + dx * dy * v11r;
+        out_rgb.y = dx1 * dy1 * v00g + dx * dy1 * v01g + dx1 * dy * v10g + dx * dy * v11g;
+        out_rgb.z = dx1 * dy1 * v00b + dx * dy1 * v01b + dx1 * dy * v10b + dx * dy * v11b;
+    }
+
+    output_nchw[out_idx + 0 * out_w * out_h] = out_rgb.x;  // R
+    output_nchw[out_idx + 1 * out_w * out_h] = out_rgb.y;  // G
+    output_nchw[out_idx + 2 * out_w * out_h] = out_rgb.z;  // B
 }
 
 
@@ -293,7 +350,7 @@ float* CudaInfer::preprocess(
     }
 
     if (!input_bgr_host || !d_input_bgr_ || !d_nchw_) {
-        fprintf(stderr, "[Error] Null pointer in postprocess input\n");
+        fprintf(stderr, "[Error] Null pointer in preprocess input\n");
         return {};
     }
 
@@ -305,26 +362,30 @@ float* CudaInfer::preprocess(
                  0, 1.f / scale, -pad_t / scale,
                  0, 0, 1;
 
-    size_t img_size = img_w * img_h * 3;
+    size_t pitch = img_w * 3;
+    size_t img_size = pitch * img_h;
+
+    // 建议：检查是否连续
+    // assert(cv::Mat.isContinuous());
     CUDA_CHECK(cudaMemcpyAsync(d_input_bgr_, input_bgr_host, img_size, cudaMemcpyHostToDevice, stream));
 
-    dim3 threads(32, 32);
-    dim3 blocks((INPUT_W + 31) / 32, (INPUT_H + 31) / 32);
-    letterbox_kernel<<<blocks, threads, 0, stream>>>(
-        reinterpret_cast<const uchar3*>(d_input_bgr_),
-        img_w,
-        img_h,
+
+    dim3 threads(TILE_W, TILE_H);
+    dim3 blocks((INPUT_W + TILE_W - 1) / TILE_W, (INPUT_H + TILE_H - 1) / TILE_H);
+    letterbox_kernel_shared<<<blocks, threads, 0, stream>>>(
+        d_input_bgr_,
+        img_w, img_h,
         d_nchw_,
-        INPUT_W,
-        INPUT_H,
+        INPUT_W, INPUT_H,
         scale,
-        pad_t,
-        pad_l
+        pad_t, pad_l
     );
+
 
     CUDA_CHECK(cudaGetLastError());
     return d_nchw_;
 }
+
 
 
 std::vector<GPUArmorObject> CudaInfer::postprocess(
