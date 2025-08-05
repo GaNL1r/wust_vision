@@ -48,7 +48,7 @@ public:
     std::vector<armor::ArmorObject> detect(const cv::Mat& input) noexcept;
     void pushInput(const CommonFrame& frame);
 
-    cv::Mat preprocessImage(const cv::Mat& input, cv::Mat& gray_img_) noexcept;
+    std::tuple<cv::Mat, cv::Mat> preprocessImage(const cv::Mat& input) noexcept;
     std::vector<armor::Light>
     findLights(const cv::Mat& rbg_img, const cv::Mat& binary_img) noexcept;
     std::vector<armor::ArmorObject> matchLights(const std::vector<armor::Light>& lights) noexcept;

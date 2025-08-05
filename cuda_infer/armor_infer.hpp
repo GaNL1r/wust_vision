@@ -53,11 +53,7 @@ GPUGridAndStride* init_grid_strides_on_gpu(
     const std::vector<int>& strides,
     size_t& device_grid_count
 );
-enum class PreprocessMode {
-    SharedMemory,
-    TextureMemory,
-    GlobalMemory
-};
+enum class PreprocessMode { SharedMemory, TextureMemory, GlobalMemory };
 
 class CudaInfer {
 public:
@@ -120,7 +116,9 @@ public:
         float nms_th,
         int top_k
     );
-    void setPreprocessMode(PreprocessMode mode) { preprocess_mode_ = mode; }
+    void setPreprocessMode(PreprocessMode mode) {
+        preprocess_mode_ = mode;
+    }
 
 private:
     // 禁用拷贝

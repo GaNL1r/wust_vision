@@ -34,15 +34,15 @@ __global__ void letterbox_kernel_shared(
 
             float in_x = block_start_x + sx * inv_scale;
             float in_y = block_start_y + sy * inv_scale;
-            int ix = (int)in_x;  // 等价 floorf(in_x) if in_x>=0
+            int ix = (int)in_x; // 等价 floorf(in_x) if in_x>=0
             int iy = (int)in_y;
 
             uchar4 p = make_uchar4(114, 114, 114, 0); // padding color BGR + unused
             if (ix >= 0 && iy >= 0 && ix < in_w && iy < in_h) {
                 int offset = (iy * in_w + ix) * 3;
-                p.x = input_bgr[offset];       // b
-                p.y = input_bgr[offset + 1];   // g
-                p.z = input_bgr[offset + 2];   // r
+                p.x = input_bgr[offset]; // b
+                p.y = input_bgr[offset + 1]; // g
+                p.z = input_bgr[offset + 2]; // r
             }
             smem[sy][sx] = p;
         }
@@ -73,17 +73,19 @@ __global__ void letterbox_kernel_shared(
 __global__ void convertBGRUcharToFloat4Kernel(
     const unsigned char* __restrict__ input_bgr,
     float4* __restrict__ output_float4,
-    int width, int height
+    int width,
+    int height
 ) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= width || y >= height) return;
+    if (x >= width || y >= height)
+        return;
 
     int idx = y * width + x;
     int bgr_idx = idx * 3;
 
     float4 p;
-    p.x = static_cast<float>(input_bgr[bgr_idx]);     // B
+    p.x = static_cast<float>(input_bgr[bgr_idx]); // B
     p.y = static_cast<float>(input_bgr[bgr_idx + 1]); // G
     p.z = static_cast<float>(input_bgr[bgr_idx + 2]); // R
     p.w = 1.0f; // unused
@@ -102,7 +104,8 @@ __global__ void letterbox_kernel_texture(
 ) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= out_w || y >= out_h) return;
+    if (x >= out_w || y >= out_h)
+        return;
 
     float inv_scale = 1.0f / scale;
 
@@ -119,13 +122,18 @@ __global__ void letterbox_kernel_texture(
 __global__ void letterbox_kernel_uchar_textureless(
     const uchar* __restrict__ input_bgr,
     float* __restrict__ output_nchw,
-    int in_w, int in_h,
-    int out_w, int out_h,
-    float scale, int pad_t, int pad_l
+    int in_w,
+    int in_h,
+    int out_w,
+    int out_h,
+    float scale,
+    int pad_t,
+    int pad_l
 ) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= out_w || y >= out_h) return;
+    if (x >= out_w || y >= out_h)
+        return;
 
     float inv_scale = 1.f / scale;
     float fx = (x - pad_l + 0.5f) * inv_scale - 0.5f;
@@ -136,32 +144,30 @@ __global__ void letterbox_kernel_uchar_textureless(
     float dx = fx - x0, dy = fy - y0;
     float dx1 = 1.f - dx, dy1 = 1.f - dy;
 
-    float3 p00 = {114, 114, 114}, p01 = p00, p10 = p00, p11 = p00;
+    float3 p00 = { 114, 114, 114 }, p01 = p00, p10 = p00, p11 = p00;
 
-    #define GET_PIXEL(xx, yy) \
-        ((xx) >= 0 && (xx) < in_w && (yy) >= 0 && (yy) < in_h ? \
-        make_float3( \
-            input_bgr[((yy)*in_w + (xx)) * 3 + 0], \
-            input_bgr[((yy)*in_w + (xx)) * 3 + 1], \
-            input_bgr[((yy)*in_w + (xx)) * 3 + 2]) : p00)
+#define GET_PIXEL(xx, yy) \
+    ((xx) >= 0 && (xx) < in_w && (yy) >= 0 && (yy) < in_h ? make_float3( \
+         input_bgr[((yy)*in_w + (xx)) * 3 + 0], \
+         input_bgr[((yy)*in_w + (xx)) * 3 + 1], \
+         input_bgr[((yy)*in_w + (xx)) * 3 + 2] \
+     ) \
+                                                          : p00)
 
     p00 = GET_PIXEL(x0, y0);
     p01 = GET_PIXEL(x1, y0);
     p10 = GET_PIXEL(x0, y1);
     p11 = GET_PIXEL(x1, y1);
 
-    float3 rgb = {
-        dx1 * dy1 * p00.z + dx * dy1 * p01.z + dx1 * dy * p10.z + dx * dy * p11.z,
-        dx1 * dy1 * p00.y + dx * dy1 * p01.y + dx1 * dy * p10.y + dx * dy * p11.y,
-        dx1 * dy1 * p00.x + dx * dy1 * p01.x + dx1 * dy * p10.x + dx * dy * p11.x
-    };
+    float3 rgb = { dx1 * dy1 * p00.z + dx * dy1 * p01.z + dx1 * dy * p10.z + dx * dy * p11.z,
+                   dx1 * dy1 * p00.y + dx * dy1 * p01.y + dx1 * dy * p10.y + dx * dy * p11.y,
+                   dx1 * dy1 * p00.x + dx * dy1 * p01.x + dx1 * dy * p10.x + dx * dy * p11.x };
 
     int out_idx = y * out_w + x;
     output_nchw[out_idx + 0 * out_w * out_h] = rgb.x;
     output_nchw[out_idx + 1 * out_w * out_h] = rgb.y;
     output_nchw[out_idx + 2 * out_w * out_h] = rgb.z;
 }
-
 
 // 主机端准备纹理对象的函数示例
 cudaTextureObject_t createTextureObject(float4* d_img, int width, int height) {
@@ -184,4 +190,3 @@ cudaTextureObject_t createTextureObject(float4* d_img, int width, int height) {
     cudaCreateTextureObject(&texObj, &resDesc, &texDesc, nullptr);
     return texObj;
 }
-

@@ -16,6 +16,7 @@
 #include "detect/armor_detect/light_corner_corrector.hpp"
 #include "detect/armor_detect/number_classifier.hpp"
 #include "type/type.hpp"
+#include <opencv2/cudaimgproc.hpp>
 struct ArmorDetectCommonParams {
     std::string classify_model_path;
     std::string classify_label_path;

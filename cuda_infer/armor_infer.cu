@@ -1,12 +1,12 @@
 // armor_cuda_infer.cu
 #include "armor_infer.hpp"
+#include "letter_box.hpp"
 #include <cmath>
 #include <cstdio>
 #include <cuda_fp16.h>
 #include <opencv2/core/hal/interface.h>
 #include <thrust/device_ptr.h>
 #include <thrust/sort.h>
-#include "letter_box.hpp"
 #define CUDA_CHECK(call) \
     do { \
         cudaError_t err = call; \
@@ -27,7 +27,6 @@ static constexpr int NUM_CLASSES = 8; // Number of classes
 static constexpr int NUM_COLORS = 4; // Number of color
 static constexpr float MERGE_CONF_ERROR = 0.15;
 static constexpr float MERGE_MIN_IOU = 0.9;
-
 
 namespace armor_cuda_infer {
 
@@ -102,9 +101,6 @@ __device__ float3 bilinear_interpolate_rgb_fast(const uchar* img, int w, int h, 
     }
     return out;
 }
-
-
-
 
 __device__ int argmax(const float* ptr, int len) {
     float m = ptr[0];
@@ -245,7 +241,7 @@ void CudaInfer::init(
     buf_max_N_ = max_N;
     grid_count_ = grid_count;
     CUDA_CHECK(cudaMalloc(&d_input_bgr_, buf_image_bytes_));
-    CUDA_CHECK(cudaMalloc(&d_input_float4_, buf_image_bytes_*sizeof(float4)));
+    CUDA_CHECK(cudaMalloc(&d_input_float4_, buf_image_bytes_ * sizeof(float4)));
     CUDA_CHECK(cudaMalloc(&d_nchw_, INPUT_W * INPUT_H * 3 * sizeof(float)));
     CUDA_CHECK(cudaMalloc(&d_objs_, buf_max_N_ * sizeof(GPUArmorObject)));
     CUDA_CHECK(cudaMalloc(&d_tf_, 9 * sizeof(float)));
@@ -286,12 +282,12 @@ float* CudaInfer::preprocess(
     int rw = round(img_w * scale), rh = round(img_h * scale);
     int pad_l = (INPUT_W - rw) / 2, pad_t = (INPUT_H - rh) / 2;
 
-    tf_matrix << 1.f / scale, 0, -pad_l / scale,
-                 0, 1.f / scale, -pad_t / scale,
-                 0, 0, 1;
+    tf_matrix << 1.f / scale, 0, -pad_l / scale, 0, 1.f / scale, -pad_t / scale, 0, 0, 1;
 
     size_t img_size = img_w * img_h * 3;
-    CUDA_CHECK(cudaMemcpyAsync(d_input_bgr_, input_bgr_host, img_size, cudaMemcpyHostToDevice, stream));
+    CUDA_CHECK(
+        cudaMemcpyAsync(d_input_bgr_, input_bgr_host, img_size, cudaMemcpyHostToDevice, stream)
+    );
 
     dim3 threads(TILE_W, TILE_H);
     dim3 blocks((INPUT_W + TILE_W - 1) / TILE_W, (INPUT_H + TILE_H - 1) / TILE_H);
@@ -299,10 +295,15 @@ float* CudaInfer::preprocess(
     switch (preprocess_mode_) {
         case PreprocessMode::SharedMemory:
             letterbox_kernel_shared<<<blocks, threads, 0, stream>>>(
-                d_input_bgr_, img_w, img_h,
+                d_input_bgr_,
+                img_w,
+                img_h,
                 d_nchw_,
-                INPUT_W, INPUT_H,
-                scale, pad_t, pad_l
+                INPUT_W,
+                INPUT_H,
+                scale,
+                pad_t,
+                pad_l
             );
             break;
 
@@ -310,7 +311,10 @@ float* CudaInfer::preprocess(
             // 先将 uchar3 BGR 转 float4
             dim3 cvt_blocks((img_w + TILE_W - 1) / TILE_W, (img_h + TILE_H - 1) / TILE_H);
             convertBGRUcharToFloat4Kernel<<<cvt_blocks, threads, 0, stream>>>(
-                d_input_bgr_, d_input_float4_, img_w, img_h
+                d_input_bgr_,
+                d_input_float4_,
+                img_w,
+                img_h
             );
 
             // 创建纹理对象
@@ -318,8 +322,11 @@ float* CudaInfer::preprocess(
 
             letterbox_kernel_texture<<<blocks, threads, 0, stream>>>(
                 d_nchw_,
-                INPUT_W, INPUT_H,
-                scale, pad_t, pad_l,
+                INPUT_W,
+                INPUT_H,
+                scale,
+                pad_t,
+                pad_l,
                 texture
             );
 
@@ -331,9 +338,13 @@ float* CudaInfer::preprocess(
             letterbox_kernel_uchar_textureless<<<blocks, threads, 0, stream>>>(
                 d_input_bgr_,
                 d_nchw_,
-                img_w, img_h,
-                INPUT_W, INPUT_H,
-                scale, pad_t, pad_l
+                img_w,
+                img_h,
+                INPUT_W,
+                INPUT_H,
+                scale,
+                pad_t,
+                pad_l
             );
             break;
     }
@@ -341,8 +352,6 @@ float* CudaInfer::preprocess(
     CUDA_CHECK(cudaGetLastError());
     return d_nchw_;
 }
-
-
 
 std::vector<GPUArmorObject> CudaInfer::postprocess(
     const float* output,

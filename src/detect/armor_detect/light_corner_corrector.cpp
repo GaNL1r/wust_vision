@@ -95,44 +95,42 @@ void LightCornerCorrector::correctCorners(armor::ArmorObject& armor) noexcept {
         armor.center = armor_center;
     }
 }
-void LightCornerCorrector::correctCorners_nonmatch(armor::ArmorObject& armor) noexcept {
+void LightCornerCorrector::correctCorners_nonmatch(
+    armor::ArmorObject& armor,
+    const cv::Mat& gray_img
+) noexcept {
     // If the width of the light is too small, the correction is not performed
     constexpr int PASS_OPTIMIZE_WIDTH = 3;
     if (armor.lights.empty())
         return;
-    if (armor.whole_gray_img.empty()) {
+    if (gray_img.empty()) {
         return;
     }
 
     if (armor.lights[0].width > PASS_OPTIMIZE_WIDTH) {
         // Find the symmetry axis of the light
-        SymmetryAxis left_axis = findSymmetryAxis(armor.whole_gray_img, armor.lights[0]);
+        SymmetryAxis left_axis = findSymmetryAxis(gray_img, armor.lights[0]);
         armor.lights[0].center = left_axis.centroid;
         armor.lights[0].axis = left_axis.direction;
         // Find the corner of the light
-        if (cv::Point2f t = findCorner(armor.whole_gray_img, armor.lights[0], left_axis, "top");
-            t.x > 0) {
+        if (cv::Point2f t = findCorner(gray_img, armor.lights[0], left_axis, "top"); t.x > 0) {
             armor.lights[0].top = t;
         }
-        if (cv::Point2f b = findCorner(armor.whole_gray_img, armor.lights[0], left_axis, "bottom");
-            b.x > 0) {
+        if (cv::Point2f b = findCorner(gray_img, armor.lights[0], left_axis, "bottom"); b.x > 0) {
             armor.lights[0].bottom = b;
         }
     }
 
     if (armor.lights[1].width > PASS_OPTIMIZE_WIDTH) {
         // Find the symmetry axis of the light
-        SymmetryAxis right_axis = findSymmetryAxis(armor.whole_gray_img, armor.lights[1]);
+        SymmetryAxis right_axis = findSymmetryAxis(gray_img, armor.lights[1]);
         armor.lights[1].center = right_axis.centroid;
         armor.lights[1].axis = right_axis.direction;
         // Find the corner of the light
-        if (cv::Point2f t = findCorner(armor.whole_gray_img, armor.lights[1], right_axis, "top");
-            t.x > 0) {
+        if (cv::Point2f t = findCorner(gray_img, armor.lights[1], right_axis, "top"); t.x > 0) {
             armor.lights[1].top = t;
         }
-        if (cv::Point2f b = findCorner(armor.whole_gray_img, armor.lights[1], right_axis, "bottom");
-            b.x > 0)
-        {
+        if (cv::Point2f b = findCorner(gray_img, armor.lights[1], right_axis, "bottom"); b.x > 0) {
             armor.lights[1].bottom = b;
         }
     }

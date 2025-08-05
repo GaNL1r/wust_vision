@@ -58,9 +58,9 @@ ArmorDetectOpenCV::ArmorDetectOpenCV(
 std::vector<armor::ArmorObject> ArmorDetectOpenCV::detect(const cv::Mat& input) noexcept {
     if (input.empty())
         return {};
-    cv::Mat gray_img_;
     std::vector<armor::Light> lights_;
-    cv::Mat binary_img = preprocessImage(input, gray_img_);
+    cv::Mat binary_img, gray_img;
+    std::tie(binary_img, gray_img) = preprocessImage(input);
 
     lights_ = findLights(input, binary_img);
     std::vector<armor::ArmorObject> armors = matchLights(lights_);
@@ -72,9 +72,9 @@ std::vector<armor::ArmorObject> ArmorDetectOpenCV::detect(const cv::Mat& input) 
         std::execution::par,
         armors.begin(),
         armors.end(),
-        [this, &input, gray_img_, &valid_armors, &valid_mutex](armor::ArmorObject& armor) {
+        [this, &input, gray_img, &valid_armors, &valid_mutex](armor::ArmorObject& armor) {
             try {
-                armor.number_img = extractNumber(input, armor);
+                armor.number_img = extractNumber(gray_img, armor);
                 if (armor.number_img.empty())
                     return;
 
@@ -84,10 +84,8 @@ std::vector<armor::ArmorObject> ArmorDetectOpenCV::detect(const cv::Mat& input) 
                 if (armor.confidence < classifier_threshold_)
                     return;
 
-                armor.whole_gray_img = gray_img_;
-
                 if (corner_corrector_) {
-                    corner_corrector_->correctCorners_nonmatch(armor);
+                    corner_corrector_->correctCorners_nonmatch(armor, gray_img);
                 }
 
                 {
@@ -104,13 +102,14 @@ std::vector<armor::ArmorObject> ArmorDetectOpenCV::detect(const cv::Mat& input) 
     return valid_armors;
 }
 
-cv::Mat ArmorDetectOpenCV::preprocessImage(const cv::Mat& rgb_img, cv::Mat& gray_img_) noexcept {
-    cv::cvtColor(rgb_img, gray_img_, cv::COLOR_RGB2GRAY);
+std::tuple<cv::Mat, cv::Mat> ArmorDetectOpenCV::preprocessImage(const cv::Mat& rgb_img) noexcept {
+    cv::Mat gray_img;
+    cv::cvtColor(rgb_img, gray_img, cv::COLOR_RGB2GRAY);
 
     cv::Mat binary_img;
-    cv::threshold(gray_img_, binary_img, binary_thres_, 255, cv::THRESH_BINARY);
+    cv::threshold(gray_img, binary_img, binary_thres_, 255, cv::THRESH_BINARY);
 
-    return binary_img;
+    return { binary_img, gray_img };
 }
 
 std::vector<armor::Light>
@@ -308,7 +307,7 @@ cv::Mat ArmorDetectOpenCV::extractNumber(const cv::Mat& src, const armor::ArmorO
         number_image(cv::Rect(cv::Point((warp_width - roi_size.width) / 2, 0), roi_size));
 
     // Binarize
-    cv::cvtColor(number_image, number_image, cv::COLOR_RGB2GRAY);
+    //cv::cvtColor(number_image, number_image, cv::COLOR_RGB2GRAY);
     cv::threshold(number_image, number_image, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
 
     return number_image;

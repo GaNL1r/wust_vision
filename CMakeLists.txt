@@ -19,7 +19,10 @@ message(STATUS "Options: RUNE=${BUILD_WITH_RUNE}  TRT=${BUILD_WITH_TRT}  OpenVIN
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake_modules)
 
 # 公共依赖
-find_package(OpenCV      REQUIRED)
+set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};/usr/local/opencv4.11.0")
+
+find_package(OpenCV 4.11 REQUIRED)
+
 find_package(Python3     REQUIRED COMPONENTS Interpreter Development)
 find_package(Eigen3      REQUIRED)
 find_package(fmt         REQUIRED)

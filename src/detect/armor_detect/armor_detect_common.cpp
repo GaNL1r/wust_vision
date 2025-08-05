@@ -34,7 +34,6 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, armor::ArmorObject& 
 
     // === Step 1: 初始检查 ===
     if (src.empty() || src.cols < 10 || src.rows < 10) {
-        //std::cerr << "[extractImage] Source image is empty or too small!" << std::endl;
         return false;
     }
 
@@ -45,7 +44,6 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, armor::ArmorObject& 
     // pts 数量检查
     std::vector<cv::Point2f> pts_vec(std::begin(armor.pts), std::end(armor.pts));
     if (pts_vec.size() != 4) {
-        //std::cerr << "[extractImage] Armor points must be 4!" << std::endl;
         return false;
     }
 
@@ -54,51 +52,44 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, armor::ArmorObject& 
 
     int new_width = static_cast<int>(bbox.width * params_.expand_ratio_w);
     int new_height = static_cast<int>(bbox.height * params_.expand_ratio_h);
-    int new_x = static_cast<int>(bbox.x - (new_width - bbox.width) / 2);
-    int new_y = static_cast<int>(bbox.y - (new_height - bbox.height) / 2);
+    int new_x = std::max(0, static_cast<int>(bbox.x - (new_width - bbox.width) / 2));
+    int new_y = std::max(0, static_cast<int>(bbox.y - (new_height - bbox.height) / 2));
 
     // 保证不越界
-    new_x = std::max(0, new_x);
-    new_y = std::max(0, new_y);
     if (new_x + new_width > src.cols)
         new_width = src.cols - new_x;
     if (new_y + new_height > src.rows)
         new_height = src.rows - new_y;
 
-    if (new_width <= 0 || new_height <= 0) {
-        // std::cerr << "[extractImage] Invalid expanded ROI size!" << std::endl;
+    if (new_width <= 0 || new_height <= 0)
         return false;
-    }
 
     armor.new_x = new_x;
     armor.new_y = new_y;
 
-    // Step 3: 获取 ROI 并转换灰度、二值图
+    // Step 3: 提取 ROI 图像（不使用 clone）
     cv::Rect expanded_rect(new_x, new_y, new_width, new_height);
     if (expanded_rect.x < 0 || expanded_rect.y < 0
         || expanded_rect.x + expanded_rect.width > src.cols
         || expanded_rect.y + expanded_rect.height > src.rows || expanded_rect.width <= 0
         || expanded_rect.height <= 0)
     {
-        //std::cerr << "[extractImage] Expanded rect invalid: " << expanded_rect << std::endl;
         return false;
     }
 
-    const int MIN_SIZE = 10;
+    const int MIN_SIZE = 1;
     if (expanded_rect.width < MIN_SIZE || expanded_rect.height < MIN_SIZE) {
-        //std::cerr << "[extractImage] expanded_rect too small: " << expanded_rect << std::endl;
         return false;
     }
 
-    cv::Mat litroi_color = src(expanded_rect).clone();
+    cv::Mat litroi_color = src(expanded_rect);
     if (litroi_color.empty())
         return false;
 
     cv::Mat litroi_gray;
     try {
-        cv::cvtColor(litroi_color, litroi_gray, cv::COLOR_RGB2GRAY);
-    } catch (const cv::Exception& e) {
-        //std::cerr << "[extractImage] cvtColor failed: " << e.what() << std::endl;
+        cv::cvtColor(litroi_color, litroi_gray, cv::COLOR_BGR2GRAY);
+    } catch (const cv::Exception&) {
         return false;
     }
 
@@ -114,66 +105,47 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, armor::ArmorObject& 
             cv::THRESH_BINARY | cv::THRESH_OTSU
         );
     } catch (...) {
-        //std::cerr << "[extractImage] Thresholding failed." << std::endl;
         return false;
     }
 
-    // Step 4: 装甲板透视变换
+    cv::Mat gray_src;
+    try {
+        cv::cvtColor(src, gray_src, cv::COLOR_BGR2GRAY);
+    } catch (...) {
+        return false;
+    }
+
     cv::Point2f lights_vertices[4] = { armor.pts[0], armor.pts[1], armor.pts[2], armor.pts[3] };
 
-    const int top_light_y = (warp_height - light_length) / 2 - 1;
-    const int bottom_light_y = top_light_y + light_length;
+    int top_light_y = (warp_height - light_length) / 2 - 1;
+    int bottom_light_y = top_light_y + light_length;
     const int warp_width = is_large ? large_armor_width : small_armor_width;
 
     cv::Point2f target_vertices[4] = {
-        cv::Point(0, bottom_light_y),
-        cv::Point(0, top_light_y),
-        cv::Point(warp_width - 1, top_light_y),
-        cv::Point(warp_width - 1, bottom_light_y),
+        cv::Point2f(0, bottom_light_y),
+        cv::Point2f(0, top_light_y),
+        cv::Point2f(roi_size.width - 1, top_light_y),
+        cv::Point2f(roi_size.width - 1, bottom_light_y),
     };
 
     cv::Mat number_image, warp_mat;
     try {
         warp_mat = cv::getPerspectiveTransform(lights_vertices, target_vertices);
-        cv::warpPerspective(src, number_image, warp_mat, cv::Size(warp_width, warp_height));
-    } catch (const cv::Exception& e) {
-        //std::cerr << "[extractImage] warpPerspective failed: " << e.what() << std::endl;
+        cv::warpPerspective(gray_src, number_image, warp_mat, roi_size);
+    } catch (...) {
         return false;
     }
 
-    // Step 5: 获取中心 ROI
-    if (number_image.empty() || number_image.cols < roi_size.width
-        || number_image.rows < roi_size.height)
-    {
-        //std::cerr << "[extractImage] number_image is too small!" << std::endl;
-        return false;
-    }
-
-    cv::Rect center_roi((warp_width - roi_size.width) / 2, 0, roi_size.width, roi_size.height);
-    number_image = number_image(center_roi);
-
-    // 灰度+二值化
     try {
-        cv::cvtColor(number_image, number_image, cv::COLOR_RGB2GRAY);
         cv::threshold(number_image, number_image, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+        cv::flip(number_image, armor.number_img, 0);
     } catch (...) {
-        //std::cerr << "[extractImage] post-warp threshold or color conversion failed." << std::endl;
         return false;
     }
 
-    // 翻转
-    cv::Mat flipped_image;
-    try {
-        cv::flip(number_image, flipped_image, 0);
-    } catch (...) {
-        //std::cerr << "[extractImage] flip failed." << std::endl;
-        return false;
-    }
-
-    // Step 6: 赋值并返回
-    armor.number_img = flipped_image;
     armor.whole_binary_img = litroi_binary;
     armor.whole_rgb_img = litroi_color;
+
     return true;
 }
 

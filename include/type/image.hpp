@@ -15,6 +15,7 @@
 
 #include "opencv2/opencv.hpp"
 #include <Eigen/Dense>
+// #include <opencv2/cudaimgproc.hpp>
 
 struct ImageFrame {
     std::vector<uint8_t> data;
@@ -59,3 +60,46 @@ inline cv::Mat convertToMatbgr(const ImageFrame& frame) {
     cv::cvtColor(rgb, bgr, cv::COLOR_RGB2BGR);
     return bgr; // 返回转换后新内存，无法避免拷贝
 }
+// inline cv::cuda::GpuMat convertToGpuMatRGB(const ImageFrame& frame) {
+//     if (frame.data.empty()) {
+//         return cv::cuda::GpuMat();
+//     }
+
+//     // 零拷贝创建 CPU Mat（RGB 格式视图）
+//     cv::Mat rgb_mat(
+//         frame.height,
+//         frame.width,
+//         CV_8UC3,
+//         const_cast<uint8_t*>(frame.data.data()),
+//         frame.step
+//     );
+
+//     // 上传到 GPU
+//     cv::cuda::GpuMat gpu_mat;
+//     gpu_mat.upload(rgb_mat);
+//     return gpu_mat;
+// }
+// inline cv::cuda::GpuMat convertToGpuMatBGR(const ImageFrame& frame) {
+//     if (frame.data.empty()) {
+//         return cv::cuda::GpuMat();
+//     }
+
+//     // 零拷贝创建 RGB Mat（CPU）
+//     cv::Mat rgb_mat(
+//         frame.height,
+//         frame.width,
+//         CV_8UC3,
+//         const_cast<uint8_t*>(frame.data.data()),
+//         frame.step
+//     );
+
+//     // 上传到 GPU
+//     cv::cuda::GpuMat gpu_rgb;
+//     gpu_rgb.upload(rgb_mat);
+
+//     // GPU 上颜色转换 RGB → BGR
+//     cv::cuda::GpuMat gpu_bgr;
+//     cv::cuda::cvtColor(gpu_rgb, gpu_bgr, cv::COLOR_RGB2BGR);
+
+//     return gpu_bgr;
+// }

@@ -36,7 +36,7 @@ public:
 
     // Correct the corners of the armor's lights
     void correctCorners(armor::ArmorObject& armor) noexcept;
-    void correctCorners_nonmatch(armor::ArmorObject& armor) noexcept;
+    void correctCorners_nonmatch(armor::ArmorObject& armor, const cv::Mat& gray_img) noexcept;
 
 private:
     // Find the symmetry axis of the light
