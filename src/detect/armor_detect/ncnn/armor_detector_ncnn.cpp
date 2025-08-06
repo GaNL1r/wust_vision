@@ -294,6 +294,7 @@ ArmorDetectNCNN::ArmorDetectNCNN(
 }
 ArmorDetectNCNN::~ArmorDetectNCNN() {
     net_.clear();
+    armor_detect_common_.reset();
 }
 
 void ArmorDetectNCNN::init(int device_id) {

@@ -339,6 +339,7 @@ void ArmorDetectOpenVino::init() {
 ArmorDetectOpenVino::~ArmorDetectOpenVino() {
     compiled_model_.reset();
     ov_core_.reset();
+    armor_detect_common_.reset();
 }
 
 void ArmorDetectOpenVino::setCallback(DetectorCallback callback) {

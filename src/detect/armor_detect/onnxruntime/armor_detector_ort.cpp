@@ -309,9 +309,9 @@ void ArmorDetectOnnxRuntime::init() {
 }
 
 ArmorDetectOnnxRuntime::~ArmorDetectOnnxRuntime() {
-    // 释放资源
-    session_.reset();
     env_.reset();
+    session_.reset();
+    armor_detect_common_.reset();
 }
 
 void ArmorDetectOnnxRuntime::setCallback(DetectorCallback callback) {

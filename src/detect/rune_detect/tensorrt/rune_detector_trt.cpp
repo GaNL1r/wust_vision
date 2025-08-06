@@ -294,23 +294,31 @@ RuneDetectorTrt::RuneDetectorTrt(const std::filesystem::path& model_path, const 
             auto infer = std::make_unique<Infer>();
             auto ctx = engine_->createExecutionContext();
             infer->context = std::unique_ptr<nvinfer1::IExecutionContext>(ctx);
-            infer->cuda_infer = std::make_unique<rune_cuda_infer::CudaInfer>();
-            size_t max_input_img = 4096 * 2160 * 3;
-            size_t num_grid_strides = 0;
-            rune_cuda_infer::GPUGridAndStride* device_grid_strides =
-                rune_cuda_infer::init_grid_strides_on_gpu(
-                    INPUT_W,
-                    INPUT_W,
-                    strides_,
-                    num_grid_strides
-                );
-            infer->cuda_infer
-                ->init(device_grid_strides, max_input_img, output_sz_ / 15, num_grid_strides);
-            if (!infer->context || !infer->cuda_infer) {
-                WUST_ERROR("TRT") << "create infer failed"
-                                  << "index:" << i;
+            if (params_.use_cuda_pre || params_.use_cuda_post) {
+                infer->cuda_infer = std::make_unique<rune_cuda_infer::CudaInfer>();
+                size_t max_input_img = 4096 * 2160 * 3;
+                size_t num_grid_strides = 0;
+                rune_cuda_infer::GPUGridAndStride* device_grid_strides =
+                    rune_cuda_infer::init_grid_strides_on_gpu(
+                        INPUT_W,
+                        INPUT_W,
+                        strides_,
+                        num_grid_strides
+                    );
+                infer->cuda_infer
+                    ->init(device_grid_strides, max_input_img, output_sz_ / 15, num_grid_strides);
+            }
+            if (!infer->context) {
+                WUST_ERROR("TRT") << "create infer failed, missing context"
+                                  << " index:" << i;
                 continue;
             }
+            if ((params_.use_cuda_pre || params_.use_cuda_post) && !infer->cuda_infer) {
+                WUST_ERROR("TRT") << "create infer failed, missing cuda_infer"
+                                  << " index:" << i;
+                continue;
+            }
+
             size_t free_mem, total_mem;
             cudaMemGetInfo(&free_mem, &total_mem);
             WUST_DEBUG("TRT") << "Free GPU memory:" << free_mem / 1024.0 / 1024.0 << "MB"
@@ -336,17 +344,27 @@ RuneDetectorTrt::RuneDetectorTrt(const std::filesystem::path& model_path, const 
         auto infer = std::make_unique<Infer>();
         auto ctx = engine_->createExecutionContext();
         infer->context = std::unique_ptr<nvinfer1::IExecutionContext>(ctx);
-        infer->cuda_infer = std::make_unique<rune_cuda_infer::CudaInfer>();
-        size_t max_input_img = 4096 * 2160 * 3;
-        size_t num_grid_strides = 0;
-        rune_cuda_infer::GPUGridAndStride* device_grid_strides =
-            rune_cuda_infer::init_grid_strides_on_gpu(INPUT_W, INPUT_W, strides_, num_grid_strides);
-        infer->cuda_infer
-            ->init(device_grid_strides, max_input_img, output_sz_ / 15, num_grid_strides);
-        if (!infer->context || !infer->cuda_infer) {
-            WUST_ERROR("TRT") << "create infer failed";
+        if (params_.use_cuda_pre || params_.use_cuda_post) {
+            infer->cuda_infer = std::make_unique<rune_cuda_infer::CudaInfer>();
+            size_t max_input_img = 4096 * 2160 * 3;
+            size_t num_grid_strides = 0;
+            rune_cuda_infer::GPUGridAndStride* device_grid_strides =
+                rune_cuda_infer::init_grid_strides_on_gpu(
+                    INPUT_W,
+                    INPUT_W,
+                    strides_,
+                    num_grid_strides
+                );
+            infer->cuda_infer
+                ->init(device_grid_strides, max_input_img, output_sz_ / 15, num_grid_strides);
+        }
+        if (!infer->context) {
+            WUST_ERROR("TRT") << "create infer failed, missing context";
             return nullptr;
-            ;
+        }
+        if ((params_.use_cuda_pre || params_.use_cuda_post) && !infer->cuda_infer) {
+            WUST_ERROR("TRT") << "create infer failed, missing cuda_infer";
+            return nullptr;
         }
         return infer;
     };
@@ -458,6 +476,10 @@ RuneDetectorTrt::~RuneDetectorTrt() {
         engine_->destroy();
     if (runtime_)
         runtime_->destroy();
+    if (thread_pool_) {
+        thread_pool_->waitUntilEmpty();
+        thread_pool_.reset();
+    }
 }
 
 void RuneDetectorTrt::setCallback(CallbackType callback) {

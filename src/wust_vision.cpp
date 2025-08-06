@@ -53,9 +53,16 @@ void WustVision::stop() {
             timer_->stop();
             timer_.reset();
         }
-
+        WUST_INFO("stop") << "timer stop";
+        if (gobal::thread_pool) {
+            gobal::thread_pool->waitUntilEmpty();
+            gobal::thread_pool.reset();
+        }
+        WUST_INFO("stop") << "thread pool stop";
         armor_detector_.reset();
+        WUST_INFO("stop") << "armor detector stop";
         rune_detector_.reset();
+        WUST_INFO("stop") << "rune detector stop";
 #ifdef USE_TRT
         cudaDeviceSynchronize();
         cudaDeviceReset();
@@ -67,10 +74,6 @@ void WustVision::stop() {
 #endif
         gobal::measure_tool.reset();
 
-        if (gobal::thread_pool) {
-            gobal::thread_pool->waitUntilEmpty();
-            gobal::thread_pool.reset();
-        }
         if (toolsgobal::debug_thread_.joinable()) {
             toolsgobal::debug_thread_.join();
         }

@@ -210,23 +210,31 @@ ArmorDetectTrt::ArmorDetectTrt(
             auto infer = std::make_unique<Infer>();
             auto ctx = engine_->createExecutionContext();
             infer->context = std::unique_ptr<nvinfer1::IExecutionContext>(ctx);
-            infer->cuda_infer = std::make_unique<armor_cuda_infer::CudaInfer>();
-            size_t max_input_img = 4096 * 2160 * 3;
-            size_t num_grid_strides = 0;
-            armor_cuda_infer::GPUGridAndStride* device_grid_strides =
-                armor_cuda_infer::init_grid_strides_on_gpu(
+            // 初始化 CUDA 推理
+            if (params_.use_cuda_pre || params_.use_cuda_post) {
+                infer->cuda_infer = std::make_unique<armor_cuda_infer::CudaInfer>();
+                size_t max_input_img = 4096 * 2160 * 3;
+                size_t num_grid_strides = 0;
+                auto* device_grid_strides = armor_cuda_infer::init_grid_strides_on_gpu(
                     INPUT_W,
                     INPUT_W,
                     strides,
                     num_grid_strides
                 );
-            infer->cuda_infer
-                ->init(device_grid_strides, max_input_img, output_sz_ / 21, num_grid_strides);
-            if (!infer->context || !infer->cuda_infer) {
-                WUST_ERROR("TRT") << "create infer failed"
-                                  << "index:" << i;
+                infer->cuda_infer
+                    ->init(device_grid_strides, max_input_img, output_sz_ / 21, num_grid_strides);
+            }
+            if (!infer->context) {
+                WUST_ERROR("TRT") << "create infer failed, missing context"
+                                  << " index:" << i;
                 continue;
             }
+            if ((params_.use_cuda_pre || params_.use_cuda_post) && !infer->cuda_infer) {
+                WUST_ERROR("TRT") << "create infer failed, missing cuda_infer"
+                                  << " index:" << i;
+                continue;
+            }
+
             size_t free_mem, total_mem;
             cudaMemGetInfo(&free_mem, &total_mem);
             WUST_DEBUG("TRT") << "Free GPU memory:" << free_mem / 1024.0 / 1024.0 << "MB"
@@ -252,15 +260,25 @@ ArmorDetectTrt::ArmorDetectTrt(
         auto infer = std::make_unique<Infer>();
         auto ctx = engine_->createExecutionContext();
         infer->context = std::unique_ptr<nvinfer1::IExecutionContext>(ctx);
-        infer->cuda_infer = std::make_unique<armor_cuda_infer::CudaInfer>();
-        size_t max_input_img = 4096 * 2160 * 3;
-        size_t num_grid_strides = 0;
-        armor_cuda_infer::GPUGridAndStride* device_grid_strides =
-            armor_cuda_infer::init_grid_strides_on_gpu(INPUT_W, INPUT_W, strides, num_grid_strides);
-        infer->cuda_infer
-            ->init(device_grid_strides, max_input_img, output_sz_ / 21, num_grid_strides);
-        if (!infer->context || !infer->cuda_infer) {
-            WUST_ERROR("TRT") << "create infer failed";
+        if (params_.use_cuda_pre || params_.use_cuda_post) {
+            infer->cuda_infer = std::make_unique<armor_cuda_infer::CudaInfer>();
+            size_t max_input_img = 4096 * 2160 * 3;
+            size_t num_grid_strides = 0;
+            auto* device_grid_strides = armor_cuda_infer::init_grid_strides_on_gpu(
+                INPUT_W,
+                INPUT_W,
+                strides,
+                num_grid_strides
+            );
+            infer->cuda_infer
+                ->init(device_grid_strides, max_input_img, output_sz_ / 21, num_grid_strides);
+        }
+        if (!infer->context) {
+            WUST_ERROR("TRT") << "create infer failed, missing context";
+            return nullptr;
+        }
+        if ((params_.use_cuda_pre || params_.use_cuda_post) && !infer->cuda_infer) {
+            WUST_ERROR("TRT") << "create infer failed, missing cuda_infer";
             return nullptr;
         }
         return infer;
@@ -311,7 +329,6 @@ ArmorDetectTrt::~ArmorDetectTrt() {
     }
     if (context_)
         context_->destroy();
-
     if (engine_)
         engine_->destroy();
     if (runtime_)
@@ -320,6 +337,7 @@ ArmorDetectTrt::~ArmorDetectTrt() {
         thread_pool_->waitUntilEmpty();
         thread_pool_.reset();
     }
+    armor_detect_common_.reset();
 }
 
 void ArmorDetectTrt::buildEngine(const std::string& onnx_path) {
