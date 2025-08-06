@@ -17,84 +17,63 @@
 #include "detect/armor_detect/light_corner_corrector.hpp"
 #include "common/logger.hpp"
 
+#include <cmath>
 #include <iostream>
 #include <numeric>
 #include <ostream>
-
 void LightCornerCorrector::correctCorners(armor::ArmorObject& armor) noexcept {
     constexpr int PASS_OPTIMIZE_WIDTH = 3;
-    if (armor.lights.empty())
+    if (armor.lights.empty() || armor.whole_gray_img.empty())
         return;
-    if (armor.whole_gray_img.empty()) {
-        return;
-    }
 
-    double zero_x = armor.new_x;
-    double zero_y = armor.new_y;
+    const cv::Point2f offset { static_cast<float>(armor.new_x), static_cast<float>(armor.new_y) };
+
+    auto translate = [&](cv::Point2f& p) { p += offset; };
 
     for (auto& light: armor.lights) {
         if (light.width <= PASS_OPTIMIZE_WIDTH) {
-            light.top.x += zero_x;
-            light.top.y += zero_y;
-            light.center.x += zero_x;
-            light.center.y += zero_y;
-            light.bottom.x += zero_x;
-            light.bottom.y += zero_y;
-
+            translate(light.top);
+            translate(light.center);
+            translate(light.bottom);
             continue;
         }
 
         SymmetryAxis axis = findSymmetryAxis(armor.whole_gray_img, light);
-
         light.center = axis.centroid;
         light.axis = axis.direction;
 
-        if (cv::Point2f t = findCorner(armor.whole_gray_img, light, axis, "top"); t.x > 0) {
+        if (auto t = findCorner(armor.whole_gray_img, light, axis, "top"); t.x > 0)
             light.top = t;
-        }
-        if (cv::Point2f b = findCorner(armor.whole_gray_img, light, axis, "bottom"); b.x > 0) {
+        if (auto b = findCorner(armor.whole_gray_img, light, axis, "bottom"); b.x > 0)
             light.bottom = b;
-        }
-        light.top.x += zero_x;
-        light.top.y += zero_y;
-        light.center.x += zero_x;
-        light.center.y += zero_y;
 
-        light.bottom.x += zero_x;
-        light.bottom.y += zero_y;
+        translate(light.top);
+        translate(light.center);
+        translate(light.bottom);
     }
 
-    armor.pts_binary.clear();
-    cv::Point2f armor_center = (armor.pts[0] + armor.pts[1] + armor.pts[2] + armor.pts[3]) * 0.25;
-    armor.pts_binary.resize(4);
-    armor.pts_binary[0] = armor.lights[0].top;
-    armor.pts_binary[1] = armor.lights[0].bottom;
-    armor.pts_binary[2] = armor.lights[1].bottom;
-    armor.pts_binary[3] = armor.lights[1].top;
-    armor.is_ok = true;
-    for (const auto& pt: armor.pts_binary) {
-        if (pt.x < 0 || pt.y < 0) {
-            armor.is_ok = false;
-            break;
-        }
-    }
-
-    if (std::count_if(
-            armor.pts_binary.begin(),
-            armor.pts_binary.end(),
-            [](const cv::Point2f& p) { return p.x >= 0 && p.y >= 0; }
-        )
-        != 4)
-    {
-        armor.is_ok = false;
-    }
+    armor.pts_binary = { armor.lights[0].top,
+                         armor.lights[0].bottom,
+                         armor.lights[1].bottom,
+                         armor.lights[1].top };
+    armor.is_ok =
+        std::all_of(armor.pts_binary.begin(), armor.pts_binary.end(), [](const cv::Point2f& p) {
+            return p.x >= 0 && p.y >= 0;
+        });
 
     if (armor.is_ok) {
-        armor.center = (armor.lights[0].center + armor.lights[1].center) / 2;
+        armor.center = (armor.lights[0].center + armor.lights[1].center) * 0.5f;
     } else {
-        armor.center = armor_center;
+        armor.center = std::accumulate(
+                           armor.pts.begin(),
+                           armor.pts.end(),
+                           cv::Point2f { 0, 0 },
+                           [](const cv::Point2f& a, const cv::Point2f& b) { return a + b; }
+                       )
+            * 0.25f;
     }
 }
+
 void LightCornerCorrector::correctCorners_nonmatch(
     armor::ArmorObject& armor,
     const cv::Mat& gray_img
@@ -140,58 +119,62 @@ void LightCornerCorrector::correctCorners_nonmatch(
 SymmetryAxis
 LightCornerCorrector::findSymmetryAxis(const cv::Mat& gray_img, const armor::Light& light) {
     constexpr float MAX_BRIGHTNESS = 25;
-    constexpr float SCALE = 0.07;
+    constexpr float SCALE = 0.07f;
 
-    // Scale the bounding box
+    // Expand bounding box
     cv::Rect light_box = light.boundingRect();
-    light_box.x -= light_box.width * SCALE;
-    light_box.y -= light_box.height * SCALE;
-    light_box.width += light_box.width * SCALE * 2;
-    light_box.height += light_box.height * SCALE * 2;
+    int expand_w = static_cast<int>(light_box.width * SCALE);
+    int expand_h = static_cast<int>(light_box.height * SCALE);
+    light_box.x -= expand_w;
+    light_box.y -= expand_h;
+    light_box.width += 2 * expand_w;
+    light_box.height += 2 * expand_h;
 
-    // Check boundary
-    light_box.x = std::max(light_box.x, 0);
-    light_box.x = std::min(light_box.x, gray_img.cols - 1);
-    light_box.y = std::max(light_box.y, 0);
-    light_box.y = std::min(light_box.y, gray_img.rows - 1);
-    light_box.width = std::min(light_box.width, gray_img.cols - light_box.x);
-    light_box.height = std::min(light_box.height, gray_img.rows - light_box.y);
+    // Ensure ROI within bounds
+    light_box &= cv::Rect(0, 0, gray_img.cols, gray_img.rows);
+    if (light_box.width <= 0 || light_box.height <= 0)
+        return {};
 
-    // Get normalized light image
-    cv::Mat roi = gray_img(light_box);
-    float mean_val = cv::mean(roi)[0];
-    roi.convertTo(roi, CV_32F);
-    cv::normalize(roi, roi, 0, MAX_BRIGHTNESS, cv::NORM_MINMAX);
+    cv::Mat roi_float;
+    gray_img(light_box).convertTo(roi_float, CV_32F);
 
-    // Calculate the centroid
-    cv::Moments moments = cv::moments(roi, false);
-    cv::Point2f centroid = cv::Point2f(moments.m10 / moments.m00, moments.m01 / moments.m00)
-        + cv::Point2f(light_box.x, light_box.y);
+    double min_val, max_val;
+    cv::minMaxLoc(roi_float, &min_val, &max_val);
 
-    // Initialize the PointCloud
+    // Normalize brightness
+    roi_float = MAX_BRIGHTNESS * (roi_float - min_val) / (max_val - min_val + 1e-5f);
+
+    // Compute centroid
+    auto m = cv::moments(roi_float, false);
+    cv::Point2f centroid = { static_cast<float>(m.m10 / (m.m00 + 1e-5)) + light_box.x,
+                             static_cast<float>(m.m01 / (m.m00 + 1e-5)) + light_box.y };
+
+    // Build weighted points (sample-based)
     std::vector<cv::Point2f> points;
-    for (int i = 0; i < roi.rows; i++) {
-        for (int j = 0; j < roi.cols; j++) {
-            for (int k = 0; k < std::round(roi.at<float>(i, j)); k++) {
-                points.emplace_back(cv::Point2f(j, i));
+    for (int y = 0; y < roi_float.rows; ++y) {
+        const float* row_ptr = roi_float.ptr<float>(y);
+        for (int x = 0; x < roi_float.cols; ++x) {
+            float val = row_ptr[x];
+            if (val > 1.0f) { // Threshold to skip low brightness
+                points.emplace_back(cv::Point2f(x, y));
             }
         }
     }
-    cv::Mat points_mat = cv::Mat(points).reshape(1);
 
-    // PCA (Principal Component Analysis)
-    auto pca = cv::PCA(points_mat, cv::Mat(), cv::PCA::DATA_AS_ROW);
+    if (points.empty())
+        return {};
 
-    // Get the symmetry axis
-    cv::Point2f axis =
-        cv::Point2f(pca.eigenvectors.at<float>(0, 0), pca.eigenvectors.at<float>(0, 1));
+    cv::Mat data(points);
+    data = data.reshape(1);
 
-    // Normalize the axis
-    axis = axis / cv::norm(axis);
+    cv::PCA pca(data, cv::Mat(), cv::PCA::DATA_AS_ROW);
+    cv::Point2f axis(pca.eigenvectors.at<float>(0, 0), pca.eigenvectors.at<float>(0, 1));
+    axis /= cv::norm(axis);
 
-    if (axis.y > 0) {
+    if (axis.y > 0)
         axis = -axis;
-    }
+
+    float mean_val = static_cast<float>(cv::mean(roi_float)[0]);
 
     return SymmetryAxis { .centroid = centroid, .direction = axis, .mean_val = mean_val };
 }
@@ -202,64 +185,59 @@ cv::Point2f LightCornerCorrector::findCorner(
     const SymmetryAxis& axis,
     std::string order
 ) {
-    constexpr float START = 0.8 / 2;
-    constexpr float END = 1.2 / 2;
+    constexpr float START = 0.8f / 2;
+    constexpr float END = 1.2f / 2;
 
-    auto inImage = [&gray_img](const cv::Point& point) -> bool {
-        return point.x >= 0 && point.x < gray_img.cols && point.y >= 0 && point.y < gray_img.rows;
+    auto inImage = [&gray_img](int x, int y) -> bool {
+        return (x >= 0 && x < gray_img.cols && y >= 0 && y < gray_img.rows);
     };
 
-    auto distance = [](float x0, float y0, float x1, float y1) -> float {
-        return std::sqrt((x0 - x1) * (x0 - x1) + (y0 - y1) * (y0 - y1));
-    };
-
-    int oper = order == "top" ? 1 : -1;
+    int oper = (order == "top") ? 1 : -1;
     float L = light.length;
     float dx = axis.direction.x * oper;
     float dy = axis.direction.y * oper;
 
     std::vector<cv::Point2f> candidates;
+    int n = std::max(1, static_cast<int>(std::round(light.width - 2)));
+    int half_n = n / 2;
 
-    // Select multiple corner candidates and take the average as the final corner
-    int n = light.width - 2;
-    int half_n = std::round(n / 2);
-    for (int i = -half_n; i <= half_n; i++) {
+    for (int i = -half_n; i <= half_n; ++i) {
         float x0 = axis.centroid.x + L * START * dx + i;
         float y0 = axis.centroid.y + L * START * dy;
 
-        cv::Point2f prev = cv::Point2f(x0, y0);
-        cv::Point2f corner = cv::Point2f(x0, y0);
-        float max_brightness_diff = 0;
-        bool has_corner = false;
+        float max_diff = 0;
+        bool found = false;
+        cv::Point2f corner(x0, y0);
+        float prev_val = 0;
 
-        // Search along the symmetry axis to find the corner that has the maximum
-        // brightness difference
-        for (float x = x0 + dx, y = y0 + dy; distance(x, y, x0, y0) < L * (END - START);
-             x += dx, y += dy) {
-            cv::Point2f cur = cv::Point2f(x, y);
-            if (!inImage(cv::Point(cur))) {
+        for (float t = 0.0f; t < L * (END - START); t += 1.0f) {
+            int x = static_cast<int>(x0 + dx * t);
+            int y = static_cast<int>(y0 + dy * t);
+            if (!inImage(x, y))
                 break;
-            }
 
-            float brightness_diff = gray_img.at<uchar>(prev) - gray_img.at<uchar>(cur);
-            if (brightness_diff > max_brightness_diff && gray_img.at<uchar>(prev) > axis.mean_val) {
-                max_brightness_diff = brightness_diff;
-                corner = prev;
-                has_corner = true;
-            }
+            float cur_val = gray_img.at<uchar>(y, x);
 
-            prev = cur;
+            if (t > 0) {
+                float diff = prev_val - cur_val;
+                if (diff > max_diff && prev_val > axis.mean_val) {
+                    max_diff = diff;
+                    corner = cv::Point2f(static_cast<float>(x - dx), static_cast<float>(y - dy));
+                    found = true;
+                }
+            }
+            prev_val = cur_val;
         }
 
-        if (has_corner) {
+        if (found)
             candidates.emplace_back(corner);
-        }
     }
+
     if (!candidates.empty()) {
-        cv::Point2f result =
-            std::accumulate(candidates.begin(), candidates.end(), cv::Point2f(0, 0))
-            / static_cast<float>(candidates.size());
-        return result;
+        cv::Point2f sum(0, 0);
+        for (const auto& pt: candidates)
+            sum += pt;
+        return sum * (1.0f / candidates.size());
     } else {
         return cv::Point2f(-1, -1);
     }

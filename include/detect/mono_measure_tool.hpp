@@ -34,16 +34,6 @@ struct Target_info {
 class MonoMeasureTool {
 public:
     MonoMeasureTool() = default;
-
-    /**
-   * @brief Solve Perspective-n-Point problem in camera
-   * 3d点坐标求解（use solve pnp）
-   * @param points2d a list of points in image frame
-   * @param points3d a list of points correspondent to points2d
-   * @param position output position of the origin point of 3d coordinate system
-   * @return true
-   * @return false
-   */
     bool solvePnp(
         const std::vector<cv::Point2f>& points2d,
         const std::vector<cv::Point3f>& points3d,
@@ -53,32 +43,9 @@ public:
         const cv::Mat& camera_distortion_,
         cv::SolvePnPMethod pnp_method = cv::SOLVEPNP_ITERATIVE
     );
-    /**
-   * @brief 逆投影，已知深度，2d->3d点求解
-   *
-   * @param p 图像上点坐标
-   * @param distance 已知的真实距离
-   * @return cv::Point3f 对应的真实3d点坐标
-   */
     cv::Point3f unproject(cv::Point2f p, double distance);
-    /**
-   * @brief 视角求解
-   *
-   * @param p 图像上点坐标
-   * @param pitch 视角pitch
-   * @param yaw 视角yaw
-   */
-    void calcViewAngle(cv::Point2f p, float& pitch, float& yaw);
 
-    /**
-   * @brief 装甲板目标位姿求解
-   *
-   * @param obj 装甲板目标
-   * @param position 返回的坐标
-   * @param rvec 相对旋转向量
-   * @return true
-   * @return false
-   */
+    void calcViewAngle(cv::Point2f p, float& pitch, float& yaw);
     bool calcArmorTarget(
         const armor::ArmorObject& obj,
         cv::Point3f& position,

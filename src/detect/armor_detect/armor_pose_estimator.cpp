@@ -64,92 +64,70 @@ std::vector<armor::Armor> ArmorPoseEstimator::extractArmorPoses(
     const cv::Mat& camera_distortion
 ) {
     std::vector<armor::Armor> armors_msg;
-    Eigen::Matrix3d R_imu_camera = T_camera_to_odom.block<3, 3>(0, 0);
 
-    for (const auto& armor: armors) {
-        if (!armor.is_ok) {
+    const Eigen::Matrix3d R_imu_cam = T_camera_to_odom.block<3, 3>(0, 0);
+    auto makeArmorMsg = [&](const armor::ArmorObject& obj,
+                            const Eigen::Vector3d& t,
+                            const Eigen::Matrix3d& R) {
+        armor::Armor msg;
+        msg.type = (obj.number == armor::ArmorNumber::NO1 || obj.number == armor::ArmorNumber::BASE)
+            ? "large"
+            : "small";
+        msg.number = obj.number;
+        Eigen::Quaterniond q(R);
+        Eigen::Quaterniond add_roll { Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d::UnitX()) };
+        Eigen::Quaterniond new_q = q * add_roll;
+
+        auto [yaw, pitch, dist] = utils::xyz2ypd_rad(t.x(), t.y(), t.z());
+        dist += distance_fix_a2_ * dist * dist;
+        auto [x, y, z] = utils::ypd2xyz_rad(yaw, pitch, dist);
+
+        msg.pos = { x, y, z };
+        msg.ori = { new_q.x(), new_q.y(), new_q.z(), new_q.w() };
+
+        utils::transformArmorData(msg, T_camera_to_odom);
+        msg.distance_to_image_center =
+            pnp_solver_->calculateDistanceToCenter(obj.center, camera_intrinsic);
+        msg.is_ok = true;
+        return msg;
+    };
+
+    for (auto const& a: armors) {
+        if (!a.is_ok)
             continue;
-        }
 
         std::vector<cv::Mat> rvecs, tvecs;
-        armor::Armor armor_;
-        armor::ArmorObject temp_armor = armor;
-        std::string temp_type;
-        if (temp_armor.number == armor::ArmorNumber::NO1
-            || temp_armor.number == armor::ArmorNumber::BASE) {
-            temp_type = "large";
-        } else {
-            temp_type = "small";
-        }
+        std::string type =
+            (a.number == armor::ArmorNumber::NO1 || a.number == armor::ArmorNumber::BASE) ? "large"
+                                                                                          : "small";
 
-        // Use PnP to get the initial pose information
-        if (pnp_solver_->solvePnPGeneric(
-                armor.landmarks(),
+        if (!pnp_solver_->solvePnPGeneric(
+                a.landmarks(),
                 rvecs,
                 tvecs,
-                (temp_type),
+                type,
                 camera_intrinsic,
                 camera_distortion
             ))
         {
-            sortPnPResult(armor, rvecs, tvecs, temp_type, camera_intrinsic, camera_distortion);
-
-            cv::Mat rmat;
-            cv::Rodrigues(rvecs[0], rmat);
-
-            Eigen::Matrix3d R = utils::cvToEigen(rmat);
-            Eigen::Vector3d t = utils::cvToEigen(tvecs[0]);
-
-            double armor_roll = rotationMatrixToRPY(R_gimbal_camera_ * R)[0] * 180 / M_PI;
-            Eigen::Quaterniond q1(R);
-
-            if (std::abs(armor_roll) < 30 && use_ba_) {
-                // Use BA alogorithm to optimize the pose from PnP
-                // solveBa() will modify the rotation_matrix
-                Eigen::Matrix3d tmp_R = R;
-                R = ba_solver_->solveBa_R(armor, t, R, R_imu_camera, temp_type);
-                t = ba_solver_->solveBa_t(armor, t, tmp_R, R_imu_camera, temp_type);
-            }
-
-            Eigen::Quaterniond q(R);
-            // 定义绕 X 轴的额外旋转（90 度）
-            double roll_angle = M_PI / 2; // 弧度
-
-            Eigen::Quaterniond additional_roll(
-                Eigen::AngleAxisd(roll_angle, Eigen::Vector3d::UnitX())
-            );
-
-            // 应用额外旋转
-            Eigen::Quaterniond new_q = q * additional_roll;
-
-            // 转换回旋转矩阵
-            Eigen::Matrix3d new_R = new_q.toRotationMatrix();
-
-            // Fill basic info
-            armor_.type = temp_type;
-            armor_.number = armor.number;
-            auto [yaw_rad, pitch_rad, dist] = utils::xyz2ypd_rad(t(0), t(1), t(2));
-            dist = dist + distance_fix_a2_ * dist * dist;
-            auto [x_r, y_r, z_r] = utils::ypd2xyz_rad(yaw_rad, pitch_rad, dist);
-            // Fill pose
-            armor_.pos.x = x_r;
-            armor_.pos.y = y_r;
-            armor_.pos.z = z_r;
-            armor_.ori.x = new_q.x();
-            armor_.ori.y = new_q.y();
-            armor_.ori.z = new_q.z();
-            armor_.ori.w = new_q.w();
-            utils::transformArmorData(armor_, T_camera_to_odom);
-            armor_.distance_to_image_center =
-                pnp_solver_->calculateDistanceToCenter(armor.center, camera_intrinsic);
-            armor_.is_ok = true;
-
-            Eigen::Vector3d rpy = rotationMatrixToRPY(q.toRotationMatrix());
-
-            armors_msg.push_back(std::move(armor_));
-        } else {
             WUST_WARN("PNP") << "PNP failed";
+            continue;
         }
+
+        sortPnPResult(a, rvecs, tvecs, type, camera_intrinsic, camera_distortion);
+        cv::Mat R_cv;
+        cv::Rodrigues(rvecs[0], R_cv);
+        Eigen::Matrix3d R = utils::cvToEigen(R_cv);
+        Eigen::Vector3d t = utils::cvToEigen(tvecs[0]);
+
+        double roll_deg = rotationMatrixToRPY(R_gimbal_camera_ * R)[0] * 180 / M_PI;
+        if (use_ba_ && std::abs(roll_deg) < 30) {
+            Eigen::Matrix3d R0 = R;
+            R = ba_solver_->solveBa_R(a, t, R, R_imu_cam, type);
+            t = ba_solver_->solveBa_t(a, t, R0, R_imu_cam, type);
+        }
+
+        armors_msg.push_back(makeArmorMsg(a, t, R));
     }
 
     return armors_msg;
@@ -173,68 +151,55 @@ void ArmorPoseEstimator::sortPnPResult(
     const cv::Mat& camera_intrinsic,
     const cv::Mat& camera_distortion
 ) const {
-    constexpr float PROJECT_ERR_THRES = 3.0;
+    constexpr double ERR_RATIO_TH = 3.0;
+    constexpr double ROLL_TH_RAD = 10.0 * M_PI / 180.0;
 
-    // 获取这两个解
-    cv::Mat& rvec1 = rvecs.at(0);
-    cv::Mat& tvec1 = tvecs.at(0);
-    cv::Mat& rvec2 = rvecs.at(1);
-    cv::Mat& tvec2 = tvecs.at(1);
+    if (rvecs.size() < 2 || tvecs.size() < 2)
+        return;
 
-    // 将旋转向量转换为旋转矩阵
-    cv::Mat R1_cv, R2_cv;
-    cv::Rodrigues(rvec1, R1_cv);
-    cv::Rodrigues(rvec2, R2_cv);
+    struct Candidate {
+        cv::Mat& rvec;
+        cv::Mat& tvec;
+        Eigen::Matrix3d R;
+        Eigen::Vector3d rpy;
+        double reprojErr = std::numeric_limits<double>::infinity();
+    } c[2] = { { rvecs[0], tvecs[0] }, { rvecs[1], tvecs[1] } };
 
-    // 转换为Eigen矩阵
-    Eigen::Matrix3d R1 = utils::cvToEigen(R1_cv);
-    Eigen::Matrix3d R2 = utils::cvToEigen(R2_cv);
+    // 计算旋转、RPY 和重投影误差
+    for (int i = 0; i < 2; ++i) {
+        cv::Mat R_cv;
+        cv::Rodrigues(c[i].rvec, R_cv);
+        c[i].R = utils::cvToEigen(R_cv);
+        c[i].rpy = rotationMatrixToRPY(R_gimbal_camera_ * c[i].R);
 
-    // 计算云台系下装甲板的RPY角
-    auto rpy1 = rotationMatrixToRPY(R_gimbal_camera_ * R1);
-    auto rpy2 = rotationMatrixToRPY(R_gimbal_camera_ * R2);
+        c[i].reprojErr = pnp_solver_->calculateReprojectionError(
+            armor.landmarks(),
+            c[i].rvec,
+            c[i].tvec,
+            coord_frame_name,
+            camera_intrinsic,
+            camera_distortion
+        );
+    }
 
-    double error1 = pnp_solver_->calculateReprojectionError(
-        armor.landmarks(),
-        rvec1,
-        tvec1,
-        coord_frame_name,
-        camera_intrinsic,
-        camera_distortion
-    );
-    double error2 = pnp_solver_->calculateReprojectionError(
-        armor.landmarks(),
-        rvec2,
-        tvec2,
-        coord_frame_name,
-        camera_intrinsic,
-        camera_distortion
-    );
-
-    // 两个解的重投影误差差距较大或者roll角度较大时，不做选择
-    if ((error2 / error1 > PROJECT_ERR_THRES) || (rpy1[0] > 10 * 180 / M_PI)
-        || (rpy2[0] > 10 * 180 / M_PI))
+    // 如果误差比过大或任一解的 roll 超限，则不调整
+    if (c[1].reprojErr / c[0].reprojErr > ERR_RATIO_TH || std::abs(c[0].rpy(0)) > ROLL_TH_RAD
+        || std::abs(c[1].rpy(0)) > ROLL_TH_RAD)
     {
         return;
     }
 
-    // 计算灯条在图像中的倾斜角度
-    double l_angle = std::atan2(armor.lights[0].axis.y, armor.lights[0].axis.x) * 180 / M_PI;
-    double r_angle = std::atan2(armor.lights[1].axis.y, armor.lights[1].axis.x) * 180 / M_PI;
-    double angle = (l_angle + r_angle) / 2;
-
-    angle += 90.0;
-
+    double l_ang = std::atan2(armor.lights[0].axis.y, armor.lights[0].axis.x) * 180.0 / M_PI;
+    double r_ang = std::atan2(armor.lights[1].axis.y, armor.lights[1].axis.x) * 180.0 / M_PI;
+    double boardTilt = (l_ang + r_ang) * 0.5 + 90.0;
     if (armor.number == armor::ArmorNumber::OUTPOST)
-        angle = -angle;
+        boardTilt = -boardTilt;
 
-    // 根据倾斜角度选择解
-    // 如果装甲板左倾（angle > 0），选择Yaw为负的解
-    // 如果装甲板右倾（angle < 0），选择Yaw为正的解
-    if ((angle > 0 && rpy1[2] > 0 && rpy2[2] < 0) || (angle < 0 && rpy1[2] < 0 && rpy2[2] > 0)) {
-        std::swap(rvec1, rvec2);
-        std::swap(tvec1, tvec2);
-
-        // std::cout<<"armor_detector"<<"PnP Solution 2 Selected"<<std::endl;
+    // 根据倾斜方向选解：左倾时选 yaw<0 解，右倾时选 yaw>0 解
+    bool leftTilt = boardTilt > 0;
+    double yaw0 = c[0].rpy(2), yaw1 = c[1].rpy(2);
+    if ((leftTilt && yaw0 > 0 && yaw1 < 0) || (!leftTilt && yaw0 < 0 && yaw1 > 0)) {
+        std::swap(rvecs[0], rvecs[1]);
+        std::swap(tvecs[0], tvecs[1]);
     }
 }

@@ -107,19 +107,12 @@ bool MonoMeasureTool::solvePnp(
     position = cv::Point3f(trans);
     return true;
 }
-// refer to :http://www.cnblogs.com/singlex/p/pose_estimation_1_1.html
-// 根据输入的参数将图像坐标转换到相机坐标中
-// 输入为图像上的点坐标
-// double distance 物距
-// 输出3d点坐标的单位与distance（物距）的单位保持一致
 cv::Point3f MonoMeasureTool::unproject(cv::Point2f p, double distance) {
     double zc = distance;
     double xc = (p.x - u0_) * distance / fx_;
     double yc = (p.y - v0_) * distance / fy_;
     return cv::Point3f(xc, yc, zc);
 }
-// 获取image任意点的视角，pitch，yaw（相对相机坐标系）。
-// 与相机坐标系保持一致。
 void MonoMeasureTool::calcViewAngle(cv::Point2f p, float& pitch, float& yaw) {
     pitch = atan2((p.y - v0_), fy_);
     yaw = atan2((p.x - u0_), fx_);

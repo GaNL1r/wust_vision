@@ -763,6 +763,7 @@ void WustVision::processImage(const ImageFrame& frame) {
     CommonFrame common_frame;
     common_frame.timestamp = frame.timestamp;
     common_frame.v = frame.v;
+    auto t1 = time_utils::now();
     if (!use_video_) {
         common_frame.src_img = convertToMatrgb(frame);
     } else {
@@ -774,7 +775,7 @@ void WustVision::processImage(const ImageFrame& frame) {
         R_camera2gimbal_,
         t_gimbal_to_camera_
     );
-
+    auto t2 = time_utils::now();
     printStats();
 
     AttackMode mode = toAttackMode(gobal::attack_mode);
@@ -825,6 +826,8 @@ void WustVision::processImage(const ImageFrame& frame) {
             }
         } break;
     }
+    auto t3 = time_utils::now();
+    //std::cout<<"time: "<<time_utils::durationMs(t2,t1)<<" "<<time_utils::durationMs(t3,t2)<<std::endl;
 }
 
 void WustVision::printStats() {

@@ -187,7 +187,7 @@ std::vector<armor::Light> ArmorDetectCommon::findLights(
     vector<vector<cv::Point>> contours;
     vector<cv::Vec4i> hierarchy;
 
-    cv::findContours(binary_img, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
+    cv::findContours(binary_img, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
     vector<armor::Light> all_lights;
 

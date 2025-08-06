@@ -35,6 +35,7 @@
 // project
 #include "common/gobal.hpp"
 #include "common/logger.hpp"
+#include "common/timer.hpp"
 #include "type/type.hpp"
 #include <fmt/core.h>
 
@@ -60,11 +61,12 @@ std::vector<armor::ArmorObject> ArmorDetectOpenCV::detect(const cv::Mat& input) 
         return {};
     std::vector<armor::Light> lights_;
     cv::Mat binary_img, gray_img;
+    //auto t1 = time_utils::now();
     std::tie(binary_img, gray_img) = preprocessImage(input);
-
+    //auto t2 = time_utils::now();
     lights_ = findLights(input, binary_img);
     std::vector<armor::ArmorObject> armors = matchLights(lights_);
-
+    //auto t3 = time_utils::now();
     std::vector<armor::ArmorObject> valid_armors;
     std::mutex valid_mutex;
 
@@ -98,6 +100,9 @@ std::vector<armor::ArmorObject> ArmorDetectOpenCV::detect(const cv::Mat& input) 
             }
         }
     );
+    // auto t4 = time_utils::now();
+    // std::cout << "time: " << time_utils::durationMs(t1, t2) << " " << time_utils::durationMs(t2, t3)
+    //           << " " << time_utils::durationMs(t3, t4) << std::endl;
 
     return valid_armors;
 }
@@ -117,7 +122,7 @@ ArmorDetectOpenCV::findLights(const cv::Mat& rgb_img, const cv::Mat& binary_img)
     using std::vector;
     vector<vector<cv::Point>> contours;
     vector<cv::Vec4i> hierarchy;
-    cv::findContours(binary_img, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
+    cv::findContours(binary_img, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
     vector<armor::Light> lights;
 
@@ -130,8 +135,10 @@ ArmorDetectOpenCV::findLights(const cv::Mat& rgb_img, const cv::Mat& binary_img)
         if (isLight(light)) {
             int sum_r = 0, sum_b = 0;
             for (const auto& point: contour) {
-                sum_r += rgb_img.at<cv::Vec3b>(point.y, point.x)[0];
-                sum_b += rgb_img.at<cv::Vec3b>(point.y, point.x)[2];
+                const cv::Vec3b* row_ptr = rgb_img.ptr<cv::Vec3b>(point.y);
+                const cv::Vec3b& pixel = row_ptr[point.x];
+                sum_r += pixel[0];
+                sum_b += pixel[2];
             }
             if (std::abs(sum_r - sum_b) / static_cast<int>(contour.size())
                 > light_params_.color_diff_thresh) {
@@ -145,7 +152,6 @@ ArmorDetectOpenCV::findLights(const cv::Mat& rgb_img, const cv::Mat& binary_img)
     });
     return lights;
 }
-
 bool ArmorDetectOpenCV::isLight(const armor::Light& light) noexcept {
     // The ratio of light (short side / long side)
     float ratio = light.width / light.length;
