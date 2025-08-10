@@ -37,10 +37,6 @@ class RuneDetectorTrt {
 public:
     using CallbackType = std::function<void(std::vector<rune::RuneObject>&, const CommonFrame&)>;
     struct Params {
-        int input_w = 480; // 模型输入宽度
-        int input_h = 480; // 模型输入高度
-        int num_classes = 2; // 类别数 (0-7)
-        int num_colors = 2; // 颜色数 (0-3)
         float conf_threshold = 0.3; // 置信度阈值
         float nms_threshold = 0.5; // NMS阈值
         int top_k = 128; // 最大检测框数
@@ -75,14 +71,6 @@ private:
     // Do inference and call the infer_callback_ after inference
     bool processCallback(const CommonFrame& frame, Infer* infer);
     void buildEngine(const std::string& onnx_path);
-    std::vector<rune::RuneObject> postProcess(
-        std::vector<rune::RuneObject>& output_objs,
-        std::vector<float>& scores,
-        std::vector<cv::Rect>& rects,
-        const float* output,
-        int num_detections,
-        const Eigen::Matrix<float, 3, 3>& transform_matrix
-    );
 
 private:
     std::string model_path_;

@@ -217,7 +217,6 @@ void OneTracker::update(const armor::Armor& armor_msg) noexcept {
         matched = true;
         auto p = tracked_armor_.target_pos;
         double measured_yaw = orientationToYaw(tracked_armor_.target_ori);
-        measurement_ = Eigen::Vector4d(p.x, p.y, p.z, measured_yaw);
 
         double ypd_y = std::atan2(p.y, p.x);
         ypd_y = this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);

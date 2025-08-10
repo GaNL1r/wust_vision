@@ -19,10 +19,10 @@
 #include "common/logger.hpp"
 #include "common/timer.hpp"
 #include "cuda_runtime_api.h"
+#include "detect/armor_detect/armor_infer.hpp"
 #include <cuda.h>
 #include <device_launch_parameters.h>
 #include <fstream>
-// #include <logger.h>
 #define TRT_ASSERT(expr) \
     do { \
         if (!(expr)) { \
@@ -39,139 +39,6 @@
             return nullptr; \
         } \
     } while (0)
-
-static const int INPUT_W = 416; // Width of input
-static const int INPUT_H = 416; // Height of input
-static constexpr int NUM_CLASSES = 8; // Number of classes
-static constexpr int NUM_COLORS = 4; // Number of color
-static constexpr float MERGE_CONF_ERROR = 0.15;
-static constexpr float MERGE_MIN_IOU = 0.9;
-// 辅助函数：生成网格和步长
-
-static void
-generate_grids_and_stride(std::vector<int>& strides, std::vector<GridAndStride>& grid_strides) {
-    for (auto stride: strides) {
-        int num_grid_w = 416 / stride;
-        int num_grid_h = 416 / stride;
-        for (int g1 = 0; g1 < num_grid_h; g1++) {
-            for (int g0 = 0; g0 < num_grid_w; g0++) {
-                grid_strides.push_back(GridAndStride { g0, g1, stride });
-            }
-        }
-    }
-}
-static cv::Mat letterbox(
-    const cv::Mat& img,
-    Eigen::Matrix3f& transform_matrix,
-    std::vector<int> new_shape = { INPUT_W, INPUT_H }
-) {
-    // Get current image shape [height, width]
-    int img_h = img.rows;
-    int img_w = img.cols;
-
-    // Compute scale ratio(new / old) and target resized shape
-    float scale = std::min(new_shape[1] * 1.0 / img_h, new_shape[0] * 1.0 / img_w);
-    int resize_h = static_cast<int>(round(img_h * scale));
-    int resize_w = static_cast<int>(round(img_w * scale));
-
-    // Compute padding
-    int pad_h = new_shape[1] - resize_h;
-    int pad_w = new_shape[0] - resize_w;
-
-    // Resize and pad image while meeting stride-multiple constraints
-    cv::Mat resized_img;
-    cv::resize(img, resized_img, cv::Size(resize_w, resize_h));
-
-    // divide padding into 2 sides
-    float half_h = pad_h * 1.0 / 2;
-    float half_w = pad_w * 1.0 / 2;
-
-    // Compute padding boarder
-    int top = static_cast<int>(round(half_h - 0.1));
-    int bottom = static_cast<int>(round(half_h + 0.1));
-    int left = static_cast<int>(round(half_w - 0.1));
-    int right = static_cast<int>(round(half_w + 0.1));
-
-    /* clang-format off */
-    /* *INDENT-OFF* */
-
-    // Compute point transform_matrix
-    transform_matrix << 1.0 / scale, 0, -half_w / scale,
-                        0, 1.0 / scale, -half_h / scale,
-                        0, 0, 1;
-
-    /* *INDENT-ON* */
-    /* clang-format on */
-
-    // Add border
-    cv::copyMakeBorder(
-        resized_img,
-        resized_img,
-        top,
-        bottom,
-        left,
-        right,
-        cv::BORDER_CONSTANT,
-        cv::Scalar(114, 114, 114)
-    );
-
-    return resized_img;
-}
-/**
- * @brief Calculate intersection area between two objects.
- * @param a Object a.
- * @param b Object b.
- * @return Area of intersection.
- */
-static inline float intersection_area(const armor::ArmorObject& a, const armor::ArmorObject& b) {
-    cv::Rect_<float> inter = a.box & b.box;
-    return inter.area();
-}
-
-static void nms_merge_sorted_bboxes(
-    std::vector<armor::ArmorObject>& faceobjects,
-    std::vector<int>& indices,
-    float nms_threshold
-) {
-    indices.clear();
-
-    const int n = faceobjects.size();
-
-    std::vector<float> areas(n);
-    for (int i = 0; i < n; i++) {
-        areas[i] = faceobjects[i].box.area();
-    }
-
-    for (int i = 0; i < n; i++) {
-        armor::ArmorObject& a = faceobjects[i];
-
-        int keep = 1;
-        for (int indice: indices) {
-            armor::ArmorObject& b = faceobjects[indice];
-
-            // intersection over union
-            float inter_area = intersection_area(a, b);
-            float union_area = areas[i] + areas[indice] - inter_area;
-            float iou = inter_area / union_area;
-            if (iou > nms_threshold || isnan(iou)) {
-                keep = 0;
-                // Stored for Merge
-                if (a.number == b.number && a.color == b.color && iou > MERGE_MIN_IOU
-                    && abs(a.prob - b.prob) < MERGE_CONF_ERROR)
-                {
-                    for (int i = 0; i < 4; i++) {
-                        b.pts.push_back(a.pts[i]);
-                    }
-                }
-                // cout<<b.pts_x.size()<<endl;
-            }
-        }
-
-        if (keep) {
-            indices.push_back(i);
-        }
-    }
-}
 
 // 构造函数：初始化参数并构建引擎
 ArmorDetectTrt::ArmorDetectTrt(
@@ -202,7 +69,13 @@ ArmorDetectTrt::ArmorDetectTrt(
     TRT_ASSERT(cudaMalloc(&device_buffers_[output_idx_], output_sz_ * sizeof(float)) == 0);
     output_buffer_ = new float[output_sz_];
     TRT_ASSERT(cudaStreamCreate(&stream_) == 0);
-    std::vector<int> strides = { 8, 16, 32 };
+    strides_ = { 8, 16, 32 };
+    armor_infer::generate_grids_and_stride(
+        armor_infer::INPUT_W,
+        armor_infer::INPUT_H,
+        strides_,
+        grid_strides_
+    );
     AdaptiveResourcePool<Infer>::Params pool_params;
     pool_params.resource_initializer = [=]() {
         std::vector<std::unique_ptr<Infer>> infers;
@@ -216,13 +89,17 @@ ArmorDetectTrt::ArmorDetectTrt(
                 size_t max_input_img = 4096 * 2160 * 3;
                 size_t num_grid_strides = 0;
                 auto* device_grid_strides = armor_cuda_infer::init_grid_strides_on_gpu(
-                    INPUT_W,
-                    INPUT_W,
-                    strides,
+                    armor_infer::INPUT_W,
+                    armor_infer::INPUT_W,
+                    strides_,
                     num_grid_strides
                 );
-                infer->cuda_infer
-                    ->init(device_grid_strides, max_input_img, output_sz_ / 21, num_grid_strides);
+                infer->cuda_infer->init(
+                    device_grid_strides,
+                    max_input_img,
+                    grid_strides_.size(),
+                    num_grid_strides
+                );
             }
             if (!infer->context) {
                 WUST_ERROR("TRT") << "create infer failed, missing context"
@@ -265,13 +142,13 @@ ArmorDetectTrt::ArmorDetectTrt(
             size_t max_input_img = 4096 * 2160 * 3;
             size_t num_grid_strides = 0;
             auto* device_grid_strides = armor_cuda_infer::init_grid_strides_on_gpu(
-                INPUT_W,
-                INPUT_W,
-                strides,
+                armor_infer::INPUT_W,
+                armor_infer::INPUT_W,
+                strides_,
                 num_grid_strides
             );
             infer->cuda_infer
-                ->init(device_grid_strides, max_input_img, output_sz_ / 21, num_grid_strides);
+                ->init(device_grid_strides, max_input_img, grid_strides_.size(), num_grid_strides);
         }
         if (!infer->context) {
             WUST_ERROR("TRT") << "create infer failed, missing context";
@@ -437,8 +314,6 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
     auto t0 = time_utils::now();
     Eigen::Matrix3f transform_matrix;
     std::vector<armor::ArmorObject> objs_tmp, objs_result;
-    std::vector<cv::Rect> rects;
-    std::vector<float> scores;
     void* input_tensor_ptr;
     if (infer->cuda_infer && params_.use_cuda_pre) {
         input_tensor_ptr = infer->cuda_infer->preprocess(
@@ -449,11 +324,11 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
             stream_
         );
     } else {
-        cv::Mat resized_img = letterbox(frame.src_img, transform_matrix);
+        cv::Mat resized_img = armor_infer::letterbox(frame.src_img, transform_matrix);
         cv::Mat blob = cv::dnn::blobFromImage(
             resized_img,
             1.,
-            cv::Size(INPUT_W, INPUT_H),
+            cv::Size(armor_infer::INPUT_W, armor_infer::INPUT_H),
             cv::Scalar(0, 0, 0),
             true
         );
@@ -481,7 +356,7 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
     if (infer->cuda_infer && params_.use_cuda_post) {
         auto host_results = infer->cuda_infer->postprocess(
             (float*)device_buffers_[output_idx_],
-            output_sz_ / 21,
+            grid_strides_.size(),
             transform_matrix,
             params_.conf_threshold,
             params_.nms_threshold,
@@ -497,8 +372,16 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
             stream_
         );
         cudaStreamSynchronize(stream_);
-        objs_result =
-            postProcess(objs_tmp, scores, rects, output_buffer_, output_sz_ / 21, transform_matrix);
+        cv::Mat output_mat(grid_strides_.size(), 21, CV_32F, output_buffer_);
+        objs_result = armor_infer::postProcess(
+            objs_tmp,
+            output_mat,
+            transform_matrix,
+            grid_strides_,
+            params_.conf_threshold,
+            params_.nms_threshold,
+            params_.top_k
+        );
     }
     auto t3 = time_utils::now();
     if (params_.log_time) {
@@ -533,117 +416,6 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
     }
 
     return true;
-}
-
-std::vector<armor::ArmorObject> ArmorDetectTrt::postProcess(
-    std::vector<armor::ArmorObject>& output_objs,
-    std::vector<float>& scores,
-    std::vector<cv::Rect>& rects,
-    const float* output,
-    int num_detections,
-    const Eigen::Matrix<float, 3, 3>& transform_matrix
-) {
-    std::vector<int> strides = { 8, 16, 32 };
-    std::vector<GridAndStride> grid_strides;
-    generate_grids_and_stride(strides, grid_strides);
-
-    for (int i = 0; i < num_detections; ++i) {
-        const float* det = output + i * 21;
-        float conf = det[8];
-
-        if (conf < params_.conf_threshold)
-            continue;
-
-        // 解析坐标
-        int grid0 = grid_strides[i].grid0;
-        int grid1 = grid_strides[i].grid1;
-        int stride = grid_strides[i].stride;
-
-        cv::Point color_id, num_id;
-
-        float x_1 = (det[0] + grid0) * stride;
-        float y_1 = (det[1] + grid1) * stride;
-        float x_2 = (det[2] + grid0) * stride;
-        float y_2 = (det[3] + grid1) * stride;
-        float x_3 = (det[4] + grid0) * stride;
-        float y_3 = (det[5] + grid1) * stride;
-        float x_4 = (det[6] + grid0) * stride;
-        float y_4 = (det[7] + grid1) * stride;
-
-        Eigen::Matrix<float, 3, 4> apex_norm;
-        Eigen::Matrix<float, 3, 4> apex_dst;
-
-        apex_norm << x_1, x_2, x_3, x_4, y_1, y_2, y_3, y_4, 1, 1, 1, 1;
-
-        apex_dst = transform_matrix * apex_norm;
-
-        armor::ArmorObject obj;
-
-        obj.pts.resize(4);
-
-        obj.pts[0] = cv::Point2f(apex_dst(0, 0), apex_dst(1, 0));
-        obj.pts[1] = cv::Point2f(apex_dst(0, 1), apex_dst(1, 1));
-        obj.pts[2] = cv::Point2f(apex_dst(0, 2), apex_dst(1, 2));
-        obj.pts[3] = cv::Point2f(apex_dst(0, 3), apex_dst(1, 3));
-
-        auto rect = cv::boundingRect(obj.pts);
-
-        obj.box = rect;
-        // obj.color = static_cast<ArmorColor>(color_id.x);
-        // obj.number = static_cast<ArmorNumber>(num_id.x);
-        obj.prob = conf;
-
-        // 解析颜色和类别
-        obj.color = static_cast<armor::ArmorColor>(
-            std::max_element(det + 9, det + 9 + NUM_COLORS) - (det + 9)
-        );
-        obj.number = static_cast<armor::ArmorNumber>(
-            std::max_element(det + 9 + NUM_COLORS, det + 9 + NUM_COLORS + NUM_CLASSES)
-            - (det + 9 + NUM_COLORS)
-        );
-        // box.confidence = conf;
-
-        rects.push_back(rect);
-        scores.push_back(conf);
-        output_objs.push_back(std::move(obj));
-    }
-
-    // TopK
-    std::sort(
-        output_objs.begin(),
-        output_objs.end(),
-        [](const armor::ArmorObject& a, const armor::ArmorObject& b) { return a.prob > b.prob; }
-    );
-    if (output_objs.size() > static_cast<size_t>(params_.top_k)) {
-        output_objs.resize(params_.top_k);
-    }
-    std::vector<int> indices;
-    std::vector<armor::ArmorObject> objs_result;
-    // cv::dnn::NMSBoxes(rects, scores, params_.conf_threshold,
-    // params_.nms_threshold, indices);
-    nms_merge_sorted_bboxes(output_objs, indices, params_.nms_threshold);
-
-    for (size_t i = 0; i < indices.size(); i++) {
-        objs_result.push_back(std::move(output_objs[indices[i]]));
-
-        if (objs_result[i].pts.size() >= 8) {
-            auto n = objs_result[i].pts.size();
-            cv::Point2f pts_final[4];
-
-            for (size_t j = 0; j < n; j++) {
-                pts_final[j % 4] += objs_result[i].pts[j];
-            }
-
-            objs_result[i].pts.resize(4);
-            for (int j = 0; j < 4; j++) {
-                pts_final[j].x /= static_cast<float>(n) / 4.0;
-                pts_final[j].y /= static_cast<float>(n) / 4.0;
-                objs_result[i].pts[j] = pts_final[j];
-            }
-        }
-    }
-
-    return objs_result;
 }
 
 void ArmorDetectTrt::pushInput(const CommonFrame& frame) {

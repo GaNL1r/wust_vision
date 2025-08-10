@@ -18,12 +18,29 @@
 #include <string>
 #include <unistd.h>
 
+#include "wust_vision.hpp"
+#include <atomic>
+#include <condition_variable>
+#include <csignal>
+#include <iostream>
+#include <mutex>
+#include <thread>
+
+// 全局退出标志
+std::atomic<bool> exit_flag(false);
+std::atomic<bool> sigint_received(false);
+
 std::mutex mtx;
 std::condition_variable c;
 
 void signalHandler(int signum) {
-    WUST_MAIN("main") << "Interrupt signal (" << signum << ") received.";
-    gobal::exit_flag.store(true, std::memory_order_release);
+    if (!sigint_received.exchange(true)) {
+        WUST_MAIN("main") << "Interrupt signal (" << signum << ") received. Exiting gracefully...";
+        exit_flag.store(true, std::memory_order_release);
+    } else {
+        WUST_MAIN("main") << "Interrupt signal (" << signum << ") received again. Forcing exit.";
+        std::_Exit(EXIT_FAILURE); // 立刻退出，不执行清理
+    }
 }
 
 int main() {
@@ -52,6 +69,7 @@ int main() {
         ) << "运行： export LD_LIBRARY_PATH=/opt/MVS/lib/64:/opt/MVS/lib/32:$LD_LIBRARY_PATH";
         return EXIT_FAILURE;
     }
+
     WustVision vision;
     if (vision.init()) {
         vision.start();
@@ -60,17 +78,19 @@ int main() {
     std::signal(SIGINT, signalHandler);
 
     std::thread wait_thread([] {
-        while (!gobal::exit_flag.load(std::memory_order_acquire)) {
+        while (!exit_flag.load(std::memory_order_acquire)) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
         c.notify_one();
     });
+
     {
         std::unique_lock<std::mutex> lk(mtx);
-        c.wait(lk, [] { return gobal::exit_flag.load(std::memory_order_acquire); });
+        c.wait(lk, [] { return exit_flag.load(std::memory_order_acquire); });
     }
 
     wait_thread.join();
     vision.stop();
+
     return 0;
 }

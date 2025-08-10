@@ -22,10 +22,6 @@ ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(
     double classify_threshold = config["armor_detect"]["classify"]["threshold"].as<double>();
     const std::string model_path = config["armor_detect"]["model"]["model_path"].as<std::string>();
     ArmorDetectTrt::Params params;
-    params.input_w = config["armor_detect"]["model"]["input_w"].as<int>();
-    params.input_h = config["armor_detect"]["model"]["input_h"].as<int>();
-    params.num_classes = config["armor_detect"]["model"]["num_classes"].as<int>();
-    params.num_colors = config["armor_detect"]["model"]["num_colors"].as<int>();
     params.conf_threshold = config["armor_detect"]["model"]["conf_threshold"].as<float>();
     params.nms_threshold = config["armor_detect"]["model"]["nms_threshold"].as<float>();
     params.top_k = config["armor_detect"]["model"]["top_k"].as<int>();

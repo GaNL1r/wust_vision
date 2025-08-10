@@ -76,12 +76,13 @@ bool VideoPlayer::read() {
             return false;
         }
     }
-
+    cv::cvtColor(frame_bgr, frame_bgr, cv::COLOR_BGR2RGB);
     ImageFrame frame;
-    frame.width = frame_bgr.cols;
-    frame.height = frame_bgr.rows;
-    frame.step = frame.width * 3;
-    frame.data.assign(frame_bgr.data, frame_bgr.data + frame.step * frame.height);
+    // frame.width = frame_bgr.cols;
+    // frame.height = frame_bgr.rows;
+    // frame.step = frame.width * 3;
+    // frame.data.assign(frame_bgr.data, frame_bgr.data + frame.step * frame.height);
+    frame.src_img = std::move(frame_bgr);
     frame.timestamp = std::chrono::steady_clock::now();
 
     if (on_frame_callback_) {
@@ -121,12 +122,13 @@ void VideoPlayer::run() {
                 break;
             }
         }
-
+        cv::cvtColor(frame_bgr, frame_bgr, cv::COLOR_BGR2RGB);
         ImageFrame frame;
-        frame.width = frame_bgr.cols;
-        frame.height = frame_bgr.rows;
-        frame.step = frame.width * 3;
-        frame.data.assign(frame_bgr.data, frame_bgr.data + frame.step * frame.height);
+        // frame.width = frame_bgr.cols;
+        // frame.height = frame_bgr.rows;
+        // frame.step = frame.width * 3;
+        // frame.data.assign(frame_bgr.data, frame_bgr.data + frame.step * frame.height);
+        frame.src_img = std::move(frame_bgr);
         frame.timestamp = steady_clock::now();
 
         if (on_frame_callback_) {

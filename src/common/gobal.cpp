@@ -1,7 +1,6 @@
 #include "common/gobal.hpp"
 
 namespace gobal {
-std::atomic<bool> exit_flag(false);
 std::unique_ptr<MonoMeasureTool> measure_tool;
 int detect_color;
 bool debug_mode = false;

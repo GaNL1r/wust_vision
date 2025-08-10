@@ -992,7 +992,7 @@ void drawDebugOverlayWrite(const DebugArmor& dbg, bool auto_fps) {
 
     // 封装后的绘图函数
     drawDebugArmorContent(debug_img, dbg);
-
+    cv::cvtColor(debug_img, debug_img, cv::COLOR_RGB2BGR);
     // 编码写入共享内存路径
     std::vector<uchar> buf;
     cv::imencode(".jpg", debug_img, buf);

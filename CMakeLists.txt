@@ -92,6 +92,8 @@ set(COMMON_SOURCES
   src/tracker/tracker.cpp
   src/tracker/tracker_manager.cpp
   src/common/camera_calibrator.cpp
+  src/detect/armor_detect/armor_infer.cpp
+  src/detect/rune_detect/rune_infer.cpp
 )
 
 # 各后端专属源码，启用则加入

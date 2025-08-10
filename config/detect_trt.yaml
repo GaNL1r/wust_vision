@@ -19,16 +19,12 @@ armor_detect:
     min_ratio: 0.03
   model:
     conf_threshold: 0.2
-    input_h: 416
-    input_w: 416
     model_path: /home/hy/wust_vision/model/opt-1208-001.onnx
     device_id: 0
     nms_threshold: 0.3
-    num_classes: 8
-    num_colors: 4
     top_k: 128
     max_infer_running: 4
-    min_free_mem_ratio: 0.3
+    min_free_mem_ratio: 0.1
     use_cuda_pre: false
     use_cuda_post: false
     log_time: false
@@ -44,6 +40,6 @@ rune_detector:
   top_k: 128
   max_infer_running: 4
   min_free_mem_ratio: 0.3
-  use_cuda_pre: true
+  use_cuda_pre: false
   use_cuda_post: false
   log_time: false

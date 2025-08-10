@@ -13,7 +13,6 @@
 #define OPENCV_CONFIG "/home/hy/wust_vision/config/detect_opencv.yaml"
 #define OMNI_CONFIG "/home/hy/wust_vision/config/omni_config.yaml"
 namespace gobal {
-extern std::atomic<bool> exit_flag;
 extern std::unique_ptr<MonoMeasureTool> measure_tool;
 extern int detect_color;
 extern bool debug_mode;

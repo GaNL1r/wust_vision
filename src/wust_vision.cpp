@@ -142,9 +142,6 @@ bool WustVision::init() {
                         [frame = std::move(frame), this]() {
                             infer_running_count_++;
                             processImage(frame);
-                            // auto t0 =time_utils::now();
-                            // double time_used = time_utils::durationMs(frame.timestamp, t0);
-                            // std::cout << "time used: " << time_used << std::endl;
                             detect_finish_count_++;
                             infer_running_count_--;
                         },
@@ -770,8 +767,11 @@ void WustVision::processImage(const ImageFrame& frame) {
     if (!use_video_) {
         common_frame.src_img = convertToMatrgb(frame);
     } else {
-        common_frame.src_img = convertToMatbgr(frame);
-        common_frame.src_img.convertTo(common_frame.src_img, -1, video_alpha_, video_beta_);
+        //common_frame.src_img = convertToMatbgr(frame);
+        if (!frame.src_img.empty()) {
+            common_frame.src_img = std::move(frame.src_img);
+            //common_frame.src_img.convertTo(common_frame.src_img, -1, video_alpha_, video_beta_);
+        }
     }
     common_frame.T_camera_to_odom = utils::computeCameraToOdomTransform(
         frame.R_gimbal2odom,

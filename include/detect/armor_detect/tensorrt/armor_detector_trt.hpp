@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "Eigen/Dense"
 #include "NvInfer.h"
 #include "NvInferRuntime.h"
 #include "armor_infer.hpp"
@@ -28,23 +29,16 @@
 #include "detect/armor_detect/armor_detect_common.hpp"
 #include "detect/armor_detect/light_corner_corrector.hpp"
 #include "detect/mono_measure_tool.hpp"
-#include "eigen3/Eigen/Dense"
 #include "fmt/color.h"
 #include "fmt/core.h"
 #include "fmt/printf.h"
 #include "opencv2/opencv.hpp"
 
-// 定义检测框结构体，与 OpenVINO 模型输出对齐
 class ArmorDetectTrt {
 public:
-    // 初始化参数结构体
     using DetectorCallback =
         std::function<void(const std::vector<armor::ArmorObject>&, const CommonFrame&)>;
     struct Params {
-        int input_w = 416; // 模型输入宽度
-        int input_h = 416; // 模型输入高度
-        int num_classes = 8; // 类别数 (0-7)
-        int num_colors = 4; // 颜色数 (0-3)
         float conf_threshold = 0.3; // 置信度阈值
         float nms_threshold = 0.5; // NMS阈值
         int top_k = 128; // 最大检测框数
@@ -68,7 +62,6 @@ public:
         bool use_armor_detect_common = true
     );
 
-    // 析构函数：释放资源
     ~ArmorDetectTrt();
 
     void pushInput(const CommonFrame& frame);
@@ -77,17 +70,7 @@ public:
     void setCallback(DetectorCallback callback);
 
 private:
-    // TensorRT 引擎初始化
     void buildEngine(const std::string& onnx_path);
-    // 后处理：解析输出张量，生成检测框
-    std::vector<armor::ArmorObject> postProcess(
-        std::vector<armor::ArmorObject>& output_objs,
-        std::vector<float>& scores,
-        std::vector<cv::Rect>& rects,
-        const float* output,
-        int num_detections,
-        const Eigen::Matrix<float, 3, 3>& transform_matrix
-    );
 
     // 成员变量
     Params params_;
@@ -99,6 +82,8 @@ private:
     int input_idx_, output_idx_;
     size_t input_sz_, output_sz_;
     TRTLogger g_logger_;
+    std::vector<int> strides_;
+    std::vector<GridAndStride> grid_strides_;
     DetectorCallback infer_callback_;
     nvinfer1::IRuntime* runtime_ = nullptr;
     std::unique_ptr<ArmorDetectCommon> armor_detect_common_;
