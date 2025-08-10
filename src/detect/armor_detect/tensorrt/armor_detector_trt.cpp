@@ -186,7 +186,7 @@ ArmorDetectTrt::ArmorDetectTrt(
     };
 
     thread_pool_ = std::make_shared<ThreadPool>(params.max_infer_running);
-    pool_params.thread_pool = thread_pool_;
+    //pool_params.thread_pool = thread_pool_;
     pool_params.logger = [](const std::string& msg) {
         WUST_INFO("ArmorDetectTrt:infer pool") << msg;
     };
@@ -420,8 +420,15 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
 
 void ArmorDetectTrt::pushInput(const CommonFrame& frame) {
     if (infer_pool_) {
-        infer_pool_->enqueue([this, frame = std::move(frame)](Infer& infer) {
-            this->processCallback(frame, &infer);
-        });
+        // infer_pool_->enqueue([this, frame = std::move(frame)](Infer& infer) {
+        //     this->processCallback(frame, &infer);
+        // });
+        auto infer_ptr = infer_pool_->acquire();
+        if (infer_ptr != nullptr) {
+            thread_pool_->enqueue([this, frame = std::move(frame), infer_ptr]() {
+                this->processCallback(frame, infer_ptr);
+                infer_pool_->release(infer_ptr);
+            });
+        }
     }
 }

@@ -132,7 +132,6 @@ OmniManager::OmniManager(const YAML::Node& config) {
                 [frame = std::move(frame), this]() {
                     infer_running_count_++;
                     processImage(frame);
-                    detect_finish_count_++;
                     infer_running_count_--;
                 },
                 -1
@@ -290,6 +289,7 @@ void OmniManager::ArmorDetectCallback(
     imgframe debug_img_frame;
     debug_img_frame.img = debug_img;
     debug_img_frame.timestamp = frame.timestamp;
+    detect_finish_count_++;
     drawResult(debug_img_frame, armors);
 }
 

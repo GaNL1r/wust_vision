@@ -1,11 +1,11 @@
 #pragma once
 
-#include "common/ThreadPool.h"
 #include <algorithm>
 #include <atomic>
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -41,7 +41,6 @@ public:
         std::function<bool(size_t)> should_release;
         std::function<std::unique_ptr<T>(size_t)> restore_func;
         std::function<void(std::unique_ptr<T>&)> release_func;
-        std::shared_ptr<ThreadPool> thread_pool;
         std::function<void(const std::string&)> logger = [](const std::string&) {};
     };
 
@@ -66,9 +65,9 @@ public:
         params_.logger("AdaptiveResourcePool destroyed.");
     }
 
-    // 修改为模板，支持可移动但不可拷贝的任务对象
-    template<typename Func>
-    void enqueue(Func&& task) {
+    /// 获取一个可用资源指针（可能返回 nullptr）
+    T* acquire() {
+        std::lock_guard<std::mutex> lk(mutex_);
         maybeRecover();
 
         for (size_t i = 0; i < resources_.size(); ++i) {
@@ -77,29 +76,33 @@ public:
                     maybeReleaseOne(i);
                     break;
                 }
-
                 busy_[i].store(true);
+                return resources_[i].get();
+            }
+        }
+        return nullptr;
+    }
 
-                // 捕获并移动任务对象，保证可移动lambda能正常工作
-                auto task_wrapper = [this, i, task = std::forward<Func>(task)]() mutable {
-                    T* res = resources_[i].get();
-                    if (!res) {
-                        params_.logger("Resource[" + std::to_string(i) + "] is null");
-                        busy_[i].store(false);
-                        return;
-                    }
-                    try {
-                        task(*res);
-                    } catch (const std::exception& e) {
-                        params_.logger("Task exception: " + std::string(e.what()));
-                    }
-                    busy_[i].store(false);
-                };
-
-                params_.thread_pool->enqueue(std::move(task_wrapper));
+    /// 归还一个资源
+    void release(T* res_ptr) {
+        std::lock_guard<std::mutex> lk(mutex_);
+        for (size_t i = 0; i < resources_.size(); ++i) {
+            if (resources_[i].get() == res_ptr) {
+                busy_[i].store(false);
                 return;
             }
         }
+        params_.logger("Tried to release unknown resource.");
+    }
+    size_t idleCount() const {
+        std::lock_guard<std::mutex> lk(mutex_);
+        size_t count = 0;
+        for (size_t i = 0; i < resources_.size(); ++i) {
+            if (!busy_[i].load() && !released_[i]) {
+                ++count;
+            }
+        }
+        return count;
     }
 
 private:
@@ -133,7 +136,6 @@ private:
             if (!busy_[i].load() && !released_[i]) {
                 if (active <= 1)
                     break;
-
                 busy_[i].store(true);
                 params_.release_func(resources_[i]);
                 resources_[i].reset();
@@ -149,4 +151,5 @@ private:
     std::vector<std::unique_ptr<T>> resources_;
     std::vector<MovableAtomicBool> busy_;
     std::vector<bool> released_;
+    mutable std::mutex mutex_;
 };

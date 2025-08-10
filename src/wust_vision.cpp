@@ -142,7 +142,6 @@ bool WustVision::init() {
                         [frame = std::move(frame), this]() {
                             infer_running_count_++;
                             processImage(frame);
-                            detect_finish_count_++;
                             infer_running_count_--;
                         },
                         -1
@@ -190,7 +189,6 @@ bool WustVision::init() {
                         [frame = std::move(frame), this]() {
                             infer_running_count_++;
                             processImage(frame);
-                            detect_finish_count_++;
                             infer_running_count_--;
                         },
                         -1
@@ -541,6 +539,7 @@ void WustVision::ArmorDetectCallback(
 
     armorsCallback(armors, frame.src_img, R_gimbal2odom, frame.v);
     T_camera_to_odom_ = frame.T_camera_to_odom;
+    detect_finish_count_++;
 }
 
 void WustVision::RuneDetectCallback(std::vector<rune::RuneObject>& objs, const CommonFrame& frame) {
@@ -681,6 +680,7 @@ void WustVision::RuneDetectCallback(std::vector<rune::RuneObject>& objs, const C
         rune_gobal_ = rune_target;
         rune_objects_ = objs;
     }
+    detect_finish_count_++;
 }
 
 GimbalCmd WustVision::solveByMode(

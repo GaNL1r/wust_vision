@@ -172,7 +172,7 @@ RuneDetectorTrt::RuneDetectorTrt(const std::filesystem::path& model_path, const 
     };
 
     thread_pool_ = std::make_shared<ThreadPool>(params.max_infer_running);
-    pool_params.thread_pool = thread_pool_;
+    //pool_params.thread_pool = thread_pool_;
     pool_params.logger = [](const std::string& msg) {
         WUST_INFO("RuneDetectorTrt:infer pool") << msg;
     };
@@ -476,8 +476,12 @@ std::tuple<cv::Point2f, cv::Mat> RuneDetectorTrt::detectRTag(
 }
 void RuneDetectorTrt::pushInput(const CommonFrame& frame) {
     if (infer_pool_) {
-        infer_pool_->enqueue([this, frame = std::move(frame)](Infer& infer) {
-            this->processCallback(frame, &infer);
-        });
+        auto infer_ptr = infer_pool_->acquire();
+        if (infer_ptr != nullptr) {
+            thread_pool_->enqueue([this, frame = std::move(frame), infer_ptr]() {
+                this->processCallback(frame, infer_ptr);
+                infer_pool_->release(infer_ptr);
+            });
+        }
     }
 }
