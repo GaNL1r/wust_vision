@@ -4,12 +4,12 @@
 #include "opencv2/opencv.hpp"
 #include "type/type.hpp"
 namespace armor_infer {
-static const int INPUT_W = 416; // Width of input
-static const int INPUT_H = 416; // Height of input
-static constexpr int NUM_CLASSES = 8; // Number of classes
-static constexpr int NUM_COLORS = 4; // Number of color
-static constexpr float MERGE_CONF_ERROR = 0.15;
-static constexpr float MERGE_MIN_IOU = 0.9;
+const int INPUT_W = 416; // Width of input
+const int INPUT_H = 416; // Height of input
+constexpr int NUM_CLASSES = 8; // Number of classes
+constexpr int NUM_COLORS = 4; // Number of color
+constexpr float MERGE_CONF_ERROR = 0.15;
+constexpr float MERGE_MIN_IOU = 0.9;
 void generate_grids_and_stride(
     const int target_w,
     const int target_h,

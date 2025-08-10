@@ -1,8 +1,8 @@
 common:
-  armor_detect_backend: ncnn
+  armor_detect_backend: tensorrt
   rune_detect_backend: tensorrt
-  detect_color: 1
-  init_attack_mode: 1
+  detect_color: 0
+  init_attack_mode: 0
   max_detect_armors: 12
   max_infer_running: 10
   thread_multiplier: 2
