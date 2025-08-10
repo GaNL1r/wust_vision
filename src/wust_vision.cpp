@@ -35,55 +35,68 @@ WustVision::~WustVision() {}
 void WustVision::stop() {
     gobal::is_inited_ = false;
 
-    if (!only_nav_enable_) {
-        auto_labeler_.reset();
-        if (use_video_) {
-            video_player_->stop();
-        } else {
-            if (camera_) {
-                camera_->stopCamera();
-                camera_.reset();
+    auto future = std::async(std::launch::async, [this]() {
+        if (!only_nav_enable_) {
+            auto_labeler_.reset();
+            if (use_video_) {
+                video_player_->stop();
+            } else {
+                if (camera_) {
+                    camera_->stopCamera();
+                    camera_.reset();
+                }
             }
-        }
-        if (use_omni_) {
-            omni_manager_->stop();
-            omni_manager_.reset();
-        }
-        if (timer_) {
-            timer_->stop();
-            timer_.reset();
-        }
-        WUST_INFO("stop") << "timer stop";
-        if (gobal::thread_pool) {
-            gobal::thread_pool->waitUntilEmpty();
-            gobal::thread_pool.reset();
-        }
-        WUST_INFO("stop") << "thread pool stop";
-        armor_detector_.reset();
-        WUST_INFO("stop") << "armor detector stop";
-        rune_detector_.reset();
-        WUST_INFO("stop") << "rune detector stop";
-#ifdef USE_TRT
-        cudaDeviceSynchronize();
-        cudaDeviceReset();
-#endif
+            if (use_omni_) {
+                omni_manager_->stop();
+                omni_manager_.reset();
+            }
+            if (timer_) {
+                timer_->stop();
+                timer_.reset();
+            }
+            WUST_INFO("stop") << "timer stop";
+
+            if (gobal::thread_pool) {
+                gobal::thread_pool.reset();
+            }
+            WUST_INFO("stop") << "thread pool stop";
+
+            armor_detector_.reset();
+            WUST_INFO("stop") << "armor detector stop";
+            rune_detector_.reset();
+            WUST_INFO("stop") << "rune detector stop";
+
 #ifdef USE_NCNN
-        if (gobal::use_detect_ncnn_count > 0) {
-            ncnn::destroy_gpu_instance();
-        }
+            if (gobal::use_detect_ncnn_count > 0) {
+                ncnn::destroy_gpu_instance();
+            }
 #endif
-        gobal::measure_tool.reset();
 
-        if (toolsgobal::debug_thread_.joinable()) {
-            toolsgobal::debug_thread_.join();
+            if (gobal::measure_tool) {
+                gobal::measure_tool.reset();
+            }
+            WUST_INFO("stop") << "measure tool stop";
+
+            if (toolsgobal::debug_thread_.joinable()) {
+                toolsgobal::debug_thread_.join();
+            }
+            WUST_INFO("stop") << "debug thread stop";
         }
-    }
-    if (serial_) {
-        serial_->stopThread();
-        serial_.reset();
-    }
 
-    WUST_MAIN(vision_logger_) << "WustVision shutdown complete.";
+        if (serial_) {
+            serial_->stopThread();
+            serial_.reset();
+        }
+        WUST_INFO("stop") << "serial stop";
+
+        WUST_MAIN(vision_logger_) << "WustVision shutdown complete.";
+        return 0;
+    });
+
+    if (future.wait_for(std::chrono::seconds(5)) == std::future_status::timeout) {
+        WUST_ERROR("stop") << "stop() timeout, forcing process exit";
+        std::exit(0);
+    }
 }
 bool WustVision::init() {
     WUST_MAIN(vision_logger_) << "WustVision init start";

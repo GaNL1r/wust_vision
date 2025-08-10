@@ -3,45 +3,108 @@
 #include "Eigen/Dense"
 #include "opencv2/opencv.hpp"
 #include "type/type.hpp"
+#include <algorithm>
+#include <numeric>
+#include <unordered_map>
+#include <vector>
 
 namespace rune_infer {
-constexpr int INPUT_W = 480; // Width of input
-constexpr int INPUT_H = 480; // Height of input
-constexpr int NUM_CLASSES = 2; // Number of classes
-constexpr int NUM_COLORS = 2; // Number of color
-constexpr int NUM_POINTS = 5;
-constexpr int NUM_POINTS_2 = 2 * NUM_POINTS;
-constexpr float MERGE_CONF_ERROR = 0.15;
-constexpr float MERGE_MIN_IOU = 0.9;
 inline std::unordered_map<int, EnemyColor> DNN_COLOR_TO_ENEMY_COLOR = { { 0, EnemyColor::BLUE },
                                                                         { 1, EnemyColor::RED } };
-cv::Mat letterbox(
-    const cv::Mat& img,
-    Eigen::Matrix3f& transform_matrix,
-    std::vector<int> new_shape = { INPUT_W, INPUT_H }
-);
-void generateGridsAndStride(
-    const int target_w,
-    const int target_h,
-    std::vector<int>& strides,
-    std::vector<GridAndStride>& grid_strides
-);
-std::vector<rune::RuneObject> postProcess(
-    std::vector<rune::RuneObject>& output_objs,
-    const cv::Mat& output_buffer,
-    const Eigen::Matrix<float, 3, 3>& transform_matrix,
-    std::vector<GridAndStride> grid_strides,
-    float conf_threshold,
-    float nms_threshold,
-    int top_k
-);
-inline float intersectionArea(const rune::RuneObject& a, const rune::RuneObject& b) {
-    cv::Rect_<float> inter = a.box & b.box;
-    return inter.area();
+enum class Mode { TUP };
+inline Mode modeFromString(const std::string& mode) {
+    if (mode == "tup" || mode == "TUP")
+        return Mode::TUP;
+    else
+        return Mode::TUP;
 }
-void nmsMergeSortedBboxes(
-    std::vector<rune::RuneObject>& faceobjects,
-    std::vector<int>& indices,
-    float nms_threshold
-);
+
+class RuneInfer {
+public:
+    RuneInfer(
+        Mode mode = Mode::TUP,
+        float conf_threshold = 0.25f,
+        float nms_threshold = 0.45f,
+        int top_k = 100
+    );
+
+    // setters
+    void setMode(Mode m) {
+        mode_ = m;
+    }
+    void setConfThreshold(float t) {
+        conf_threshold_ = t;
+    }
+    void setNmsThreshold(float t) {
+        nms_threshold_ = t;
+    }
+    void setTopK(int k) {
+        top_k_ = k;
+    }
+    void setUseNorm(bool v) {
+        use_norm_ = v;
+    }
+
+    // getters
+    int getInputW() const {
+        return input_w_;
+    }
+    int getInputH() const {
+        return input_h_;
+    }
+    bool getUseNorm() const {
+        return use_norm_;
+    }
+
+    // utilities
+    void generateGridsAndStride(
+        const int target_w,
+        const int target_h,
+        const std::vector<int>& strides,
+        std::vector<GridAndStride>& grid_strides
+    );
+
+    // letterbox that returns cv::Mat (uint8) and produces transform matrix
+    cv::Mat letterbox(
+        const cv::Mat& img,
+        Eigen::Matrix3f& transform_matrix,
+        int new_shape_w,
+        int new_shape_h
+    ) const;
+
+    // faster letterbox that writes into preallocated uint8 buffer (NHWC u8)
+    void letterbox_into(
+        const cv::Mat& img,
+        uint8_t* dst_data,
+        Eigen::Matrix3f& transform_matrix,
+        int dst_w,
+        int dst_h
+    );
+
+    // unified postProcess: wraps the original free-function logic
+    std::vector<rune::RuneObject> postProcess(
+        const cv::Mat& output_buffer,
+        const Eigen::Matrix<float, 3, 3>& transform_matrix,
+        std::vector<GridAndStride> grid_strides
+    ) const;
+
+private:
+    // helpers (mirrors your previous functions)
+    void nmsMergeSortedBboxes(
+        std::vector<rune::RuneObject>& faceobjects,
+        std::vector<int>& indices,
+        float nms_threshold
+    ) const;
+
+private:
+    Mode mode_;
+    int input_w_;
+    int input_h_;
+    bool use_norm_;
+    float conf_threshold_;
+    float nms_threshold_;
+    int top_k_;
+    // constants are reused from original file (expect these to be visible)
+};
+
 } // namespace rune_infer

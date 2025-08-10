@@ -33,6 +33,7 @@
 #include <openvino/openvino.hpp>
 // project
 #include "common/ThreadPool.h"
+#include "detect/rune_detect/rune_infer.hpp"
 #include "onnxruntime_cxx_api.h"
 #include "type/type.hpp"
 class RuneDetectorOnnxRuntime {
@@ -42,6 +43,7 @@ public:
 public:
     // Construct a new OpenVINO Detector object
     explicit RuneDetectorOnnxRuntime(
+        std::string model_type,
         const std::filesystem::path& model_path,
         float conf_threshold = 0.25,
         int top_k = 128,
@@ -83,4 +85,5 @@ private:
     CallbackType infer_callback_;
     bool use_gpu_ = false;
     int device_id_ = 0;
+    std::unique_ptr<rune_infer::RuneInfer> rune_infer_;
 };

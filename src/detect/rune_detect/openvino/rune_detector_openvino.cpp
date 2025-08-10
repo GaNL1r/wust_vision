@@ -30,6 +30,7 @@
 #include "type/type.hpp"
 
 RuneDetectorOpenvino::RuneDetectorOpenvino(
+    std::string model_type,
     const std::filesystem::path& model_path,
     const std::string& device_name,
     float conf_threshold,
@@ -43,6 +44,9 @@ RuneDetectorOpenvino::RuneDetectorOpenvino(
     top_k_(top_k),
     nms_threshold_(nms_threshold),
     use_throughputmode_(use_throughputmode_) {
+    auto model = rune_infer::modeFromString(model_type);
+    rune_infer_ =
+        std::make_unique<rune_infer::RuneInfer>(model, conf_threshold, nms_threshold, top_k);
     init();
 }
 
@@ -64,12 +68,13 @@ void RuneDetectorOpenvino::init() {
         .set_layout("NHWC")
         .set_color_format(ov::preprocess::ColorFormat::BGR);
 
-    // 预处理管线：u8→f32、BGR→RGB、除以 255
+    // 预处理管线：u8→f32、BGR→RGB
+    float scale = rune_infer_->getUseNorm() ? 255.0f : 1.0f;
     ppp.input()
         .preprocess()
         .convert_element_type(ov::element::f32)
         .convert_color(ov::preprocess::ColorFormat::RGB)
-        .scale({ 1.0f, 1.0f, 1.0f });
+        .scale({ scale, scale, scale });
 
     // 告诉引擎：模型内部期望的布局是 NCHW
     ppp.input().model().set_layout("NCHW");
@@ -88,9 +93,9 @@ void RuneDetectorOpenvino::init() {
     );
 
     strides_ = { 8, 16, 32 };
-    rune_infer::generateGridsAndStride(
-        rune_infer::INPUT_W,
-        rune_infer::INPUT_H,
+    rune_infer_->generateGridsAndStride(
+        rune_infer_->getInputW(),
+        rune_infer_->getInputH(),
         strides_,
         grid_strides_
     );
@@ -128,7 +133,12 @@ bool RuneDetectorOpenvino::processCallback(const CommonFrame& frame) {
     //     compiled_model_->input().get_shape(), // {1, H, W, 3}
     //     resized_img.data // 原始 BGR 数据
     // );
-    cv::Mat resized_img = rune_infer::letterbox(frame.src_img, transform_matrix);
+    cv::Mat resized_img = rune_infer_->letterbox(
+        frame.src_img,
+        transform_matrix,
+        rune_infer_->getInputW(),
+        rune_infer_->getInputH()
+    );
     auto input_tensor = ov::Tensor(
         compiled_model_->input().get_element_type(),
         compiled_model_->input().get_shape(),
@@ -150,16 +160,7 @@ bool RuneDetectorOpenvino::processCallback(const CommonFrame& frame) {
     cv::Mat output_buffer(output_shape[1], output_shape[2], CV_32F, output.data());
 
     // Parsed variable
-    std::vector<rune::RuneObject> objs_tmp, objs_result;
-    objs_result = rune_infer::postProcess(
-        objs_tmp,
-        output_buffer,
-        transform_matrix,
-        grid_strides_,
-        conf_threshold_,
-        nms_threshold_,
-        top_k_
-    );
+    auto objs_result = rune_infer_->postProcess(output_buffer, transform_matrix, grid_strides_);
 
     objs_result.erase(
         std::remove_if(

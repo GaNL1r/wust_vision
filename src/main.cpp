@@ -39,7 +39,7 @@ void signalHandler(int signum) {
         exit_flag.store(true, std::memory_order_release);
     } else {
         WUST_MAIN("main") << "Interrupt signal (" << signum << ") received again. Forcing exit.";
-        std::_Exit(EXIT_FAILURE); // 立刻退出，不执行清理
+        std::exit(EXIT_FAILURE); // 立刻退出，不执行清理
     }
 }
 

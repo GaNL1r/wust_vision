@@ -26,7 +26,7 @@ ArmorDetectorOpenvinoWrapper::ArmorDetectorOpenvinoWrapper(
     int top_k = config["armor_detect"]["model"]["top_k"].as<int>();
     float nms_threshold = config["armor_detect"]["model"]["nms_threshold"].as<float>();
     bool use_throughputmode = config["armor_detect"]["model"]["use_throughputmode"].as<bool>();
-
+    std::string model_type = config["armor_detect"]["model"]["model_type"].as<std::string>();
     WUST_INFO("armor_detector") << "model_path: " << model_path << "device_type: " << device_type;
     int binary_thres;
     float expand_ratio_w, expand_ratio_h;
@@ -63,6 +63,7 @@ ArmorDetectorOpenvinoWrapper::ArmorDetectorOpenvinoWrapper(
     };
 
     detector_ = std::make_unique<ArmorDetectOpenVino>(
+        model_type,
         model_path,
         device_type,
         armor_detect_common_params,

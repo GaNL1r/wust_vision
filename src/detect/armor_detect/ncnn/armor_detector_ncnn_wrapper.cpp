@@ -33,6 +33,7 @@ ArmorDetectorNCNNWrapper::ArmorDetectorNCNNWrapper(
     int device_id = config["armor_detect"]["model"]["device_id"].as<int>();
     auto input_name_ = config["armor_detect"]["model"]["input_name"].as<std::string>();
     auto output_name_ = config["armor_detect"]["model"]["output_name"].as<std::string>();
+    std::string model_type = config["armor_detect"]["model"]["model_type"].as<std::string>();
     WUST_INFO("armor_detector") << "model_path_param: " << model_path_param
                                 << "model_path_bin: " << model_path_param;
     int binary_thres;
@@ -70,6 +71,7 @@ ArmorDetectorNCNNWrapper::ArmorDetectorNCNNWrapper(
     };
 
     detector_ = std::make_unique<ArmorDetectNCNN>(
+        model_type,
         input_name_,
         output_name_,
         model_path_param,

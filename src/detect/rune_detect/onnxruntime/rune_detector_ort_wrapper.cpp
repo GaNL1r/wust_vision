@@ -21,8 +21,10 @@ RuneDetectorOnnxRuntimeWrapper::RuneDetectorOnnxRuntimeWrapper(const YAML::Node&
     float nms_threshold = config["rune_detector"]["nms_threshold"].as<float>(0.3);
     bool use_gpu = config["armor_detect"]["model"]["use_gpu"].as<bool>();
     int device_id = config["armor_detect"]["model"]["device_id"].as<int>();
+    std::string model_type = config["rune_detector"]["model_type"].as<std::string>();
     WUST_INFO("rune_detector") << "model_path: " << model_path;
     rune_detector_ = std::make_unique<RuneDetectorOnnxRuntime>(
+        model_type,
         model_path,
         conf_threshold,
         top_k,

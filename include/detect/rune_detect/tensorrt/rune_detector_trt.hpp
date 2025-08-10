@@ -30,6 +30,7 @@
 #include "NvInferRuntime.h"
 #include "common/ThreadPool.h"
 #include "common/adaptive_resource_pool.hpp"
+#include "detect/rune_detect/rune_infer.hpp"
 #include "rune_infer.hpp"
 #include "type/type.hpp"
 
@@ -54,7 +55,11 @@ public:
 
 public:
     // Construct a new Trt Detector object
-    explicit RuneDetectorTrt(const std::filesystem::path& model_path, const Params& params);
+    explicit RuneDetectorTrt(
+        std::string model_type,
+        const std::filesystem::path& model_path,
+        const Params& params
+    );
     ~RuneDetectorTrt();
 
     // Push an inference request to the detector
@@ -93,4 +98,5 @@ private:
     nvinfer1::IRuntime* runtime_ = nullptr;
     std::shared_ptr<ThreadPool> thread_pool_;
     std::unique_ptr<AdaptiveResourcePool<Infer>> infer_pool_;
+    std::unique_ptr<rune_infer::RuneInfer> rune_infer_;
 };

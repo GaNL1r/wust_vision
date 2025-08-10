@@ -28,8 +28,9 @@ RuneDetectorTrtWrapper::RuneDetectorTrtWrapper(const YAML::Node& config) {
     params.use_cuda_pre = config["rune_detector"]["use_cuda_pre"].as<bool>();
     params.use_cuda_post = config["rune_detector"]["use_cuda_post"].as<bool>();
     params.log_time = config["rune_detector"]["log_time"].as<bool>();
+    std::string model_type = config["rune_detector"]["model_type"].as<std::string>();
     WUST_INFO("rune_detector") << "model_path : " << model_path;
-    rune_detector_ = std::make_unique<RuneDetectorTrt>(model_path, params);
+    rune_detector_ = std::make_unique<RuneDetectorTrt>(model_type, model_path, params);
 }
 
 RuneDetectorTrtWrapper::~RuneDetectorTrtWrapper() = default;

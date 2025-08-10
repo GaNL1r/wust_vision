@@ -1,50 +1,128 @@
 #include "detect/armor_detect/onnxruntime/armor_detector_ort.hpp"
+#include "Eigen/Dense"
 #include "common/gobal.hpp"
 #include "detect/armor_detect/armor_infer.hpp"
-static void letterbox_into_CHW_uint8_rgb(
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <opencv2/opencv.hpp>
+
+// output_ptr must have size >= 3 * dst_width * dst_height
+static void letterbox_into_CHW_float_rgb(
     const cv::Mat& img,
     float* output_ptr,
     Eigen::Matrix3f& transform_matrix,
     int dst_width,
-    int dst_height
+    int dst_height,
+    bool normalize = true, // 是否做归一化
+    bool use_imagenet = true, // normalize=true 时：是否使用 ImageNet mean/std
+    const std::array<float, 3>& mean = { 0.485f, 0.456f, 0.406f }, // in RGB order
+    const std::array<float, 3>& stdv = { 0.229f, 0.224f, 0.225f }, // in RGB order
+    float pad_value = 114.0f // pad 的像素值（原始 0..255 量级）
 ) {
+    // 校验
+    CV_Assert(!img.empty());
+    CV_Assert(img.type() == CV_8UC3);
+
     int img_h = img.rows;
     int img_w = img.cols;
 
+    // 计算缩放与填充（与你原始实现一致）
     float scale = std::min(dst_height * 1.0f / img_h, dst_width * 1.0f / img_w);
-    int resize_h = static_cast<int>(round(img_h * scale));
-    int resize_w = static_cast<int>(round(img_w * scale));
+    int resize_h = std::max(1, static_cast<int>(round(img_h * scale)));
+    int resize_w = std::max(1, static_cast<int>(round(img_w * scale)));
 
     int pad_h = dst_height - resize_h;
     int pad_w = dst_width - resize_w;
     int top = static_cast<int>(round(pad_h / 2.0f - 0.1f));
     int left = static_cast<int>(round(pad_w / 2.0f - 0.1f));
 
-    // Compute inverse affine transform matrix
+    // 逆仿射变换矩阵（从网络坐标 -> 原图坐标）
     transform_matrix << 1.0f / scale, 0, -left / scale, 0, 1.0f / scale, -top / scale, 0, 0, 1;
 
-    // Resize input image first
+    // 先 resize
     cv::Mat resized;
     cv::resize(img, resized, cv::Size(resize_w, resize_h), 0, 0, cv::INTER_LINEAR);
 
-    // Fill CHW uint8 RGB into output_ptr with padding (but still stored in float)
+    const int H = dst_height;
+    const int W = dst_width;
+    const int HW = H * W;
+    // precompute pad_value per channel according to normalize mode
+    std::array<float, 3> pad_chan {};
+    if (!normalize) {
+        // 直接使用 0..255 的 pad value
+        pad_chan = { pad_value, pad_value, pad_value }; // RGB order
+    } else {
+        if (use_imagenet) {
+            // pad: (pad/255 - mean)/std
+            for (int c = 0; c < 3; ++c) {
+                float pv = pad_value / 255.0f;
+                pad_chan[c] = (pv - mean[c]) / stdv[c];
+            }
+        } else {
+            // 仅缩放到 [0,1]
+            float pv = pad_value / 255.0f;
+            pad_chan = { pv, pv, pv };
+        }
+    }
+
+    // 1) fill whole buffer with pad values (CHW: R plane, G, B)
+    // output_ptr layout: [R_plane (H*W), G_plane (H*W), B_plane (H*W)]
     for (int c = 0; c < 3; ++c) {
-        for (int y = 0; y < dst_height; ++y) {
-            for (int x = 0; x < dst_width; ++x) {
-                int out_index = c * dst_height * dst_width + y * dst_width + x;
-                if (y >= top && y < top + resize_h && x >= left && x < left + resize_w) {
-                    int ry = y - top;
-                    int rx = x - left;
-                    cv::Vec3b pixel = resized.at<cv::Vec3b>(ry, rx); // BGR
-                    output_ptr[out_index] = static_cast<float>(pixel[2 - c]); // R,G,B → CHW
+        float* plane_ptr = output_ptr + c * HW;
+        for (int i = 0; i < HW; ++i)
+            plane_ptr[i] = pad_chan[c];
+    }
+
+    // 2) copy resized image into region [top:top+resize_h, left:left+resize_w]
+    //    注意：img/resized 是 BGR，且我们要输出 RGB 且放在 CHW
+    for (int ry = 0; ry < resize_h; ++ry) {
+        int dst_y = top + ry;
+        if (dst_y < 0 || dst_y >= H)
+            continue;
+        const cv::Vec3b* src_row = resized.ptr<cv::Vec3b>(ry);
+        // pointers to start of each plane row
+        float* r_plane_row = output_ptr + 0 * HW + dst_y * W;
+        float* g_plane_row = output_ptr + 1 * HW + dst_y * W;
+        float* b_plane_row = output_ptr + 2 * HW + dst_y * W;
+
+        for (int rx = 0; rx < resize_w; ++rx) {
+            int dst_x = left + rx;
+            if (dst_x < 0 || dst_x >= W)
+                continue;
+
+            cv::Vec3b pix = src_row[rx]; // B G R
+
+            // get per-channel raw value
+            float R = static_cast<float>(pix[2]);
+            float G = static_cast<float>(pix[1]);
+            float B = static_cast<float>(pix[0]);
+
+            if (!normalize) {
+                r_plane_row[dst_x] = R;
+                g_plane_row[dst_x] = G;
+                b_plane_row[dst_x] = B;
+            } else {
+                // scale to [0,1]
+                float r = R / 255.0f;
+                float g = G / 255.0f;
+                float b = B / 255.0f;
+                if (use_imagenet) {
+                    r_plane_row[dst_x] = (r - mean[0]) / stdv[0]; // mean/std in RGB order
+                    g_plane_row[dst_x] = (g - mean[1]) / stdv[1];
+                    b_plane_row[dst_x] = (b - mean[2]) / stdv[2];
                 } else {
-                    output_ptr[out_index] = 114.0f; // padding value (not normalized)
+                    r_plane_row[dst_x] = r;
+                    g_plane_row[dst_x] = g;
+                    b_plane_row[dst_x] = b;
                 }
             }
         }
     }
 }
+
 ArmorDetectOnnxRuntime::ArmorDetectOnnxRuntime(
+    std::string model_type,
     const std::filesystem::path& model_path,
     const ArmorDetectCommonParams& armor_detect_common_params,
     float conf_threshold,
@@ -65,7 +143,9 @@ ArmorDetectOnnxRuntime::ArmorDetectOnnxRuntime(
     if (use_armor_detect_common_) {
         armor_detect_common_ = std::make_unique<ArmorDetectCommon>(armor_detect_common_params);
     }
-
+    auto model = armor_infer::modeFromString(model_type);
+    armor_infer_ =
+        std::make_unique<armor_infer::ArmorInfer>(model, conf_threshold, nms_threshold, top_k);
     init();
 }
 
@@ -95,9 +175,9 @@ void ArmorDetectOnnxRuntime::init() {
     output_name_ = std::string(output_name_ptr.get());
 
     strides_ = { 8, 16, 32 };
-    armor_infer::generate_grids_and_stride(
-        armor_infer::INPUT_W,
-        armor_infer::INPUT_H,
+    armor_infer_->generate_grids_and_stride(
+        armor_infer_->getInputW(),
+        armor_infer_->getInputH(),
         strides_,
         grid_strides_
     );
@@ -115,13 +195,16 @@ void ArmorDetectOnnxRuntime::setCallback(DetectorCallback callback) {
 bool ArmorDetectOnnxRuntime::processCallback(const CommonFrame& frame) {
     Eigen::Matrix3f transform_matrix;
 
-    std::vector<float> input_tensor_values(armor_infer::INPUT_W * armor_infer::INPUT_H * 3);
-    letterbox_into_CHW_uint8_rgb(
+    std::vector<float> input_tensor_values(
+        armor_infer_->getInputW() * armor_infer_->getInputH() * 3
+    );
+    letterbox_into_CHW_float_rgb(
         frame.src_img,
         input_tensor_values.data(),
         transform_matrix,
-        armor_infer::INPUT_W,
-        armor_infer::INPUT_H
+        armor_infer_->getInputW(),
+        armor_infer_->getInputH(),
+        armor_infer_->getUseNorm()
     );
 
     Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
@@ -145,18 +228,8 @@ bool ArmorDetectOnnxRuntime::processCallback(const CommonFrame& frame) {
     cv::Mat output_buffer(rows, cols, CV_32F, output_data);
 
     // Parsed variable
-    std::vector<armor::ArmorObject> objs_tmp, objs_result;
-    std::vector<int> indices;
 
-    objs_result = armor_infer::postProcess(
-        objs_tmp,
-        output_buffer,
-        transform_matrix,
-        grid_strides_,
-        this->conf_threshold_,
-        this->nms_threshold_,
-        this->top_k_
-    );
+    auto objs_result = armor_infer_->postProcess(output_buffer, transform_matrix, grid_strides_);
     std::vector<armor::ArmorObject> armors;
     if (use_armor_detect_common_) {
         armors = armor_detect_common_->detectNet(frame.src_img, objs_result);

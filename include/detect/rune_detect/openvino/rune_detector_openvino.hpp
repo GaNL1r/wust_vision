@@ -33,6 +33,7 @@
 #include <openvino/openvino.hpp>
 // project
 #include "common/ThreadPool.h"
+#include "detect/rune_detect/rune_infer.hpp"
 #include "type/type.hpp"
 class RuneDetectorOpenvino {
 public:
@@ -41,6 +42,7 @@ public:
 public:
     // Construct a new OpenVINO Detector object
     explicit RuneDetectorOpenvino(
+        std::string model_type,
         const std::filesystem::path& model_path,
         const std::string& device_name,
         float conf_threshold = 0.25,
@@ -79,4 +81,5 @@ private:
     std::shared_ptr<ov::Model> model_;
     ov::preprocess::PrePostProcessor* ppp_;
     bool use_throughputmode_ = false;
+    std::unique_ptr<rune_infer::RuneInfer> rune_infer_;
 };

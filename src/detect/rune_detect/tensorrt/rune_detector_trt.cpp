@@ -36,7 +36,11 @@
         } \
     } while (0)
 
-RuneDetectorTrt::RuneDetectorTrt(const std::filesystem::path& model_path, const Params& params):
+RuneDetectorTrt::RuneDetectorTrt(
+    std::string model_type,
+    const std::filesystem::path& model_path,
+    const Params& params
+):
     params_(params),
     model_path_(model_path) {
     int device_id = params_.device_id;
@@ -45,7 +49,13 @@ RuneDetectorTrt::RuneDetectorTrt(const std::filesystem::path& model_path, const 
     TRT_ASSERT(context_ = engine_->createExecutionContext());
     TRT_ASSERT((input_idx_ = engine_->getBindingIndex("images")) == 0);
     TRT_ASSERT((output_idx_ = engine_->getBindingIndex("output")) == 1);
-
+    auto model = rune_infer::modeFromString(model_type);
+    rune_infer_ = std::make_unique<rune_infer::RuneInfer>(
+        model,
+        params.conf_threshold,
+        params.nms_threshold,
+        params.top_k
+    );
     auto input_dims = engine_->getBindingDimensions(input_idx_);
     auto output_dims = engine_->getBindingDimensions(output_idx_);
     input_sz_ = input_dims.d[1] * input_dims.d[2] * input_dims.d[3];
@@ -55,9 +65,9 @@ RuneDetectorTrt::RuneDetectorTrt(const std::filesystem::path& model_path, const 
     output_buffer_ = new float[output_sz_];
     TRT_ASSERT(cudaStreamCreate(&stream_) == 0);
     strides_ = { 8, 16, 32 };
-    rune_infer::generateGridsAndStride(
-        rune_infer::INPUT_W,
-        rune_infer::INPUT_H,
+    rune_infer_->generateGridsAndStride(
+        rune_infer_->getInputW(),
+        rune_infer_->getInputH(),
         strides_,
         grid_strides_
     );
@@ -74,8 +84,8 @@ RuneDetectorTrt::RuneDetectorTrt(const std::filesystem::path& model_path, const 
                 size_t num_grid_strides = 0;
                 rune_cuda_infer::GPUGridAndStride* device_grid_strides =
                     rune_cuda_infer::init_grid_strides_on_gpu(
-                        rune_infer::INPUT_W,
-                        rune_infer::INPUT_W,
+                        rune_infer_->getInputW(),
+                        rune_infer_->getInputH(),
                         strides_,
                         num_grid_strides
                     );
@@ -116,6 +126,9 @@ RuneDetectorTrt::RuneDetectorTrt(const std::filesystem::path& model_path, const 
     };
     auto release_func = [](std::unique_ptr<Infer>& resource) {
         if (resource) {
+            if (resource->cuda_infer) {
+                resource->cuda_infer.reset();
+            }
         }
     };
     auto restore_func = [=](size_t idx) -> std::unique_ptr<Infer> {
@@ -128,8 +141,8 @@ RuneDetectorTrt::RuneDetectorTrt(const std::filesystem::path& model_path, const 
             size_t num_grid_strides = 0;
             rune_cuda_infer::GPUGridAndStride* device_grid_strides =
                 rune_cuda_infer::init_grid_strides_on_gpu(
-                    rune_infer::INPUT_W,
-                    rune_infer::INPUT_W,
+                    rune_infer_->getInputW(),
+                    rune_infer_->getInputH(),
                     strides_,
                     num_grid_strides
                 );
@@ -244,18 +257,14 @@ RuneDetectorTrt::~RuneDetectorTrt() {
     if (infer_pool_) {
         infer_pool_.reset();
     }
-    if (infer_pool_) {
-        infer_pool_.reset();
-    }
     if (context_)
         context_->destroy();
-
     if (engine_)
         engine_->destroy();
     if (runtime_)
         runtime_->destroy();
     if (thread_pool_) {
-        thread_pool_->waitUntilEmpty();
+        //thread_pool_->waitUntilEmpty();
         thread_pool_.reset();
     }
 }
@@ -305,14 +314,18 @@ bool RuneDetectorTrt::processCallback(const CommonFrame& frame, Infer* infer) {
             transform_matrix,
             stream_
         );
-    } else { // BGR->RGB, u8(0-255)->f32(0.0-1.0), HWC->NCHW
-        // note: TUP's model no need to normalize
-        cv::Mat resized_img = rune_infer::letterbox(frame.src_img, transform_matrix);
-
+    } else {
+        cv::Mat resized_img = rune_infer_->letterbox(
+            frame.src_img,
+            transform_matrix,
+            rune_infer_->getInputW(),
+            rune_infer_->getInputH()
+        );
+        float scale = rune_infer_->getUseNorm() ? 255.0f : 1.0f;
         cv::Mat blob = cv::dnn::blobFromImage(
             resized_img,
-            1.,
-            cv::Size(rune_infer::INPUT_W, rune_infer::INPUT_H),
+            scale,
+            cv::Size(rune_infer_->getInputW(), rune_infer_->getInputH()),
             cv::Scalar(0, 0, 0),
             true
         );
@@ -356,15 +369,7 @@ bool RuneDetectorTrt::processCallback(const CommonFrame& frame, Infer* infer) {
         );
         cudaStreamSynchronize(stream_);
         cv::Mat output_mat(grid_strides_.size(), 15, CV_32F, output_buffer_);
-        objs_result = rune_infer::postProcess(
-            objs_tmp,
-            output_mat,
-            transform_matrix,
-            grid_strides_,
-            conf_threshold_,
-            nms_threshold_,
-            top_k_
-        );
+        objs_result = rune_infer_->postProcess(output_mat, transform_matrix, grid_strides_);
     }
 
     auto t3 = time_utils::now();
@@ -478,10 +483,15 @@ void RuneDetectorTrt::pushInput(const CommonFrame& frame) {
     if (infer_pool_) {
         auto infer_ptr = infer_pool_->acquire();
         if (infer_ptr != nullptr) {
-            thread_pool_->enqueue([this, frame = std::move(frame), infer_ptr]() {
-                this->processCallback(frame, infer_ptr);
-                infer_pool_->release(infer_ptr);
-            });
+            if (thread_pool_) {
+                thread_pool_->enqueue(
+                    [this, frame = std::move(frame), infer_ptr]() {
+                        this->processCallback(frame, infer_ptr);
+                        infer_pool_->release(infer_ptr);
+                    },
+                    -1
+                );
+            }
         }
     }
 }

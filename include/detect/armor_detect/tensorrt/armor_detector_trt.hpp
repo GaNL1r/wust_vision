@@ -27,13 +27,13 @@
 #include "common/adaptive_resource_pool.hpp"
 #include "common/logger.hpp"
 #include "detect/armor_detect/armor_detect_common.hpp"
+#include "detect/armor_detect/armor_infer.hpp"
 #include "detect/armor_detect/light_corner_corrector.hpp"
 #include "detect/mono_measure_tool.hpp"
 #include "fmt/color.h"
 #include "fmt/core.h"
 #include "fmt/printf.h"
 #include "opencv2/opencv.hpp"
-
 class ArmorDetectTrt {
 public:
     using DetectorCallback =
@@ -56,6 +56,7 @@ public:
 
     // 构造函数：加载 ONNX 模型并构建 TensorRT 引擎
     explicit ArmorDetectTrt(
+        std::string model_type,
         const std::string& onnx_path,
         const Params& params,
         const ArmorDetectCommonParams& common_params,
@@ -90,4 +91,5 @@ private:
     bool use_armor_detect_common_ = true;
     std::shared_ptr<ThreadPool> thread_pool_;
     std::unique_ptr<AdaptiveResourcePool<Infer>> infer_pool_;
+    std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;
 };

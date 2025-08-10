@@ -42,6 +42,7 @@
 
 // 构造函数：初始化参数并构建引擎
 ArmorDetectTrt::ArmorDetectTrt(
+    std::string model_type,
     const std::string& onnx_path,
     const Params& params,
     const ArmorDetectCommonParams& armor_detect_common_params,
@@ -57,6 +58,13 @@ ArmorDetectTrt::ArmorDetectTrt(
     int device_id = params_.device_id;
     cudaSetDevice(device_id);
     buildEngine(onnx_path);
+    auto model = armor_infer::modeFromString(model_type);
+    armor_infer_ = std::make_unique<armor_infer::ArmorInfer>(
+        model,
+        params.conf_threshold,
+        params.nms_threshold,
+        params.top_k
+    );
     TRT_ASSERT(context_ = engine_->createExecutionContext());
     TRT_ASSERT((input_idx_ = engine_->getBindingIndex("images")) == 0);
     TRT_ASSERT((output_idx_ = engine_->getBindingIndex("output")) == 1);
@@ -70,9 +78,9 @@ ArmorDetectTrt::ArmorDetectTrt(
     output_buffer_ = new float[output_sz_];
     TRT_ASSERT(cudaStreamCreate(&stream_) == 0);
     strides_ = { 8, 16, 32 };
-    armor_infer::generate_grids_and_stride(
-        armor_infer::INPUT_W,
-        armor_infer::INPUT_H,
+    armor_infer_->generate_grids_and_stride(
+        armor_infer_->getInputW(),
+        armor_infer_->getInputH(),
         strides_,
         grid_strides_
     );
@@ -89,8 +97,8 @@ ArmorDetectTrt::ArmorDetectTrt(
                 size_t max_input_img = 4096 * 2160 * 3;
                 size_t num_grid_strides = 0;
                 auto* device_grid_strides = armor_cuda_infer::init_grid_strides_on_gpu(
-                    armor_infer::INPUT_W,
-                    armor_infer::INPUT_W,
+                    armor_infer_->getInputW(),
+                    armor_infer_->getInputH(),
                     strides_,
                     num_grid_strides
                 );
@@ -131,6 +139,9 @@ ArmorDetectTrt::ArmorDetectTrt(
     };
     auto release_func = [](std::unique_ptr<Infer>& resource) {
         if (resource) {
+            if (resource->cuda_infer) {
+                resource->cuda_infer.reset();
+            }
         }
     };
     auto restore_func = [=](size_t idx) -> std::unique_ptr<Infer> {
@@ -142,8 +153,8 @@ ArmorDetectTrt::ArmorDetectTrt(
             size_t max_input_img = 4096 * 2160 * 3;
             size_t num_grid_strides = 0;
             auto* device_grid_strides = armor_cuda_infer::init_grid_strides_on_gpu(
-                armor_infer::INPUT_W,
-                armor_infer::INPUT_W,
+                armor_infer_->getInputW(),
+                armor_infer_->getInputH(),
                 strides_,
                 num_grid_strides
             );
@@ -211,7 +222,7 @@ ArmorDetectTrt::~ArmorDetectTrt() {
     if (runtime_)
         runtime_->destroy();
     if (thread_pool_) {
-        thread_pool_->waitUntilEmpty();
+        //thread_pool_->waitUntilEmpty();
         thread_pool_.reset();
     }
     armor_detect_common_.reset();
@@ -324,11 +335,17 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
             stream_
         );
     } else {
-        cv::Mat resized_img = armor_infer::letterbox(frame.src_img, transform_matrix);
+        cv::Mat resized_img = armor_infer_->letterbox(
+            frame.src_img,
+            transform_matrix,
+            armor_infer_->getInputW(),
+            armor_infer_->getInputH()
+        );
+        float scale = armor_infer_->getUseNorm() ? 255.0f : 1.0f;
         cv::Mat blob = cv::dnn::blobFromImage(
             resized_img,
-            1.,
-            cv::Size(armor_infer::INPUT_W, armor_infer::INPUT_H),
+            scale,
+            cv::Size(armor_infer_->getInputW(), armor_infer_->getInputH()),
             cv::Scalar(0, 0, 0),
             true
         );
@@ -373,15 +390,7 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
         );
         cudaStreamSynchronize(stream_);
         cv::Mat output_mat(grid_strides_.size(), 21, CV_32F, output_buffer_);
-        objs_result = armor_infer::postProcess(
-            objs_tmp,
-            output_mat,
-            transform_matrix,
-            grid_strides_,
-            params_.conf_threshold,
-            params_.nms_threshold,
-            params_.top_k
-        );
+        objs_result = armor_infer_->postProcess(output_mat, transform_matrix, grid_strides_);
     }
     auto t3 = time_utils::now();
     if (params_.log_time) {
@@ -420,15 +429,17 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
 
 void ArmorDetectTrt::pushInput(const CommonFrame& frame) {
     if (infer_pool_) {
-        // infer_pool_->enqueue([this, frame = std::move(frame)](Infer& infer) {
-        //     this->processCallback(frame, &infer);
-        // });
         auto infer_ptr = infer_pool_->acquire();
         if (infer_ptr != nullptr) {
-            thread_pool_->enqueue([this, frame = std::move(frame), infer_ptr]() {
-                this->processCallback(frame, infer_ptr);
-                infer_pool_->release(infer_ptr);
-            });
+            if (thread_pool_) {
+                thread_pool_->enqueue(
+                    [this, frame = std::move(frame), infer_ptr]() {
+                        this->processCallback(frame, infer_ptr);
+                        infer_pool_->release(infer_ptr);
+                    },
+                    -1
+                );
+            }
         }
     }
 }

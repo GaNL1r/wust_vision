@@ -29,6 +29,7 @@ armor_detect:
     cpu_threads: 1
     nms_threshold: 0.3
     top_k: 128
+    model_type: tup
 
 rune_detector:
   confidence_threshold: 0.5
@@ -45,3 +46,4 @@ rune_detector:
   cpu_threads: 1
   nms_threshold: 0.3
   top_k: 128
+  model_type: tup

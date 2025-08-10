@@ -24,8 +24,14 @@
 #include "detect/rune_detect/rune_infer.hpp"
 #include "type/type.hpp"
 
-static ncnn::Mat
-letterbox_to_ncnn(const cv::Mat& img, Eigen::Matrix3f& transform_matrix, int out_w, int out_h) {
+static ncnn::Mat letterbox_to_ncnn(
+    const cv::Mat& img,
+    Eigen::Matrix3f& transform_matrix,
+    int out_w,
+    int out_h,
+    bool use_norm = true,
+    bool use_imagenet = true
+) {
     const int img_w = img.cols;
     const int img_h = img.rows;
 
@@ -64,11 +70,38 @@ letterbox_to_ncnn(const cv::Mat& img, Eigen::Matrix3f& transform_matrix, int out
         ncnn::BORDER_CONSTANT,
         114.f
     );
+    if (use_norm) {
+        // 两种常用策略：
+        // A) 仅 scale 到 [0,1] -> mean = {0,0,0}, norm = {1/255,1/255,1/255}
+        // B) ImageNet (x/255 - mean)/std:
+        //    mean_vals = mean * 255, norm_vals = 1/(std * 255)
+        std::array<float, 3> mean_vals;
+        std::array<float, 3> norm_vals;
+
+        if (use_imagenet) {
+            // 注意：这里顺序为 RGB（因为 from_pixels_resize 用的是 PIXEL_BGR2RGB）
+            const std::array<float, 3> mean = { 0.485f, 0.456f, 0.406f }; // R,G,B
+            const std::array<float, 3> stdv = { 0.229f, 0.224f, 0.225f }; // R,G,B
+
+            for (int c = 0; c < 3; ++c) {
+                mean_vals[c] = mean[c] * 255.0f; // mean * 255
+                norm_vals[c] = 1.0f / (stdv[c] * 255.0f); // 1 / (std * 255)
+            }
+        } else {
+            // 只做 /255 -> [0,1]
+            mean_vals = { 0.f, 0.f, 0.f };
+            norm_vals = { 1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f };
+        }
+
+        // 执行归一化（会把数据转为 float 并按通道处理）
+        padded.substract_mean_normalize(mean_vals.data(), norm_vals.data());
+    }
 
     return padded;
 }
 
 RuneDetectorNCNN::RuneDetectorNCNN(
+    std::string model_type,
     std::string input_name_,
     std::string output_name_,
     const std::string& model_path_param,
@@ -91,6 +124,9 @@ RuneDetectorNCNN::RuneDetectorNCNN(
     use_gpu_(use_gpu),
     cpu_threads_(cpu_threads),
     use_lightmode_(use_lightmode) {
+    auto model = rune_infer::modeFromString(model_type);
+    rune_infer_ =
+        std::make_unique<rune_infer::RuneInfer>(model, conf_threshold, nms_threshold, top_k);
     init(device_id);
 }
 RuneDetectorNCNN::~RuneDetectorNCNN() {
@@ -142,9 +178,9 @@ void RuneDetectorNCNN::init(int device_id) {
     // output_name_ = "output";
     strides_ = { 8, 16, 32 };
     grid_strides_.clear();
-    rune_infer::generateGridsAndStride(
-        rune_infer::INPUT_W,
-        rune_infer::INPUT_H,
+    rune_infer_->generateGridsAndStride(
+        rune_infer_->getInputW(),
+        rune_infer_->getInputH(),
         strides_,
         grid_strides_
     );
@@ -174,8 +210,9 @@ bool RuneDetectorNCNN::processCallback(const CommonFrame& frame) {
     ncnn::Mat in = letterbox_to_ncnn(
         frame.src_img,
         transform_matrix,
-        rune_infer::INPUT_W,
-        rune_infer::INPUT_H
+        rune_infer_->getInputW(),
+        rune_infer_->getInputH(),
+        rune_infer_->getUseNorm()
     );
 
     ncnn::Extractor ex = net_.create_extractor();
@@ -187,16 +224,7 @@ bool RuneDetectorNCNN::processCallback(const CommonFrame& frame) {
 
     cv::Mat output_buffer(out.h, out.w, CV_32F, out.data);
     // Parsed variable
-    std::vector<rune::RuneObject> objs_tmp, objs_result;
-    objs_result = rune_infer::postProcess(
-        objs_tmp,
-        output_buffer,
-        transform_matrix,
-        grid_strides_,
-        conf_threshold_,
-        nms_threshold_,
-        top_k_
-    );
+    auto objs_result = rune_infer_->postProcess(output_buffer, transform_matrix, grid_strides_);
 
     objs_result.erase(
         std::remove_if(

@@ -24,6 +24,7 @@ armor_detect:
     model_path: /home/hy/wust_vision/model/opt-1208-001.onnx
     nms_threshold: 0.3
     top_k: 128
+    model_type: tup
 
 rune_detector:
   confidence_threshold: 0.5
@@ -35,3 +36,4 @@ rune_detector:
   device_id: 1
   nms_threshold: 0.3
   top_k: 128
+  model_type: tup

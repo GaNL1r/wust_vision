@@ -17,6 +17,7 @@
 #include "common/ThreadPool.h"
 #include "common/logger.hpp"
 #include "detect/armor_detect/armor_detect_common.hpp"
+#include "detect/armor_detect/armor_infer.hpp"
 #include "eigen3/Eigen/Dense"
 #include "fmt/color.h"
 #include "fmt/core.h"
@@ -24,13 +25,13 @@
 #include "opencv2/opencv.hpp"
 #include "openvino/openvino.hpp"
 #include <filesystem>
-
 class ArmorDetectOpenVino {
 public:
     using DetectorCallback =
         std::function<void(const std::vector<armor::ArmorObject>&, const CommonFrame&)>;
 
     explicit ArmorDetectOpenVino(
+        std::string model_type,
         const std::filesystem::path& model_path,
         const std::string& device_name,
         const ArmorDetectCommonParams& armor_detect_common_params,
@@ -66,4 +67,5 @@ private:
     std::unique_ptr<ArmorDetectCommon> armor_detect_common_;
     bool use_throughputmode_ = false;
     bool use_armor_detect_common_ = true;
+    std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;
 };

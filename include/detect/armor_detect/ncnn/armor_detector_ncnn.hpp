@@ -16,6 +16,7 @@
 #include "common/ThreadPool.h"
 #include "common/logger.hpp"
 #include "detect/armor_detect/armor_detect_common.hpp"
+#include "detect/armor_detect/armor_infer.hpp"
 #include "detect/armor_detect/light_corner_corrector.hpp"
 #include "detect/mono_measure_tool.hpp"
 #include "eigen3/Eigen/Dense"
@@ -24,12 +25,12 @@
 #include "fmt/printf.h"
 #include "ncnn/net.h"
 #include "opencv2/opencv.hpp"
-
 class ArmorDetectNCNN {
 public:
     using DetectorCallback =
         std::function<void(const std::vector<armor::ArmorObject>&, const CommonFrame&)>;
     explicit ArmorDetectNCNN(
+        std::string model_type,
         std::string input_name_,
         std::string output_name_,
         const std::string& model_path_param_,
@@ -69,4 +70,5 @@ private:
     bool use_lightmode_ = true;
     std::unique_ptr<ArmorDetectCommon> armor_detect_common_;
     bool use_armor_detect_common_ = true;
+    std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;
 };

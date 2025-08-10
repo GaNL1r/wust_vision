@@ -21,8 +21,10 @@ RuneDetectorOpenvinoWrapper::RuneDetectorOpenvinoWrapper(const YAML::Node& confi
     int top_k = config["rune_detector"]["top_k"].as<int>(128);
     float nms_threshold = config["rune_detector"]["nms_threshold"].as<float>(0.3);
     bool use_throughputmode = config["rune_detector"]["use_throughputmode"].as<bool>();
+    std::string model_type = config["rune_detector"]["model_type"].as<std::string>();
     WUST_INFO("rune_detector") << "model_path: " << model_path << "device_type: " << device_type;
     rune_detector_ = std::make_unique<RuneDetectorOpenvino>(
+        model_type,
         model_path,
         device_type,
         conf_threshold,

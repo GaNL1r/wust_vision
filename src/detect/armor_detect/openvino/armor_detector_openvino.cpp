@@ -16,11 +16,13 @@
 #include "detect/armor_detect/openvino/armor_detector_openvino.hpp"
 #include "common/gobal.hpp"
 #include "common/logger.hpp"
+#include "common/timer.hpp"
 #include "detect/armor_detect/armor_infer.hpp"
 #include <functional>
 #include <opencv2/highgui.hpp>
 
 ArmorDetectOpenVino::ArmorDetectOpenVino(
+    std::string model_type,
     const std::filesystem::path& model_path,
     const std::string& device_name,
     const ArmorDetectCommonParams& armor_detect_common_params,
@@ -41,7 +43,9 @@ ArmorDetectOpenVino::ArmorDetectOpenVino(
     if (use_armor_detect_common_) {
         armor_detect_common_ = std::make_unique<ArmorDetectCommon>(armor_detect_common_params);
     }
-
+    auto model = armor_infer::modeFromString(model_type);
+    armor_infer_ =
+        std::make_unique<armor_infer::ArmorInfer>(model, conf_threshold, nms_threshold, top_k);
     init();
 }
 
@@ -63,12 +67,13 @@ void ArmorDetectOpenVino::init() {
         .set_layout("NHWC")
         .set_color_format(ov::preprocess::ColorFormat::BGR);
 
-    // 预处理管线：u8→f32、BGR→RGB、除以 255
+    // 预处理管线：u8→f32、BGR→RGB
+    float scale = armor_infer_->getUseNorm() ? 255.0f : 1.0f;
     ppp.input()
         .preprocess()
         .convert_element_type(ov::element::f32)
         .convert_color(ov::preprocess::ColorFormat::RGB)
-        .scale({ 1.0f, 1.0f, 1.0f });
+        .scale({ scale, scale, scale });
 
     // 告诉引擎：模型内部期望的布局是 NCHW
     ppp.input().model().set_layout("NCHW");
@@ -88,9 +93,9 @@ void ArmorDetectOpenVino::init() {
 
     // 4) 生成 grid_strides、ThreadPool 等
     strides_ = { 8, 16, 32 };
-    armor_infer::generate_grids_and_stride(
-        armor_infer::INPUT_W,
-        armor_infer::INPUT_H,
+    armor_infer_->generate_grids_and_stride(
+        armor_infer_->getInputW(),
+        armor_infer_->getInputH(),
         strides_,
         grid_strides_
     );
@@ -137,7 +142,12 @@ bool ArmorDetectOpenVino::processCallback(const CommonFrame& frame) {
     //     compiled_model_->input().get_shape(),
     //     resized_img.data
     // );
-    cv::Mat resized_img = armor_infer::letterbox(frame.src_img, transform_matrix);
+    cv::Mat resized_img = armor_infer_->letterbox(
+        frame.src_img,
+        transform_matrix,
+        armor_infer_->getInputW(),
+        armor_infer_->getInputH()
+    );
     auto input_tensor = ov::Tensor(
         compiled_model_->input().get_element_type(),
         compiled_model_->input().get_shape(),
@@ -146,10 +156,18 @@ bool ArmorDetectOpenVino::processCallback(const CommonFrame& frame) {
     auto* data_ptr = input_tensor.data<uint8_t>();
 
     // 3) InferRequest
+    auto t1 = time_utils::now();
     auto infer_request = compiled_model_->create_infer_request();
+    auto t2 = time_utils::now();
     infer_request.set_input_tensor(input_tensor);
+    auto t3 = time_utils::now();
     infer_request.infer();
+    auto t4 = time_utils::now();
     auto output = infer_request.get_output_tensor();
+    auto t5 = time_utils::now();
+    // std::cout << "time: " << time_utils::durationMs(t1, t2) << " " << time_utils::durationMs(t2, t3)
+    //           << " " << time_utils::durationMs(t3, t4) << " " << time_utils::durationMs(t4, t5)
+    //           << std::endl;
 
     // Process output data
     auto output_shape = output.get_shape();
@@ -157,16 +175,7 @@ bool ArmorDetectOpenVino::processCallback(const CommonFrame& frame) {
     cv::Mat output_buffer(output_shape[1], output_shape[2], CV_32F, output.data());
 
     // Parsed variable
-    std::vector<armor::ArmorObject> objs_tmp, objs_result;
-    objs_result = armor_infer::postProcess(
-        objs_tmp,
-        output_buffer,
-        transform_matrix,
-        grid_strides_,
-        this->conf_threshold_,
-        this->nms_threshold_,
-        this->top_k_
-    );
+    auto objs_result = armor_infer_->postProcess(output_buffer, transform_matrix, grid_strides_);
 
     std::vector<armor::ArmorObject> armors;
     if (use_armor_detect_common_) {

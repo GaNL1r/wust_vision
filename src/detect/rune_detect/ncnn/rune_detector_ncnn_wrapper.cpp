@@ -26,9 +26,11 @@ RuneDetectorNCNNWrapper::RuneDetectorNCNNWrapper(const YAML::Node& config) {
     int device_id = config["rune_detector"]["device_id"].as<int>(0);
     auto input_name_ = config["rune_detector"]["input_name"].as<std ::string>();
     auto output_name_ = config["rune_detector"]["output_name"].as<std::string>();
+    std::string model_type = config["rune_detector"]["model_type"].as<std::string>();
     WUST_INFO("rune_detector") << "model_path_param: " << model_path_param
                                << "model_path_bin: " << model_path_param;
     rune_detector_ = std::make_unique<RuneDetectorNCNN>(
+        model_type,
         input_name_,
         output_name_,
         model_path_param,

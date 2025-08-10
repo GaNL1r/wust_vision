@@ -1,6 +1,6 @@
 armor_detect:
   armor:
-    max_angle: 30
+    max_angle: 40
     max_large_center_distance: 8
     max_small_center_distance: 3.5
     min_large_center_distance: 3.5
@@ -19,11 +19,12 @@ armor_detect:
     min_ratio: 0.02
   model:
     conf_threshold: 0.2
-    device_type: CPU
-    model_path: /home/hy/wust_vision/model/opt-1208-001.onnx
+    device_type: GPU
+    model_path: /home/hy/wust_vision/model/0526.onnx
     nms_threshold: 0.3
     top_k: 128
     use_throughputmode: true
+    model_type: rp
 
 rune_detector:
   confidence_threshold: 0.5
@@ -36,3 +37,4 @@ rune_detector:
   top_k: 128
   use_fp16: true
   use_throughputmode: false
+  model_type: tup

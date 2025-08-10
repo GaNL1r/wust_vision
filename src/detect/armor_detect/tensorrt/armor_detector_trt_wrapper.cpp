@@ -31,6 +31,7 @@ ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(
     params.use_cuda_pre = config["armor_detect"]["model"]["use_cuda_pre"].as<bool>();
     params.use_cuda_post = config["armor_detect"]["model"]["use_cuda_post"].as<bool>();
     params.log_time = config["armor_detect"]["model"]["log_time"].as<bool>();
+    std::string model_type = config["armor_detect"]["model"]["model_type"].as<std::string>();
     WUST_INFO("armor_detector") << "model_path: " << model_path;
     int binary_thres;
     float expand_ratio_w, expand_ratio_h;
@@ -67,6 +68,7 @@ ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(
     };
 
     detector_ = std::make_unique<ArmorDetectTrt>(
+        model_type,
         model_path,
         params,
         armor_detect_common_params,

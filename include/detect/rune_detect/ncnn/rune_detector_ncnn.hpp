@@ -28,8 +28,8 @@
 #include <opencv2/opencv.hpp>
 // project
 #include "common/ThreadPool.h"
+#include "detect/rune_detect/rune_infer.hpp"
 #include "type/type.hpp"
-
 class RuneDetectorNCNN {
 public:
     using CallbackType = std::function<void(std::vector<rune::RuneObject>&, const CommonFrame&)>;
@@ -37,6 +37,7 @@ public:
 public:
     // Construct a new OpenNCNN Detector object
     explicit RuneDetectorNCNN(
+        std::string model_type,
         std::string input_name_,
         std::string output_name_,
         const std::string& model_path_param_,
@@ -83,4 +84,5 @@ private:
     int cpu_threads_;
     bool use_gpu_;
     bool use_lightmode_ = true;
+    std::unique_ptr<rune_infer::RuneInfer> rune_infer_;
 };
