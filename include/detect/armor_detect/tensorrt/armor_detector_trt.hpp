@@ -82,6 +82,8 @@ private:
     cudaStream_t stream_; // CUDA流
     int input_idx_, output_idx_;
     size_t input_sz_, output_sz_;
+    nvinfer1::Dims input_dims_;
+    nvinfer1::Dims output_dims_;
     TRTLogger g_logger_;
     std::vector<int> strides_;
     std::vector<GridAndStride> grid_strides_;
@@ -89,7 +91,6 @@ private:
     nvinfer1::IRuntime* runtime_ = nullptr;
     std::unique_ptr<ArmorDetectCommon> armor_detect_common_;
     bool use_armor_detect_common_ = true;
-    std::shared_ptr<ThreadPool> thread_pool_;
     std::unique_ptr<AdaptiveResourcePool<Infer>> infer_pool_;
     std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;
 };

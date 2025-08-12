@@ -204,7 +204,8 @@ bool ArmorDetectOnnxRuntime::processCallback(const CommonFrame& frame) {
         transform_matrix,
         armor_infer_->getInputW(),
         armor_infer_->getInputH(),
-        armor_infer_->getUseNorm()
+        armor_infer_->getUseNorm(),
+        false
     );
 
     Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
@@ -228,8 +229,8 @@ bool ArmorDetectOnnxRuntime::processCallback(const CommonFrame& frame) {
     cv::Mat output_buffer(rows, cols, CV_32F, output_data);
 
     // Parsed variable
-
-    auto objs_result = armor_infer_->postProcess(output_buffer, transform_matrix, grid_strides_);
+    std::vector<armor::ArmorObject> objs_result;
+    objs_result = armor_infer_->postProcess(output_buffer, transform_matrix, grid_strides_);
     std::vector<armor::ArmorObject> armors;
     if (use_armor_detect_common_) {
         armors = armor_detect_common_->detectNet(frame.src_img, objs_result);

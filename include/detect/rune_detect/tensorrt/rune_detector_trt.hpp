@@ -94,9 +94,10 @@ private:
     cudaStream_t stream_; // CUDA流
     int input_idx_, output_idx_;
     size_t input_sz_, output_sz_;
+    nvinfer1::Dims input_dims_;
+    nvinfer1::Dims output_dims_;
     TRTLogger g_logger_;
     nvinfer1::IRuntime* runtime_ = nullptr;
-    std::shared_ptr<ThreadPool> thread_pool_;
     std::unique_ptr<AdaptiveResourcePool<Infer>> infer_pool_;
     std::unique_ptr<rune_infer::RuneInfer> rune_infer_;
 };

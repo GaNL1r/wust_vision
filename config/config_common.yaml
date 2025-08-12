@@ -1,10 +1,10 @@
 common:
-  armor_detect_backend: openvino
+  armor_detect_backend: opencv
   rune_detect_backend: tensorrt
-  detect_color: 1
-  init_attack_mode: 1
+  detect_color: 0
+  init_attack_mode: 0
   max_detect_armors: 12
-  max_infer_running: 1
+  max_infer_running: 10
   thread_multiplier: 2
   only_nav_enable: false
   use_auto_labeler: false
@@ -13,6 +13,7 @@ common:
   use_omni: false
   hit_omni_dt: 5.0
   receive_omni_dt: 1.0
+  use_fun: true
 
 camera:
   target_sn: DA1094119
@@ -32,17 +33,17 @@ camera:
   high_priority_cpu_priority: 90
   use_sched_fifo: true
   video_player:
-    fps: 25
+    fps: 200
     use_high_priority: true
     high_priority_cpu_id: 3
     high_priority_cpu_priority: 90
     use_sched_fifo: true
     loop: true
     #path: /home/hy/wust_data/video/222.MP4
-    #path: /home/hy/wust_data/video/jiao.avi
+    path: /home/hy/wust_data/video/jiao.avi
     #path: /home/hy/Z_LION_AutoAim2025/src/auto_aim_publisher/videos/sample.avi
     #path: /home/hy/data/4k.MP4
-    path: /home/hy/wust_data/video/rune.mp4
+    #path: /home/hy/wust_data/video/rune.mp4
     #path: /home/hy/wust_data/video/Sentry.mp4
     start_frame: 0
     alpha: 1.0

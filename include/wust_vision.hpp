@@ -11,6 +11,7 @@
 #include "driver/tools/labeler.hpp"
 #include "driver/tools/recorder.hpp"
 #include "driver/tools/video_player.hpp"
+#include "fun/have_fun.hpp"
 #include "omni.hpp"
 #include "tracker/tracker_manager.hpp"
 #include "type/type.hpp"
@@ -163,4 +164,7 @@ private:
     bool use_manual_r_ = false;
     std::atomic<bool> manual_r_runing_ { false };
     Eigen::Matrix4d T_r_;
+
+    //have fun
+    std::unique_ptr<HaveFun> have_fun_;
 };

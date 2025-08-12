@@ -56,10 +56,10 @@ RuneDetectorTrt::RuneDetectorTrt(
         params.nms_threshold,
         params.top_k
     );
-    auto input_dims = engine_->getBindingDimensions(input_idx_);
-    auto output_dims = engine_->getBindingDimensions(output_idx_);
-    input_sz_ = input_dims.d[1] * input_dims.d[2] * input_dims.d[3];
-    output_sz_ = output_dims.d[1] * output_dims.d[2];
+    input_dims_ = engine_->getBindingDimensions(input_idx_);
+    output_dims_ = engine_->getBindingDimensions(output_idx_);
+    input_sz_ = input_dims_.d[1] * input_dims_.d[2] * input_dims_.d[3];
+    output_sz_ = output_dims_.d[1] * output_dims_.d[2];
     TRT_ASSERT(cudaMalloc(&device_buffers_[input_idx_], input_sz_ * sizeof(float)) == 0);
     TRT_ASSERT(cudaMalloc(&device_buffers_[output_idx_], output_sz_ * sizeof(float)) == 0);
     output_buffer_ = new float[output_sz_];
@@ -184,8 +184,6 @@ RuneDetectorTrt::RuneDetectorTrt(
         return free_ratio < params_.min_free_mem_ratio && active_count > 1;
     };
 
-    thread_pool_ = std::make_shared<ThreadPool>(params.max_infer_running);
-    //pool_params.thread_pool = thread_pool_;
     pool_params.logger = [](const std::string& msg) {
         WUST_INFO("RuneDetectorTrt:infer pool") << msg;
     };
@@ -263,10 +261,6 @@ RuneDetectorTrt::~RuneDetectorTrt() {
         engine_->destroy();
     if (runtime_)
         runtime_->destroy();
-    if (thread_pool_) {
-        //thread_pool_->waitUntilEmpty();
-        thread_pool_.reset();
-    }
 }
 
 void RuneDetectorTrt::setCallback(CallbackType callback) {
@@ -368,7 +362,7 @@ bool RuneDetectorTrt::processCallback(const CommonFrame& frame, Infer* infer) {
             stream_
         );
         cudaStreamSynchronize(stream_);
-        cv::Mat output_mat(grid_strides_.size(), 15, CV_32F, output_buffer_);
+        cv::Mat output_mat(output_dims_.d[1], output_dims_.d[2], CV_32F, output_buffer_);
         objs_result = rune_infer_->postProcess(output_mat, transform_matrix, grid_strides_);
     }
 
@@ -483,15 +477,8 @@ void RuneDetectorTrt::pushInput(const CommonFrame& frame) {
     if (infer_pool_) {
         auto infer_ptr = infer_pool_->acquire();
         if (infer_ptr != nullptr) {
-            if (thread_pool_) {
-                thread_pool_->enqueue(
-                    [this, frame = std::move(frame), infer_ptr]() {
-                        this->processCallback(frame, infer_ptr);
-                        infer_pool_->release(infer_ptr);
-                    },
-                    -1
-                );
-            }
+            this->processCallback(frame, infer_ptr);
+            infer_pool_->release(infer_ptr);
         }
     }
 }

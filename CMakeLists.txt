@@ -31,6 +31,8 @@ find_package(G2O         REQUIRED)
 find_package(OpenGL      REQUIRED)
 find_package(Ceres       REQUIRED)
 find_package(HikSDK      REQUIRED)
+find_package(TBB REQUIRED)
+find_package(SFML 2.5 COMPONENTS audio system REQUIRED)
 
 if(BUILD_WITH_OPENVINO)
   find_package(OpenVINO REQUIRED COMPONENTS Runtime ONNX)
@@ -56,6 +58,7 @@ if(BUILD_WITH_ORT)
 endif()
 
 add_subdirectory(KalmanHyLib)
+add_subdirectory(3rdparty/backward-cpp)
 
 # 公共源码
 set(COMMON_SOURCES
@@ -169,6 +172,12 @@ set(BUILD_LIBS
   GL
   tbb
   KalmanHyLib
+  Backward::Interface
+  TBB::tbb
+  sfml-audio
+  sfml-system
+  aubio
+  sndfile
 )
 if(BUILD_WITH_OPENVINO)
   list(APPEND BUILD_LIBS openvino::runtime openvino::frontend::onnx)
@@ -228,4 +237,5 @@ target_link_libraries(
   ${OpenCV_LIBS}
   ${Python3_LIBRARIES}
   yaml-cpp
+  TBB::tbb
 )

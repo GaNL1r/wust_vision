@@ -34,7 +34,6 @@ WustVision::WustVision() {}
 WustVision::~WustVision() {}
 void WustVision::stop() {
     gobal::is_inited_ = false;
-
     auto future = std::async(std::launch::async, [this]() {
         if (!only_nav_enable_) {
             auto_labeler_.reset();
@@ -57,6 +56,7 @@ void WustVision::stop() {
             WUST_INFO("stop") << "timer stop";
 
             if (gobal::thread_pool) {
+                gobal::thread_pool->waitUntilEmpty();
                 gobal::thread_pool.reset();
             }
             WUST_INFO("stop") << "thread pool stop";
@@ -88,6 +88,10 @@ void WustVision::stop() {
             serial_.reset();
         }
         WUST_INFO("stop") << "serial stop";
+        if (have_fun_) {
+            have_fun_->stop();
+            have_fun_.reset();
+        }
 
         WUST_MAIN(vision_logger_) << "WustVision shutdown complete.";
         return 0;
@@ -267,6 +271,10 @@ bool WustVision::init() {
     } else {
         WUST_MAIN(vision_logger_) << "only nav mode";
     }
+    bool use_fun = gobal::config["common"]["use_fun"].as<bool>(false);
+    if (use_fun) {
+        have_fun_ = std::make_unique<HaveFun>(YAML::LoadFile(FUN_CONFIG));
+    }
 
     gobal::is_inited_ = true;
     WUST_MAIN(vision_logger_) << "WustVision init success";
@@ -298,6 +306,9 @@ void WustVision::start() {
     }
     if (gobal::debug_mode) {
         toolsgobal::debug_thread_ = std::thread([this]() { this->debugThread(); });
+    }
+    if (have_fun_) {
+        have_fun_->start();
     }
 
     WUST_MAIN(vision_logger_) << "WustVision run success";

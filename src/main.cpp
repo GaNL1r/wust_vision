@@ -20,13 +20,16 @@
 
 #include "wust_vision.hpp"
 #include <atomic>
+#include <backward.hpp>
 #include <condition_variable>
 #include <csignal>
 #include <iostream>
 #include <mutex>
 #include <thread>
+namespace backward {
+backward::SignalHandling sh; // 自动捕获崩溃信号
+}
 
-// 全局退出标志
 std::atomic<bool> exit_flag(false);
 std::atomic<bool> sigint_received(false);
 
@@ -39,7 +42,7 @@ void signalHandler(int signum) {
         exit_flag.store(true, std::memory_order_release);
     } else {
         WUST_MAIN("main") << "Interrupt signal (" << signum << ") received again. Forcing exit.";
-        std::exit(EXIT_FAILURE); // 立刻退出，不执行清理
+        std::exit(EXIT_FAILURE);
     }
 }
 

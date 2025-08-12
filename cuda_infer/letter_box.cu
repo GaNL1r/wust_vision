@@ -65,9 +65,10 @@ __global__ void letterbox_kernel_shared(
     float out_b = dx1 * dy1 * p00.x + dx * dy1 * p01.x + dx1 * dy * p10.x + dx * dy * p11.x;
 
     int out_idx = y * out_w + x;
-    output_nchw[out_idx + 0 * out_w * out_h] = out_r;
-    output_nchw[out_idx + 1 * out_w * out_h] = out_g;
-    output_nchw[out_idx + 2 * out_w * out_h] = out_b;
+    float norm = 1.0f;
+    output_nchw[out_idx + 0 * out_w * out_h] = out_r * norm;
+    output_nchw[out_idx + 1 * out_w * out_h] = out_g * norm;
+    output_nchw[out_idx + 2 * out_w * out_h] = out_b * norm;
 }
 
 __global__ void convertBGRUcharToFloat4Kernel(

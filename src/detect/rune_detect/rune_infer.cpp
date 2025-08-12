@@ -169,7 +169,6 @@ void RuneInfer::nmsMergeSortedBboxes(
                 {
                     a.pts.children.push_back(b.pts);
                 }
-                // cout<<b.pts_x.size()<<endl;
             }
         }
 

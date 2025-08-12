@@ -1,3 +1,6 @@
 [submodule "KalmanHyLib"]
 	path = KalmanHyLib
 	url = https://github.com/hyheiyue/KalmanHyLib.git
+[submodule "3rdparty/backward-cpp"]
+	path = 3rdparty/backward-cpp
+	url = https://github.com/bombela/backward-cpp.git
