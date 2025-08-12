@@ -13,7 +13,7 @@ public:
         std::string timestamp_file = config["music"]["timestamp_file"].as<std::string>();
         music_player_->loadTimestampsFromCSV(timestamp_file);
         music_player_->setVolume(config["music"]["volume"].as<float>());
-        if (!beep_buffer.loadFromFile("/home/hy/wust_vision/fun/滴1_耳聆网_[声音ID：35229].wav")) {
+        if (!beep_buffer.loadFromFile("/home/hy/wust_vision/fun/bullet.wav")) {
             std::cerr << "Failed to load beep.wav" << std::endl;
         }
         beep_sound.setBuffer(beep_buffer);

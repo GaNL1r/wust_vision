@@ -13,7 +13,7 @@ common:
   use_omni: false
   hit_omni_dt: 5.0
   receive_omni_dt: 1.0
-  use_fun: true
+  use_fun: false
 
 camera:
   target_sn: DA1094119
