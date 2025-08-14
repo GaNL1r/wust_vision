@@ -90,7 +90,7 @@ ArmorDetectorNCNNWrapper::ArmorDetectorNCNNWrapper(
 
 ArmorDetectorNCNNWrapper::~ArmorDetectorNCNNWrapper() = default;
 
-void ArmorDetectorNCNNWrapper::pushInput(const CommonFrame& frame) {
+void ArmorDetectorNCNNWrapper::pushInput(CommonFrame& frame) {
     detector_->pushInput(frame);
 }
 

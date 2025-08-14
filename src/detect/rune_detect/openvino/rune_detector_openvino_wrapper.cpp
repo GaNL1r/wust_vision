@@ -36,7 +36,7 @@ RuneDetectorOpenvinoWrapper::RuneDetectorOpenvinoWrapper(const YAML::Node& confi
 
 RuneDetectorOpenvinoWrapper::~RuneDetectorOpenvinoWrapper() = default;
 
-void RuneDetectorOpenvinoWrapper::pushInput(const CommonFrame& frame) {
+void RuneDetectorOpenvinoWrapper::pushInput(CommonFrame& frame) {
     rune_detector_->pushInput(frame);
 }
 

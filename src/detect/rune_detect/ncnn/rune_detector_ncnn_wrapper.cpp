@@ -47,7 +47,7 @@ RuneDetectorNCNNWrapper::RuneDetectorNCNNWrapper(const YAML::Node& config) {
 
 RuneDetectorNCNNWrapper::~RuneDetectorNCNNWrapper() = default;
 
-void RuneDetectorNCNNWrapper::pushInput(const CommonFrame& frame) {
+void RuneDetectorNCNNWrapper::pushInput(CommonFrame& frame) {
     rune_detector_->pushInput(frame);
 }
 

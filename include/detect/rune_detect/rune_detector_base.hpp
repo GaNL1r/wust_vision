@@ -21,7 +21,7 @@ public:
 
     using CallbackType = std::function<void(std::vector<rune::RuneObject>&, const CommonFrame&)>;
 
-    virtual void pushInput(const CommonFrame& frame) = 0;
+    virtual void pushInput(CommonFrame& frame) = 0;
 
     virtual void setCallback(CallbackType cb) = 0;
     virtual std::tuple<cv::Point2f, cv::Mat>

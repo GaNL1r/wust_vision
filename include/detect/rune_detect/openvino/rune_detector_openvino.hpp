@@ -54,7 +54,7 @@ public:
     void init();
 
     // Push an inference request to the detector
-    void pushInput(const CommonFrame& frame);
+    void pushInput(CommonFrame& frame);
 
     void setCallback(CallbackType callback);
 
@@ -82,4 +82,5 @@ private:
     ov::preprocess::PrePostProcessor* ppp_;
     bool use_throughputmode_ = false;
     std::unique_ptr<rune_infer::RuneInfer> rune_infer_;
+    int current_id_ = 0;
 };

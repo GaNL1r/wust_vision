@@ -101,7 +101,8 @@ void RuneDetectorOpenvino::init() {
     );
 }
 
-void RuneDetectorOpenvino::pushInput(const CommonFrame& frame) {
+void RuneDetectorOpenvino::pushInput(CommonFrame& frame) {
+    frame.id = current_id_++;
     processCallback(frame);
 }
 

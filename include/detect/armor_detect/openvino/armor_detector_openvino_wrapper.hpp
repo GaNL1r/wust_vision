@@ -21,7 +21,7 @@ public:
     ArmorDetectorOpenvinoWrapper(const YAML::Node& config, bool use_armor_detect_common = true);
     ~ArmorDetectorOpenvinoWrapper() override;
 
-    void pushInput(const CommonFrame& frame) override;
+    void pushInput(CommonFrame& frame) override;
 
     void setCallback(DetectorCallback cb) override;
 

@@ -33,7 +33,7 @@ public:
 
     void drawResult(const cv::Mat& src_img, std::vector<armor::ArmorObject>& armor_objects);
 
-    void pushInput(const CommonFrame& frame);
+    void pushInput(CommonFrame& frame);
 
     void setCallback(DetectorCallback callback);
 
@@ -58,4 +58,5 @@ private:
     int device_id_ = 0;
     bool use_armor_detect_common_ = true;
     std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;
+    int current_id_ = 0;
 };

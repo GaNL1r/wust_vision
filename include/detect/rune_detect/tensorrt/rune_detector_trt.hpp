@@ -63,7 +63,7 @@ public:
     ~RuneDetectorTrt();
 
     // Push an inference request to the detector
-    void pushInput(const CommonFrame& frame);
+    void pushInput(CommonFrame& frame);
 
     void setCallback(CallbackType callback);
 
@@ -100,4 +100,5 @@ private:
     nvinfer1::IRuntime* runtime_ = nullptr;
     std::unique_ptr<AdaptiveResourcePool<Infer>> infer_pool_;
     std::unique_ptr<rune_infer::RuneInfer> rune_infer_;
+    int current_id_ = 0;
 };

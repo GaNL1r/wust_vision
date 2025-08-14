@@ -255,6 +255,7 @@ bool ArmorDetectOnnxRuntime::processCallback(const CommonFrame& frame) {
 
     return false;
 }
-void ArmorDetectOnnxRuntime::pushInput(const CommonFrame& frame) {
+void ArmorDetectOnnxRuntime::pushInput(CommonFrame& frame) {
+    frame.id = current_id_++;
     processCallback(frame);
 }

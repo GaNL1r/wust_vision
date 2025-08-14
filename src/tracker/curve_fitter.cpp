@@ -127,7 +127,7 @@ void CurveFitter::fitDoubleCurve() {
     }
     auto t2 = std::chrono::high_resolution_clock::now();
 
-    WUST_DEBUG("rune_solver"
+    WUST_DEBUG("curve_fitter"
     ) << "Fitting time: "
       << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << " ms";
 }
@@ -196,7 +196,7 @@ void CurveFitter::fitCurve() {
     ceres::Solve(options, &problem, &summary);
     auto t2 = std::chrono::high_resolution_clock::now();
 
-    WUST_DEBUG("rune_solver"
+    WUST_DEBUG("curve_fitter"
     ) << "Fitting time: "
       << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << " ms";
 
@@ -347,7 +347,7 @@ void CurveFitter::update(double time, double angle) {
     } else {
         // If fitting is in progess or has been completed, do not start a new
         // fitting
-        WUST_WARN("rune_solver") << "Fitting is in progress, do not start a new fitting";
+        WUST_WARN("curve_fitter") << "Fitting is in progress, do not start a new fitting";
     }
 }
 

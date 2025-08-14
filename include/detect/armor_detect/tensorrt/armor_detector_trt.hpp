@@ -65,7 +65,7 @@ public:
 
     ~ArmorDetectTrt();
 
-    void pushInput(const CommonFrame& frame);
+    void pushInput(CommonFrame& frame);
 
     bool processCallback(const CommonFrame& frame, Infer* infer);
     void setCallback(DetectorCallback callback);
@@ -93,4 +93,5 @@ private:
     bool use_armor_detect_common_ = true;
     std::unique_ptr<AdaptiveResourcePool<Infer>> infer_pool_;
     std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;
+    int current_id_ = 0;
 };

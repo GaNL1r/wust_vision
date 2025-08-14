@@ -35,7 +35,7 @@ RuneDetectorTrtWrapper::RuneDetectorTrtWrapper(const YAML::Node& config) {
 
 RuneDetectorTrtWrapper::~RuneDetectorTrtWrapper() = default;
 
-void RuneDetectorTrtWrapper::pushInput(const CommonFrame& frame) {
+void RuneDetectorTrtWrapper::pushInput(CommonFrame& frame) {
     rune_detector_->pushInput(frame);
 }
 

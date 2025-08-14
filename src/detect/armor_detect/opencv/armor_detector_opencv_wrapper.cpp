@@ -53,7 +53,7 @@ ArmorDetectorOpencvWrapper::ArmorDetectorOpencvWrapper(const YAML::Node& config)
 
 ArmorDetectorOpencvWrapper::~ArmorDetectorOpencvWrapper() = default;
 
-void ArmorDetectorOpencvWrapper::pushInput(const CommonFrame& frame) {
+void ArmorDetectorOpencvWrapper::pushInput(CommonFrame& frame) {
     detector_->pushInput(frame);
 }
 

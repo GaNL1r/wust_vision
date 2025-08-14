@@ -77,7 +77,7 @@ ArmorDetectorOrtWrapper::ArmorDetectorOrtWrapper(
 
 ArmorDetectorOrtWrapper::~ArmorDetectorOrtWrapper() = default;
 
-void ArmorDetectorOrtWrapper::pushInput(const CommonFrame& frame) {
+void ArmorDetectorOrtWrapper::pushInput(CommonFrame& frame) {
     detector_->pushInput(frame);
 }
 

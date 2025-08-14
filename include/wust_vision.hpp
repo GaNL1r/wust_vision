@@ -118,9 +118,14 @@ private:
     Eigen::Matrix4d T_camera_to_odom_;
     Eigen::Matrix3d R_camera2gimbal_;
 
-    // Frame & Image data
-    imgframe imgframe_;
-    std::mutex img_mutex_;
+    struct DebugGobal {
+        imgframe imgframe;
+        armor::Target armor_target;
+        std::vector<armor::OneTarget> one_armor_targets;
+        armor::Armors armors_gobal;
+        std::vector<rune::RuneObject> rune_objects;
+    } debug_gobal_frame_;
+    std::mutex dbg_mutex_;
 
     // Threading & synchronization
     std::unique_ptr<Timer> timer_;
@@ -132,6 +137,7 @@ private:
     std::atomic<int> infer_running_count_ { 0 };
     size_t img_recv_count_ = 0;
     size_t detect_finish_count_ = 0;
+    size_t finish_count_ = 0;
     size_t fire_count_ = 0;
     std::chrono::steady_clock::time_point last_stat_time_steady_;
     double debug_show_dt_ = 0.0;
@@ -141,11 +147,9 @@ private:
     std::thread processing_thread_;
     std::unique_ptr<OrderedQueue<armor::Armors>> armor_queue_;
     std::unique_ptr<OrderedQueue<rune::Rune>> rune_queue_;
+    std::chrono::steady_clock::time_point last_rune_target_time_;
     armor::Target armor_target_;
     std::vector<armor::OneTarget> one_armor_targets_;
-    armor::Armors armors_gobal_;
-    rune::Rune rune_gobal_;
-    std::vector<rune::RuneObject> rune_objects_;
 
     // Last target & tracking
     armor::Armor last_armor_;

@@ -196,9 +196,8 @@ void RuneDetectorOnnxRuntime::init() {
     );
 }
 
-void RuneDetectorOnnxRuntime::pushInput(const CommonFrame& frame) {
-    // Reprocess
-
+void RuneDetectorOnnxRuntime::pushInput(CommonFrame& frame) {
+    frame.id = current_id_++;
     processCallback(frame);
 }
 

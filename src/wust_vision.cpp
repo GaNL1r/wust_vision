@@ -273,8 +273,8 @@ bool WustVision::init() {
             omni_manager_ = std::make_unique<OmniManager>(omni_config);
         }
         timer_ = std::make_unique<Timer>();
-        armor_queue_ = std::make_unique<OrderedQueue<armor::Armors>>(100);
-        rune_queue_ = std::make_unique<OrderedQueue<rune::Rune>>(100);
+        armor_queue_ = std::make_unique<OrderedQueue<armor::Armors>>(10, 500);
+        rune_queue_ = std::make_unique<OrderedQueue<rune::Rune>>(10, 500);
     } else {
         WUST_MAIN(vision_logger_) << "only nav mode";
     }
@@ -298,10 +298,12 @@ void WustVision::start() {
         if (video_player_ && use_video_) {
             video_player_->start();
         }
+
         if (camera_ && !use_video_) {
             bool if_recorder = gobal::config["camera"]["recorder"].as<bool>(false);
             camera_->startCamera(if_recorder);
         }
+        processing_thread_ = std::thread(&WustVision::processingLoop, this);
         if (use_omni_ && omni_manager_) {
             omni_manager_->start();
         }
@@ -310,7 +312,6 @@ void WustVision::start() {
             double rate_hz = static_cast<double>(gobal::control_rate);
             timer_->start(rate_hz, timercallback);
         }
-        processing_thread_ = std::thread(&WustVision::processingLoop, this);
     }
     if (gobal::debug_mode) {
         toolsgobal::debug_thread_ = std::thread([this]() { this->debugThread(); });
@@ -318,7 +319,6 @@ void WustVision::start() {
     if (have_fun_) {
         have_fun_->start();
     }
-
     WUST_MAIN(vision_logger_) << "WustVision run success";
 }
 void WustVision::initDetector() {
@@ -471,7 +471,9 @@ void WustVision::processingLoop() {
                     std::this_thread::sleep_for(std::chrono::milliseconds(1));
                     continue;
                 }
+
                 armorsCallback(armors_);
+                finish_count_++;
             }
             case AttackMode::SMALL_RUNE:
             case AttackMode::BIG_RUNE:
@@ -483,6 +485,7 @@ void WustVision::processingLoop() {
                     continue;
                 }
                 runeTargetCallback(rune);
+                finish_count_++;
             }
             case AttackMode::UNKNOWN:
             default: {
@@ -492,12 +495,17 @@ void WustVision::processingLoop() {
                     continue;
                 }
                 armorsCallback(armors);
+                finish_count_++;
             }
         }
     }
 }
 void WustVision::runeTargetCallback(const rune::Rune rune_target) {
-    // rune_solver_->pnp_solver is nullptr when camera_info is not received
+    if (rune_target.timestamp <= last_rune_target_time_) {
+        WUST_WARN(vision_logger_) << "Received out-of-order rune data, discarded.";
+        return;
+    }
+    last_rune_target_time_ = rune_target.timestamp;
     if (rune_solver_->pnp_solver_ == nullptr) {
         return;
     }
@@ -514,29 +522,33 @@ void WustVision::runeTargetCallback(const rune::Rune rune_target) {
     toolsgobal::latency_ms = static_cast<double>(latency_nano) / 1e6;
 }
 
-void WustVision::armorsCallback(armor::Armors armors_) {
-    if (armors_.timestamp <= tracker_manager_->last_time_) {
+void WustVision::armorsCallback(armor::Armors armors) {
+    if (armors.timestamp <= tracker_manager_->last_time_) {
         WUST_WARN(vision_logger_) << "Received out-of-order armor data, discarded.";
         return;
     }
     if (use_calculation_) {
-        commandCallbackYpd(armors_);
+        commandCallbackYpd(armors);
     }
-    armor::Target target_;
-    std::vector<armor::OneTarget> one_targets_;
-    auto time = armors_.timestamp;
+    armor::Target target;
+    std::vector<armor::OneTarget> one_targets;
+    auto time = armors.timestamp;
 
-    tracker_manager_
-        ->update(target_, one_targets_, armors_, time, armors_.R_gimbal2odom, armors_.v);
+    tracker_manager_->update(target, one_targets, armors, time, armors.R_gimbal2odom, armors.v);
 
-    armor_target_ = target_;
-    one_armor_targets_ = one_targets_;
+    armor_target_ = target;
+    one_armor_targets_ = one_targets;
     auto now = std::chrono::steady_clock::now();
 
     auto latency_nano =
-        std::chrono::duration_cast<std::chrono::nanoseconds>(now - target_.timestamp).count();
+        std::chrono::duration_cast<std::chrono::nanoseconds>(now - target.timestamp).count();
     toolsgobal::latency_averager.add(latency_nano);
     toolsgobal::latency_ms = toolsgobal::latency_averager.average_ms();
+    if (gobal::debug_mode) {
+        std::lock_guard<std::mutex> lock(dbg_mutex_);
+        debug_gobal_frame_.armor_target = target;
+        debug_gobal_frame_.one_armor_targets = one_targets;
+    }
 }
 
 void WustVision::ArmorDetectCallback(
@@ -591,10 +603,10 @@ void WustVision::ArmorDetectCallback(
     armors.id = frame.id;
     armor_queue_->enqueue(armors);
     if (gobal::debug_mode) {
-        std::lock_guard<std::mutex> target_lock(img_mutex_);
-        imgframe_.img = frame.src_img.clone();
-        imgframe_.timestamp = armors.timestamp;
-        armors_gobal_ = armors;
+        std::lock_guard<std::mutex> lock(dbg_mutex_);
+        debug_gobal_frame_.imgframe.img = frame.src_img.clone();
+        debug_gobal_frame_.imgframe.timestamp = armors.timestamp;
+        debug_gobal_frame_.armors_gobal = armors;
     }
     T_camera_to_odom_ = frame.T_camera_to_odom;
     detect_finish_count_++;
@@ -710,10 +722,9 @@ void WustVision::RuneDetectCallback(std::vector<rune::RuneObject>& objs, const C
 
     // 8. 保存调试信息
     if (gobal::debug_mode) {
-        std::lock_guard<std::mutex> target_lock(img_mutex_);
-        imgframe_ = { debug_img.clone(), rune_target.timestamp };
-        rune_gobal_ = rune_target;
-        rune_objects_ = objs;
+        std::lock_guard<std::mutex> lock(dbg_mutex_);
+        debug_gobal_frame_.imgframe = { debug_img.clone(), rune_target.timestamp };
+        debug_gobal_frame_.rune_objects = objs;
     }
 
     detect_finish_count_++;
@@ -894,13 +905,14 @@ void WustVision::printStats() {
             timer_check_count = 0;
         }
         WUST_INFO(vision_logger_) << "Rec: " << img_recv_count_ << ", Det: " << detect_finish_count_
-                                  << ", Fps: " << detect_finish_count_ / elapsed.count()
+                                  << ", Fin: " << finish_count_
                                   << ", Lat: " << toolsgobal::latency_ms << "ms"
                                   << ", Fire: " << fire_count_ << ", Tc: " << timer_count_;
         timer_count_ = 0;
         img_recv_count_ = 0;
         detect_finish_count_ = 0;
         fire_count_ = 0;
+        finish_count_ = 0;
         last_stat_time_steady_ = now;
     }
 }
@@ -928,9 +940,10 @@ void WustVision::debugThread() {
     }
 }
 void WustVision::debuglog() {
+    std::lock_guard<std::mutex> lock(dbg_mutex_);
     auto now = std::chrono::steady_clock::now();
     armor::Armors armors;
-    armors = armors_gobal_;
+    armors = debug_gobal_frame_.armors_gobal;
     double t = std::chrono::duration<double>(now - toolsgobal::start_time_).count();
     armor::Target target = armor_target_;
     writeTargetLogToJson(target);
@@ -1018,20 +1031,15 @@ void WustVision::debuglog() {
     }
 }
 void WustVision::debugvisualize(bool auto_fps) {
+    std::lock_guard<std::mutex> lock(dbg_mutex_);
     auto now = std::chrono::steady_clock::now();
-    armor::Armors armors = armors_gobal_;
-    armor::Target target = armor_target_;
-    std::vector<armor::OneTarget> one_targets = one_armor_targets_;
+    armor::Armors armors = debug_gobal_frame_.armors_gobal;
+    armor::Target target = debug_gobal_frame_.armor_target;
+    std::vector<armor::OneTarget> one_targets = debug_gobal_frame_.one_armor_targets;
     AttackMode mode = toAttackMode(gobal::attack_mode);
     bool appear = utils::checkTargetAppear(target, one_targets);
     Tracker::State state = appear ? Tracker::TRACKING : Tracker::LOST;
     GimbalCmd gimbal_cmd = gobal::last_cmd;
-
-    cv::Mat src;
-    {
-        std::lock_guard<std::mutex> lock(img_mutex_);
-        src = imgframe_.img.clone();
-    }
 
     if (mode == AttackMode::ARMOR) {
         armor::Armors armor_data = visualizeTargetProjection(target, one_targets);
@@ -1048,7 +1056,7 @@ void WustVision::debugvisualize(bool auto_fps) {
             return;
         try {
             DebugArmor dbg;
-            dbg.src_img = imgframe_;
+            dbg.src_img = debug_gobal_frame_.imgframe;
             dbg.target = target;
             dbg.target_info = target_info;
             dbg.armors = armors;
@@ -1064,8 +1072,8 @@ void WustVision::debugvisualize(bool auto_fps) {
 
         try {
             DebugRune dbg;
-            dbg.src_img = imgframe_;
-            dbg.objs = rune_objects_;
+            dbg.src_img = debug_gobal_frame_.imgframe;
+            dbg.objs = debug_gobal_frame_.rune_objects;
             dbg.predict_angle = predict_angle;
             dbg.gimbal_cmd = gobal::last_cmd;
             dbg.manual_r_box = manual_r_box_;

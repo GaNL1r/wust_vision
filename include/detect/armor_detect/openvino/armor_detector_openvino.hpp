@@ -47,7 +47,7 @@ public:
     void init();
     bool processCallback(const CommonFrame& frame);
 
-    void pushInput(const CommonFrame& frame);
+    void pushInput(CommonFrame& frame);
 
     void setCallback(DetectorCallback callback);
 
@@ -68,4 +68,5 @@ private:
     bool use_throughputmode_ = false;
     bool use_armor_detect_common_ = true;
     std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;
+    int current_id_ = 0;
 };

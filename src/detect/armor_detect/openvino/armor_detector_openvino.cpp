@@ -201,6 +201,7 @@ bool ArmorDetectOpenVino::processCallback(const CommonFrame& frame) {
 
     return false;
 }
-void ArmorDetectOpenVino::pushInput(const CommonFrame& frame) {
+void ArmorDetectOpenVino::pushInput(CommonFrame& frame) {
+    frame.id = current_id_++;
     processCallback(frame);
 }

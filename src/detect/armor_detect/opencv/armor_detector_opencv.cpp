@@ -336,7 +336,8 @@ void ArmorDetectOpenCV::topts(armor::ArmorObject& armor) {
     armor.pts_binary[2] = armor.lights[1].bottom;
     armor.pts_binary[3] = armor.lights[1].top;
 }
-void ArmorDetectOpenCV::pushInput(const CommonFrame& frame) {
+void ArmorDetectOpenCV::pushInput(CommonFrame& frame) {
+    frame.id = current_id_++;
     std::vector<armor::ArmorObject> objs_result;
     objs_result = detect(frame.src_img);
 

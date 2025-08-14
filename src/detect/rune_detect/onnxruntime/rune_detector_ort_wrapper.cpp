@@ -36,7 +36,7 @@ RuneDetectorOnnxRuntimeWrapper::RuneDetectorOnnxRuntimeWrapper(const YAML::Node&
 
 RuneDetectorOnnxRuntimeWrapper::~RuneDetectorOnnxRuntimeWrapper() = default;
 
-void RuneDetectorOnnxRuntimeWrapper::pushInput(const CommonFrame& frame) {
+void RuneDetectorOnnxRuntimeWrapper::pushInput(CommonFrame& frame) {
     rune_detector_->pushInput(frame);
 }
 

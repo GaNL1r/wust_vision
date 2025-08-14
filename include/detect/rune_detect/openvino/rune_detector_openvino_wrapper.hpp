@@ -21,7 +21,7 @@ public:
     RuneDetectorOpenvinoWrapper(const YAML::Node& config);
     ~RuneDetectorOpenvinoWrapper() override;
 
-    void pushInput(const CommonFrame& frame) override;
+    void pushInput(CommonFrame& frame) override;
 
     void setCallback(CallbackType cb) override;
 

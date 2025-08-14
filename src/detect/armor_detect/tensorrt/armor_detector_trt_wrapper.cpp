@@ -78,7 +78,7 @@ ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(
 
 ArmorDetectorTrtWrapper::~ArmorDetectorTrtWrapper() = default;
 
-void ArmorDetectorTrtWrapper::pushInput(const CommonFrame& frame) {
+void ArmorDetectorTrtWrapper::pushInput(CommonFrame& frame) {
     detector_->pushInput(frame);
 }
 

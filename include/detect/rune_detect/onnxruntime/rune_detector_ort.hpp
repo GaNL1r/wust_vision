@@ -55,7 +55,7 @@ public:
     void init();
 
     // Push an inference request to the detector
-    void pushInput(const CommonFrame& frame);
+    void pushInput(CommonFrame& frame);
 
     void setCallback(CallbackType callback);
 
@@ -86,4 +86,5 @@ private:
     bool use_gpu_ = false;
     int device_id_ = 0;
     std::unique_ptr<rune_infer::RuneInfer> rune_infer_;
+    int current_id_ = 0;
 };

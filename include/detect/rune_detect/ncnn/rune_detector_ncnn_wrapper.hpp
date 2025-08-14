@@ -21,7 +21,7 @@ public:
     RuneDetectorNCNNWrapper(const YAML::Node& config);
     ~RuneDetectorNCNNWrapper() override;
 
-    void pushInput(const CommonFrame& frame) override;
+    void pushInput(CommonFrame& frame) override;
 
     void setCallback(CallbackType cb) override;
 

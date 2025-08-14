@@ -77,7 +77,7 @@ ArmorDetectorOpenvinoWrapper::ArmorDetectorOpenvinoWrapper(
 
 ArmorDetectorOpenvinoWrapper::~ArmorDetectorOpenvinoWrapper() = default;
 
-void ArmorDetectorOpenvinoWrapper::pushInput(const CommonFrame& frame) {
+void ArmorDetectorOpenvinoWrapper::pushInput(CommonFrame& frame) {
     detector_->pushInput(frame);
 }
 

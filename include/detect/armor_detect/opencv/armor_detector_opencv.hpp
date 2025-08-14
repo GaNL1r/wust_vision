@@ -46,7 +46,7 @@ public:
     );
 
     std::vector<armor::ArmorObject> detect(const cv::Mat& input) noexcept;
-    void pushInput(const CommonFrame& frame);
+    void pushInput(CommonFrame& frame);
 
     std::tuple<cv::Mat, cv::Mat> preprocessImage(const cv::Mat& input) noexcept;
     std::vector<armor::Light>
@@ -75,4 +75,5 @@ private:
     std::unique_ptr<NumberClassifier> number_classifier_;
 
     DetectorCallback infer_callback_;
+    int current_id_ = 0;
 };

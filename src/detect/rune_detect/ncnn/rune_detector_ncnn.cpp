@@ -188,8 +188,8 @@ void RuneDetectorNCNN::init(int device_id) {
     WUST_INFO("rune_ncnn") << "ncnn: model loaded successfully";
 }
 
-void RuneDetectorNCNN::pushInput(const CommonFrame& frame) {
-    // Reprocess
+void RuneDetectorNCNN::pushInput(CommonFrame& frame) {
+    frame.id = current_id_++;
 
     processCallback(frame);
 }

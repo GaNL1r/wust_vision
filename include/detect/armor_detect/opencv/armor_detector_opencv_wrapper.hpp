@@ -21,7 +21,7 @@ public:
     ArmorDetectorOpencvWrapper(const YAML::Node& config);
     ~ArmorDetectorOpencvWrapper() override;
 
-    void pushInput(const CommonFrame& frame) override;
+    void pushInput(CommonFrame& frame) override;
 
     void setCallback(DetectorCallback cb) override;
 

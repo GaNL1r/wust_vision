@@ -473,10 +473,11 @@ std::tuple<cv::Point2f, cv::Mat> RuneDetectorTrt::detectRTag(
 
     return { center, binary_img };
 }
-void RuneDetectorTrt::pushInput(const CommonFrame& frame) {
+void RuneDetectorTrt::pushInput(CommonFrame& frame) {
     if (infer_pool_) {
         auto infer_ptr = infer_pool_->acquire();
         if (infer_ptr != nullptr) {
+            frame.id = current_id_++;
             this->processCallback(frame, infer_ptr);
             infer_pool_->release(infer_ptr);
         }

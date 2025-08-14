@@ -223,6 +223,7 @@ bool ArmorDetectNCNN::processCallback(const CommonFrame& frame) {
 
     return false;
 }
-void ArmorDetectNCNN::pushInput(const CommonFrame& frame) {
+void ArmorDetectNCNN::pushInput(CommonFrame& frame) {
+    frame.id = current_id_++;
     processCallback(frame);
 }
