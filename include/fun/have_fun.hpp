@@ -19,8 +19,8 @@ public:
         beep_sound.setBuffer(beep_buffer);
 
         music_player_->setBeatCallback([this]() {
-            beep_sound.play(); // 播放滴声
-            std::cout << "Beat detected! 发信号啦~" << std::endl;
+            // beep_sound.play(); // 播放滴声
+            // std::cout << "Beat detected! 发信号啦~" << std::endl;
         });
     }
     void start() {

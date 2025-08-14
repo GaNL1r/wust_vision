@@ -461,23 +461,48 @@ namespace rune {
 enum class RuneType { INACTIVATED = 0, ACTIVATED };
 
 struct FeaturePoints {
+    // 默认构造：全部初始化为 (-1, -1)
     FeaturePoints() {
-        r_center = cv::Point2f(-1, -1);
-        bottom_right = cv::Point2f(-1, -1);
-        top_right = cv::Point2f(-1, -1);
-        top_left = cv::Point2f(-1, -1);
-        bottom_left = cv::Point2f(-1, -1);
+        reset();
+    }
+
+    // 构造：全部初始化为同一个点
+    explicit FeaturePoints(const cv::Point2f& p) {
+        r_center = bottom_right = top_right = top_left = bottom_left = p;
+    }
+
+    // 构造：直接传 5 个点
+    FeaturePoints(
+        const cv::Point2f& rc,
+        const cv::Point2f& br,
+        const cv::Point2f& tr,
+        const cv::Point2f& tl,
+        const cv::Point2f& bl
+    ):
+        r_center(rc),
+        bottom_right(br),
+        top_right(tr),
+        top_left(tl),
+        bottom_left(bl) {}
+
+    // 构造：从 std::vector<cv::Point2f> 赋值
+    explicit FeaturePoints(const std::vector<cv::Point2f>& pts) {
+        reset();
+        if (pts.size() >= 5) {
+            r_center = pts[0];
+            bottom_left = pts[1];
+            top_left = pts[2];
+            top_right = pts[3];
+            bottom_right = pts[4];
+        }
     }
 
     void reset() {
-        r_center = cv::Point2f(-1, -1);
-        bottom_right = cv::Point2f(-1, -1);
-        top_right = cv::Point2f(-1, -1);
-        top_left = cv::Point2f(-1, -1);
-        bottom_left = cv::Point2f(-1, -1);
+        cv::Point2f invalid(-1, -1);
+        r_center = bottom_right = top_right = top_left = bottom_left = invalid;
     }
 
-    FeaturePoints operator+(const FeaturePoints& other) {
+    FeaturePoints operator+(const FeaturePoints& other) const {
         FeaturePoints res;
         res.r_center = r_center + other.r_center;
         res.bottom_right = bottom_right + other.bottom_right;
@@ -487,7 +512,7 @@ struct FeaturePoints {
         return res;
     }
 
-    FeaturePoints operator/(const float& other) {
+    FeaturePoints operator/(float other) const {
         FeaturePoints res;
         res.r_center = r_center / other;
         res.bottom_right = bottom_right / other;

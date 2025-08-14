@@ -568,28 +568,29 @@ void WustVision::ArmorDetectCallback(
 
 void WustVision::RuneDetectCallback(std::vector<rune::RuneObject>& objs, const CommonFrame& frame) {
     std::lock_guard<std::mutex> lock(callback_mutex_);
-    static bool last_rune_big = false; //Always small rune first
+    static bool last_rune_big = false;
 
-    // Used to draw debug info
+    rune::Rune rune_target { .frame_id = "camera_optical_frame",
+                             .timestamp = frame.timestamp,
+                             .is_big_rune = false,
+                             .is_lost = true };
+
     cv::Mat debug_img;
-    if (gobal::debug_mode) {
+    if (gobal::debug_mode)
         debug_img = frame.src_img.clone();
-    }
-    rune::Rune rune_target;
-    rune_target.frame_id = "camera_optical_frame";
-    rune_target.timestamp = frame.timestamp;
-    rune_target.is_big_rune = false;
 
     if (!objs.empty()) {
-        // Sort by probability
-        std::sort(
-            objs.begin(),
-            objs.end(),
-            [](const rune::RuneObject& a, const rune::RuneObject& b) { return a.prob > b.prob; }
-        );
+        // 1. 按概率排序
+        std::sort(objs.begin(), objs.end(), [](auto& a, auto& b) { return a.prob > b.prob; });
 
+        // 2. 计算 R tag 中心
         cv::Point2f r_tag;
-        cv::Mat binary_roi = cv::Mat::zeros(1, 1, CV_8UC3);
+        cv::Mat binary_roi(1, 1, CV_8UC3, cv::Scalar(0));
+
+        auto detectRTagAt = [&](const cv::Point2f& center, bool manual) {
+            return rune_detector_->detectRTag(frame.src_img, rune_binary_thresh_, center, manual);
+        };
+
         if (use_manual_r_ && manual_r_init_) {
             gobal::measure_tool->projectRTargetToImage(
                 T_r_,
@@ -600,110 +601,85 @@ void WustVision::RuneDetectCallback(std::vector<rune::RuneObject>& objs, const C
             );
             manual_r_center_ = utils::computeCenter(manual_r_box_);
             r_tag = manual_r_center_;
-            if (detect_r_tag_ && !frame.src_img.empty()) {
-                std::tie(r_tag, binary_roi) =
-                    rune_detector_
-                        ->detectRTag(frame.src_img, rune_binary_thresh_, manual_r_center_, true);
-            }
+            if (detect_r_tag_ && !frame.src_img.empty())
+                std::tie(r_tag, binary_roi) = detectRTagAt(manual_r_center_, true);
+        } else if (detect_r_tag_ && !frame.src_img.empty()) {
+            std::tie(r_tag, binary_roi) = detectRTagAt(objs.front().pts.r_center, false);
         } else {
-            if (detect_r_tag_ && !frame.src_img.empty()) {
-                // Detect R tag using traditional method
-                std::tie(r_tag, binary_roi) = rune_detector_->detectRTag(
-                    frame.src_img,
-                    rune_binary_thresh_,
-                    objs.at(0).pts.r_center,
-                    false
-                );
-            } else {
-                // Use the average center of all objects as the center of the R tag
-                r_tag = std::accumulate(
-                    objs.begin(),
-                    objs.end(),
-                    cv::Point2f(0, 0),
-                    [n = static_cast<float>(objs.size())](cv::Point2f p, auto& o) {
-                        return p + o.pts.r_center / n;
-                    }
-                );
-            }
+            r_tag = std::accumulate(
+                objs.begin(),
+                objs.end(),
+                cv::Point2f(0, 0),
+                [n = float(objs.size())](cv::Point2f p, auto& o) { return p + o.pts.r_center / n; }
+            );
         }
 
-        // Assign the center of the R tag to all objects
-        std::for_each(objs.begin(), objs.end(), [r = r_tag](rune::RuneObject& obj) {
-            obj.pts.r_center = r;
-        });
+        // 3. 赋值 R tag 中心
+        for (auto& o: objs)
+            o.pts.r_center = r_tag;
 
-        // Draw binary roi
+        // 4. 绘制调试图
         if (gobal::debug_mode && !debug_img.empty()) {
-            cv::Rect roi =
-                cv::Rect(debug_img.cols - binary_roi.cols, 0, binary_roi.cols, binary_roi.rows);
+            cv::Rect roi(debug_img.cols - binary_roi.cols, 0, binary_roi.cols, binary_roi.rows);
             binary_roi.copyTo(debug_img(roi));
             cv::rectangle(debug_img, roi, cv::Scalar(150, 150, 150), 2);
         }
 
-        // The final target is the inactivated rune with the highest probability
-        auto result_it = std::find_if(
-            objs.begin(),
-            objs.end(),
-            [c = static_cast<EnemyColor>(gobal::detect_color)](const auto& obj) -> bool {
-                return obj.type == rune::RuneType::INACTIVATED && obj.color == c;
-            }
-        );
+        // 5. 选择目标（未激活 & 颜色匹配）
+        auto target_it =
+            std::find_if(objs.begin(), objs.end(), [c = EnemyColor(gobal::detect_color)](auto& o) {
+                return o.type == rune::RuneType::INACTIVATED && o.color == c;
+            });
 
-        if (result_it != objs.end()) {
+        if (target_it != objs.end()) {
             rune_target.is_lost = false;
-            rune_target.pts[0].x = result_it->pts.r_center.x;
-            rune_target.pts[0].y = result_it->pts.r_center.y;
-            rune_target.pts[1].x = result_it->pts.bottom_left.x;
-            rune_target.pts[1].y = result_it->pts.bottom_left.y;
-            rune_target.pts[2].x = result_it->pts.top_left.x;
-            rune_target.pts[2].y = result_it->pts.top_left.y;
-            rune_target.pts[3].x = result_it->pts.top_right.x;
-            rune_target.pts[3].y = result_it->pts.top_right.y;
-            rune_target.pts[4].x = result_it->pts.bottom_right.x;
-            rune_target.pts[4].y = result_it->pts.bottom_right.y;
-        } else {
-            // All runes are activated
-            rune_target.is_lost = true;
-        }
-    } else {
-        // All runes are not the target color
-        rune_target.is_lost = true;
-    }
-
-    AttackMode mode = toAttackMode(gobal::attack_mode);
-    switch (mode) {
-        case AttackMode::ARMOR: {
-            rune_target.is_big_rune = last_rune_big;
-        } break;
-        case AttackMode::BIG_RUNE: {
-            rune_target.is_big_rune = true;
-            last_rune_big = true;
-        } break;
-        case AttackMode::SMALL_RUNE: {
-            rune_target.is_big_rune = false;
-            last_rune_big = false;
-        } break;
-        case AttackMode::UNKNOWN: {
-            rune_target.is_big_rune = last_rune_big;
+            auto& p = target_it->pts;
+            rune_target.pts[0].x = p.r_center.x;
+            rune_target.pts[0].y = p.r_center.y;
+            rune_target.pts[1].x = p.bottom_left.x;
+            rune_target.pts[1].y = p.bottom_left.y;
+            rune_target.pts[2].x = p.top_left.x;
+            rune_target.pts[2].y = p.top_left.y;
+            rune_target.pts[3].x = p.top_right.x;
+            rune_target.pts[3].y = p.top_right.y;
+            rune_target.pts[4].x = p.bottom_right.x;
+            rune_target.pts[4].y = p.bottom_right.y;
         }
     }
 
+    // 6. 攻击模式切换
+    switch (toAttackMode(gobal::attack_mode)) {
+        case AttackMode::BIG_RUNE:
+            rune_target.is_big_rune = last_rune_big = true;
+            break;
+        case AttackMode::SMALL_RUNE:
+            rune_target.is_big_rune = last_rune_big = false;
+            break;
+        case AttackMode::ARMOR:
+        case AttackMode::UNKNOWN:
+            rune_target.is_big_rune = last_rune_big;
+            break;
+    }
+
+    // 7. 回调与延迟统计
     runeTargetCallback(rune_target, frame.T_camera_to_odom);
     T_camera_to_odom_ = frame.T_camera_to_odom;
-    auto now = std::chrono::steady_clock::now();
 
-    auto latency_nano =
-        std::chrono::duration_cast<std::chrono::nanoseconds>(now - rune_target.timestamp).count();
-    toolsgobal::latency_averager.add(latency_nano);
+    auto latency_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                          std::chrono::steady_clock::now() - rune_target.timestamp
+    )
+                          .count();
+    toolsgobal::latency_averager.add(latency_ns);
     toolsgobal::latency_ms = toolsgobal::latency_averager.average_ms();
 
+    // 8. 保存调试信息
     if (gobal::debug_mode) {
         std::lock_guard<std::mutex> target_lock(img_mutex_);
-        imgframe_.img = debug_img.clone();
-        imgframe_.timestamp = rune_target.timestamp;
+        imgframe_ = { debug_img.clone(), rune_target.timestamp };
         rune_gobal_ = rune_target;
         rune_objects_ = objs;
     }
+
     detect_finish_count_++;
 }
 

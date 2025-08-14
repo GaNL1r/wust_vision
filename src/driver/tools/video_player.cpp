@@ -105,12 +105,15 @@ VideoPlayer::~VideoPlayer() {
 }
 
 void VideoPlayer::run() {
-    using namespace std::chrono;
-    const auto frame_interval = duration<double>(1.0 / frame_rate_);
+    using clock = std::chrono::steady_clock;
+
+    const auto frame_interval =
+        std::chrono::duration_cast<clock::duration>(std::chrono::duration<double>(1.0 / frame_rate_)
+        );
+
+    auto next_frame_time = clock::now();
 
     while (running_) {
-        const auto start_time = steady_clock::now();
-
         cv::Mat frame_bgr;
         cap_ >> frame_bgr;
 
@@ -122,25 +125,18 @@ void VideoPlayer::run() {
                 break;
             }
         }
+
         cv::cvtColor(frame_bgr, frame_bgr, cv::COLOR_BGR2RGB);
+
         ImageFrame frame;
-        // frame.width = frame_bgr.cols;
-        // frame.height = frame_bgr.rows;
-        // frame.step = frame.width * 3;
-        // frame.data.assign(frame_bgr.data, frame_bgr.data + frame.step * frame.height);
         frame.src_img = std::move(frame_bgr);
-        frame.timestamp = steady_clock::now();
+        frame.timestamp = clock::now();
 
         if (on_frame_callback_) {
             on_frame_callback_(frame);
         }
 
-        const auto end_time = steady_clock::now();
-        auto elapsed = end_time - start_time;
-
-        if (elapsed < frame_interval) {
-            std::this_thread::sleep_for(frame_interval - elapsed);
-        } else {
-        }
+        next_frame_time += frame_interval;
+        std::this_thread::sleep_until(next_frame_time);
     }
 }

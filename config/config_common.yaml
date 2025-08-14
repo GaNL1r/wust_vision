@@ -1,11 +1,11 @@
 common:
-  armor_detect_backend: opencv
+  armor_detect_backend: tensorrt
   rune_detect_backend: tensorrt
   detect_color: 0
   init_attack_mode: 0
   max_detect_armors: 12
   max_infer_running: 10
-  thread_multiplier: 2
+  thread_multiplier: 1
   only_nav_enable: false
   use_auto_labeler: false
   use_calculation: false
@@ -13,7 +13,7 @@ common:
   use_omni: false
   hit_omni_dt: 5.0
   receive_omni_dt: 1.0
-  use_fun: false
+  use_fun: true
 
 camera:
   target_sn: DA1094119
