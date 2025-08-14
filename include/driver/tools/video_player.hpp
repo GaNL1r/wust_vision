@@ -35,15 +35,7 @@ public:
     void stop();
     bool read();
     void enableTriggerMode(bool enable);
-    void
-    enablehighPriorityAndCpuidPriority(bool enable, int cpu_id, int priority, bool use_sched_fifo) {
-        use_high_priority_ = enable;
-        if (enable) {
-            cpu_id_ = cpu_id;
-            priority_ = priority;
-            use_sched_fifo_ = use_sched_fifo;
-        }
-    }
+
     ~VideoPlayer();
 
 private:
@@ -58,8 +50,4 @@ private:
     std::thread worker_;
     bool trigger_mode_ = false;
     FrameCallback on_frame_callback_;
-    bool use_high_priority_ = false;
-    bool use_sched_fifo_ = true;
-    int cpu_id_;
-    int priority_;
 };

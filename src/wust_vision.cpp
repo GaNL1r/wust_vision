@@ -140,12 +140,6 @@ bool WustVision::init() {
             video_beta_ = gobal::config["camera"]["video_player"]["beta"].as<int>(0);
             video_player_ =
                 std::make_unique<VideoPlayer>(video_play_path, video_play_fps, start_frame, loop);
-            video_player_->enablehighPriorityAndCpuidPriority(
-                gobal::config["camera"]["video_player"]["use_high_priority"].as<bool>(false),
-                gobal::config["camera"]["video_player"]["high_priority_cpu_id"].as<int>(0),
-                gobal::config["camera"]["video_player"]["high_priority_cpu_priority"].as<int>(0),
-                gobal::config["camera"]["video_player"]["use_sched_fifo"].as<bool>(false)
-            );
             video_player_->setCallback([this](ImageFrame& frame) {
                 static bool first_is_inited = false;
 
@@ -192,12 +186,6 @@ bool WustVision::init() {
                 gobal::config["camera"]["acquisition_frame_rate_enable"].as<bool>(),
                 gobal::config["camera"]["reverse_x"].as<bool>(false),
                 gobal::config["camera"]["reverse_y"].as<bool>(false)
-            );
-            camera_->enablehighPriorityAndCpuidPriority(
-                gobal::config["camera"]["use_high_priority"].as<bool>(false),
-                gobal::config["camera"]["high_priority_cpu_id"].as<int>(0),
-                gobal::config["camera"]["high_priority_cpu_priority"].as<int>(0),
-                gobal::config["camera"]["use_sched_fifo"].as<bool>(false)
             );
             camera_->setFrameCallback([this](const ImageFrame& frame) {
                 static bool first_is_inited = false;

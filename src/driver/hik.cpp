@@ -254,19 +254,6 @@ void HikCamera::startCamera(bool if_recorder) {
     }
     if (trigger_type_ != TriggerType::Software) {
         capture_thread_ = std::thread([this] { this->hikCaptureLoop(); });
-
-        if (use_high_priority_) {
-            if (!utils::setThreadAffinityAndPriority(
-                    capture_thread_,
-                    cpu_id_,
-                    priority_,
-                    use_sched_fifo_
-                )) {
-                WUST_WARN(hik_logger_) << "Failed to set thread affinity or priority.";
-            } else {
-                WUST_INFO(hik_logger_) << "Thread affinity and priority set successfully.";
-            }
-        }
     }
 
     if (if_recorder) {
