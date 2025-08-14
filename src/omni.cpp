@@ -318,7 +318,7 @@ void OmniManager::processImage(const ImageFrame& frame) {
     common_frame.timestamp = frame.timestamp;
     common_frame.v = frame.v;
     if (!omni_visions_[common_frame.v.x()]->use_video) {
-        common_frame.src_img = std::move(convertToMatrgb(frame));
+        common_frame.src_img = std::move(convertToMat(frame));
     } else {
         common_frame.src_img = std::move(frame.src_img);
         common_frame.src_img.convertTo(

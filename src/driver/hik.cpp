@@ -377,19 +377,31 @@ void HikCamera::hikCaptureLoop() {
                 ++frame_counter;
 
                 ImageFrame frame;
+                // frame.width = out_frame.stFrameInfo.nWidth;
+                // frame.height = out_frame.stFrameInfo.nHeight;
+                // frame.step = frame.width * 3;
+
+                // frame.data.resize(frame.width * frame.height * 3);
                 frame.width = out_frame.stFrameInfo.nWidth;
                 frame.height = out_frame.stFrameInfo.nHeight;
-                frame.step = frame.width * 3;
+                frame.step = frame.width; // Bayer8/Mono8 一般是单通道
+                frame.data.resize(out_frame.stFrameInfo.nFrameLen);
+                // convert_param_.pDstBuffer = frame.data.data();
+                // convert_param_.nDstBufferSize = static_cast<int>(frame.data.size());
+                // convert_param_.pSrcData = out_frame.pBufAddr;
+                // convert_param_.nSrcDataLen = out_frame.stFrameInfo.nFrameLen;
+                // convert_param_.enSrcPixelType = out_frame.stFrameInfo.enPixelType;
 
-                frame.data.resize(frame.width * frame.height * 3);
-
-                convert_param_.pDstBuffer = frame.data.data();
-                convert_param_.nDstBufferSize = static_cast<int>(frame.data.size());
-                convert_param_.pSrcData = out_frame.pBufAddr;
-                convert_param_.nSrcDataLen = out_frame.stFrameInfo.nFrameLen;
-                convert_param_.enSrcPixelType = out_frame.stFrameInfo.enPixelType;
-
-                MV_CC_ConvertPixelType(camera_handle_, &convert_param_);
+                // MV_CC_ConvertPixelType(camera_handle_, &convert_param_);
+                std::memcpy(frame.data.data(), out_frame.pBufAddr, out_frame.stFrameInfo.nFrameLen);
+                const auto& frame_info = out_frame.stFrameInfo;
+                auto pixel_type = frame_info.enPixelType;
+                const static std::unordered_map<MvGvspPixelType, cv::ColorConversionCodes>
+                    type_map = { { PixelType_Gvsp_BayerGR8, cv::COLOR_BayerGR2BGR },
+                                 { PixelType_Gvsp_BayerRG8, cv::COLOR_BayerRG2BGR },
+                                 { PixelType_Gvsp_BayerGB8, cv::COLOR_BayerGB2BGR },
+                                 { PixelType_Gvsp_BayerBG8, cv::COLOR_BayerBG2BGR } };
+                frame.bayer_type = type_map.at(pixel_type);
                 auto current_time = std::chrono::steady_clock::now();
                 frame.timestamp = current_time;
 
@@ -524,19 +536,32 @@ bool HikCamera::read() {
     }
 
     ImageFrame frame;
+    // frame.width = out_frame.stFrameInfo.nWidth;
+    // frame.height = out_frame.stFrameInfo.nHeight;
+    // frame.step = frame.width * 3;
+
+    // frame.data.resize(frame.width * frame.height * 3);
     frame.width = out_frame.stFrameInfo.nWidth;
     frame.height = out_frame.stFrameInfo.nHeight;
-    frame.step = frame.width * 3;
-    frame.data.resize(frame.width * frame.height * 3);
+    frame.step = frame.width; // Bayer8/Mono8 一般是单通道
+    frame.data.resize(out_frame.stFrameInfo.nFrameLen);
+    // convert_param_.pDstBuffer = frame.data.data();
+    // convert_param_.nDstBufferSize = static_cast<int>(frame.data.size());
+    // convert_param_.pSrcData = out_frame.pBufAddr;
+    // convert_param_.nSrcDataLen = out_frame.stFrameInfo.nFrameLen;
+    // convert_param_.enSrcPixelType = out_frame.stFrameInfo.enPixelType;
 
-    convert_param_.pDstBuffer = frame.data.data();
-    convert_param_.nDstBufferSize = static_cast<int>(frame.data.size());
-    convert_param_.pSrcData = out_frame.pBufAddr;
-    convert_param_.nSrcDataLen = out_frame.stFrameInfo.nFrameLen;
-    convert_param_.enSrcPixelType = out_frame.stFrameInfo.enPixelType;
-
-    MV_CC_ConvertPixelType(camera_handle_, &convert_param_);
-
+    // MV_CC_ConvertPixelType(camera_handle_, &convert_param_);
+    std::memcpy(frame.data.data(), out_frame.pBufAddr, out_frame.stFrameInfo.nFrameLen);
+    const auto& frame_info = out_frame.stFrameInfo;
+    auto pixel_type = frame_info.enPixelType;
+    const static std::unordered_map<MvGvspPixelType, cv::ColorConversionCodes> type_map = {
+        { PixelType_Gvsp_BayerGR8, cv::COLOR_BayerGR2BGR },
+        { PixelType_Gvsp_BayerRG8, cv::COLOR_BayerRG2BGR },
+        { PixelType_Gvsp_BayerGB8, cv::COLOR_BayerGB2BGR },
+        { PixelType_Gvsp_BayerBG8, cv::COLOR_BayerBG2BGR }
+    };
+    frame.bayer_type = type_map.at(pixel_type);
     frame.timestamp = std::chrono::steady_clock::now();
 
     if (on_frame_callback_) {
@@ -596,19 +621,32 @@ ImageFrame HikCamera::readImage() {
     }
 
     ImageFrame frame;
+    // frame.width = out_frame.stFrameInfo.nWidth;
+    // frame.height = out_frame.stFrameInfo.nHeight;
+    // frame.step = frame.width * 3;
+
+    // frame.data.resize(frame.width * frame.height * 3);
     frame.width = out_frame.stFrameInfo.nWidth;
     frame.height = out_frame.stFrameInfo.nHeight;
-    frame.step = frame.width * 3;
-    frame.data.resize(frame.width * frame.height * 3);
+    frame.step = frame.width; // Bayer8/Mono8 一般是单通道
+    frame.data.resize(out_frame.stFrameInfo.nFrameLen);
+    // convert_param_.pDstBuffer = frame.data.data();
+    // convert_param_.nDstBufferSize = static_cast<int>(frame.data.size());
+    // convert_param_.pSrcData = out_frame.pBufAddr;
+    // convert_param_.nSrcDataLen = out_frame.stFrameInfo.nFrameLen;
+    // convert_param_.enSrcPixelType = out_frame.stFrameInfo.enPixelType;
 
-    convert_param_.pDstBuffer = frame.data.data();
-    convert_param_.nDstBufferSize = static_cast<int>(frame.data.size());
-    convert_param_.pSrcData = out_frame.pBufAddr;
-    convert_param_.nSrcDataLen = out_frame.stFrameInfo.nFrameLen;
-    convert_param_.enSrcPixelType = out_frame.stFrameInfo.enPixelType;
-
-    MV_CC_ConvertPixelType(camera_handle_, &convert_param_);
-
+    // MV_CC_ConvertPixelType(camera_handle_, &convert_param_);
+    std::memcpy(frame.data.data(), out_frame.pBufAddr, out_frame.stFrameInfo.nFrameLen);
+    const auto& frame_info = out_frame.stFrameInfo;
+    auto pixel_type = frame_info.enPixelType;
+    const static std::unordered_map<MvGvspPixelType, cv::ColorConversionCodes> type_map = {
+        { PixelType_Gvsp_BayerGR8, cv::COLOR_BayerGR2BGR },
+        { PixelType_Gvsp_BayerRG8, cv::COLOR_BayerRG2BGR },
+        { PixelType_Gvsp_BayerGB8, cv::COLOR_BayerGB2BGR },
+        { PixelType_Gvsp_BayerBG8, cv::COLOR_BayerBG2BGR }
+    };
+    frame.bayer_type = type_map.at(pixel_type);
     frame.timestamp = std::chrono::steady_clock::now();
 
     MV_CC_FreeImageBuffer(camera_handle_, &out_frame);

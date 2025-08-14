@@ -390,6 +390,9 @@ struct Armors {
     std::vector<Armor> armors;
     std::chrono::steady_clock::time_point timestamp;
     std::string frame_id;
+    int id;
+    Eigen::Matrix3d R_gimbal2odom;
+    Eigen::Vector3d v;
 };
 struct Target {
     std::chrono::steady_clock::time_point timestamp;
@@ -555,6 +558,8 @@ struct Rune {
     std::array<RunePoint, 5> pts;
     bool is_lost;
     bool is_big_rune;
+    int id;
+    Eigen::Matrix4d T_camera_to_odom;
 };
 
 } // namespace rune
@@ -582,6 +587,7 @@ struct CommonFrame {
     std::chrono::steady_clock::time_point timestamp;
     Eigen::Matrix4d T_camera_to_odom;
     Eigen::Vector3d v;
+    int id;
 };
 struct ArmorSloverTarget {
     armor::Target target;

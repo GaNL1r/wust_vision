@@ -70,7 +70,7 @@ int main() {
             continue;
         }
         auto now = std::chrono::steady_clock::now();
-        cv::Mat img = convertToMatrgb(frame);
+        cv::Mat img = convertToMat(frame);
         if (!calibrator.processFrame(img))
             break;
         auto end = std::chrono::steady_clock::now();

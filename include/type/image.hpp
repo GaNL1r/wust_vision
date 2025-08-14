@@ -22,42 +22,30 @@ struct ImageFrame {
     int width;
     int height;
     int step;
+    int bayer_type;
     cv::Mat src_img;
     std::chrono::steady_clock::time_point timestamp;
     Eigen::Matrix3d R_gimbal2odom;
     Eigen::Vector3d v;
 };
 
-inline cv::Mat convertToMatrgb(const ImageFrame& frame) {
+inline cv::Mat convertToMat(const ImageFrame& frame) {
     if (frame.data.empty()) {
         return cv::Mat();
     }
-    // 直接用frame.data指针创建Mat，零拷贝
-    // 注意这里用const_cast是因为cv::Mat构造需要非const指针
-    return cv::Mat(
-               frame.height,
-               frame.width,
-               CV_8UC3,
-               const_cast<uint8_t*>(frame.data.data()),
-               frame.step
-    )
-        .clone();
-}
 
-// 对于BGR版本，仍需颜色转换，但可以先用零拷贝包装：
-inline cv::Mat convertToMatbgr(const ImageFrame& frame) {
-    if (frame.data.empty()) {
-        return cv::Mat();
-    }
-    // 零拷贝构造RGB Mat视图
-    cv::Mat rgb = cv::Mat(
+    // 用原始数据创建单通道 Mat（Bayer 图）
+    cv::Mat bayer_img(
         frame.height,
         frame.width,
-        CV_8UC3,
+        CV_8UC1, // 原始 Bayer 数据是单通道
         const_cast<uint8_t*>(frame.data.data()),
         frame.step
     );
-    cv::Mat bgr;
-    cv::cvtColor(rgb, bgr, cv::COLOR_RGB2BGR);
-    return bgr; // 返回转换后新内存，无法避免拷贝
+
+    // 转换为 BGR
+    cv::Mat bgr_img;
+    cv::cvtColor(bayer_img, bgr_img, frame.bayer_type);
+
+    return bgr_img; // 已经是 BGR 彩色图
 }

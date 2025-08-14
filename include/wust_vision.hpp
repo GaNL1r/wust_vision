@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common/gobal.hpp"
+#include "common/ordered_queue.hpp"
 #include "common/timer.hpp"
 #include "control/armor_solver.hpp"
 #include "control/rune_solver.hpp"
@@ -42,13 +43,9 @@ public:
     // Callbacks
     void ArmorDetectCallback(const std::vector<armor::ArmorObject>& objs, const CommonFrame& frame);
     void RuneDetectCallback(std::vector<rune::RuneObject>& rune_objects, const CommonFrame& frame);
-    void armorsCallback(
-        armor::Armors armors_,
-        const cv::Mat& src_img,
-        const Eigen::Matrix3d& R_gimbal2odom,
-        const Eigen::Vector3d& v
-    );
-    void runeTargetCallback(const rune::Rune rune_target, Eigen::Matrix4d T_camera_to_odom);
+    void armorsCallback(armor::Armors armors);
+    void processingLoop();
+    void runeTargetCallback(const rune::Rune rune_target);
 
     // Solvers
     GimbalCmd solveByMode(
@@ -140,6 +137,10 @@ private:
     double debug_show_dt_ = 0.0;
 
     // Target data
+    int current_id_ = 0;
+    std::thread processing_thread_;
+    std::unique_ptr<OrderedQueue<armor::Armors>> armor_queue_;
+    std::unique_ptr<OrderedQueue<rune::Rune>> rune_queue_;
     armor::Target armor_target_;
     std::vector<armor::OneTarget> one_armor_targets_;
     armor::Armors armors_gobal_;

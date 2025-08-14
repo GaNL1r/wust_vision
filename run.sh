@@ -44,6 +44,7 @@ total=$(find .. \
         -path ../build -o \
         -path ../hikSDK -o \
         -path ../model -o \
+        -path ../3rdparty -o \
         -path ../.cache \
     \) -prune -o \
     -type f \( \

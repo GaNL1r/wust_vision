@@ -101,14 +101,11 @@ public:
         return Quaternion(x / norm, y / norm, z / norm, w / norm);
     }
     Quaternion slerp(const Quaternion& other, double t) const {
-        // 归一化输入（可选，假设已归一化也行）
         Quaternion q1 = normalized();
         Quaternion q2 = other.normalized();
 
-        // 计算点积
         double dot = q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.w * q2.w;
 
-        // 如果点积为负，取-q2，避免走长路径
         if (dot < 0.0) {
             q2 = Quaternion(-q2.x, -q2.y, -q2.z, -q2.w);
             dot = -dot;
@@ -116,7 +113,6 @@ public:
 
         const double DOT_THRESHOLD = 0.9995;
         if (dot > DOT_THRESHOLD) {
-            // 角度太小，用线性插值代替
             Quaternion result(
                 q1.x + t * (q2.x - q1.x),
                 q1.y + t * (q2.y - q1.y),
@@ -126,7 +122,6 @@ public:
             return result.normalized();
         }
 
-        // 真正的 SLERP
         double theta_0 = std::acos(dot); // 起始角
         double theta = theta_0 * t; // 插值角
         double sin_theta = std::sin(theta);

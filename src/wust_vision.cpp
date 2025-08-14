@@ -36,7 +36,12 @@ void WustVision::stop() {
     gobal::is_inited_ = false;
     auto future = std::async(std::launch::async, [this]() {
         if (!only_nav_enable_) {
-            auto_labeler_.reset();
+            if (processing_thread_.joinable()) {
+                processing_thread_.join();
+            }
+            if (auto_labeler_) {
+                auto_labeler_.reset();
+            }
             if (use_video_) {
                 video_player_->stop();
             } else {
@@ -268,6 +273,8 @@ bool WustVision::init() {
             omni_manager_ = std::make_unique<OmniManager>(omni_config);
         }
         timer_ = std::make_unique<Timer>();
+        armor_queue_ = std::make_unique<OrderedQueue<armor::Armors>>(100);
+        rune_queue_ = std::make_unique<OrderedQueue<rune::Rune>>(100);
     } else {
         WUST_MAIN(vision_logger_) << "only nav mode";
     }
@@ -303,6 +310,7 @@ void WustVision::start() {
             double rate_hz = static_cast<double>(gobal::control_rate);
             timer_->start(rate_hz, timercallback);
         }
+        processing_thread_ = std::thread(&WustVision::processingLoop, this);
     }
     if (gobal::debug_mode) {
         toolsgobal::debug_thread_ = std::thread([this]() { this->debugThread(); });
@@ -453,20 +461,51 @@ void WustVision::initSerial() {
 void WustVision::initTracker(const YAML::Node& config) {
     tracker_manager_ = std::make_unique<TrackerManager>(config);
 }
+void WustVision::processingLoop() {
+    while (gobal::is_inited_) {
+        auto mode = toAttackMode(gobal::attack_mode);
+        switch (mode) {
+            case AttackMode::ARMOR: {
+                armor::Armors armors_;
+                if (!armor_queue_->try_dequeue(armors_)) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    continue;
+                }
+                armorsCallback(armors_);
+            }
+            case AttackMode::SMALL_RUNE:
+            case AttackMode::BIG_RUNE:
 
-void WustVision::runeTargetCallback(
-    const rune::Rune rune_target,
-    Eigen::Matrix4d T_camera_to_odom
-) {
+            {
+                rune::Rune rune;
+                if (!rune_queue_->try_dequeue(rune)) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    continue;
+                }
+                runeTargetCallback(rune);
+            }
+            case AttackMode::UNKNOWN:
+            default: {
+                armor::Armors armors;
+                if (!armor_queue_->try_dequeue(armors)) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    continue;
+                }
+                armorsCallback(armors);
+            }
+        }
+    }
+}
+void WustVision::runeTargetCallback(const rune::Rune rune_target) {
     // rune_solver_->pnp_solver is nullptr when camera_info is not received
     if (rune_solver_->pnp_solver_ == nullptr) {
         return;
     }
     double observed_angle = 0;
     if (rune_solver_->tracker_state == RuneSolver::LOST) {
-        observed_angle = rune_solver_->init(rune_target, T_camera_to_odom);
+        observed_angle = rune_solver_->init(rune_target, rune_target.T_camera_to_odom);
     } else {
-        observed_angle = rune_solver_->update(rune_target, T_camera_to_odom);
+        observed_angle = rune_solver_->update(rune_target, rune_target.T_camera_to_odom);
     }
 
     auto now = std::chrono::steady_clock::now();
@@ -475,23 +514,10 @@ void WustVision::runeTargetCallback(
     toolsgobal::latency_ms = static_cast<double>(latency_nano) / 1e6;
 }
 
-void WustVision::armorsCallback(
-    armor::Armors armors_,
-    const cv::Mat& src_img,
-    const Eigen::Matrix3d& R_gimbal2odom,
-    const Eigen::Vector3d& v
-) {
+void WustVision::armorsCallback(armor::Armors armors_) {
     if (armors_.timestamp <= tracker_manager_->last_time_) {
-        // WUST_WARN(vision_logger) << "Received out-of-order armor data,
-        // discarded.";
+        WUST_WARN(vision_logger_) << "Received out-of-order armor data, discarded.";
         return;
-    }
-
-    if (gobal::debug_mode) {
-        std::lock_guard<std::mutex> target_lock(img_mutex_);
-        imgframe_.img = src_img.clone();
-        imgframe_.timestamp = armors_.timestamp;
-        armors_gobal_ = armors_;
     }
     if (use_calculation_) {
         commandCallbackYpd(armors_);
@@ -500,7 +526,8 @@ void WustVision::armorsCallback(
     std::vector<armor::OneTarget> one_targets_;
     auto time = armors_.timestamp;
 
-    tracker_manager_->update(target_, one_targets_, armors_, time, R_gimbal2odom, v);
+    tracker_manager_
+        ->update(target_, one_targets_, armors_, time, armors_.R_gimbal2odom, armors_.v);
 
     armor_target_ = target_;
     one_armor_targets_ = one_targets_;
@@ -517,7 +544,6 @@ void WustVision::ArmorDetectCallback(
     const CommonFrame& frame
 ) {
     std::lock_guard<std::mutex> lock(callback_mutex_);
-
     std::vector<armor::ArmorObject> sorted_objs = objs;
 
     if (sorted_objs.size() > max_detect_armors_) {
@@ -560,8 +586,16 @@ void WustVision::ArmorDetectCallback(
     }
     Eigen::Matrix3d R_gimbal2odom =
         utils::getRGimbalToOdom(T_camera_to_odom_, R_camera2gimbal_, t_gimbal_to_camera_);
-
-    armorsCallback(armors, frame.src_img, R_gimbal2odom, frame.v);
+    armors.R_gimbal2odom = R_gimbal2odom;
+    armors.v = frame.v;
+    armors.id = frame.id;
+    armor_queue_->enqueue(armors);
+    if (gobal::debug_mode) {
+        std::lock_guard<std::mutex> target_lock(img_mutex_);
+        imgframe_.img = frame.src_img.clone();
+        imgframe_.timestamp = armors.timestamp;
+        armors_gobal_ = armors;
+    }
     T_camera_to_odom_ = frame.T_camera_to_odom;
     detect_finish_count_++;
 }
@@ -661,8 +695,10 @@ void WustVision::RuneDetectCallback(std::vector<rune::RuneObject>& objs, const C
             break;
     }
 
-    // 7. 回调与延迟统计
-    runeTargetCallback(rune_target, frame.T_camera_to_odom);
+    rune_target.id = frame.id;
+    rune_target.T_camera_to_odom = frame.T_camera_to_odom;
+    rune_queue_->enqueue(rune_target);
+    //runeTargetCallback(rune_target);
     T_camera_to_odom_ = frame.T_camera_to_odom;
 
     auto latency_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -763,9 +799,9 @@ void WustVision::processImage(const ImageFrame& frame) {
     CommonFrame common_frame;
     common_frame.timestamp = frame.timestamp;
     common_frame.v = frame.v;
-    auto t1 = time_utils::now();
+
     if (!use_video_) {
-        common_frame.src_img = convertToMatrgb(frame);
+        common_frame.src_img = convertToMat(frame);
     } else {
         //common_frame.src_img = convertToMatbgr(frame);
         if (!frame.src_img.empty()) {
@@ -778,7 +814,8 @@ void WustVision::processImage(const ImageFrame& frame) {
         R_camera2gimbal_,
         t_gimbal_to_camera_
     );
-    auto t2 = time_utils::now();
+    common_frame.id = current_id_++;
+
     printStats();
 
     AttackMode mode = toAttackMode(gobal::attack_mode);
@@ -829,8 +866,6 @@ void WustVision::processImage(const ImageFrame& frame) {
             }
         } break;
     }
-    auto t3 = time_utils::now();
-    //std::cout<<"time: "<<time_utils::durationMs(t2,t1)<<" "<<time_utils::durationMs(t3,t2)<<std::endl;
 }
 
 void WustVision::printStats() {
@@ -880,7 +915,12 @@ void WustVision::debugThread() {
         debugvisualize(false);
         debuglog();
         writeCmdLogToJson();
-        reloadConfig();
+        try {
+            reloadConfig();
+        } catch (std::exception& e) {
+            WUST_ERROR(vision_logger_) << "reloadConfig error:" << e.what();
+        }
+
         auto elapsed = steady_clock::now() - start_time;
         if (elapsed < kInterval) {
             std::this_thread::sleep_for(kInterval - elapsed);
