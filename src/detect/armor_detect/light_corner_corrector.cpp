@@ -118,45 +118,44 @@ void LightCornerCorrector::correctCorners_nonmatch(
 
 SymmetryAxis
 LightCornerCorrector::findSymmetryAxis(const cv::Mat& gray_img, const armor::Light& light) {
-    constexpr float MAX_BRIGHTNESS = 25;
+    constexpr float MAX_BRIGHTNESS = 25.0f;
     constexpr float SCALE = 0.07f;
 
-    // Expand bounding box
     cv::Rect light_box = light.boundingRect();
-    int expand_w = static_cast<int>(light_box.width * SCALE);
-    int expand_h = static_cast<int>(light_box.height * SCALE);
-    light_box.x -= expand_w;
-    light_box.y -= expand_h;
-    light_box.width += 2 * expand_w;
-    light_box.height += 2 * expand_h;
+    float expand_w = light_box.width * SCALE;
+    float expand_h = light_box.height * SCALE;
 
-    // Ensure ROI within bounds
+    light_box.x = static_cast<int>(light_box.x - expand_w);
+    light_box.y = static_cast<int>(light_box.y - expand_h);
+    light_box.width = static_cast<int>(light_box.width + 2 * expand_w);
+    light_box.height = static_cast<int>(light_box.height + 2 * expand_h);
+
     light_box &= cv::Rect(0, 0, gray_img.cols, gray_img.rows);
     if (light_box.width <= 0 || light_box.height <= 0)
         return {};
 
+    cv::Mat roi = gray_img(light_box);
     cv::Mat roi_float;
-    gray_img(light_box).convertTo(roi_float, CV_32F);
+    roi.convertTo(roi_float, CV_32F);
 
     double min_val, max_val;
     cv::minMaxLoc(roi_float, &min_val, &max_val);
+    double range = std::max(max_val - min_val, 1e-5);
+    cv::normalize(roi_float - min_val, roi_float, 0.0, MAX_BRIGHTNESS, cv::NORM_MINMAX);
 
-    // Normalize brightness
-    roi_float = MAX_BRIGHTNESS * (roi_float - min_val) / (max_val - min_val + 1e-5f);
-
-    // Compute centroid
-    auto m = cv::moments(roi_float, false);
-    cv::Point2f centroid = { static_cast<float>(m.m10 / (m.m00 + 1e-5)) + light_box.x,
-                             static_cast<float>(m.m01 / (m.m00 + 1e-5)) + light_box.y };
-
-    // Build weighted points (sample-based)
+    cv::Moments m = cv::moments(roi_float, false);
+    float m00 = std::max(static_cast<float>(m.m00), 1e-5f);
+    cv::Point2f centroid(
+        static_cast<float>(m.m10 / m00) + light_box.x,
+        static_cast<float>(m.m01 / m00) + light_box.y
+    );
     std::vector<cv::Point2f> points;
     for (int y = 0; y < roi_float.rows; ++y) {
         const float* row_ptr = roi_float.ptr<float>(y);
         for (int x = 0; x < roi_float.cols; ++x) {
             float val = row_ptr[x];
-            if (val > 1.0f) { // Threshold to skip low brightness
-                points.emplace_back(cv::Point2f(x, y));
+            if (val > 1.0f) {
+                points.emplace_back(static_cast<float>(x), static_cast<float>(y));
             }
         }
     }
@@ -166,10 +165,10 @@ LightCornerCorrector::findSymmetryAxis(const cv::Mat& gray_img, const armor::Lig
 
     cv::Mat data(points);
     data = data.reshape(1);
-
     cv::PCA pca(data, cv::Mat(), cv::PCA::DATA_AS_ROW);
+
     cv::Point2f axis(pca.eigenvectors.at<float>(0, 0), pca.eigenvectors.at<float>(0, 1));
-    axis /= cv::norm(axis);
+    axis /= std::max(static_cast<float>(cv::norm(axis)), 1e-5f);
 
     if (axis.y > 0)
         axis = -axis;
