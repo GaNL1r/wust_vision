@@ -149,6 +149,7 @@ private:
     std::unique_ptr<OrderedQueue<rune::Rune>> rune_queue_;
     std::chrono::steady_clock::time_point last_rune_target_time_;
     ArmorSolverTarget armor_solver_target_;
+    std::mutex armor_solver_target_mutex_;
 
     // Last target & tracking
     armor::Armor last_armor_;

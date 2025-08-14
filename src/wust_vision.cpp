@@ -535,9 +535,12 @@ void WustVision::armorsCallback(armor::Armors armors) {
     auto time = armors.timestamp;
 
     tracker_manager_->update(target, one_targets, armors, time, armors.R_gimbal2odom, armors.v);
+    {
+        std::lock_guard<std::mutex> lock(armor_solver_target_mutex_);
+        armor_solver_target_.target = target;
+        armor_solver_target_.one_targets = one_targets;
+    }
 
-    armor_solver_target_.target = target;
-    armor_solver_target_.one_targets = one_targets;
     auto now = std::chrono::steady_clock::now();
 
     auto latency_nano =
@@ -760,9 +763,13 @@ void WustVision::timerCallback(double dt_ms) {
 
     auto now = std::chrono::steady_clock::now();
     timer_count_++;
-
-    armor::Target target = armor_solver_target_.target;
-    std::vector<armor::OneTarget> one_targets = armor_solver_target_.one_targets;
+    armor::Target target;
+    std::vector<armor::OneTarget> one_targets;
+    {
+        std::lock_guard<std::mutex> lock(armor_solver_target_mutex_);
+        target = armor_solver_target_.target;
+        one_targets = armor_solver_target_.one_targets;
+    }
 
     if (std::chrono::duration<double>(now - last_track_target_).count() > hit_omni_dt_) {
         for (const auto& omni: gobal::omni_targets) {
