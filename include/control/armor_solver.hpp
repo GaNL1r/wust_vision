@@ -52,7 +52,7 @@ public:
 
     // Solve a new gimbal command; timestamp in seconds
     GimbalCmd solve(
-        const ArmorSloverTarget& armor_slover_target,
+        const ArmorSolverTarget& armor_slover_target,
         std::chrono::steady_clock::time_point current_time
     );
 

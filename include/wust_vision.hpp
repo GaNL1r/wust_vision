@@ -50,7 +50,7 @@ public:
     // Solvers
     GimbalCmd solveByMode(
         AttackMode mode,
-        const ArmorSloverTarget& armor_slover_target,
+        const ArmorSolverTarget& armor_slover_target,
         const std::chrono::steady_clock::time_point& now
     );
 
@@ -148,8 +148,7 @@ private:
     std::unique_ptr<OrderedQueue<armor::Armors>> armor_queue_;
     std::unique_ptr<OrderedQueue<rune::Rune>> rune_queue_;
     std::chrono::steady_clock::time_point last_rune_target_time_;
-    armor::Target armor_target_;
-    std::vector<armor::OneTarget> one_armor_targets_;
+    ArmorSolverTarget armor_solver_target_;
 
     // Last target & tracking
     armor::Armor last_armor_;

@@ -589,7 +589,7 @@ struct CommonFrame {
     Eigen::Vector3d v;
     int id;
 };
-struct ArmorSloverTarget {
+struct ArmorSolverTarget {
     armor::Target target;
     std::vector<armor::OneTarget> one_targets;
 };

@@ -87,7 +87,7 @@ void ArmorSolver::init(const YAML::Node& config) {
 }
 
 GimbalCmd ArmorSolver::solve(
-    const ArmorSloverTarget& armor_slover_target,
+    const ArmorSolverTarget& armor_solver_target,
     std::chrono::steady_clock::time_point current_time
 ) {
     // 1. 获取最新的云台 RPY
@@ -97,8 +97,8 @@ GimbalCmd ArmorSolver::solve(
     rpy[2] = gobal::last_yaw + gobal::gimbal2camera_yaw;
 
     // 2. 选择最优单目标索引
-    const auto& one_targets = armor_slover_target.one_targets;
-    const auto& target = armor_slover_target.target;
+    const auto& one_targets = armor_solver_target.one_targets;
+    const auto& target = armor_solver_target.target;
     int one_idx = selectBestTarget(one_targets, target.tracking);
     armor::OneTarget best_target;
     if (one_idx >= 0) {

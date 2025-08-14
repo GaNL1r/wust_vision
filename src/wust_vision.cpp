@@ -536,8 +536,8 @@ void WustVision::armorsCallback(armor::Armors armors) {
 
     tracker_manager_->update(target, one_targets, armors, time, armors.R_gimbal2odom, armors.v);
 
-    armor_target_ = target;
-    one_armor_targets_ = one_targets;
+    armor_solver_target_.target = target;
+    armor_solver_target_.one_targets = one_targets;
     auto now = std::chrono::steady_clock::now();
 
     auto latency_nano =
@@ -732,15 +732,15 @@ void WustVision::RuneDetectCallback(std::vector<rune::RuneObject>& objs, const C
 
 GimbalCmd WustVision::solveByMode(
     AttackMode mode,
-    const ArmorSloverTarget& armor_slover_target,
+    const ArmorSolverTarget& armor_solver_target,
     const std::chrono::steady_clock::time_point& now
 ) {
     switch (mode) {
         case AttackMode::ARMOR: {
-            auto cmd = armor_solver_->solve(armor_slover_target, now);
+            auto cmd = armor_solver_->solve(armor_solver_target, now);
             auto next_time =
                 now + std::chrono::microseconds(static_cast<int64_t>(1e6 / gobal::control_rate));
-            auto next_cmd = armor_solver_->solve(armor_slover_target, next_time);
+            auto next_cmd = armor_solver_->solve(armor_solver_target, next_time);
             if (std::abs(cmd.yaw - next_cmd.yaw) > jump_yaw
                 || std::abs(cmd.yaw - gobal::last_cmd.yaw) > jump_yaw)
                 cmd.fire_advice = false;
@@ -751,7 +751,7 @@ GimbalCmd WustVision::solveByMode(
             return rune_solver_->solve();
         case AttackMode::UNKNOWN:
         default:
-            return armor_solver_->solve(armor_slover_target, now);
+            return armor_solver_->solve(armor_solver_target, now);
     }
 }
 void WustVision::timerCallback(double dt_ms) {
@@ -761,8 +761,8 @@ void WustVision::timerCallback(double dt_ms) {
     auto now = std::chrono::steady_clock::now();
     timer_count_++;
 
-    armor::Target target = armor_target_;
-    std::vector<armor::OneTarget> one_targets = one_armor_targets_;
+    armor::Target target = armor_solver_target_.target;
+    std::vector<armor::OneTarget> one_targets = armor_solver_target_.one_targets;
 
     if (std::chrono::duration<double>(now - last_track_target_).count() > hit_omni_dt_) {
         for (const auto& omni: gobal::omni_targets) {
@@ -784,10 +784,10 @@ void WustVision::timerCallback(double dt_ms) {
     if (appear || rune_solver_->tracker_state == Tracker::TRACKING) {
         if (appear || rune_solver_->tracker_state == Tracker::TRACKING) {
             try {
-                ArmorSloverTarget armor_slover_target;
-                armor_slover_target.one_targets = one_targets;
-                armor_slover_target.target = target;
-                gimbal_cmd = solveByMode(mode, armor_slover_target, now);
+                ArmorSolverTarget armor_solver_target;
+                armor_solver_target.one_targets = one_targets;
+                armor_solver_target.target = target;
+                gimbal_cmd = solveByMode(mode, armor_solver_target, now);
                 gobal::last_cmd = gimbal_cmd;
                 if (gimbal_cmd.fire_advice)
                     fire_count_++;
@@ -945,7 +945,7 @@ void WustVision::debuglog() {
     armor::Armors armors;
     armors = debug_gobal_frame_.armors_gobal;
     double t = std::chrono::duration<double>(now - toolsgobal::start_time_).count();
-    armor::Target target = armor_target_;
+    armor::Target target = debug_gobal_frame_.armor_target;
     writeTargetLogToJson(target);
     {
         std::lock_guard<std::mutex> lock(toolsgobal::robot_cmd_mutex_);
