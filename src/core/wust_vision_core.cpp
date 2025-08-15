@@ -23,11 +23,17 @@ void WustVision::processImage(const ImageFrame& frame) {
 
     if (!use_video_) {
         common_frame.src_img = convertToMat(frame);
+        if (common_frame.src_img.empty()) {
+            WUST_ERROR(vision_logger_) << "Received empty image frame.";
+            return;
+        }
     } else {
-        //common_frame.src_img = convertToMatbgr(frame);
         if (!frame.src_img.empty()) {
             common_frame.src_img = std::move(frame.src_img);
-            //common_frame.src_img.convertTo(common_frame.src_img, -1, video_alpha_, video_beta_);
+            common_frame.src_img.convertTo(common_frame.src_img, -1, video_alpha_, video_beta_);
+        } else {
+            WUST_ERROR(vision_logger_) << "Received empty image frame.";
+            return;
         }
     }
     common_frame.T_camera_to_odom = utils::computeCameraToOdomTransform(

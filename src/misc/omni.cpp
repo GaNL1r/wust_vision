@@ -146,8 +146,8 @@ OmniManager::OmniManager(const YAML::Node& config) {
         YAML::Node omni_config = config["omni_vision"][i];
         auto omni_vision = std::make_unique<OmniVision>();
         if (!omni_vision->init(omni_config, callback, i)) {
-            WUST_ERROR(vision_logger) << "OmniVision initialization failed."
-                                      << " Index: " << i;
+            WUST_ERROR(vision_logger_) << "OmniVision initialization failed."
+                                       << " Index: " << i;
         }
 
         omni_visions_.emplace_back(std::move(omni_vision));
@@ -171,7 +171,7 @@ void OmniManager::stop() {
     armor_detector_.reset();
     measure_tool_.reset();
 
-    WUST_INFO(vision_logger) << "OmniManager shutdown complete.";
+    WUST_INFO(vision_logger_) << "OmniManager shutdown complete.";
 }
 void OmniManager::initDetector() {
     max_infer_running_ = config_["common"]["max_infer_running"].as<int>(10);
@@ -231,7 +231,7 @@ void OmniManager::initDetector() {
         throw std::runtime_error("armor_detect_backend not set in config.");
     }
     armor_detector_ = loadArmorDetectorBackend(armor_detect_backend);
-    WUST_MAIN(vision_logger) << "Using Armor Detector: " << armor_detect_backend;
+    WUST_MAIN(vision_logger_) << "Using Armor Detector: " << armor_detect_backend;
 
     armor_detector_->setCallback(std::bind(
         &OmniManager::ArmorDetectCallback,
@@ -255,8 +255,8 @@ void OmniManager::ArmorDetectCallback(
 
     std::vector<armor::ArmorObject> sorted_objs = objs;
     if (sorted_objs.size() > max_detect_armors_) {
-        WUST_WARN(vision_logger) << "Detected " << sorted_objs.size() << " objects"
-                                 << ", too much, keeping top " << max_detect_armors_;
+        WUST_WARN(vision_logger_) << "Detected " << sorted_objs.size() << " objects"
+                                  << ", too much, keeping top " << max_detect_armors_;
         std::partial_sort(
             sorted_objs.begin(),
             sorted_objs.begin() + max_detect_armors_,
@@ -319,14 +319,23 @@ void OmniManager::processImage(const ImageFrame& frame) {
     common_frame.v = frame.v;
     if (!omni_visions_[common_frame.v.x()]->use_video) {
         common_frame.src_img = std::move(convertToMat(frame));
+        if (common_frame.src_img.empty()) {
+            WUST_ERROR(vision_logger_) << "Received empty image frame.";
+            return;
+        }
     } else {
-        common_frame.src_img = std::move(frame.src_img);
-        common_frame.src_img.convertTo(
-            common_frame.src_img,
-            -1,
-            omni_visions_[common_frame.v.x()]->video_alpha,
-            omni_visions_[common_frame.v.x()]->video_beta
-        );
+        if (!frame.src_img.empty()) {
+            common_frame.src_img = std::move(frame.src_img);
+            common_frame.src_img.convertTo(
+                common_frame.src_img,
+                -1,
+                omni_visions_[common_frame.v.x()]->video_alpha,
+                omni_visions_[common_frame.v.x()]->video_beta
+            );
+        } else {
+            WUST_ERROR(vision_logger_) << "Received empty image frame.";
+            return;
+        }
     }
     Eigen::Matrix3d R_camera_to_gimbal;
     R_camera_to_gimbal << 0, 0, 1, -1, 0, 0, 0, -1, 0;

@@ -27,15 +27,16 @@ void WustVision::stop() {
             if (auto_labeler_) {
                 auto_labeler_.reset();
             }
-            if (use_video_) {
+            if (video_player_) {
                 video_player_->stop();
-            } else {
-                if (camera_) {
-                    camera_->stopCamera();
-                    camera_.reset();
-                }
+                video_player_.reset();
             }
-            if (use_omni_) {
+            if (camera_) {
+                camera_->stopCamera();
+                camera_.reset();
+            }
+
+            if (omni_manager_) {
                 omni_manager_->stop();
                 omni_manager_.reset();
             }
@@ -238,8 +239,8 @@ bool WustVision::init() {
         gobal::thread_pool =
             std::make_unique<ThreadPool>(std::thread::hardware_concurrency() * thread_multiplier);
         armor_solver_ = std::make_unique<ArmorSolver>(gobal::config);
-        use_omni_ = gobal::config["common"]["use_omni"].as<bool>(false);
-        if (use_omni_) {
+        bool use_omni = gobal::config["common"]["use_omni"].as<bool>(false);
+        if (use_omni) {
             hit_omni_dt_ = gobal::config["common"]["hit_omni_dt"].as<double>(0.1);
             receive_omni_dt_ = gobal::config["common"]["receive_omni_dt"].as<double>(0.1);
             auto omni_config = YAML::LoadFile(OMNI_CONFIG);
@@ -268,16 +269,16 @@ void WustVision::start() {
         serial_->startThread(gobal::use_serial, if_use_nav);
     }
     if (!only_nav_enable_) {
-        if (video_player_ && use_video_) {
+        if (video_player_) {
             video_player_->start();
         }
 
-        if (camera_ && !use_video_) {
+        if (camera_) {
             bool if_recorder = gobal::config["camera"]["recorder"].as<bool>(false);
             camera_->startCamera(if_recorder);
         }
         processing_thread_ = std::thread(&WustVision::processingLoop, this);
-        if (use_omni_ && omni_manager_) {
+        if (omni_manager_) {
             omni_manager_->start();
         }
         if (timer_) {

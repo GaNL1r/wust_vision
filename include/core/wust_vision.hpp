@@ -81,7 +81,6 @@ private:
 
     // Serial & Omni
     std::unique_ptr<serial::Serial> serial_;
-    bool use_omni_ = false;
     std::unique_ptr<OmniManager> omni_manager_;
 
     // Detection & Tracking

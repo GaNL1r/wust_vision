@@ -68,7 +68,7 @@ public:
     int max_detect_armors_;
     std::mutex callback_mutex_;
     std::atomic<int> infer_running_count_ { 0 };
-    std::string vision_logger = "omni_vision";
+    std::string vision_logger_ = "omni_vision";
     size_t omni_num_ = 0;
     int count_ = 0;
 };
