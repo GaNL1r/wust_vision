@@ -1,4 +1,4 @@
-#include "omni.hpp"
+#include "misc/omni.hpp"
 #include "common/debug/tools.hpp"
 #include "common/utils.hpp"
 OmniVision::OmniVision() {

@@ -63,40 +63,41 @@ add_subdirectory(3rdparty/backward-cpp)
 # 公共源码
 set(COMMON_SOURCES
   src/main.cpp
-  src/wust_vision.cpp
-  src/omni.cpp
-  src/common/debug/tools.cpp
-  src/common/gobal.cpp
-  src/common/debug/toolsgobal.cpp
+  src/core/wust_vision_base.cpp
+  src/core/wust_vision_core.cpp
+  src/core/wust_vision_debug.cpp
   src/common/calculation.cpp
+  src/common/gobal.cpp
+  src/common/debug/tools.cpp
+  src/common/debug/toolsgobal.cpp
   src/control/armor_solver.cpp
   src/control/manual_compensator.cpp
-  src/control/trajectory_compensator.cpp
   src/control/rune_solver.cpp
-  src/detect/armor_detect/armor_pose_estimator.cpp
+  src/control/trajectory_compensator.cpp
   src/detect/ba_solver.cpp
   src/detect/graph_optimizer.cpp
-  src/detect/armor_detect/light_corner_corrector.cpp
   src/detect/mono_measure_tool.cpp
   src/detect/pnp_solver.cpp
-  src/detect/armor_detect/opencv/armor_detector_opencv.cpp
   src/detect/armor_detect/opencv/armor_detector_opencv_wrapper.cpp
+  src/detect/armor_detect/opencv/armor_detector_opencv.cpp
   src/detect/armor_detect/armor_detect_common.cpp
+  src/detect/armor_detect/armor_infer.cpp
+  src/detect/armor_detect/armor_pose_estimator.cpp
+  src/detect/armor_detect/light_corner_corrector.cpp
   src/detect/armor_detect/number_classifier.cpp
+  src/detect/rune_detect/rune_infer.cpp
   src/driver/crc8_crc16.cpp
   src/driver/hik.cpp
+  src/driver/serial.cpp
   src/driver/tools/labeler.cpp
   src/driver/tools/recorder.cpp
-  src/driver/serial.cpp
   src/driver/tools/video_player.cpp
+  src/misc/omni.cpp
   src/tracker/curve_fitter.cpp
   src/tracker/one_ca_tracker.cpp
   src/tracker/one_tracker.cpp
-  src/tracker/tracker.cpp
   src/tracker/tracker_manager.cpp
-  src/common/camera_calibrator.cpp
-  src/detect/armor_detect/armor_infer.cpp
-  src/detect/rune_detect/rune_infer.cpp
+  src/tracker/tracker.cpp
 )
 
 # 各后端专属源码，启用则加入
@@ -218,9 +219,9 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE ${BUILD_DEFINITIONS})
 target_link_libraries(${PROJECT_NAME} PRIVATE ${BUILD_LIBS})
 
 add_executable(camera_calibrator
-  src/camera_calibrator_main.cpp
+  src/misc/camera_calibrator_main.cpp
   src/driver/hik.cpp
-  src/common/camera_calibrator.cpp
+  src/misc/camera_calibrator.cpp
   src/common/gobal.cpp
   src/driver/tools/recorder.cpp )
 target_include_directories(

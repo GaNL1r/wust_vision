@@ -1,9 +1,8 @@
-#include "common/camera_calibrator.hpp"
+#include "misc/camera_calibrator.hpp"
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <opencv2/imgcodecs.hpp>
 #include <yaml-cpp/emitter.h>
 #include <yaml-cpp/emittermanip.h>
 using namespace cv;

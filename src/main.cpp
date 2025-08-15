@@ -12,20 +12,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "wust_vision.hpp"
-#include <csignal>
-#include <mutex>
-#include <string>
-#include <unistd.h>
-
-#include "wust_vision.hpp"
-#include <atomic>
+#include "core/wust_vision.hpp"
 #include <backward.hpp>
-#include <condition_variable>
-#include <csignal>
-#include <iostream>
-#include <mutex>
-#include <thread>
 namespace backward {
 backward::SignalHandling sh; // 自动捕获崩溃信号
 }

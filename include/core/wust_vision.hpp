@@ -13,18 +13,10 @@
 #include "driver/tools/recorder.hpp"
 #include "driver/tools/video_player.hpp"
 #include "fun/have_fun.hpp"
-#include "omni.hpp"
+#include "misc/omni.hpp"
 #include "tracker/tracker_manager.hpp"
 #include "type/type.hpp"
 #include "yaml-cpp/yaml.h"
-#include <Eigen/Dense>
-#include <atomic>
-#include <chrono>
-#include <condition_variable>
-#include <mutex>
-#include <opencv2/core/mat.hpp>
-#include <thread>
-#include <vector>
 
 class WustVision {
 public:
