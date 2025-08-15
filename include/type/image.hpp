@@ -22,7 +22,8 @@ struct ImageFrame {
     int width;
     int height;
     int step;
-    int bayer_type;
+    int pixel_type;
+    int img_type;
     cv::Mat src_img;
     std::chrono::steady_clock::time_point timestamp;
     Eigen::Matrix3d R_gimbal2odom;
@@ -38,14 +39,18 @@ inline cv::Mat convertToMat(const ImageFrame& frame) {
     cv::Mat bayer_img(
         frame.height,
         frame.width,
-        CV_8UC1, // 原始 Bayer 数据是单通道
+        frame.img_type,
         const_cast<uint8_t*>(frame.data.data()),
         frame.step
     );
 
     // 转换为 BGR
     cv::Mat bgr_img;
-    cv::cvtColor(bayer_img, bgr_img, frame.bayer_type);
+    if (frame.pixel_type >= 0) {
+        cv::cvtColor(bayer_img, bgr_img, frame.pixel_type);
+    } else {
+        bgr_img = bayer_img.clone();
+    }
 
     return bgr_img; // 已经是 BGR 彩色图
 }

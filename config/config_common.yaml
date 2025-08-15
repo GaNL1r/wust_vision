@@ -1,5 +1,5 @@
 common:
-  armor_detect_backend: tensorrt
+  armor_detect_backend: opencv
   rune_detect_backend: tensorrt
   detect_color: 0
   init_attack_mode: 0
@@ -23,7 +23,7 @@ camera:
   exposure_time: 1000
   gain: 16.9
   gamma: 0.7 #Bayer用不了
-  pixel_format: BayerRG8 #RGB8Packed
+  pixel_format:  BayerRG8 #RGB8Packed
   acquisition_frame_rate_enable: true
   reverse_x: false
   reverse_y: false

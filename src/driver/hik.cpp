@@ -364,6 +364,7 @@ void HikCamera::hikCaptureLoop() {
                 ++frame_counter;
 
                 ImageFrame frame;
+
                 // frame.width = out_frame.stFrameInfo.nWidth;
                 // frame.height = out_frame.stFrameInfo.nHeight;
                 // frame.step = frame.width * 3;
@@ -371,7 +372,6 @@ void HikCamera::hikCaptureLoop() {
                 // frame.data.resize(frame.width * frame.height * 3);
                 frame.width = out_frame.stFrameInfo.nWidth;
                 frame.height = out_frame.stFrameInfo.nHeight;
-                frame.step = frame.width; // Bayer8/Mono8 一般是单通道
                 frame.data.resize(out_frame.stFrameInfo.nFrameLen);
                 // convert_param_.pDstBuffer = frame.data.data();
                 // convert_param_.nDstBufferSize = static_cast<int>(frame.data.size());
@@ -383,12 +383,28 @@ void HikCamera::hikCaptureLoop() {
                 std::memcpy(frame.data.data(), out_frame.pBufAddr, out_frame.stFrameInfo.nFrameLen);
                 const auto& frame_info = out_frame.stFrameInfo;
                 auto pixel_type = frame_info.enPixelType;
-                const static std::unordered_map<MvGvspPixelType, cv::ColorConversionCodes>
-                    type_map = { { PixelType_Gvsp_BayerGR8, cv::COLOR_BayerGR2BGR },
-                                 { PixelType_Gvsp_BayerRG8, cv::COLOR_BayerRG2BGR },
-                                 { PixelType_Gvsp_BayerGB8, cv::COLOR_BayerGB2BGR },
-                                 { PixelType_Gvsp_BayerBG8, cv::COLOR_BayerBG2BGR } };
-                frame.bayer_type = type_map.at(pixel_type);
+                const static std::unordered_map<MvGvspPixelType, int> img_type_map = {
+                    { PixelType_Gvsp_BayerGR8, CV_8UC1 },    { PixelType_Gvsp_BayerRG8, CV_8UC1 },
+                    { PixelType_Gvsp_BayerGB8, CV_8UC1 },    { PixelType_Gvsp_BayerBG8, CV_8UC1 },
+                    { PixelType_Gvsp_RGB8_Packed, CV_8UC3 }, { PixelType_Gvsp_Mono8, CV_8UC1 },
+                };
+
+                frame.img_type = img_type_map.at(pixel_type);
+                if (frame.img_type == CV_8UC3) {
+                    frame.step = frame.width * 3;
+                } else if (frame.img_type == CV_8UC1) {
+                    frame.step = frame.width;
+                }
+                const static std::unordered_map<MvGvspPixelType, int> pixel_type_map = {
+                    { PixelType_Gvsp_BayerGR8, cv::COLOR_BayerGR2BGR },
+                    { PixelType_Gvsp_BayerRG8, cv::COLOR_BayerRG2BGR },
+                    { PixelType_Gvsp_BayerGB8, cv::COLOR_BayerGB2BGR },
+                    { PixelType_Gvsp_BayerBG8, cv::COLOR_BayerBG2BGR },
+                    { PixelType_Gvsp_RGB8_Packed, -1 },
+                    { PixelType_Gvsp_Mono8, cv::COLOR_GRAY2BGR },
+                };
+
+                frame.pixel_type = pixel_type_map.at(pixel_type);
                 auto current_time = std::chrono::steady_clock::now();
                 frame.timestamp = current_time;
 
@@ -530,7 +546,6 @@ bool HikCamera::read() {
     // frame.data.resize(frame.width * frame.height * 3);
     frame.width = out_frame.stFrameInfo.nWidth;
     frame.height = out_frame.stFrameInfo.nHeight;
-    frame.step = frame.width; // Bayer8/Mono8 一般是单通道
     frame.data.resize(out_frame.stFrameInfo.nFrameLen);
     // convert_param_.pDstBuffer = frame.data.data();
     // convert_param_.nDstBufferSize = static_cast<int>(frame.data.size());
@@ -542,13 +557,28 @@ bool HikCamera::read() {
     std::memcpy(frame.data.data(), out_frame.pBufAddr, out_frame.stFrameInfo.nFrameLen);
     const auto& frame_info = out_frame.stFrameInfo;
     auto pixel_type = frame_info.enPixelType;
-    const static std::unordered_map<MvGvspPixelType, cv::ColorConversionCodes> type_map = {
+    const static std::unordered_map<MvGvspPixelType, int> img_type_map = {
+        { PixelType_Gvsp_BayerGR8, CV_8UC1 },    { PixelType_Gvsp_BayerRG8, CV_8UC1 },
+        { PixelType_Gvsp_BayerGB8, CV_8UC1 },    { PixelType_Gvsp_BayerBG8, CV_8UC1 },
+        { PixelType_Gvsp_RGB8_Packed, CV_8UC3 }, { PixelType_Gvsp_Mono8, CV_8UC1 },
+    };
+
+    frame.img_type = img_type_map.at(pixel_type);
+    if (frame.img_type == CV_8UC3) {
+        frame.step = frame.width * 3;
+    } else if (frame.img_type == CV_8UC1) {
+        frame.step = frame.width;
+    }
+    const static std::unordered_map<MvGvspPixelType, int> pixel_type_map = {
         { PixelType_Gvsp_BayerGR8, cv::COLOR_BayerGR2BGR },
         { PixelType_Gvsp_BayerRG8, cv::COLOR_BayerRG2BGR },
         { PixelType_Gvsp_BayerGB8, cv::COLOR_BayerGB2BGR },
-        { PixelType_Gvsp_BayerBG8, cv::COLOR_BayerBG2BGR }
+        { PixelType_Gvsp_BayerBG8, cv::COLOR_BayerBG2BGR },
+        { PixelType_Gvsp_RGB8_Packed, -1 },
+        { PixelType_Gvsp_Mono8, cv::COLOR_GRAY2BGR },
     };
-    frame.bayer_type = type_map.at(pixel_type);
+
+    frame.pixel_type = pixel_type_map.at(pixel_type);
     frame.timestamp = std::chrono::steady_clock::now();
 
     if (on_frame_callback_) {
@@ -615,7 +645,6 @@ ImageFrame HikCamera::readImage() {
     // frame.data.resize(frame.width * frame.height * 3);
     frame.width = out_frame.stFrameInfo.nWidth;
     frame.height = out_frame.stFrameInfo.nHeight;
-    frame.step = frame.width; // Bayer8/Mono8 一般是单通道
     frame.data.resize(out_frame.stFrameInfo.nFrameLen);
     // convert_param_.pDstBuffer = frame.data.data();
     // convert_param_.nDstBufferSize = static_cast<int>(frame.data.size());
@@ -627,13 +656,28 @@ ImageFrame HikCamera::readImage() {
     std::memcpy(frame.data.data(), out_frame.pBufAddr, out_frame.stFrameInfo.nFrameLen);
     const auto& frame_info = out_frame.stFrameInfo;
     auto pixel_type = frame_info.enPixelType;
-    const static std::unordered_map<MvGvspPixelType, cv::ColorConversionCodes> type_map = {
+    const static std::unordered_map<MvGvspPixelType, int> img_type_map = {
+        { PixelType_Gvsp_BayerGR8, CV_8UC1 },    { PixelType_Gvsp_BayerRG8, CV_8UC1 },
+        { PixelType_Gvsp_BayerGB8, CV_8UC1 },    { PixelType_Gvsp_BayerBG8, CV_8UC1 },
+        { PixelType_Gvsp_RGB8_Packed, CV_8UC3 }, { PixelType_Gvsp_Mono8, CV_8UC1 },
+    };
+
+    frame.img_type = img_type_map.at(pixel_type);
+    if (frame.img_type == CV_8UC3) {
+        frame.step = frame.width * 3;
+    } else if (frame.img_type == CV_8UC1) {
+        frame.step = frame.width;
+    }
+    const static std::unordered_map<MvGvspPixelType, int> pixel_type_map = {
         { PixelType_Gvsp_BayerGR8, cv::COLOR_BayerGR2BGR },
         { PixelType_Gvsp_BayerRG8, cv::COLOR_BayerRG2BGR },
         { PixelType_Gvsp_BayerGB8, cv::COLOR_BayerGB2BGR },
-        { PixelType_Gvsp_BayerBG8, cv::COLOR_BayerBG2BGR }
+        { PixelType_Gvsp_BayerBG8, cv::COLOR_BayerBG2BGR },
+        { PixelType_Gvsp_RGB8_Packed, -1 },
+        { PixelType_Gvsp_Mono8, cv::COLOR_GRAY2BGR },
     };
-    frame.bayer_type = type_map.at(pixel_type);
+
+    frame.pixel_type = pixel_type_map.at(pixel_type);
     frame.timestamp = std::chrono::steady_clock::now();
 
     MV_CC_FreeImageBuffer(camera_handle_, &out_frame);
