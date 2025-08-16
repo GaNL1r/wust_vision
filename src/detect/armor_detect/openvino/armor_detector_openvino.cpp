@@ -15,9 +15,9 @@
 
 #include "detect/armor_detect/openvino/armor_detector_openvino.hpp"
 #include "common/gobal.hpp"
-#include "common/logger.hpp"
-#include "common/timer.hpp"
 #include "detect/armor_detect/armor_infer.hpp"
+#include "wust_vl/common/logger.hpp"
+#include "wust_vl/common/timer.hpp"
 #include <functional>
 #include <opencv2/highgui.hpp>
 
@@ -161,7 +161,7 @@ bool ArmorDetectOpenVino::processCallback(const CommonFrame& frame) {
         }
     } else {
         for (auto obj: objs_result) {
-            auto detect_color = gobal::stringanyting.get_value<int>("detect_color");
+            auto detect_color = gobal::stringanything.get_value<int>("detect_color");
             if (detect_color == 0 && obj.color == armor::ArmorColor::BLUE) {
                 continue;
             } else if (detect_color == 1 && obj.color == armor::ArmorColor::RED) {

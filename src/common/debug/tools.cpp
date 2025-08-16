@@ -31,7 +31,7 @@ void drawDebugArmorContent(cv::Mat& debug_img, const DebugArmor& dbg) {
         for (const auto& armor: armors.armors) {
             std::vector<cv::Point2f> pts;
             auto camera_info =
-                gobal::stringanyting.get_value<std::pair<cv::Mat, cv::Mat>>("camera_info");
+                gobal::stringanything.get_value<std::pair<cv::Mat, cv::Mat>>("camera_info");
             if (!mono_measure_tool::reprojectArmorCorners_raw(
                     armor,
                     pts,
@@ -133,7 +133,7 @@ void drawDebugArmorContent(cv::Mat& debug_img, const DebugArmor& dbg) {
             const auto& ori = target_info.ori[i];
             const auto& is_ok = target_info.is_ok[i];
             cv::Scalar color;
-            if (gobal::stringanyting.get_value<int>("detect_color") == 1) {
+            if (gobal::stringanything.get_value<int>("detect_color") == 1) {
                 color = is_ok ? cv::Scalar(255, 0, 0) : cv::Scalar(0, 0, 255);
             } else {
                 color = !is_ok ? cv::Scalar(255, 0, 0) : cv::Scalar(0, 0, 255);
@@ -210,7 +210,7 @@ void drawDebugArmorContent(cv::Mat& debug_img, const DebugArmor& dbg) {
 
                 cv::Point2f start_pt = center + cv::Point2f(0, -200);
                 cv::Point2f end_pt = start_pt + cv::Point2f(dx, dy);
-                cv::Scalar color = gobal::stringanyting.get_value<int>("detect_color")
+                cv::Scalar color = gobal::stringanything.get_value<int>("detect_color")
                     ? cv::Scalar(255, 50, 50)
                     : cv::Scalar(50, 50, 255);
                 cv::arrowedLine(debug_img, start_pt, end_pt, color, 4, cv::LINE_AA, 0, 0.2);
@@ -577,7 +577,7 @@ void drawResult(const imgframe& src_img, const armor::Armors& armors) {
         // std::cout<<"cc\n";
         std::vector<cv::Point2f> pts;
         auto camera_info =
-            gobal::stringanyting.get_value<std::pair<cv::Mat, cv::Mat>>("camera_info");
+            gobal::stringanything.get_value<std::pair<cv::Mat, cv::Mat>>("camera_info");
 
         if (!mono_measure_tool::reprojectArmorCorners_raw(
                 armor,

@@ -20,7 +20,7 @@
 // OpenCV
 #include <opencv2/opencv.hpp>
 // project
-#include "common/logger.hpp"
+#include "wust_vl/common/logger.hpp"
 
 Recorder::Recorder(const std::filesystem::path& file, int fps, cv::Size size):
     path(file),

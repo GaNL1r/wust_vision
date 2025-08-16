@@ -23,9 +23,6 @@
 #include "NvInfer.h"
 #include "NvInferRuntime.h"
 #include "armor_infer.hpp"
-#include "common/ThreadPool.h"
-#include "common/adaptive_resource_pool.hpp"
-#include "common/logger.hpp"
 #include "detect/armor_detect/armor_detect_common.hpp"
 #include "detect/armor_detect/armor_infer.hpp"
 #include "detect/armor_detect/light_corner_corrector.hpp"
@@ -33,8 +30,11 @@
 #include "fmt/color.h"
 #include "fmt/core.h"
 #include "fmt/printf.h"
-#include "ml_net/tensorrt/tensorrt_net.hpp"
 #include "opencv2/opencv.hpp"
+#include "wust_vl/common/ThreadPool.h"
+#include "wust_vl/common/adaptive_resource_pool.hpp"
+#include "wust_vl/common/logger.hpp"
+#include "wust_vl/ml_net/tensorrt/tensorrt_net.hpp"
 class ArmorDetectTrt {
 public:
     using DetectorCallback =

@@ -22,8 +22,8 @@
 // third party
 #include <fmt/format.h>
 // project
-#include "common/logger.hpp"
 #include "type/type.hpp"
+#include "wust_vl/common/logger.hpp"
 
 // Fit two curves simultaneously and choose the one with lower cost
 // This function will change the type_ automatically

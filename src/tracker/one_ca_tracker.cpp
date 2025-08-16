@@ -14,8 +14,8 @@
 #include "tracker/one_ca_tracker.hpp"
 #include "common/3rdparty/angles.h"
 #include "common/gobal.hpp"
-#include "common/logger.hpp"
 #include "type/type.hpp"
+#include "wust_vl/common/logger.hpp"
 
 // std
 #include <algorithm>
@@ -89,7 +89,7 @@ void OneCaTracker::update(const armor::Armors& armors_msg) noexcept {
     bool matched = false;
     target_state_ = ekf_prediction;
     std::vector<armor::Armor> another_armors;
-    auto common_info = gobal::stringanyting.get_value<CommonInfo>("common_info");
+    auto common_info = gobal::stringanything.get_value<CommonInfo>("common_info");
     if (common_info.if_manual_reset) {
         tracker_state = LOST;
         return;

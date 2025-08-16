@@ -15,9 +15,9 @@
 // limitations under the License.
 
 #include "detect/mono_measure_tool.hpp"
-#include "common/logger.hpp"
 #include "common/utils.hpp"
 #include "type/type.hpp"
+#include "wust_vl/common/logger.hpp"
 #include <cmath>
 #include <numeric>
 #include <yaml-cpp/yaml.h>

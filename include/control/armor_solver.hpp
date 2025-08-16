@@ -57,7 +57,7 @@ public:
     );
 
     GimbalCmd returnDefaultCmd() {
-        auto last_cmd = gobal::stringanyting.get_value<GimbalCmd>("last_gimbal_cmd");
+        auto last_cmd = gobal::stringanything.get_value<GimbalCmd>("last_gimbal_cmd");
         last_cmd.fire_advice = false;
         return last_cmd;
     }

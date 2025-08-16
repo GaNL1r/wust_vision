@@ -16,9 +16,9 @@
 #include "detect/armor_detect/armor_pose_estimator.hpp"
 
 #include "common/gobal.hpp"
-#include "common/logger.hpp"
 #include "common/utils.hpp"
 #include "type/type.hpp"
+#include "wust_vl/common/logger.hpp"
 #include "yaml-cpp/yaml.h"
 #include <iostream>
 
@@ -34,7 +34,7 @@ ArmorPoseEstimator::ArmorPoseEstimator() {
     );
 
     std::array<double, 9> camera_matrix;
-    auto camera_info = gobal::stringanyting.get_value<std::pair<cv::Mat, cv::Mat>>("camera_info");
+    auto camera_info = gobal::stringanything.get_value<std::pair<cv::Mat, cv::Mat>>("camera_info");
     CV_Assert(camera_info.first.rows == 3 && camera_info.first.cols == 3);
     CV_Assert(camera_info.first.type() == CV_64F);
 

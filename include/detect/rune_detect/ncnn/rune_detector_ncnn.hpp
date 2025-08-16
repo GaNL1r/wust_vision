@@ -27,10 +27,10 @@
 #include <ncnn/net.h>
 #include <opencv2/opencv.hpp>
 // project
-#include "common/ThreadPool.h"
 #include "detect/rune_detect/rune_infer.hpp"
-#include "ml_net/ncnn/ncnn_net.hpp"
 #include "type/type.hpp"
+#include "wust_vl/common/ThreadPool.h"
+#include "wust_vl/ml_net/ncnn/ncnn_net.hpp"
 class RuneDetectorNCNN {
 public:
     using CallbackType = std::function<void(std::vector<rune::RuneObject>&, const CommonFrame&)>;

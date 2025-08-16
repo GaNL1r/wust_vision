@@ -16,10 +16,10 @@
 #include "detect/armor_detect/tensorrt/armor_detector_trt.hpp"
 #include "NvOnnxParser.h"
 #include "common/gobal.hpp"
-#include "common/logger.hpp"
-#include "common/timer.hpp"
 #include "cuda_runtime_api.h"
 #include "detect/armor_detect/armor_infer.hpp"
+#include "wust_vl/common/logger.hpp"
+#include "wust_vl/common/timer.hpp"
 #include <cuda.h>
 #include <device_launch_parameters.h>
 #include <fstream>
@@ -309,7 +309,7 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
         }
     } else {
         for (auto obj: objs_result) {
-            auto detect_color = gobal::stringanyting.get_value<int>("detect_color");
+            auto detect_color = gobal::stringanything.get_value<int>("detect_color");
             if (detect_color == 0 && obj.color == armor::ArmorColor::BLUE) {
                 continue;
             } else if (detect_color == 1 && obj.color == armor::ArmorColor::RED) {

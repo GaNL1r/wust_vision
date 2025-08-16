@@ -23,11 +23,11 @@
 // project
 #include "NvOnnxParser.h"
 #include "common/gobal.hpp"
-#include "common/logger.hpp"
-#include "common/timer.hpp"
 #include "detect/rune_detect/rune_infer.hpp"
 #include "fmt/core.h"
 #include "type/type.hpp"
+#include "wust_vl/common/logger.hpp"
+#include "wust_vl/common/timer.hpp"
 
 RuneDetectorTrt::RuneDetectorTrt(
     std::string model_type,

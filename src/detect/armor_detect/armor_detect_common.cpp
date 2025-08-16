@@ -13,7 +13,7 @@
 // limitations under the License.
 #include "detect/armor_detect/armor_detect_common.hpp"
 #include "common/gobal.hpp"
-#include "common/timer.hpp"
+#include "wust_vl/common/timer.hpp"
 #include <execution>
 ArmorDetectCommon::ArmorDetectCommon(const ArmorDetectCommonParams& params) {
     params_ = params;
@@ -254,7 +254,7 @@ std::vector<armor::ArmorObject>
 ArmorDetectCommon::detectNet(const cv::Mat& src_img, std::vector<armor::ArmorObject>& objs_result) {
     std::vector<armor::ArmorObject> armors;
     std::mutex armors_mutex;
-    int detect_color = gobal::stringanyting.get_value<int>("detect_color");
+    int detect_color = gobal::stringanything.get_value<int>("detect_color");
     std::for_each(std::execution::par, objs_result.begin(), objs_result.end(), [&](auto& armor) {
         if (detect_color == 0 && armor.color == armor::ArmorColor::BLUE) {
             return;

@@ -2,8 +2,6 @@
 
 #include "common/debug/toolsgobal.hpp"
 #include "common/gobal.hpp"
-#include "common/queues.hpp"
-#include "common/timer.hpp"
 #include "control/armor_solver.hpp"
 #include "control/rune_solver.hpp"
 #include "detect/armor_detect/armor_pose_estimator.hpp"
@@ -17,6 +15,8 @@
 #include "misc/omni.hpp"
 #include "tracker/tracker_manager.hpp"
 #include "type/type.hpp"
+#include "wust_vl/common/queues.hpp"
+#include "wust_vl/common/timer.hpp"
 #include "yaml-cpp/yaml.h"
 
 class WustVision {

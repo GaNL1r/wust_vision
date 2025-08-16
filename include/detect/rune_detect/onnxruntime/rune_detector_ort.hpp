@@ -32,11 +32,11 @@
 #include <opencv2/opencv.hpp>
 #include <openvino/openvino.hpp>
 // project
-#include "common/ThreadPool.h"
 #include "detect/rune_detect/rune_infer.hpp"
-#include "ml_net/onnxruntime/onnxruntime_net.hpp"
 #include "onnxruntime_cxx_api.h"
 #include "type/type.hpp"
+#include "wust_vl/common/ThreadPool.h"
+#include "wust_vl/ml_net/onnxruntime/onnxruntime_net.hpp"
 class RuneDetectorOnnxRuntime {
 public:
     using CallbackType = std::function<void(std::vector<rune::RuneObject>&, const CommonFrame&)>;

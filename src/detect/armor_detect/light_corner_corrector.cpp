@@ -15,7 +15,7 @@
 // limitations under the License.
 
 #include "detect/armor_detect/light_corner_corrector.hpp"
-#include "common/logger.hpp"
+#include "wust_vl/common/logger.hpp"
 
 #include <cmath>
 #include <iostream>

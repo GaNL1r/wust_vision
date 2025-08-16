@@ -1,7 +1,7 @@
 #include "misc/omni.hpp"
 #include "common/debug/tools.hpp"
-#include "common/queues.hpp"
 #include "common/utils.hpp"
+#include "wust_vl/common/queues.hpp"
 OmniVision::OmniVision() {
     // Constructor implementation
 }
@@ -129,7 +129,7 @@ OmniManager::OmniManager(const YAML::Node& config) {
             if (infer_running_count_.load() >= max_infer_running_) {
                 return;
             }
-            gobal::stringanyting.get_ptr<ThreadPool>("thread_pool")
+            gobal::stringanything.get_ptr<ThreadPool>("thread_pool")
                 ->enqueue(
                     [frame = std::move(frame), this]() {
                         infer_running_count_++;
@@ -158,7 +158,7 @@ OmniManager::OmniManager(const YAML::Node& config) {
     timer_ = std::make_unique<Timer>();
     double valid_duration = gobal::config["common"]["valid_duration"].as<double>(0.1);
     auto omni_queue = std::make_shared<TimedQueue<armor::OneTarget>>(valid_duration);
-    gobal::stringanyting.set_ptr<TimedQueue<armor::OneTarget>>("omni_queue", omni_queue);
+    gobal::stringanything.set_ptr<TimedQueue<armor::OneTarget>>("omni_queue", omni_queue);
 }
 OmniManager::~OmniManager() {}
 void OmniManager::stop() {
@@ -193,9 +193,9 @@ void OmniManager::initDetector() {
 #endif
 #ifdef USE_NCNN
         {
-            auto common_info = gobal::stringanyting.get_value<CommonInfo>("common_info");
+            auto common_info = gobal::stringanything.get_value<CommonInfo>("common_info");
             common_info.use_detect_ncnn_count++;
-            gobal::stringanyting.set_value("common_info", common_info);
+            gobal::stringanything.set_value("common_info", common_info);
             return true;
         }
 #endif
@@ -300,7 +300,7 @@ void OmniManager::ArmorDetectCallback(
 
 std::vector<armor::OneTarget> OmniManager::buildOneTargetsfromOmni(const armor::Armors& armors) {
     std::vector<armor::OneTarget> one_targets;
-    auto omni_queue = gobal::stringanyting.try_get_ptr<TimedQueue<armor::OneTarget>>("omni_queue");
+    auto omni_queue = gobal::stringanything.try_get_ptr<TimedQueue<armor::OneTarget>>("omni_queue");
     if (!omni_queue) {
         WUST_ERROR(vision_logger_) << "Omni queue not initialized.";
         return one_targets;

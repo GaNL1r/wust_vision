@@ -1,7 +1,6 @@
 #pragma once
 
 #include "common/gobal.hpp"
-#include "common/timer.hpp"
 #include "control/armor_solver.hpp"
 #include "control/rune_solver.hpp"
 #include "detect/armor_detect/armor_pose_estimator.hpp"
@@ -13,6 +12,7 @@
 #include "driver/tools/video_player.hpp"
 #include "tracker/tracker_manager.hpp"
 #include "type/type.hpp"
+#include "wust_vl/common/timer.hpp"
 #include "yaml-cpp/yaml.h"
 #include <opencv2/core/mat.hpp>
 /*目前的思路： 一个OmniVision 只拥有一个相机示例，由OmniManager管理多个OmniVision实例并管理识别，将识别目标直接构建为一个低优先级的OneTarget,在主控制器中注入给onetargets，时间戳过远丢弃*/

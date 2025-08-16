@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "driver/tools/video_player.hpp"
-#include "common/logger.hpp"
 #include "common/utils.hpp"
+#include "wust_vl/common/logger.hpp"
 #include <chrono>
 #include <iostream>
 #include <thread>

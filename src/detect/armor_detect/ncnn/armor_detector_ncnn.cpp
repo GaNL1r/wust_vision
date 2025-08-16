@@ -1,7 +1,7 @@
 #include "detect/armor_detect/ncnn/armor_detector_ncnn.hpp"
 #include "common/gobal.hpp"
-#include "common/logger.hpp"
 #include "detect/armor_detect/armor_infer.hpp"
+#include "wust_vl/common/logger.hpp"
 #include <ncnn/simpleomp.h>
 static ncnn::Mat letterbox_to_ncnn(
     const cv::Mat& img,
@@ -174,7 +174,7 @@ bool ArmorDetectNCNN::processCallback(const CommonFrame& frame) {
         }
     } else {
         for (auto obj: objs_result) {
-            auto detect_color = gobal::stringanyting.get_value<int>("detect_color");
+            auto detect_color = gobal::stringanything.get_value<int>("detect_color");
             if (detect_color == 0 && obj.color == armor::ArmorColor::BLUE) {
                 continue;
             } else if (detect_color == 1 && obj.color == armor::ArmorColor::RED) {

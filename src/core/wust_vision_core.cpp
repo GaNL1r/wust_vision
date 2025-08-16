@@ -44,9 +44,9 @@ void WustVision::processImage(const ImageFrame& frame) {
     common_frame.id = current_id_++;
 
     printStats();
-    auto gobal_state = gobal::stringanyting.get_value<GobalState>("gobal_state");
+    auto gobal_state = gobal::stringanything.get_value<GobalState>("gobal_state");
     AttackMode mode = toAttackMode(gobal_state.attack_mode);
-    auto common_info = gobal::stringanyting.get_value<CommonInfo>("common_info");
+    auto common_info = gobal::stringanything.get_value<CommonInfo>("common_info");
     switch (mode) {
         case AttackMode::ARMOR: {
             if (armor_detector_) {
@@ -122,7 +122,7 @@ void WustVision::ArmorDetectCallback(
     armor::Armors armors;
     armors.timestamp = frame.timestamp;
     armors.frame_id = "camera_optical_frame";
-    auto camera_info = gobal::stringanyting.get_value<std::pair<cv::Mat, cv::Mat>>("camera_info");
+    auto camera_info = gobal::stringanything.get_value<std::pair<cv::Mat, cv::Mat>>("camera_info");
     armors.armors = armor_pose_estimator_->extractArmorPoses(
         sorted_objs,
         frame.T_camera_to_odom,
@@ -147,7 +147,7 @@ void WustVision::ArmorDetectCallback(
     armors.v = frame.v;
     armors.id = frame.id;
     armor_queue_->enqueue(armors);
-    auto common_info = gobal::stringanyting.get_value<CommonInfo>("common_info");
+    auto common_info = gobal::stringanything.get_value<CommonInfo>("common_info");
     if (common_info.debug_mode) {
         std::lock_guard<std::mutex> lock(dbg_mutex_);
         debug_gobal_frame_.imgframe.img = frame.src_img.clone();
@@ -161,7 +161,7 @@ void WustVision::ArmorDetectCallback(
 void WustVision::RuneDetectCallback(std::vector<rune::RuneObject>& objs, const CommonFrame& frame) {
     std::lock_guard<std::mutex> lock(callback_mutex_);
     static bool last_rune_big = false;
-    auto common_info = gobal::stringanyting.get_value<CommonInfo>("common_info");
+    auto common_info = gobal::stringanything.get_value<CommonInfo>("common_info");
     rune::Rune rune_target { .frame_id = "camera_optical_frame",
                              .timestamp = frame.timestamp,
                              .is_big_rune = false,
@@ -185,7 +185,7 @@ void WustVision::RuneDetectCallback(std::vector<rune::RuneObject>& objs, const C
 
         if (use_manual_r_ && manual_r_init_) {
             auto camera_info =
-                gobal::stringanyting.get_value<std::pair<cv::Mat, cv::Mat>>("camera_info");
+                gobal::stringanything.get_value<std::pair<cv::Mat, cv::Mat>>("camera_info");
             mono_measure_tool::projectRTargetToImage(
                 T_r_,
                 frame.T_camera_to_odom,
@@ -224,7 +224,7 @@ void WustVision::RuneDetectCallback(std::vector<rune::RuneObject>& objs, const C
         auto target_it = std::find_if(
             objs.begin(),
             objs.end(),
-            [c = EnemyColor(gobal::stringanyting.get_value<int>("detect_color"))](auto& o) {
+            [c = EnemyColor(gobal::stringanything.get_value<int>("detect_color"))](auto& o) {
                 return o.type == rune::RuneType::INACTIVATED && o.color == c;
             }
         );
@@ -246,7 +246,7 @@ void WustVision::RuneDetectCallback(std::vector<rune::RuneObject>& objs, const C
     }
 
     // 6. 攻击模式切换
-    auto gobal_state = gobal::stringanyting.get_value<GobalState>("gobal_state");
+    auto gobal_state = gobal::stringanything.get_value<GobalState>("gobal_state");
     switch (toAttackMode(gobal_state.attack_mode)) {
         case AttackMode::BIG_RUNE:
             rune_target.is_big_rune = last_rune_big = true;
@@ -278,7 +278,7 @@ void WustVision::RuneDetectCallback(std::vector<rune::RuneObject>& objs, const C
 
 void WustVision::processingLoop() {
     while (gobal::is_inited_) {
-        auto gobal_state = gobal::stringanyting.get_value<GobalState>("gobal_state");
+        auto gobal_state = gobal::stringanything.get_value<GobalState>("gobal_state");
         auto mode = toAttackMode(gobal_state.attack_mode);
         switch (mode) {
             case AttackMode::ARMOR: {
@@ -365,7 +365,7 @@ void WustVision::armorsCallback(armor::Armors armors) {
         std::chrono::duration_cast<std::chrono::nanoseconds>(now - target.timestamp).count();
     latency_averager_.add(latency_nano);
     toolsgobal::latency_ms = latency_averager_.average_ms();
-    auto common_info = gobal::stringanyting.get_value<CommonInfo>("common_info");
+    auto common_info = gobal::stringanything.get_value<CommonInfo>("common_info");
     if (common_info.debug_mode) {
         std::lock_guard<std::mutex> lock(dbg_mutex_);
         debug_gobal_frame_.armor_target = target;
@@ -378,14 +378,14 @@ GimbalCmd WustVision::solveByMode(
     const ArmorSolverTarget& armor_solver_target,
     const std::chrono::steady_clock::time_point& now
 ) {
-    auto last_cmd = gobal::stringanyting.get_value<GimbalCmd>("last_gimbal_cmd");
+    auto last_cmd = gobal::stringanything.get_value<GimbalCmd>("last_gimbal_cmd");
     switch (mode) {
         case AttackMode::ARMOR: {
             auto cmd = armor_solver_->solve(armor_solver_target, now);
             auto next_time =
                 now
                 + std::chrono::microseconds(
-                    static_cast<int64_t>(1e6 / gobal::stringanyting.get_value<int>("control_rate"))
+                    static_cast<int64_t>(1e6 / gobal::stringanything.get_value<int>("control_rate"))
                 );
             auto next_cmd = armor_solver_->solve(armor_solver_target, next_time);
             if (std::abs(cmd.yaw - next_cmd.yaw) > jump_yaw
@@ -416,7 +416,7 @@ void WustVision::timerCallback(double dt_ms) {
     }
     if (omni_manager_) {
         auto omni_queue =
-            gobal::stringanyting.try_get_ptr<TimedQueue<armor::OneTarget>>("omni_queue");
+            gobal::stringanything.try_get_ptr<TimedQueue<armor::OneTarget>>("omni_queue");
         if (omni_queue) {
             auto omni_vector = omni_queue->get()->get_valid_targets(); //具体逻辑有车再写
         }
@@ -426,7 +426,7 @@ void WustVision::timerCallback(double dt_ms) {
     Tracker::State state = appear ? Tracker::TRACKING : Tracker::LOST;
     if (appear)
         last_track_target_ = now;
-    auto gobal_state = gobal::stringanyting.get_value<GobalState>("gobal_state");
+    auto gobal_state = gobal::stringanything.get_value<GobalState>("gobal_state");
     AttackMode mode = toAttackMode(gobal_state.attack_mode);
 
     GimbalCmd gimbal_cmd;
@@ -438,15 +438,15 @@ void WustVision::timerCallback(double dt_ms) {
                 armor_solver_target.one_targets = one_targets;
                 armor_solver_target.target = target;
                 gimbal_cmd = solveByMode(mode, armor_solver_target, now);
-                gobal::stringanyting.set_value<GimbalCmd>("last_gimbal_cmd", gimbal_cmd);
+                gobal::stringanything.set_value<GimbalCmd>("last_gimbal_cmd", gimbal_cmd);
                 if (gimbal_cmd.fire_advice)
                     fire_count_++;
             } catch (const std::exception& e) {
                 std::cerr << "solver error: " << e.what() << '\n';
-                gimbal_cmd = gobal::stringanyting.get_value<GimbalCmd>("last_gimbal_cmd");
+                gimbal_cmd = gobal::stringanything.get_value<GimbalCmd>("last_gimbal_cmd");
             }
         } else {
-            gimbal_cmd = gobal::stringanyting.get_value<GimbalCmd>("last_gimbal_cmd");
+            gimbal_cmd = gobal::stringanything.get_value<GimbalCmd>("last_gimbal_cmd");
         }
 
         serial_->transformGimbalCmd(gimbal_cmd, appear);

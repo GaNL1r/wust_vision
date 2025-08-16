@@ -1,6 +1,6 @@
-#include "common/logger.hpp"
 #include "driver/hik.hpp"
 #include "misc/camera_calibrator.hpp"
+#include "wust_vl/common/logger.hpp"
 #include "yaml-cpp/yaml.h"
 #include <pwd.h>
 

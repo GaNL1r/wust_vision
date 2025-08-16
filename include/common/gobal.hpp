@@ -1,9 +1,9 @@
 #pragma once
 
-#include "common/ThreadPool.h"
-#include "common/stringanyting.hpp"
 #include "common/tf.hpp"
 #include "detect/mono_measure_tool.hpp"
+#include "wust_vl/common/ThreadPool.h"
+#include "wust_vl/common/stringanything.hpp"
 #include "yaml-cpp/yaml.h"
 #include <optional>
 #define ROOT_CONFIG "/home/hy/wust_vision/config/config_common.yaml"
@@ -30,5 +30,5 @@ struct GobalState {
 namespace gobal {
 extern YAML::Node config;
 extern bool is_inited_;
-extern stringanyting::Manager stringanyting;
+extern stringanything::Manager stringanything;
 } // namespace gobal

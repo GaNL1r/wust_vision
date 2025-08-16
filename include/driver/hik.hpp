@@ -14,7 +14,6 @@
 #pragma once
 
 #include "MvCameraControl.h"
-#include "common/ThreadPool.h"
 #include "driver/tools/recorder.hpp"
 #include "type/image.hpp"
 #include <Eigen/Dense>

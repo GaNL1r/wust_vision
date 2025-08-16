@@ -32,10 +32,10 @@
 #include <opencv2/opencv.hpp>
 #include <openvino/openvino.hpp>
 // project
-#include "common/ThreadPool.h"
 #include "detect/rune_detect/rune_infer.hpp"
-#include "ml_net/openvino/openvino_net.hpp"
 #include "type/type.hpp"
+#include "wust_vl/common/ThreadPool.h"
+#include "wust_vl/ml_net/openvino/openvino_net.hpp"
 class RuneDetectorOpenvino {
 public:
     using CallbackType = std::function<void(std::vector<rune::RuneObject>&, const CommonFrame&)>;

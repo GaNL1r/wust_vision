@@ -24,10 +24,10 @@
 #include <Eigen/Geometry>
 // project
 #include "common/gobal.hpp"
-#include "common/logger.hpp"
 #include "common/tf.hpp"
 #include "common/utils.hpp"
 #include "type/type.hpp"
+#include "wust_vl/common/logger.hpp"
 
 RuneSolver::RuneSolver(const YAML::Node& config) {
     // Init
@@ -257,7 +257,7 @@ RuneSolver::solvePose(const rune::Rune& predicted_target, Eigen::Matrix4d T_came
     );
 
     cv::Mat rvec(3, 1, CV_64F), tvec(3, 1, CV_64F);
-    auto camera_info = gobal::stringanyting.get_value<std::pair<cv::Mat, cv::Mat>>("camera_info");
+    auto camera_info = gobal::stringanything.get_value<std::pair<cv::Mat, cv::Mat>>("camera_info");
     if (pnp_solver_
         && pnp_solver_
                ->solvePnP(image_points, rvec, tvec, "rune", camera_info.first, camera_info.second))
@@ -352,9 +352,9 @@ RuneSolver::solvePose(const rune::Rune& predicted_target, Eigen::Matrix4d T_came
 GimbalCmd RuneSolver::solveGimbalCmd(const Eigen::Vector3d& target) {
     // Get current yaw and pitch of gimbal
     double current_yaw = 0.0, current_pitch = 0.0;
-    auto motion_buffer = gobal::stringanyting.try_get_ptr<MotionBuffer>("motion_buffer");
+    auto motion_buffer = gobal::stringanything.try_get_ptr<MotionBuffer>("motion_buffer");
     auto gimbal2camera_rpy =
-        gobal::stringanyting.get_value<std::array<double, 3>>("gimbal2camera_rpy");
+        gobal::stringanything.get_value<std::array<double, 3>>("gimbal2camera_rpy");
     if (motion_buffer) {
         auto last_att = motion_buffer->get()->get_last();
         if (last_att) {

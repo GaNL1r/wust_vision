@@ -28,7 +28,6 @@
 // project
 
 #include "KalmanHyLib/kalman_hybird_lib.hpp"
-#include "common/logger.hpp"
 #include "control/manual_compensator.hpp"
 #include "control/trajectory_compensator.hpp"
 #include "detect/pnp_solver.hpp"
@@ -36,6 +35,7 @@
 #include "tracker/motion_models/motion_modelr.hpp"
 #include "tracker/motion_models/motion_modelrypd.hpp"
 #include "type/type.hpp"
+#include "wust_vl/common/logger.hpp"
 
 // Usage:
 //   1. init(msg), if tracker_state == LOST

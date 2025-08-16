@@ -14,11 +14,11 @@
 #include "driver/serial.hpp"
 #include "common/debug/tools.hpp"
 #include "common/gobal.hpp"
-#include "common/logger.hpp"
 #include "driver/crc8_crc16.hpp"
 #include "driver/packet_typedef.hpp"
 #include "driver/sharetype.hpp"
 #include "type/type.hpp"
+#include "wust_vl/common/logger.hpp"
 #include <cmath>
 #include <fcntl.h>
 #include <iostream>
@@ -176,14 +176,14 @@ void Serial::aimCbk(ReceiveAimINFO& aim_data) {
 
     auto now = std::chrono::steady_clock::now();
     try {
-        auto motion_buffer = gobal::stringanyting.try_get_ptr<MotionBuffer>("motion_buffer");
+        auto motion_buffer = gobal::stringanything.try_get_ptr<MotionBuffer>("motion_buffer");
         if (motion_buffer) {
             motion_buffer->get()->push(yaw, pitch, roll, v_x, v_y, v_z, now);
         } else {
-            WUST_ERROR(serial_logger_) << "MotionBuffer null in stringanyting";
+            WUST_ERROR(serial_logger_) << "MotionBuffer null in stringanything";
         }
     } catch (std::exception) {
-        WUST_ERROR(serial_logger_) << "MotionBuffer not found in stringanyting";
+        WUST_ERROR(serial_logger_) << "MotionBuffer not found in stringanything";
     }
 
     int manual_reset_count = aim_data.manual_reset_count;
@@ -198,7 +198,7 @@ void Serial::aimCbk(ReceiveAimINFO& aim_data) {
 
     //gobal::detect_color_ = aim_data.detect_color;
     //gobal::velocity = aim_data.bullet_speed;
-    auto common_info = gobal::stringanyting.get_value<CommonInfo>("common_info");
+    auto common_info = gobal::stringanything.get_value<CommonInfo>("common_info");
     if (common_info.debug_mode) {
         writeSerialLogToJson(aim_data);
     }
@@ -233,7 +233,7 @@ void Serial::sendData() {
         }
 
         double us_interval =
-            1e6 / static_cast<double>(gobal::stringanyting.get_value<int>("control_rate"));
+            1e6 / static_cast<double>(gobal::stringanything.get_value<int>("control_rate"));
         std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int64_t>(us_interval)));
     }
 }
@@ -256,7 +256,7 @@ void Serial::transformGimbalCmd(GimbalCmd& gimbal_cmd, bool appear) {
         send_robot_cmd_data_.v_yaw = gimbal_cmd.v_yaw;
         send_robot_cmd_data_.v_pitch = gimbal_cmd.v_pitch;
     } else {
-        auto motion_buffer = gobal::stringanyting.try_get_ptr<MotionBuffer>("motion_buffer");
+        auto motion_buffer = gobal::stringanything.try_get_ptr<MotionBuffer>("motion_buffer");
         if (motion_buffer) {
             auto last_att = motion_buffer->get()->get_last();
             if (last_att) {
@@ -273,7 +273,7 @@ void Serial::transformGimbalCmd(GimbalCmd& gimbal_cmd, bool appear) {
     send_robot_cmd_data_.pitch_diff = gimbal_cmd.pitch_diff;
     send_robot_cmd_data_.yaw_diff = gimbal_cmd.yaw_diff;
     send_robot_cmd_data_.fire = gimbal_cmd.fire_advice;
-    send_robot_cmd_data_.detect_color = gobal::stringanyting.get_value<int>("detect_color");
+    send_robot_cmd_data_.detect_color = gobal::stringanything.get_value<int>("detect_color");
     send_robot_cmd_data_.appear = appear;
     auto now = std::chrono::steady_clock::now();
     auto duration = now.time_since_epoch();

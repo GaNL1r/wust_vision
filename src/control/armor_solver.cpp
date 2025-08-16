@@ -18,8 +18,8 @@
 #include "control/armor_solver.hpp"
 #include "common/3rdparty/angles.h"
 #include "common/gobal.hpp"
-#include "common/logger.hpp"
 #include "common/utils.hpp"
+#include "wust_vl/common/logger.hpp"
 #include "yaml-cpp/yaml.h"
 #include <cmath>
 #include <iostream>
@@ -77,9 +77,9 @@ void ArmorSolver::init(const YAML::Node& config) {
     }
     manual_compensator_->updateMapFlow(entries);
 
-    auto gobal_state = gobal::stringanyting.get_value<GobalState>("gobal_state");
+    auto gobal_state = gobal::stringanything.get_value<GobalState>("gobal_state");
     gobal_state.armor_slove_state = GobalState::ArmorSloveState::TRACKING_ARMOR;
-    gobal::stringanyting.set_value("gobal_state", gobal_state);
+    gobal::stringanything.set_value("gobal_state", gobal_state);
     overflow_count_ = 0;
     transfer_thresh_ = 5;
 }
@@ -90,9 +90,9 @@ GimbalCmd ArmorSolver::solve(
 ) {
     // 1. 获取最新的云台 RPY
     std::array<double, 3> rpy;
-    auto motion_buffer = gobal::stringanyting.try_get_ptr<MotionBuffer>("motion_buffer");
+    auto motion_buffer = gobal::stringanything.try_get_ptr<MotionBuffer>("motion_buffer");
     auto gimbal2camera_rpy =
-        gobal::stringanyting.get_value<std::array<double, 3>>("gimbal2camera_rpy");
+        gobal::stringanything.get_value<std::array<double, 3>>("gimbal2camera_rpy");
     if (motion_buffer) {
         auto last_att = motion_buffer->get()->get_last();
         if (last_att) {
@@ -101,7 +101,7 @@ GimbalCmd ArmorSolver::solve(
             rpy[2] = last_att->yaw + gimbal2camera_rpy[2];
         }
     }
-    double controller_delay = gobal::stringanyting.get_value<double>("controller_delay");
+    double controller_delay = gobal::stringanything.get_value<double>("controller_delay");
     // 2. 选择最优单目标索引
     const auto& one_targets = armor_solver_target.one_targets;
     const auto& target = armor_solver_target.target;
@@ -167,7 +167,7 @@ GimbalCmd ArmorSolver::solve(
         Eigen::Vector3d chosen;
         bool is_large =
             (target.id == armor::ArmorNumber::NO1 || target.id == armor::ArmorNumber::BASE);
-        auto gobal_state = gobal::stringanyting.get_value<GobalState>("gobal_state");
+        auto gobal_state = gobal::stringanything.get_value<GobalState>("gobal_state");
 
         switch (gobal_state.armor_slove_state) {
             case GobalState::ArmorSloveState::TRACKING_ARMOR:
@@ -178,7 +178,7 @@ GimbalCmd ArmorSolver::solve(
                 }
                 if (overflow_count_ > transfer_thresh_) {
                     gobal_state.armor_slove_state = GobalState::ArmorSloveState::TRACKING_CENTER;
-                    gobal::stringanyting.set_value("gobal_state", gobal_state);
+                    gobal::stringanything.set_value("gobal_state", gobal_state);
                     overflow_count_ = 0;
                 }
                 chosen = armors[idx];
@@ -220,7 +220,7 @@ GimbalCmd ArmorSolver::solve(
                 }
                 if (overflow_count_ > transfer_thresh_) {
                     gobal_state.armor_slove_state = GobalState::ArmorSloveState::TRACKING_ARMOR;
-                    gobal::stringanyting.set_value("gobal_state", gobal_state);
+                    gobal::stringanything.set_value("gobal_state", gobal_state);
                     overflow_count_ = 0;
                 }
                 chosen = armors[idx];
@@ -258,7 +258,7 @@ GimbalCmd ArmorSolver::solve(
 
             default:
                 gobal_state.armor_slove_state = GobalState::ArmorSloveState::TRACKING_ARMOR;
-                gobal::stringanyting.set_value("gobal_state", gobal_state);
+                gobal::stringanything.set_value("gobal_state", gobal_state);
                 break;
         }
 

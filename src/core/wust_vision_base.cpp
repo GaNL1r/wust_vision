@@ -45,7 +45,7 @@ void WustVision::stop() {
                 timer_.reset();
             }
             WUST_INFO("stop") << "timer stop";
-            auto thread_pool = gobal::stringanyting.get_ptr<ThreadPool>("thread_pool");
+            auto thread_pool = gobal::stringanything.get_ptr<ThreadPool>("thread_pool");
             if (thread_pool) {
                 thread_pool->waitUntilEmpty();
                 thread_pool.reset();
@@ -58,7 +58,7 @@ void WustVision::stop() {
             WUST_INFO("stop") << "rune detector stop";
 
 #ifdef USE_NCNN
-            auto common_info = gobal::stringanyting.get_value<CommonInfo>("common_info");
+            auto common_info = gobal::stringanything.get_value<CommonInfo>("common_info");
             if (common_info.use_detect_ncnn_count > 0) {
                 ncnn::destroy_gpu_instance();
             }
@@ -100,7 +100,7 @@ bool WustVision::init() {
     bool use_simplelog = gobal::config["logger"]["use_simplelog"].as<bool>();
     GobalState gobal_state;
     gobal_state.attack_mode = gobal::config["common"]["init_attack_mode"].as<int>();
-    gobal::stringanyting.set_value<GobalState>("gobal_state", gobal_state);
+    gobal::stringanything.set_value<GobalState>("gobal_state", gobal_state);
     initLogger(log_level_, log_path_, use_logcli, use_logfile, use_simplelog);
 
     CommonInfo common_info;
@@ -108,12 +108,12 @@ bool WustVision::init() {
 
     common_info.use_serial = gobal::config["control"]["use_serial"].as<bool>();
     common_info.use_detect_ncnn_count = 0;
-    gobal::stringanyting.set_value<CommonInfo>("common_info", common_info);
+    gobal::stringanything.set_value<CommonInfo>("common_info", common_info);
 
     int detect_color = gobal::config["common"]["detect_color"].as<int>(0);
-    gobal::stringanyting.set_value<int>("detect_color", detect_color);
+    gobal::stringanything.set_value<int>("detect_color", detect_color);
     auto motion_buffer = std::make_shared<MotionBuffer>();
-    gobal::stringanyting.set_ptr<MotionBuffer>("motion_buffer", motion_buffer);
+    gobal::stringanything.set_ptr<MotionBuffer>("motion_buffer", motion_buffer);
     initSerial();
     only_nav_enable_ = gobal::config["common"]["only_nav_enable"].as<bool>();
     if (!only_nav_enable_) {
@@ -131,9 +131,9 @@ bool WustVision::init() {
                     return;
                 }
                 auto motion_buffer =
-                    gobal::stringanyting.try_get_ptr<MotionBuffer>("motion_buffer");
+                    gobal::stringanything.try_get_ptr<MotionBuffer>("motion_buffer");
                 auto gimbal2camera_rpy =
-                    gobal::stringanyting.get_value<std::array<double, 3>>("gimbal2camera_rpy");
+                    gobal::stringanything.get_value<std::array<double, 3>>("gimbal2camera_rpy");
                 if (motion_buffer) {
                     auto apply_motion = [&](const MotionBuffer::MotionStamped& att) {
                         frame.v = Eigen::Vector3d(att.vx, att.vy, att.vz);
@@ -163,7 +163,7 @@ bool WustVision::init() {
                     frame.v = Eigen::Vector3d::Zero();
                 }
 
-                gobal::stringanyting.get_ptr<ThreadPool>("thread_pool")
+                gobal::stringanything.get_ptr<ThreadPool>("thread_pool")
                     ->enqueue(
                         [frame = std::move(frame), this]() {
                             infer_running_count_++;
@@ -233,7 +233,7 @@ bool WustVision::init() {
         std::memcpy(D.data, camera_d.data(), 5 * sizeof(double));
 
         auto camera_info = std::make_pair(K.clone(), D.clone());
-        gobal::stringanyting.set_value<std::pair<cv::Mat, cv::Mat>>("camera_info", camera_info);
+        gobal::stringanything.set_value<std::pair<cv::Mat, cv::Mat>>("camera_info", camera_info);
 
         armor_pose_estimator_ = std::make_unique<ArmorPoseEstimator>();
         bool use_ba = gobal::config["common"]["use_ba"].as<bool>(false);
@@ -252,7 +252,7 @@ bool WustVision::init() {
         int thread_multiplier = gobal::config["common"]["thread_multiplier"].as<int>(1);
         auto thread_pool =
             std::make_shared<ThreadPool>(std::thread::hardware_concurrency() * thread_multiplier);
-        gobal::stringanyting.set_ptr<ThreadPool>("thread_pool", thread_pool);
+        gobal::stringanything.set_ptr<ThreadPool>("thread_pool", thread_pool);
         armor_solver_ = std::make_unique<ArmorSolver>(gobal::config);
         bool use_omni = gobal::config["common"]["use_omni"].as<bool>(false);
         if (use_omni) {
@@ -263,11 +263,11 @@ bool WustVision::init() {
         armor_queue_ = std::make_unique<OrderedQueue<armor::Armors>>(10, 500);
         rune_queue_ = std::make_unique<OrderedQueue<rune::Rune>>(10, 500);
         GimbalCmd gimbal_cmd;
-        gobal::stringanyting.set_value<GimbalCmd>("last_gimbal_cmd", gimbal_cmd);
+        gobal::stringanything.set_value<GimbalCmd>("last_gimbal_cmd", gimbal_cmd);
         double bullet_speed = gobal::config["shoot"]["bullet_speed"].as<double>(20.0);
-        gobal::stringanyting.set_value<double>("bullet_speed", bullet_speed);
+        gobal::stringanything.set_value<double>("bullet_speed", bullet_speed);
         double controller_delay = gobal::config["shoot"]["controller_delay"].as<double>(0.0);
-        gobal::stringanyting.set_value<double>("controller_delay", controller_delay);
+        gobal::stringanything.set_value<double>("controller_delay", controller_delay);
     } else {
         WUST_MAIN(vision_logger_) << "only nav mode";
     }
@@ -282,7 +282,7 @@ bool WustVision::init() {
 }
 void WustVision::start() {
     WUST_MAIN(vision_logger_) << "WustVision run start";
-    auto common_info = gobal::stringanyting.get_value<CommonInfo>("common_info");
+    auto common_info = gobal::stringanything.get_value<CommonInfo>("common_info");
     if (serial_) {
         bool if_use_nav = gobal::config["control"]["use_nav"].as<bool>(false);
 
@@ -304,7 +304,7 @@ void WustVision::start() {
         if (timer_) {
             auto timercallback = std::bind(&WustVision::timerCallback, this, std::placeholders::_1);
             double rate_hz =
-                static_cast<double>(gobal::stringanyting.get_value<int>("control_rate"));
+                static_cast<double>(gobal::stringanything.get_value<int>("control_rate"));
             timer_->start(rate_hz, timercallback);
         }
     }
@@ -333,9 +333,9 @@ void WustVision::initDetector() {
 #endif
 #ifdef USE_NCNN
         if (backend == "ncnn") {
-            auto common_info = gobal::stringanyting.get_value<CommonInfo>("common_info");
+            auto common_info = gobal::stringanything.get_value<CommonInfo>("common_info");
             common_info.use_detect_ncnn_count++;
-            gobal::stringanyting.set_value<CommonInfo>("common_info", common_info);
+            gobal::stringanything.set_value<CommonInfo>("common_info", common_info);
             return true;
         }
 
@@ -432,7 +432,7 @@ void WustVision::initTF() {
     gimbal2camera_pitch_ = gobal::config["tf"]["gimbal2camera_pitch"].as<double>(0.0);
     gimbal2camera_yaw_ = gobal::config["tf"]["gimbal2camera_yaw"].as<double>(0.0);
 
-    gobal::stringanyting.set_value<std::array<double, 3>>(
+    gobal::stringanything.set_value<std::array<double, 3>>(
         "gimbal2camera_rpy",
         { gimbal2camera_roll_, gimbal2camera_pitch_, gimbal2camera_yaw_ }
     );
@@ -458,7 +458,7 @@ void WustVision::initSerial() {
     communication_delay_μs_ = gobal::config["control"]["communication_delay"].as<double>();
     jump_yaw = gobal::config["control"]["jump_yaw"].as<double>();
     int control_rate = gobal::config["control"]["control_rate"].as<int>();
-    gobal::stringanyting.set_value<int>("control_rate", control_rate);
+    gobal::stringanything.set_value<int>("control_rate", control_rate);
 }
 
 void WustVision::initTracker(const YAML::Node& config) {

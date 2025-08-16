@@ -34,9 +34,9 @@
 #include <opencv2/imgproc.hpp>
 // project
 #include "common/gobal.hpp"
-#include "common/logger.hpp"
-#include "common/timer.hpp"
 #include "type/type.hpp"
+#include "wust_vl/common/logger.hpp"
+#include "wust_vl/common/timer.hpp"
 #include <fmt/core.h>
 
 ArmorDetectOpenCV::ArmorDetectOpenCV(
@@ -167,7 +167,7 @@ bool ArmorDetectOpenCV::isLight(const armor::Light& light) noexcept {
 std::vector<armor::ArmorObject>
 ArmorDetectOpenCV::matchLights(const std::vector<armor::Light>& lights) noexcept {
     std::vector<armor::ArmorObject> armors;
-    int detect_color = gobal::stringanyting.get_value<int>("detect_color");
+    int detect_color = gobal::stringanything.get_value<int>("detect_color");
     // Loop all the pairing of lights
     for (auto light_1 = lights.begin(); light_1 != lights.end(); light_1++) {
         if (light_1->color != detect_color)

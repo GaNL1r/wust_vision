@@ -16,7 +16,7 @@ option(BUILD_WITH_ORT      "Enable ORT backend"        ON)
 
 message(STATUS "Options: RUNE=${BUILD_WITH_RUNE}  TRT=${BUILD_WITH_TRT}  OpenVINO=${BUILD_WITH_OPENVINO}  NCNN=${BUILD_WITH_NCNN}  ORT=${BUILD_WITH_ORT}")
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake_modules)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
 
 # 公共依赖
 set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};/usr/local/opencv4.11.0")
@@ -33,7 +33,7 @@ find_package(Ceres       REQUIRED)
 find_package(HikSDK      REQUIRED)
 find_package(TBB REQUIRED)
 find_package(SFML 2.5 COMPONENTS audio system REQUIRED)
-
+find_package(wust_vl REQUIRED)
 if(BUILD_WITH_OPENVINO)
   find_package(OpenVINO REQUIRED COMPONENTS Runtime ONNX)
 endif()
@@ -58,7 +58,7 @@ if(BUILD_WITH_ORT)
 endif()
 
 add_subdirectory(KalmanHyLib)
-add_subdirectory(ml_net)
+#add_subdirectory(ml_net)
 add_subdirectory(3rdparty/backward-cpp)
 
 # 公共源码
@@ -174,7 +174,7 @@ set(BUILD_LIBS
   GL
   tbb
   KalmanHyLib
-  ml_net
+  wust_vl::ml_net
   Backward::Interface
   TBB::tbb
   sfml-audio

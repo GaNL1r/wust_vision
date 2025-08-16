@@ -30,9 +30,9 @@
 #include <sophus/se3.hpp>
 #include <sophus/so3.hpp>
 // project
-#include "common/logger.hpp"
 #include "detect/graph_optimizer.hpp"
 #include "type/type.hpp"
+#include "wust_vl/common/logger.hpp"
 
 #include "common/utils.hpp"
 
