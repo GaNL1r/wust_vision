@@ -409,40 +409,7 @@ void HikCamera::hikCaptureLoop() {
                 frame.timestamp = current_time;
 
                 if (on_frame_callback_) {
-                    std::chrono::microseconds delay =
-                        std::chrono::microseconds(static_cast<int64_t>(
-                            std::round((last_exposure_time_ / 2.0) - gobal::communication_delay_μs)
-                        ));
-                    auto t_query = std::chrono::steady_clock::now() - delay;
-                    auto past_att = gobal::motion_buffer.get_interpolated(t_query);
-                    if (past_att) {
-                        double yaw = past_att->yaw;
-                        double pitch = past_att->pitch;
-                        double roll = past_att->roll;
-                        frame.v = Eigen::Vector3d(past_att->vx, past_att->vy, past_att->vz);
-                        frame.R_gimbal2odom = Eigen::AngleAxisd(
-                                                  yaw + gobal::gimbal2camera_yaw,
-                                                  Eigen::Vector3d::UnitZ()
-                                              )
-                            * Eigen::AngleAxisd(-pitch - gobal::gimbal2camera_pitch,
-                                                Eigen::Vector3d::UnitY())
-                            * Eigen::AngleAxisd(roll + gobal::gimbal2camera_roll,
-                                                Eigen::Vector3d::UnitX());
-                        on_frame_callback_(frame);
-
-                    } else {
-                        frame.R_gimbal2odom = Eigen::AngleAxisd(
-                                                  gobal::last_yaw + gobal::gimbal2camera_yaw,
-                                                  Eigen::Vector3d::UnitZ()
-                                              )
-                            * Eigen::AngleAxisd(-gobal::last_pitch - gobal::gimbal2camera_pitch,
-                                                Eigen::Vector3d::UnitY())
-                            * Eigen::AngleAxisd(gobal::last_roll + gobal::gimbal2camera_roll,
-                                                Eigen::Vector3d::UnitX());
-                        frame.v =
-                            Eigen::Vector3d(gobal::last_v_x, gobal::last_v_y, gobal::last_v_z);
-                        on_frame_callback_(frame);
-                    }
+                    on_frame_callback_(frame);
                 }
                 if (recorder_ != nullptr) {
                     recorder_->addFrame(frame.data);
@@ -582,42 +549,16 @@ bool HikCamera::read() {
     frame.timestamp = std::chrono::steady_clock::now();
 
     if (on_frame_callback_) {
-        std::chrono::microseconds delay = std::chrono::microseconds(static_cast<int64_t>(
-            std::round((last_exposure_time_ / 2.0) - gobal::communication_delay_μs)
-        ));
-        auto t_query = std::chrono::steady_clock::now() - delay;
-        auto past_att = gobal::motion_buffer.get_interpolated(t_query);
-        if (past_att) {
-            double yaw = past_att->yaw;
-            double pitch = past_att->pitch;
-            double roll = past_att->roll;
-            frame.v = Eigen::Vector3d(past_att->vx, past_att->vy, past_att->vz);
-            frame.R_gimbal2odom =
-                Eigen::AngleAxisd(yaw + gobal::gimbal2camera_yaw, Eigen::Vector3d::UnitZ())
-                * Eigen::AngleAxisd(-pitch - gobal::gimbal2camera_pitch, Eigen::Vector3d::UnitY())
-                * Eigen::AngleAxisd(roll + gobal::gimbal2camera_roll, Eigen::Vector3d::UnitX());
-            on_frame_callback_(frame);
-
-        } else {
-            frame.R_gimbal2odom = Eigen::AngleAxisd(
-                                      gobal::last_yaw + gobal::gimbal2camera_yaw,
-                                      Eigen::Vector3d::UnitZ()
-                                  )
-                * Eigen::AngleAxisd(-gobal::last_pitch - gobal::gimbal2camera_pitch,
-                                    Eigen::Vector3d::UnitY())
-                * Eigen::AngleAxisd(gobal::last_roll + gobal::gimbal2camera_roll,
-                                    Eigen::Vector3d::UnitX());
-            frame.v = Eigen::Vector3d(gobal::last_v_x, gobal::last_v_y, gobal::last_v_z);
-            on_frame_callback_(frame);
-        }
-
-        if (recorder_ != nullptr) {
-            recorder_->addFrame(frame.data);
-        }
-
-        MV_CC_FreeImageBuffer(camera_handle_, &out_frame);
-        return true;
+        on_frame_callback_(frame);
     }
+
+    if (recorder_ != nullptr) {
+        recorder_->addFrame(frame.data);
+    }
+
+    MV_CC_FreeImageBuffer(camera_handle_, &out_frame);
+    return true;
+
     return false;
 }
 ImageFrame HikCamera::readImage() {

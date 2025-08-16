@@ -61,7 +61,6 @@ public:
 
     std::unique_ptr<ArmorDetectorBase> armor_detector_;
     std::vector<std::unique_ptr<OmniVision>> omni_visions_;
-    std::unique_ptr<MonoMeasureTool> measure_tool_;
     size_t img_recv_count_ = 0;
     size_t detect_finish_count_ = 0;
     int max_infer_running_;

@@ -63,8 +63,9 @@ TrajectoryCompensator::getTrajectory(double distance, double angle) const noexce
 }
 
 double IdealCompensator::calculateTrajectory(const double x, const double angle) const noexcept {
-    double t = x / (gobal::velocity * cos(angle));
-    double y = gobal::velocity * sin(angle) * t - 0.5 * gravity_ * t * t;
+    double t = x / (gobal::stringanyting.get_value<double>("bullet_speed") * cos(angle));
+    double y = gobal::stringanyting.get_value<double>("bullet_speed") * sin(angle) * t
+        - 0.5 * gravity_ * t * t;
     return y;
 }
 
@@ -72,7 +73,7 @@ double IdealCompensator::getFlyingTime(const Eigen::Vector3d& target_position) c
     double distance =
         sqrt(target_position(0) * target_position(0) + target_position(1) * target_position(1));
     double angle = atan2(target_position(2), distance);
-    double t = distance / (gobal::velocity * cos(angle));
+    double t = distance / (gobal::stringanyting.get_value<double>("bullet_speed") * cos(angle));
 
     return t;
 }
@@ -80,8 +81,10 @@ double IdealCompensator::getFlyingTime(const Eigen::Vector3d& target_position) c
 double
 ResistanceCompensator::calculateTrajectory(const double x, const double angle) const noexcept {
     double r = resistance_ < 1e-4 ? 1e-4 : resistance_;
-    double t = (exp(r * x) - 1) / (r * gobal::velocity * cos(angle));
-    double y = gobal::velocity * sin(angle) * t - 0.5 * gravity_ * t * t;
+    double t = (exp(r * x) - 1)
+        / (r * gobal::stringanyting.get_value<double>("bullet_speed") * cos(angle));
+    double y = gobal::stringanyting.get_value<double>("bullet_speed") * sin(angle) * t
+        - 0.5 * gravity_ * t * t;
     return y;
 }
 
@@ -90,7 +93,8 @@ double ResistanceCompensator::getFlyingTime(const Eigen::Vector3d& target_positi
     double distance =
         sqrt(target_position(0) * target_position(0) + target_position(1) * target_position(1));
     double angle = atan2(target_position(2), distance);
-    double t = (exp(r * distance) - 1) / (r * gobal::velocity * cos(angle));
+    double t = (exp(r * distance) - 1)
+        / (r * gobal::stringanyting.get_value<double>("bullet_speed") * cos(angle));
 
     return t;
 }

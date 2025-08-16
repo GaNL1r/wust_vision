@@ -57,10 +57,10 @@ public:
     );
 
     GimbalCmd returnDefaultCmd() {
-        gobal::last_cmd.fire_advice = false;
-        return gobal::last_cmd;
+        auto last_cmd = gobal::stringanyting.get_value<GimbalCmd>("last_gimbal_cmd");
+        last_cmd.fire_advice = false;
+        return last_cmd;
     }
-
     // Retrieve a compensated trajectory (same API as before)
     std::vector<std::pair<double, double>> getTrajectory() const noexcept;
 

@@ -89,7 +89,8 @@ void OneCaTracker::update(const armor::Armors& armors_msg) noexcept {
     bool matched = false;
     target_state_ = ekf_prediction;
     std::vector<armor::Armor> another_armors;
-    if (gobal::if_manual_reset) {
+    auto common_info = gobal::stringanyting.get_value<CommonInfo>("common_info");
+    if (common_info.if_manual_reset) {
         tracker_state = LOST;
         return;
     }

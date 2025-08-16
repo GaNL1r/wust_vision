@@ -31,90 +31,108 @@ struct Target_info {
     std::vector<bool> is_ok;
 };
 
-class MonoMeasureTool {
-public:
-    MonoMeasureTool() = default;
-    bool solvePnp(
-        const std::vector<cv::Point2f>& points2d,
-        const std::vector<cv::Point3f>& points3d,
-        cv::Point3f& position,
-        cv::Mat& rvec,
-        const cv::Mat& camera_intrinsic_,
-        const cv::Mat& camera_distortion_,
-        cv::SolvePnPMethod pnp_method = cv::SOLVEPNP_ITERATIVE
-    );
-    cv::Point3f unproject(cv::Point2f p, double distance);
+namespace mono_measure_tool {
+bool solvePnp(
+    const std::vector<cv::Point2f>& points2d,
+    const std::vector<cv::Point3f>& points3d,
+    cv::Point3f& position,
+    cv::Mat& rvec,
+    const cv::Mat& camera_intrinsic_,
+    const cv::Mat& camera_distortion_,
+    cv::SolvePnPMethod pnp_method = cv::SOLVEPNP_ITERATIVE
+);
+cv::Point3f unproject(cv::Point2f p, double distance);
 
-    void calcViewAngle(cv::Point2f p, float& pitch, float& yaw);
-    bool calcArmorTarget(
-        const armor::ArmorObject& obj,
-        cv::Point3f& position,
-        cv::Mat& rvec,
-        std::string& armor_type,
-        const cv::Mat& camera_intrinsic_,
-        const cv::Mat& camera_distortion_
-    );
+void calcViewAngle(cv::Point2f p, float& pitch, float& yaw);
+bool calcArmorTarget(
+    const armor::ArmorObject& obj,
+    cv::Point3f& position,
+    cv::Mat& rvec,
+    std::string& armor_type,
+    const cv::Mat& camera_intrinsic_,
+    const cv::Mat& camera_distortion_
+);
 
-    bool projectRTargetToImage(
-        const Eigen::Matrix4d& TRodom,
-        const Eigen::Matrix4d& T_camera_to_odom,
-        std::vector<cv::Point2f>& manual_r_box,
-        const cv::Mat& camera_intrinsic_,
-        const cv::Mat& camera_distortion_
-    );
-    bool calcRTarget(
-        const std::vector<cv::Point2f>& manual_r_box,
-        Eigen::Matrix4d& TRodom,
-        const Eigen::Matrix4d& T_camera_to_odom,
-        const cv::Mat& camera_intrinsic_,
-        const cv::Mat& camera_distortion_
-    );
+bool projectRTargetToImage(
+    const Eigen::Matrix4d& TRodom,
+    const Eigen::Matrix4d& T_camera_to_odom,
+    std::vector<cv::Point2f>& manual_r_box,
+    const cv::Mat& camera_intrinsic_,
+    const cv::Mat& camera_distortion_
+);
+bool calcRTarget(
+    const std::vector<cv::Point2f>& manual_r_box,
+    Eigen::Matrix4d& TRodom,
+    const Eigen::Matrix4d& T_camera_to_odom,
+    const cv::Mat& camera_intrinsic_,
+    const cv::Mat& camera_distortion_
+);
 
-    float calcDistanceToCenter(
-        const armor::ArmorObject& obj,
-        const cv::Mat& camera_intrinsic_,
-        const cv::Mat& camera_distortion_
-    );
+float calcDistanceToCenter(
+    const armor::ArmorObject& obj,
+    const cv::Mat& camera_intrinsic_,
+    const cv::Mat& camera_distortion_
+);
 
-    bool reprojectArmorsCorners(
-        armor::Armors& armors,
-        Target_info& target_info,
-        const cv::Mat& camera_intrinsic_,
-        const cv::Mat& camera_distortion_
-    );
+bool reprojectArmorsCorners(
+    armor::Armors& armors,
+    Target_info& target_info,
+    const cv::Mat& camera_intrinsic_,
+    const cv::Mat& camera_distortion_
+);
 
-    bool reprojectArmorCorners(
-        const armor::Armor& armor,
-        std::vector<cv::Point2f>& image_points,
-        const cv::Mat& camera_intrinsic_,
-        const cv::Mat& camera_distortion_
-    );
-    bool reprojectArmorCorners_raw(
-        const armor::Armor& armor,
-        std::vector<cv::Point2f>& image_points,
-        const cv::Mat& camera_intrinsic_,
-        const cv::Mat& camera_distortion_
-    );
-    void processDetectedArmors(
-        const std::vector<armor::ArmorObject>& objs,
-        armor::Armors& armors_out,
-        Eigen::Matrix4d T_camera_to_odom,
-        const cv::Mat& camera_intrinsic_,
-        const cv::Mat& camera_distortion_
-    );
+bool reprojectArmorCorners(
+    const armor::Armor& armor,
+    std::vector<cv::Point2f>& image_points,
+    const cv::Mat& camera_intrinsic_,
+    const cv::Mat& camera_distortion_
+);
+bool reprojectArmorCorners_raw(
+    const armor::Armor& armor,
+    std::vector<cv::Point2f>& image_points,
+    const cv::Mat& camera_intrinsic_,
+    const cv::Mat& camera_distortion_
+);
+void processDetectedArmors(
+    const std::vector<armor::ArmorObject>& objs,
+    armor::Armors& armors_out,
+    Eigen::Matrix4d T_camera_to_odom,
+    const cv::Mat& camera_intrinsic_,
+    const cv::Mat& camera_distortion_
+);
 
-    static std::vector<cv::Point3f> SMALL_ARMOR_3D_POINTS;
-    static std::vector<cv::Point3f> BIG_ARMOR_3D_POINTS;
-    static std::vector<cv::Point3f> SMALL_ARMOR_3D_POINTS_NET;
-    static std::vector<cv::Point3f> BIG_ARMOR_3D_POINTS_NET;
-    static std::vector<cv::Point3f> R_BOX_POINTS;
-
-private:
-    // 相机参数
-    cv::Mat prev_rvec_, prev_tvec_;
-    bool has_prev_ { false };
-
-    std::string mono_logger = "mono_measure_tool";
-
-    double fx_ { 0 }, fy_ { 0 }, u0_ { 0 }, v0_ { 0 };
+static std::vector<cv::Point3f> SMALL_ARMOR_3D_POINTS = {
+    { 0, 0.025, -0.066 },
+    { 0, -0.025, -0.066 },
+    { 0, -0.025, 0.066 },
+    { 0, 0.025, 0.066 },
 };
+
+static std::vector<cv::Point3f> BIG_ARMOR_3D_POINTS = {
+    { 0, 0.025, -0.1125 },
+    { 0, -0.025, -0.1125 },
+    { 0, -0.025, 0.1125 },
+    { 0, 0.025, 0.1125 },
+};
+static std::vector<cv::Point3f> SMALL_ARMOR_3D_POINTS_NET = {
+    { 0, 0.027, -0.066 },
+    { 0, -0.027, -0.066 },
+    { 0, -0.027, 0.066 },
+    { 0, 0.027, 0.066 },
+};
+
+static std::vector<cv::Point3f> BIG_ARMOR_3D_POINTS_NET = {
+    { 0, 0.027, -0.1125 },
+    { 0, -0.027, -0.1125 },
+    { 0, -0.027, 0.1125 },
+    { 0, 0.027, 0.1125 },
+};
+
+static std::vector<cv::Point3f> R_BOX_POINTS = {
+    { 0, 0.05, -0.05 },
+    { 0, -0.05, -0.05 },
+    { 0, -0.05, 0.05 },
+    { 0, 0.05, 0.05 },
+};
+
+} // namespace mono_measure_tool

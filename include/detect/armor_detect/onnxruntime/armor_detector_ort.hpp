@@ -15,14 +15,13 @@ public:
         std::function<void(const std::vector<armor::ArmorObject>&, const CommonFrame&)>;
 
     explicit ArmorDetectOnnxRuntime(
+        std::string provider,
         std::string model_type,
         const std::filesystem::path& model_path,
         const ArmorDetectCommonParams& armor_detect_common_params,
         float conf_threshold = 0.25,
         int top_k = 128,
         float nms_threshold = 0.3,
-        bool use_gpu_ = false,
-        int device_id_ = 0,
         bool use_armor_detect_common_ = true
     );
 
@@ -49,13 +48,11 @@ private:
     std::vector<int64_t> input_dims_;
     std::string input_name_;
     std::string output_name_;
-
+    OrtProvider provider_ = OrtProvider::CPU;
     std::vector<int> strides_;
     std::vector<GridAndStride> grid_strides_;
     DetectorCallback infer_callback_;
     std::unique_ptr<ArmorDetectCommon> armor_detect_common_;
-    bool use_gpu_ = false;
-    int device_id_ = 0;
     bool use_armor_detect_common_ = true;
     std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;
     int current_id_ = 0;

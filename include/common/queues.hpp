@@ -1,9 +1,11 @@
 #pragma once
+#include <algorithm>
 #include <chrono>
 #include <condition_variable>
 #include <iostream>
 #include <map>
 #include <mutex>
+#include <vector>
 
 template<typename T>
 class OrderedQueue {
@@ -105,4 +107,61 @@ private:
     int max_lag_ms_; // 帧滞后丢弃阈值（ms）
     std::mutex mutex_;
     std::condition_variable cond_var_;
+};
+
+template<typename T>
+class TimedQueue {
+public:
+    struct QueueItem {
+        T data;
+        std::chrono::steady_clock::time_point timestamp;
+    };
+
+    TimedQueue(double valid_duration): valid_duration_(valid_duration) {}
+
+    // 添加新目标
+    void push(
+        const T& obj,
+        std::chrono::steady_clock::time_point timestamp = std::chrono::steady_clock::now()
+    ) {
+        std::lock_guard<std::mutex> lk(mtx_);
+        queue_.push_back({ obj, timestamp });
+    }
+
+    // 获取时间有效目标（受 query_interval_ 控制）
+    std::vector<T> get_valid_targets() {
+        auto now = std::chrono::steady_clock::now();
+        std::vector<T> valid_targets;
+
+        std::lock_guard<std::mutex> lk(mtx_);
+        if (queue_.empty())
+            return valid_targets;
+
+        for (const auto& item: queue_) {
+            double dt = std::chrono::duration<double>(now - item.timestamp).count();
+            if (dt <= valid_duration_) {
+                valid_targets.push_back(item.data);
+            }
+        }
+
+        last_query_ = now;
+        return valid_targets;
+    }
+
+    // 清除超过 valid_duration_ 的目标
+    void clear_stale() {
+        auto now = std::chrono::steady_clock::now();
+        std::lock_guard<std::mutex> lk(mtx_);
+        auto it = std::remove_if(queue_.begin(), queue_.end(), [&](const QueueItem& item) {
+            double dt = std::chrono::duration<double>(now - item.timestamp).count();
+            return dt > valid_duration_;
+        });
+        queue_.erase(it, queue_.end());
+    }
+
+private:
+    std::vector<QueueItem> queue_;
+    std::mutex mtx_;
+    std::chrono::steady_clock::time_point last_query_ = std::chrono::steady_clock::now();
+    double valid_duration_; // 有效时间窗口（receive_dt_）
 };

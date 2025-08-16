@@ -30,11 +30,13 @@ void drawDebugArmorContent(cv::Mat& debug_img, const DebugArmor& dbg) {
 
         for (const auto& armor: armors.armors) {
             std::vector<cv::Point2f> pts;
-            if (!gobal::measure_tool->reprojectArmorCorners_raw(
+            auto camera_info =
+                gobal::stringanyting.get_value<std::pair<cv::Mat, cv::Mat>>("camera_info");
+            if (!mono_measure_tool::reprojectArmorCorners_raw(
                     armor,
                     pts,
-                    gobal::camera_intrinsic,
-                    gobal::camera_distortion
+                    camera_info.first,
+                    camera_info.second
                 ))
                 continue;
 
@@ -131,7 +133,7 @@ void drawDebugArmorContent(cv::Mat& debug_img, const DebugArmor& dbg) {
             const auto& ori = target_info.ori[i];
             const auto& is_ok = target_info.is_ok[i];
             cv::Scalar color;
-            if (gobal::detect_color == 1) {
+            if (gobal::stringanyting.get_value<int>("detect_color") == 1) {
                 color = is_ok ? cv::Scalar(255, 0, 0) : cv::Scalar(0, 0, 255);
             } else {
                 color = !is_ok ? cv::Scalar(255, 0, 0) : cv::Scalar(0, 0, 255);
@@ -208,8 +210,9 @@ void drawDebugArmorContent(cv::Mat& debug_img, const DebugArmor& dbg) {
 
                 cv::Point2f start_pt = center + cv::Point2f(0, -200);
                 cv::Point2f end_pt = start_pt + cv::Point2f(dx, dy);
-                cv::Scalar color =
-                    gobal::detect_color ? cv::Scalar(255, 50, 50) : cv::Scalar(50, 50, 255);
+                cv::Scalar color = gobal::stringanyting.get_value<int>("detect_color")
+                    ? cv::Scalar(255, 50, 50)
+                    : cv::Scalar(50, 50, 255);
                 cv::arrowedLine(debug_img, start_pt, end_pt, color, 4, cv::LINE_AA, 0, 0.2);
             }
         }
@@ -573,12 +576,14 @@ void drawResult(const imgframe& src_img, const armor::Armors& armors) {
     for (auto& armor: armors.armors) {
         // std::cout<<"cc\n";
         std::vector<cv::Point2f> pts;
+        auto camera_info =
+            gobal::stringanyting.get_value<std::pair<cv::Mat, cv::Mat>>("camera_info");
 
-        if (!gobal::measure_tool->reprojectArmorCorners_raw(
+        if (!mono_measure_tool::reprojectArmorCorners_raw(
                 armor,
                 pts,
-                gobal::camera_intrinsic,
-                gobal::camera_distortion
+                camera_info.first,
+                camera_info.second
             ))
             continue;
         for (size_t i = 0; i < 4; ++i) {

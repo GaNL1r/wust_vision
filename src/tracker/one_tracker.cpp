@@ -98,7 +98,8 @@ void OneTracker::update(const armor::Armors& armors_msg) noexcept {
         Eigen::Vector3d(target_state_(1), target_state_(3), target_state_(5));
     acc_ekf_->update(center_velocity_measurement_);
     std::vector<armor::Armor> another_armors;
-    if (gobal::if_manual_reset) {
+    auto common_info = gobal::stringanyting.get_value<CommonInfo>("common_info");
+    if (common_info.if_manual_reset) {
         tracker_state = LOST;
         return;
     }

@@ -1,5 +1,6 @@
 #include "misc/omni.hpp"
 #include "common/debug/tools.hpp"
+#include "common/queues.hpp"
 #include "common/utils.hpp"
 OmniVision::OmniVision() {
     // Constructor implementation
@@ -128,14 +129,15 @@ OmniManager::OmniManager(const YAML::Node& config) {
             if (infer_running_count_.load() >= max_infer_running_) {
                 return;
             }
-            gobal::thread_pool->enqueue(
-                [frame = std::move(frame), this]() {
-                    infer_running_count_++;
-                    processImage(frame);
-                    infer_running_count_--;
-                },
-                -1
-            );
+            gobal::stringanyting.get_ptr<ThreadPool>("thread_pool")
+                ->enqueue(
+                    [frame = std::move(frame), this]() {
+                        infer_running_count_++;
+                        processImage(frame);
+                        infer_running_count_--;
+                    },
+                    -1
+                );
         } else {
             return;
         }
@@ -152,9 +154,11 @@ OmniManager::OmniManager(const YAML::Node& config) {
 
         omni_visions_.emplace_back(std::move(omni_vision));
     }
-    measure_tool_ = std::make_unique<MonoMeasureTool>();
     initDetector();
     timer_ = std::make_unique<Timer>();
+    double valid_duration = gobal::config["common"]["valid_duration"].as<double>(0.1);
+    auto omni_queue = std::make_shared<TimedQueue<armor::OneTarget>>(valid_duration);
+    gobal::stringanyting.set_ptr<TimedQueue<armor::OneTarget>>("omni_queue", omni_queue);
 }
 OmniManager::~OmniManager() {}
 void OmniManager::stop() {
@@ -169,7 +173,6 @@ void OmniManager::stop() {
     }
 
     armor_detector_.reset();
-    measure_tool_.reset();
 
     WUST_INFO(vision_logger_) << "OmniManager shutdown complete.";
 }
@@ -190,7 +193,9 @@ void OmniManager::initDetector() {
 #endif
 #ifdef USE_NCNN
         {
-            gobal::use_detect_ncnn_count++;
+            auto common_info = gobal::stringanyting.get_value<CommonInfo>("common_info");
+            common_info.use_detect_ncnn_count++;
+            gobal::stringanyting.set_value("common_info", common_info);
             return true;
         }
 #endif
@@ -275,7 +280,7 @@ void OmniManager::ArmorDetectCallback(
     cv::Mat camera_intrinsic_ = omni_visions_[frame.v.x()]->camera_intrinsic_;
     cv::Mat camera_distortion_ = omni_visions_[frame.v.x()]->camera_distortion_;
 
-    measure_tool_->processDetectedArmors(
+    mono_measure_tool::processDetectedArmors(
         sorted_objs,
         armors,
         frame.T_camera_to_odom,
@@ -283,7 +288,7 @@ void OmniManager::ArmorDetectCallback(
         camera_distortion_
     );
 
-    gobal::omni_targets = buildOneTargetsfromOmni(armors);
+    buildOneTargetsfromOmni(armors);
 
     cv::Mat debug_img = frame.src_img.clone();
     imgframe debug_img_frame;
@@ -295,6 +300,12 @@ void OmniManager::ArmorDetectCallback(
 
 std::vector<armor::OneTarget> OmniManager::buildOneTargetsfromOmni(const armor::Armors& armors) {
     std::vector<armor::OneTarget> one_targets;
+    auto omni_queue = gobal::stringanyting.get_ptr<TimedQueue<armor::OneTarget>>("omni_queue");
+    if (!omni_queue) {
+        WUST_ERROR(vision_logger_) << "Omni queue not initialized.";
+        return one_targets;
+    }
+    omni_queue->clear_stale();
     for (const auto& armor: armors.armors) {
         if (armor.is_none_purple) {
             continue;
@@ -309,6 +320,7 @@ std::vector<armor::OneTarget> OmniManager::buildOneTargetsfromOmni(const armor::
         target.tracking = true;
         target.is_omni = true;
         one_targets.push_back(target);
+        omni_queue->push(target, target.timestamp);
     }
     return one_targets;
 }

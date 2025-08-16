@@ -167,15 +167,15 @@ bool ArmorDetectOpenCV::isLight(const armor::Light& light) noexcept {
 std::vector<armor::ArmorObject>
 ArmorDetectOpenCV::matchLights(const std::vector<armor::Light>& lights) noexcept {
     std::vector<armor::ArmorObject> armors;
-
+    int detect_color = gobal::stringanyting.get_value<int>("detect_color");
     // Loop all the pairing of lights
     for (auto light_1 = lights.begin(); light_1 != lights.end(); light_1++) {
-        if (light_1->color != gobal::detect_color)
+        if (light_1->color != detect_color)
             continue;
         double max_iter_width = light_1->length * armor_params_.max_large_center_distance;
 
         for (auto light_2 = light_1 + 1; light_2 != lights.end(); light_2++) {
-            if (light_2->color != gobal::detect_color)
+            if (light_2->color != detect_color)
                 continue;
             if (containLight(light_1 - lights.begin(), light_2 - lights.begin(), lights)) {
                 continue;
@@ -187,7 +187,7 @@ ArmorDetectOpenCV::matchLights(const std::vector<armor::Light>& lights) noexcept
             if (type != armor::ArmorType::INVALID) {
                 // auto armor = Armor(*light_1, *light_2);
                 armor::ArmorObject armor(*light_1, *light_2);
-                if (gobal::detect_color == 0) {
+                if (detect_color == 0) {
                     armor.color = armor::ArmorColor::RED;
                 } else {
                     armor.color = armor::ArmorColor::BLUE;

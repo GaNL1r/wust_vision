@@ -34,13 +34,13 @@ ArmorPoseEstimator::ArmorPoseEstimator() {
     );
 
     std::array<double, 9> camera_matrix;
-
-    CV_Assert(gobal::camera_intrinsic.rows == 3 && gobal::camera_intrinsic.cols == 3);
-    CV_Assert(gobal::camera_intrinsic.type() == CV_64F);
+    auto camera_info = gobal::stringanyting.get_value<std::pair<cv::Mat, cv::Mat>>("camera_info");
+    CV_Assert(camera_info.first.rows == 3 && camera_info.first.cols == 3);
+    CV_Assert(camera_info.first.type() == CV_64F);
 
     for (int i = 0; i < 3; ++i)
         for (int j = 0; j < 3; ++j)
-            camera_matrix[i * 3 + j] = gobal::camera_intrinsic.at<double>(i, j);
+            camera_matrix[i * 3 + j] = camera_info.first.at<double>(i, j);
 
     ba_solver_ = std::make_unique<BaSolver>(
         camera_matrix,

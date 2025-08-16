@@ -895,7 +895,6 @@ public:
 
     static constexpr size_t BUFFER_SIZE = 512;
 
-    // 推入一组新的姿态+速度
     void push(
         double yaw,
         double pitch,
@@ -907,7 +906,6 @@ public:
     ) {
         std::unique_lock lock(mutex_);
 
-        // unwrap 角度
         if (has_last_) {
             yaw = unwrap_angle(last_.yaw, yaw);
             pitch = unwrap_angle(last_.pitch, pitch);
@@ -921,47 +919,39 @@ public:
         if (size_ < BUFFER_SIZE)
             ++size_;
 
-        last_ = buffer_[head_ == 0 ? BUFFER_SIZE - 1 : head_ - 1];
+        last_ = buffer_[(head_ + BUFFER_SIZE - 1) % BUFFER_SIZE];
         has_last_ = true;
     }
 
-    // 返回距离 t_query 最近的线性插值结果
     std::optional<MotionStamped> get_interpolated(std::chrono::steady_clock::time_point t_query) {
         std::shared_lock lock(mutex_);
         if (size_ < 2)
             return std::nullopt;
 
-        // 1) 计算当前有效区间的起点
         size_t begin = (head_ + BUFFER_SIZE - size_) % BUFFER_SIZE;
 
-        // 2) 拉平成连续时间戳数组
         std::vector<std::chrono::steady_clock::time_point> times;
         times.reserve(size_);
         for (size_t i = 0; i < size_; ++i) {
             times.push_back(time_buffer_[(begin + i) % BUFFER_SIZE]);
         }
 
-        // 3) 二分查找第一个 >= t_query 的位置
         auto it_hi = std::lower_bound(times.begin(), times.end(), t_query);
-        if (it_hi == times.begin() || it_hi == times.end()) {
-            // query 在缓存区间之外
+        if (it_hi == times.begin() || it_hi == times.end())
             return std::nullopt;
-        }
 
         size_t idx_hi = std::distance(times.begin(), it_hi);
         size_t idx_lo = idx_hi - 1;
 
-        // 4) 取出两端数据并插值
         const auto& lo = buffer_[(begin + idx_lo) % BUFFER_SIZE];
         const auto& hi = buffer_[(begin + idx_hi) % BUFFER_SIZE];
         double span = std::chrono::duration<double>(hi.stamp - lo.stamp).count();
         if (span <= 0.0)
-            return lo; // 时间重叠或相同
+            return lo;
 
         double t = std::chrono::duration<double>(t_query - lo.stamp).count() / span;
 
         MotionStamped res;
-        // 线性插值角度和速度
         res.yaw = lo.yaw + t * (hi.yaw - lo.yaw);
         res.pitch = lo.pitch + t * (hi.pitch - lo.pitch);
         res.roll = lo.roll + t * (hi.roll - lo.roll);
@@ -972,19 +962,24 @@ public:
         return res;
     }
 
+    // 🔹 新增方法：获取最后一帧
+    std::optional<MotionStamped> get_last() const {
+        std::shared_lock lock(mutex_);
+        if (!has_last_)
+            return std::nullopt;
+        return last_;
+    }
+
 private:
-    // 环形缓存
     std::array<MotionStamped, BUFFER_SIZE> buffer_;
     std::array<std::chrono::steady_clock::time_point, BUFFER_SIZE> time_buffer_;
     size_t head_ = 0, size_ = 0;
 
-    // 解包上一次角度，防抖动
     bool has_last_ = false;
     MotionStamped last_;
 
     mutable std::shared_mutex mutex_;
 
-    // unwrap 角度到连续区间
     double unwrap_angle(double prev, double curr) {
         double d = curr - prev;
         if (d > M_PI)

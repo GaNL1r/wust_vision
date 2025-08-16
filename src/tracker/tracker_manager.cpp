@@ -119,7 +119,8 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
         Eigen::Matrix<double, ypdarmor_motion_model::X_N, ypdarmor_motion_model::X_N> q;
         double t = dt_;
         double x, y, z, yaw, r, d_zc;
-        if (gobal::armor_slove_state == gobal::ArmorSloveState::TRACKING_ARMOR) {
+        auto gobal_state = gobal::stringanyting.get_value<GobalState>("gobal_state");
+        if (gobal_state.armor_slove_state == GobalState::ArmorSloveState::TRACKING_ARMOR) {
             x = ys2qx_a_, y = ys2qy_a_, z = ys2qz_a_, yaw = ys2qyaw_a_, r = ys2qr_a_,
             d_zc = ys2qd_zc_a_;
         } else {
@@ -189,7 +190,8 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
 
         double camera_yaw = std::atan2(dir_gimbal.y(), dir_gimbal.x()) * 180.0 / M_PI;
         double ry, rp, rd_front, rd_side, ryaw_front, ryaw_side;
-        if (gobal::armor_slove_state == gobal::ArmorSloveState::TRACKING_ARMOR) {
+        auto gobal_state = gobal::stringanyting.get_value<GobalState>("gobal_state");
+        if (gobal_state.armor_slove_state == GobalState::ArmorSloveState::TRACKING_ARMOR) {
             ry = yr_y_a_, rp = yr_p_a_, rd_front = yr_d_front_a_, rd_side = yr_d_side_a_,
             ryaw_front = yr_yaw_front_a_, ryaw_side = yr_yaw_side_a_;
         } else {
@@ -235,7 +237,8 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
             const std::unique_ptr<ypdarmor_motion_model::RobotStateESEKF>& esekf) {
             Eigen::VectorXd x1 = ekf->predict();
             Eigen::VectorXd x2 = esekf->predict();
-            if (gobal::armor_slove_state == gobal::ArmorSloveState::TRACKING_ARMOR) {
+            auto gobal_state = gobal::stringanyting.get_value<GobalState>("gobal_state");
+            if (gobal_state.armor_slove_state == GobalState::ArmorSloveState::TRACKING_ARMOR) {
                 if (fusion_esekf_ekf) {
                     const double eps = 1e-6;
                     Eigen::MatrixXd P1 = ekf->getPriorCovariance();
@@ -315,8 +318,9 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
         o_tracker->acc_ekf_ =
             std::make_unique<acc_model::VelocityAccelEKF>(acc_f, acc_h, acc_q, acc_r, accp0);
     }
-
-    gobal::attack_state = gobal::AttackState::ATTACKONE;
+    auto gobal_state = gobal::stringanyting.get_value<GobalState>("gobal_state");
+    gobal_state.attack_state = GobalState::AttackState::ATTACKONE;
+    gobal::stringanyting.set_value("gobal_state", gobal_state);
 }
 
 void TrackerManager::updateTracker(
@@ -524,26 +528,30 @@ void TrackerManager::updateOneTrackers(
     }
 }
 void TrackerManager::updateAttackState(const double& v_yaw_abs) {
-    switch (gobal::attack_state) {
-        case gobal::AttackState::ATTACKONE:
+    auto gobal_state = gobal::stringanyting.get_value<GobalState>("gobal_state");
+    switch (gobal_state.attack_state) {
+        case GobalState::AttackState::ATTACKONE:
             if (v_yaw_abs > v_yaw_to_one_thres_high_ || tracker_->tracker_state == Tracker::LOST) {
-                gobal::attack_state = gobal::AttackState::ATTACKWHOLECAR;
+                gobal_state.attack_state = GobalState::AttackState::ATTACKWHOLECAR;
+                gobal::stringanyting.set_value("gobal_state", gobal_state);
             }
             break;
 
-        case gobal::AttackState::ATTACKWHOLECAR:
+        case GobalState::AttackState::ATTACKWHOLECAR:
             if (v_yaw_abs < v_yaw_to_one_thres_low_) {
-                gobal::attack_state = gobal::AttackState::ATTACKONE;
+                gobal_state.attack_state = GobalState::AttackState::ATTACKONE;
+                gobal::stringanyting.set_value("gobal_state", gobal_state);
             }
             break;
 
         default:
             if (v_yaw_abs > v_yaw_to_one_thres_high_) {
-                gobal::attack_state = gobal::AttackState::ATTACKWHOLECAR;
+                gobal_state.attack_state = GobalState::AttackState::ATTACKWHOLECAR;
             } else {
-                gobal::attack_state = gobal::AttackState::ATTACKONE;
+                gobal_state.attack_state = GobalState::AttackState::ATTACKONE;
             }
 
+            gobal::stringanyting.set_value("gobal_state", gobal_state);
             break;
     }
 }
@@ -561,11 +569,12 @@ void TrackerManager::update(
     updateAttackState(std::abs(target_.v_yaw));
 
     armor::Armors armors_empty;
-    switch (gobal::attack_state) {
-        case gobal::AttackState::ATTACKONE: {
+    auto gobal_state = gobal::stringanyting.get_value<GobalState>("gobal_state");
+    switch (gobal_state.attack_state) {
+        case GobalState::AttackState::ATTACKONE: {
             updateOneTrackers(one_targets_, armors_, time, v);
         } break;
-        case gobal::AttackState::ATTACKWHOLECAR: {
+        case GobalState::AttackState::ATTACKWHOLECAR: {
             std::vector<armor::OneTarget> one_targets_fake;
             updateOneTrackers(one_targets_fake, armors_empty, time, v);
         } break;

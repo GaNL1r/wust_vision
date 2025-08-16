@@ -142,50 +142,69 @@ static void letterbox_into_CHW_float_rgb(
     }
 }
 RuneDetectorOnnxRuntime::RuneDetectorOnnxRuntime(
+    std::string provider,
     std::string model_type,
     const std::filesystem::path& model_path,
     float conf_threshold,
     int top_k,
-    float nms_threshold,
-    bool use_gpu_,
-    int device_id_
+    float nms_threshold
 ):
     model_path_(model_path),
     conf_threshold_(conf_threshold),
     top_k_(top_k),
-    nms_threshold_(nms_threshold),
-    use_gpu_(use_gpu_),
-    device_id_(device_id_) {
+    nms_threshold_(nms_threshold) {
     auto model = rune_infer::modeFromString(model_type);
     rune_infer_ =
         std::make_unique<rune_infer::RuneInfer>(model, conf_threshold, nms_threshold, top_k);
+    provider_ = string2OrtProvider(provider);
     init();
 }
 
 void RuneDetectorOnnxRuntime::init() {
-    env_ = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "RuneDetectONNX");
+    // 1. 创建 ONNX Runtime 环境
+    env_ = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "ArmorDetectONNX");
+
+    // 2. 配置 SessionOptions
     Ort::SessionOptions session_options;
     session_options.SetIntraOpNumThreads(4);
+    session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 
-    session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
-
-    if (use_gpu_) {
-        OrtSessionOptionsAppendExecutionProvider_CUDA(session_options, device_id_);
+    // 3. 选择执行提供器
+    switch (provider_) {
+        case OrtProvider::CUDA:
+            session_options.AppendExecutionProvider_CUDA({});
+            break;
+        case OrtProvider::TensorRT:
+            session_options.AppendExecutionProvider_TensorRT({});
+            break;
+        case OrtProvider::OpenVINO: {
+            OrtOpenVINOProviderOptions options;
+            options.device_type = "CPU_FP32"; // 可改为 MYRIAD / GPU_FP32 等
+            session_options.AppendExecutionProvider_OpenVINO(options);
+            break;
+        }
+        case OrtProvider::CPU:
+        default:
+            // 默认使用 CPU
+            break;
     }
 
+    // 4. 创建推理 Session
     session_ = std::make_unique<Ort::Session>(*env_, model_path_.c_str(), session_options);
 
+    // 5. 分配默认内存管理器
     Ort::AllocatorWithDefaultOptions allocator;
 
-    Ort::AllocatedStringPtr input_name_ptr = session_->GetInputNameAllocated(0, allocator);
-    input_name_ = std::string(input_name_ptr.get());
+    // 6. 获取输入节点名称
+    input_name_ = session_->GetInputNameAllocated(0, allocator).get();
 
+    // 7. 获取输入张量形状
     auto input_type_info = session_->GetInputTypeInfo(0);
     auto input_tensor_info = input_type_info.GetTensorTypeAndShapeInfo();
     input_dims_ = input_tensor_info.GetShape();
 
-    Ort::AllocatedStringPtr output_name_ptr = session_->GetOutputNameAllocated(0, allocator);
-    output_name_ = std::string(output_name_ptr.get());
+    // 8. 获取输出节点名称
+    output_name_ = session_->GetOutputNameAllocated(0, allocator).get();
 
     strides_ = { 8, 16, 32 };
     rune_infer_->generateGridsAndStride(
@@ -240,16 +259,16 @@ bool RuneDetectorOnnxRuntime::processCallback(const CommonFrame& frame) {
     // Parsed variable
     auto objs_result = rune_infer_->postProcess(output_buffer, transform_matrix, grid_strides_);
 
-    objs_result.erase(
-        std::remove_if(
-            objs_result.begin(),
-            objs_result.end(),
-            [c = static_cast<EnemyColor>(gobal::detect_color)](const auto& objs_result) {
-                return objs_result.color != c;
-            }
-        ),
-        objs_result.end()
-    );
+    // objs_result.erase(
+    //     std::remove_if(
+    //         objs_result.begin(),
+    //         objs_result.end(),
+    //         [c = static_cast<EnemyColor>(gobal::detect_color)](const auto& objs_result) {
+    //             return objs_result.color != c;
+    //         }
+    //     ),
+    //     objs_result.end()
+    // );
 
     // Call callback function
     if (this->infer_callback_) {

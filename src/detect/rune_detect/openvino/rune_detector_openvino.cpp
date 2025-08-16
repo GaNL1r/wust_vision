@@ -163,16 +163,16 @@ bool RuneDetectorOpenvino::processCallback(const CommonFrame& frame) {
     // Parsed variable
     auto objs_result = rune_infer_->postProcess(output_buffer, transform_matrix, grid_strides_);
 
-    objs_result.erase(
-        std::remove_if(
-            objs_result.begin(),
-            objs_result.end(),
-            [c = static_cast<EnemyColor>(gobal::detect_color)](const auto& objs_result) {
-                return objs_result.color != c;
-            }
-        ),
-        objs_result.end()
-    );
+    // objs_result.erase(
+    //     std::remove_if(
+    //         objs_result.begin(),
+    //         objs_result.end(),
+    //         [c = static_cast<EnemyColor>(gobal::detect_color)](const auto& objs_result) {
+    //             return objs_result.color != c;
+    //         }
+    //     ),
+    //     objs_result.end()
+    // );
 
     // Call callback function
     if (this->infer_callback_) {

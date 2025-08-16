@@ -254,11 +254,11 @@ std::vector<armor::ArmorObject>
 ArmorDetectCommon::detectNet(const cv::Mat& src_img, std::vector<armor::ArmorObject>& objs_result) {
     std::vector<armor::ArmorObject> armors;
     std::mutex armors_mutex;
-
+    int detect_color = gobal::stringanyting.get_value<int>("detect_color");
     std::for_each(std::execution::par, objs_result.begin(), objs_result.end(), [&](auto& armor) {
-        if (gobal::detect_color == 0 && armor.color == armor::ArmorColor::BLUE) {
+        if (detect_color == 0 && armor.color == armor::ArmorColor::BLUE) {
             return;
-        } else if (gobal::detect_color == 1 && armor.color == armor::ArmorColor::RED) {
+        } else if (detect_color == 1 && armor.color == armor::ArmorColor::RED) {
             return;
         }
 

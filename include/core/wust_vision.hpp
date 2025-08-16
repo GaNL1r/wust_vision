@@ -1,7 +1,8 @@
 #pragma once
 
+#include "common/debug/toolsgobal.hpp"
 #include "common/gobal.hpp"
-#include "common/ordered_queue.hpp"
+#include "common/queues.hpp"
 #include "common/timer.hpp"
 #include "control/armor_solver.hpp"
 #include "control/rune_solver.hpp"
@@ -78,10 +79,10 @@ private:
     double video_alpha_ = 1.0;
     double video_beta_ = 0.0;
     bool use_video_ = false;
-
     // Serial & Omni
     std::unique_ptr<serial::Serial> serial_;
     std::unique_ptr<OmniManager> omni_manager_;
+    double communication_delay_μs_;
 
     // Detection & Tracking
     std::unique_ptr<ArmorDetectorBase> armor_detector_;
@@ -117,6 +118,8 @@ private:
         std::vector<rune::RuneObject> rune_objects;
     } debug_gobal_frame_;
     std::mutex dbg_mutex_;
+    std::thread debug_thread_;
+    LatencyAveragerDeque latency_averager_;
 
     // Threading & synchronization
     std::unique_ptr<Timer> timer_;
@@ -148,7 +151,6 @@ private:
     double last_ypd_y_ = 0.0, last_ypd_p_ = 0.0;
     double last_armor_yaw_ = 0.0;
     double jump_yaw = 0.0;
-    double receive_omni_dt_ = 0.0, hit_omni_dt_ = 0.0;
     std::chrono::steady_clock::time_point last_track_target_;
 
     // Manual calibration

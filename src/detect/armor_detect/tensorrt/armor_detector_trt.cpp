@@ -407,9 +407,10 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
         }
     } else {
         for (auto obj: objs_result) {
-            if (gobal::detect_color == 0 && obj.color == armor::ArmorColor::BLUE) {
+            auto detect_color = gobal::stringanyting.get_value<int>("detect_color");
+            if (detect_color == 0 && obj.color == armor::ArmorColor::BLUE) {
                 continue;
-            } else if (gobal::detect_color == 1 && obj.color == armor::ArmorColor::RED) {
+            } else if (detect_color == 1 && obj.color == armor::ArmorColor::RED) {
                 continue;
             }
         }

@@ -30,14 +30,15 @@ void WustVision::printStats() {
 
     auto elapsed = duration_cast<duration<double>>(now - last_stat_time_steady_);
     if (elapsed.count() >= 1.0) {
-        if (timer_count_ < gobal::control_rate / 10) {
+        if (timer_count_ < gobal::stringanyting.get_value<int>("control_rate") / 10) {
             timer_check_count++;
         }
         if (timer_check_count > 5) {
             if (timer_) {
                 auto timercallback =
                     std::bind(&WustVision::timerCallback, this, std::placeholders::_1);
-                double rate_hz = static_cast<double>(gobal::control_rate);
+                double rate_hz =
+                    static_cast<double>(gobal::stringanyting.get_value<int>("control_rate"));
                 timer_->start(rate_hz, timercallback);
             }
             timer_check_count = 0;
@@ -59,7 +60,8 @@ void WustVision::debugThread() {
 
     double us_interval = 1e6 / static_cast<double>(toolsgobal::debug_fps);
     auto kInterval = std::chrono::microseconds(static_cast<int64_t>(us_interval));
-    while (gobal::is_inited_ && gobal::debug_mode) {
+    auto common_info = gobal::stringanyting.get_value<CommonInfo>("common_info");
+    while (gobal::is_inited_ && common_info.debug_mode) {
         auto start_time = steady_clock::now();
 
         debugvisualize(false);
@@ -78,11 +80,18 @@ void WustVision::debugThread() {
     }
 }
 void WustVision::debuglog() {
+    static bool first_log = true;
+    static std::chrono::steady_clock::time_point start_time;
+    if (first_log) {
+        WUST_INFO(vision_logger_) << "Debug logging started.";
+        start_time = std::chrono::steady_clock::now();
+        first_log = false;
+    }
     std::lock_guard<std::mutex> lock(dbg_mutex_);
     auto now = std::chrono::steady_clock::now();
     armor::Armors armors;
     armors = debug_gobal_frame_.armors_gobal;
-    double t = std::chrono::duration<double>(now - toolsgobal::start_time_).count();
+    double t = std::chrono::duration<double>(now - start_time).count();
     armor::Target target = debug_gobal_frame_.armor_target;
     writeTargetLogToJson(target);
     {
@@ -132,10 +141,10 @@ void WustVision::debuglog() {
         }
 
         DebugLogs& log = toolsgobal::debug_logs_;
-
+        auto last_cmd = gobal::stringanyting.get_value<GimbalCmd>("last_gimbal_cmd");
         log.time_log.push_back(t);
-        log.cmd_yaw_log.push_back(gobal::last_cmd.yaw);
-        log.cmd_pitch_log.push_back(gobal::last_cmd.pitch);
+        log.cmd_yaw_log.push_back(last_cmd.yaw);
+        log.cmd_pitch_log.push_back(last_cmd.pitch);
         log.rune_obs_log.push_back(rune_solver_->last_observed_angle_);
         log.rune_pre_log.push_back(rune_solver_->last_pre_angle);
         log.rune_v_log.push_back(rune_solver_->curve_fitter_->getFittingParam()[0]);
@@ -174,22 +183,24 @@ void WustVision::debugvisualize(bool auto_fps) {
     armor::Armors armors = debug_gobal_frame_.armors_gobal;
     armor::Target target = debug_gobal_frame_.armor_target;
     std::vector<armor::OneTarget> one_targets = debug_gobal_frame_.one_armor_targets;
-    AttackMode mode = toAttackMode(gobal::attack_mode);
+    auto gobal_state = gobal::stringanyting.get_value<GobalState>("gobal_state");
+    AttackMode mode = toAttackMode(gobal_state.attack_mode);
     bool appear = utils::checkTargetAppear(target, one_targets);
     Tracker::State state = appear ? Tracker::TRACKING : Tracker::LOST;
-    GimbalCmd gimbal_cmd = gobal::last_cmd;
+    GimbalCmd gimbal_cmd = gobal::stringanyting.get_value<GimbalCmd>("last_gimbal_cmd");
 
     if (mode == AttackMode::ARMOR) {
         armor::Armors armor_data = visualizeTargetProjection(target, one_targets);
         utils::transformArmorData(armor_data, T_camera_to_odom_.inverse());
         Target_info target_info;
         target_info.select_id = gimbal_cmd.select_id;
-
-        if (!gobal::measure_tool->reprojectArmorsCorners(
+        auto camera_info =
+            gobal::stringanyting.get_value<std::pair<cv::Mat, cv::Mat>>("camera_info");
+        if (!mono_measure_tool::reprojectArmorsCorners(
                 armor_data,
                 target_info,
-                gobal::camera_intrinsic,
-                gobal::camera_distortion
+                camera_info.first,
+                camera_info.second
             ))
             return;
         try {
@@ -198,7 +209,7 @@ void WustVision::debugvisualize(bool auto_fps) {
             dbg.target = target;
             dbg.target_info = target_info;
             dbg.armors = armors;
-            dbg.gimbal_cmd = gobal::last_cmd;
+            dbg.gimbal_cmd = gimbal_cmd;
             dbg.tracker_state = state;
             drawDebugOverlayShm(dbg, auto_fps);
         } catch (const std::exception& e) {
@@ -213,7 +224,7 @@ void WustVision::debugvisualize(bool auto_fps) {
             dbg.src_img = debug_gobal_frame_.imgframe;
             dbg.objs = debug_gobal_frame_.rune_objects;
             dbg.predict_angle = predict_angle;
-            dbg.gimbal_cmd = gobal::last_cmd;
+            dbg.gimbal_cmd = gimbal_cmd;
             dbg.manual_r_box = manual_r_box_;
             dbg.debug_text = rune_solver_->curve_fitter_->getDebugText();
             drawDebugOverlayShm(dbg, auto_fps);
@@ -234,13 +245,15 @@ void WustVision::calculationManualR(const cv::Point2f center) {
         { x + half_size, y + half_size }, // 右下 → 对应点2
         { x + half_size, y - half_size } // 右上 → 对应点3
     } };
-    gobal::measure_tool->calcRTarget(
+    auto camera_info = gobal::stringanyting.get_value<std::pair<cv::Mat, cv::Mat>>("camera_info");
+    mono_measure_tool::calcRTarget(
         manual_r_box_,
         T_r_,
         T_camera_to_odom_,
-        gobal::camera_intrinsic,
-        gobal::camera_distortion
+        camera_info.first,
+        camera_info.second
     );
+
     manual_r_runing_ = false;
 }
 void WustVision::calculationManualR(const cv::Mat& src_img) {
@@ -307,13 +320,16 @@ void WustVision::calculationManualR(const cv::Mat& src_img) {
             WUST_INFO("Manual R") << "Manual point cleared.";
         }
     }
-    gobal::measure_tool->calcRTarget(
+    auto camera_info = gobal::stringanyting.get_value<std::pair<cv::Mat, cv::Mat>>("camera_info");
+
+    mono_measure_tool::calcRTarget(
         manual_r_box_,
         T_r_,
         T_camera_to_odom_,
-        gobal::camera_intrinsic,
-        gobal::camera_distortion
+        camera_info.first,
+        camera_info.second
     );
+
     cv::destroyWindow("Manual R Box");
     cv::destroyWindow("Manual R Box");
     cv::destroyWindow("Manual R Box");
@@ -519,7 +535,12 @@ void WustVision::reloadConfig(
     size_t new_shoot_hash = compute_hash(shoot_config);
     if (new_shoot_hash != section_hashes["shoot"]) {
         if (shoot_config && count != 0) {
-            utils::tryGetValue<double>(shoot_config, "bullet_speed", gobal::velocity);
+            double bullet_speed;
+            utils::tryGetValue<double>(shoot_config, "bullet_speed", bullet_speed);
+            gobal::stringanyting.set_value<double>("bullet_speed", bullet_speed);
+            double controller_delay;
+            utils::tryGetValue<double>(shoot_config, "controller_delay", controller_delay);
+            gobal::stringanyting.set_value<double>("controller_delay", controller_delay);
         }
         section_hashes["shoot"] = new_shoot_hash;
     }

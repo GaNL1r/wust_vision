@@ -43,13 +43,12 @@ public:
 public:
     // Construct a new OpenVINO Detector object
     explicit RuneDetectorOnnxRuntime(
+        std::string provider,
         std::string model_type,
         const std::filesystem::path& model_path,
         float conf_threshold = 0.25,
         int top_k = 128,
-        float nms_threshold = 0.3,
-        bool use_gpu_ = false,
-        int device_id_ = 0
+        float nms_threshold = 0.3
     );
 
     void init();
@@ -76,15 +75,13 @@ private:
     std::unique_ptr<Ort::Env> env_;
     std::unique_ptr<Ort::Session> session_;
     Ort::SessionOptions session_options_;
-
+    OrtProvider provider_ = OrtProvider::CPU;
     std::vector<int64_t> input_dims_;
     std::string input_name_;
     std::string output_name_;
     std::vector<int> strides_;
     std::vector<GridAndStride> grid_strides_;
     CallbackType infer_callback_;
-    bool use_gpu_ = false;
-    int device_id_ = 0;
     std::unique_ptr<rune_infer::RuneInfer> rune_infer_;
     int current_id_ = 0;
 };

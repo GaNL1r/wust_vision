@@ -122,14 +122,13 @@ static void letterbox_into_CHW_float_rgb(
 }
 
 ArmorDetectOnnxRuntime::ArmorDetectOnnxRuntime(
+    std::string provider,
     std::string model_type,
     const std::filesystem::path& model_path,
     const ArmorDetectCommonParams& armor_detect_common_params,
     float conf_threshold,
     int top_k,
     float nms_threshold,
-    bool use_gpu_,
-    int device_id_,
     bool use_armor_detect_common
 ):
 
@@ -137,8 +136,6 @@ ArmorDetectOnnxRuntime::ArmorDetectOnnxRuntime(
     conf_threshold_(conf_threshold),
     top_k_(top_k),
     nms_threshold_(nms_threshold),
-    use_gpu_(use_gpu_),
-    device_id_(device_id_),
     use_armor_detect_common_(use_armor_detect_common) {
     if (use_armor_detect_common_) {
         armor_detect_common_ = std::make_unique<ArmorDetectCommon>(armor_detect_common_params);
@@ -146,34 +143,57 @@ ArmorDetectOnnxRuntime::ArmorDetectOnnxRuntime(
     auto model = armor_infer::modeFromString(model_type);
     armor_infer_ =
         std::make_unique<armor_infer::ArmorInfer>(model, conf_threshold, nms_threshold, top_k);
+    provider_ = string2OrtProvider(provider);
     init();
 }
 
 void ArmorDetectOnnxRuntime::init() {
+    // 1. 创建 ONNX Runtime 环境
     env_ = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "ArmorDetectONNX");
+
+    // 2. 配置 SessionOptions
     Ort::SessionOptions session_options;
     session_options.SetIntraOpNumThreads(4);
+    session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 
-    session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
-
-    if (use_gpu_) {
-        OrtSessionOptionsAppendExecutionProvider_CUDA(session_options, device_id_);
+    // 3. 选择执行提供器
+    switch (provider_) {
+        case OrtProvider::CUDA:
+            session_options.AppendExecutionProvider_CUDA({});
+            break;
+        case OrtProvider::TensorRT:
+            session_options.AppendExecutionProvider_TensorRT({});
+            break;
+        case OrtProvider::OpenVINO: {
+            OrtOpenVINOProviderOptions options;
+            options.device_type = "CPU_FP32"; // 可改为 MYRIAD / GPU_FP32 等
+            session_options.AppendExecutionProvider_OpenVINO(options);
+            break;
+        }
+        case OrtProvider::CPU:
+        default:
+            // 默认使用 CPU
+            break;
     }
 
+    // 4. 创建推理 Session
     session_ = std::make_unique<Ort::Session>(*env_, model_path_.c_str(), session_options);
 
+    // 5. 分配默认内存管理器
     Ort::AllocatorWithDefaultOptions allocator;
 
-    Ort::AllocatedStringPtr input_name_ptr = session_->GetInputNameAllocated(0, allocator);
-    input_name_ = std::string(input_name_ptr.get());
+    // 6. 获取输入节点名称
+    input_name_ = session_->GetInputNameAllocated(0, allocator).get();
 
+    // 7. 获取输入张量形状
     auto input_type_info = session_->GetInputTypeInfo(0);
     auto input_tensor_info = input_type_info.GetTensorTypeAndShapeInfo();
     input_dims_ = input_tensor_info.GetShape();
 
-    Ort::AllocatedStringPtr output_name_ptr = session_->GetOutputNameAllocated(0, allocator);
-    output_name_ = std::string(output_name_ptr.get());
+    // 8. 获取输出节点名称
+    output_name_ = session_->GetOutputNameAllocated(0, allocator).get();
 
+    // 9. 准备 YOLO 网格和步幅
     strides_ = { 8, 16, 32 };
     armor_infer_->generate_grids_and_stride(
         armor_infer_->getInputW(),
@@ -241,9 +261,10 @@ bool ArmorDetectOnnxRuntime::processCallback(const CommonFrame& frame) {
         }
     } else {
         for (auto obj: objs_result) {
-            if (gobal::detect_color == 0 && obj.color == armor::ArmorColor::BLUE) {
+            auto detect_color = gobal::stringanyting.get_value<int>("detect_color");
+            if (detect_color == 0 && obj.color == armor::ArmorColor::BLUE) {
                 continue;
-            } else if (gobal::detect_color == 1 && obj.color == armor::ArmorColor::RED) {
+            } else if (detect_color == 1 && obj.color == armor::ArmorColor::RED) {
                 continue;
             }
         }

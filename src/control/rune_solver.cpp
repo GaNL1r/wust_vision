@@ -257,15 +257,10 @@ RuneSolver::solvePose(const rune::Rune& predicted_target, Eigen::Matrix4d T_came
     );
 
     cv::Mat rvec(3, 1, CV_64F), tvec(3, 1, CV_64F);
+    auto camera_info = gobal::stringanyting.get_value<std::pair<cv::Mat, cv::Mat>>("camera_info");
     if (pnp_solver_
-        && pnp_solver_->solvePnP(
-            image_points,
-            rvec,
-            tvec,
-            "rune",
-            gobal::camera_intrinsic,
-            gobal::camera_distortion
-        ))
+        && pnp_solver_
+               ->solvePnP(image_points, rvec, tvec, "rune", camera_info.first, camera_info.second))
     {
         // Get the transformation matrix from rune to odom
         try {
@@ -357,26 +352,15 @@ RuneSolver::solvePose(const rune::Rune& predicted_target, Eigen::Matrix4d T_came
 GimbalCmd RuneSolver::solveGimbalCmd(const Eigen::Vector3d& target) {
     // Get current yaw and pitch of gimbal
     double current_yaw = 0.0, current_pitch = 0.0;
-
-    if (gobal::communication_delay_μs != 0) {
-        std::chrono::microseconds delay =
-            std::chrono::microseconds(static_cast<int64_t>(std::round(gobal::communication_delay_μs)
-            ));
-        auto t_query = std::chrono::steady_clock::now() - delay;
-        auto past_att = gobal::motion_buffer.get_interpolated(t_query);
-        if (past_att) {
-            double delay_yaw = past_att->yaw;
-            double delay_pitch = past_att->pitch;
-            double delay_roll = past_att->roll;
-            current_pitch = delay_pitch + gobal::gimbal2camera_pitch;
-            current_yaw = delay_yaw + gobal::gimbal2camera_yaw;
-        } else {
-            current_pitch = gobal::last_pitch + gobal::gimbal2camera_pitch;
-            current_yaw = gobal::last_yaw + gobal::gimbal2camera_yaw;
+    auto motion_buffer = gobal::stringanyting.get_ptr<MotionBuffer>("motion_buffer");
+    auto gimbal2camera_rpy =
+        gobal::stringanyting.get_value<std::array<double, 3>>("gimbal2camera_rpy");
+    if (motion_buffer) {
+        auto last_att = motion_buffer->get_last();
+        if (last_att) {
+            current_pitch = last_att->pitch + gimbal2camera_rpy[1];
+            current_yaw = last_att->yaw + gimbal2camera_rpy[2];
         }
-    } else {
-        current_pitch = gobal::last_pitch + gobal::gimbal2camera_pitch;
-        current_yaw = gobal::last_yaw + gobal::gimbal2camera_yaw;
     }
 
     // Calculate yaw and pitch

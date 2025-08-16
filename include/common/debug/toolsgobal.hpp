@@ -120,16 +120,10 @@ struct DebugRune {
 
 namespace toolsgobal {
 
-extern std::chrono::steady_clock::time_point start_time_;
-extern std::thread debug_thread_;
-
 extern std::mutex robot_cmd_mutex_;
 extern DebugLogs debug_logs_;
-
 extern int debug_w;
 extern int debug_h;
-
-extern double latency_ms;
 extern double debug_fps;
-extern LatencyAveragerDeque latency_averager;
+extern double latency_ms;
 } // namespace toolsgobal

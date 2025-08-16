@@ -40,11 +40,9 @@ void ArmorSolver::init(const YAML::Node& config) {
     big_shooting_range_h_ = s["big_shooting_range_h"].as<double>(0.12);
     max_tracking_v_yaw_ = s["max_tracking_v_yaw"].as<double>(60.0);
     prediction_delay_ = s["prediction_delay"].as<double>(0.0);
-    gobal::controller_delay = s["controller_delay"].as<double>(0.0);
+
     side_angle_ = s["side_angle"].as<double>(20.0);
     min_switching_v_yaw_ = s["min_switching_v_yaw"].as<double>(1.0);
-    auto shoot_config = config["shoot"];
-    double bullet_speed_ = shoot_config["bullet_speed"].as<double>(25.0);
     double gravity_ = s["gravity"].as<double>(10.0);
     double resistance_ = s["resistance"].as<double>(0.092);
     int iteration_times_ = s["iteration_times"].as<int>(20);
@@ -58,7 +56,6 @@ void ArmorSolver::init(const YAML::Node& config) {
     // 3. 初始化弹道补偿器
     trajectory_compensator_ = CompensatorFactory::createCompensator(comp_type);
     trajectory_compensator_->iteration_times_ = iteration_times_;
-    gobal::velocity = bullet_speed_;
     trajectory_compensator_->gravity_ = gravity_;
     trajectory_compensator_->resistance_ = resistance_;
 
@@ -80,8 +77,9 @@ void ArmorSolver::init(const YAML::Node& config) {
     }
     manual_compensator_->updateMapFlow(entries);
 
-    // 5. 状态机初值
-    gobal::armor_slove_state = gobal::ArmorSloveState::TRACKING_ARMOR;
+    auto gobal_state = gobal::stringanyting.get_value<GobalState>("gobal_state");
+    gobal_state.armor_slove_state = GobalState::ArmorSloveState::TRACKING_ARMOR;
+    gobal::stringanyting.set_value("gobal_state", gobal_state);
     overflow_count_ = 0;
     transfer_thresh_ = 5;
 }
@@ -92,10 +90,18 @@ GimbalCmd ArmorSolver::solve(
 ) {
     // 1. 获取最新的云台 RPY
     std::array<double, 3> rpy;
-    rpy[0] = gobal::last_roll + gobal::gimbal2camera_roll;
-    rpy[1] = gobal::last_pitch + gobal::gimbal2camera_pitch;
-    rpy[2] = gobal::last_yaw + gobal::gimbal2camera_yaw;
-
+    auto motion_buffer = gobal::stringanyting.get_ptr<MotionBuffer>("motion_buffer");
+    auto gimbal2camera_rpy =
+        gobal::stringanyting.get_value<std::array<double, 3>>("gimbal2camera_rpy");
+    if (motion_buffer) {
+        auto last_att = motion_buffer->get_last();
+        if (last_att) {
+            rpy[0] = last_att->roll + gimbal2camera_rpy[0];
+            rpy[1] = last_att->pitch + gimbal2camera_rpy[1];
+            rpy[2] = last_att->yaw + gimbal2camera_rpy[2];
+        }
+    }
+    double controller_delay = gobal::stringanyting.get_value<double>("controller_delay");
     // 2. 选择最优单目标索引
     const auto& one_targets = armor_solver_target.one_targets;
     const auto& target = armor_solver_target.target;
@@ -161,22 +167,25 @@ GimbalCmd ArmorSolver::solve(
         Eigen::Vector3d chosen;
         bool is_large =
             (target.id == armor::ArmorNumber::NO1 || target.id == armor::ArmorNumber::BASE);
-        switch (gobal::armor_slove_state) {
-            case gobal::ArmorSloveState::TRACKING_ARMOR:
+        auto gobal_state = gobal::stringanyting.get_value<GobalState>("gobal_state");
+
+        switch (gobal_state.armor_slove_state) {
+            case GobalState::ArmorSloveState::TRACKING_ARMOR:
                 if (std::abs(target.v_yaw) > max_tracking_v_yaw_) {
                     ++overflow_count_;
                 } else {
                     overflow_count_ = 0;
                 }
                 if (overflow_count_ > transfer_thresh_) {
-                    gobal::armor_slove_state = gobal::ArmorSloveState::TRACKING_CENTER;
+                    gobal_state.armor_slove_state = GobalState::ArmorSloveState::TRACKING_CENTER;
+                    gobal::stringanyting.set_value("gobal_state", gobal_state);
                     overflow_count_ = 0;
                 }
                 chosen = armors[idx];
 
-                if (gobal::controller_delay > 1e-6) {
-                    pos += gobal::controller_delay * vel;
-                    yaw += gobal::controller_delay * target.v_yaw;
+                if (controller_delay > 1e-6) {
+                    pos += controller_delay * vel;
+                    yaw += controller_delay * target.v_yaw;
                     auto delayed_armors = getArmorPositions(
                         pos,
                         yaw,
@@ -203,20 +212,21 @@ GimbalCmd ArmorSolver::solve(
                 control_pitch = fire_pitch;
                 break;
 
-            case gobal::ArmorSloveState::TRACKING_CENTER:
+            case GobalState::ArmorSloveState::TRACKING_CENTER:
                 if (std::abs(target.v_yaw) < max_tracking_v_yaw_) {
                     ++overflow_count_;
                 } else {
                     overflow_count_ = 0;
                 }
                 if (overflow_count_ > transfer_thresh_) {
-                    gobal::armor_slove_state = gobal::ArmorSloveState::TRACKING_ARMOR;
+                    gobal_state.armor_slove_state = GobalState::ArmorSloveState::TRACKING_ARMOR;
+                    gobal::stringanyting.set_value("gobal_state", gobal_state);
                     overflow_count_ = 0;
                 }
                 chosen = armors[idx];
-                if (gobal::controller_delay > 1e-6) {
-                    pos += gobal::controller_delay * vel;
-                    yaw += gobal::controller_delay * target.v_yaw;
+                if (controller_delay > 1e-6) {
+                    pos += controller_delay * vel;
+                    yaw += controller_delay * target.v_yaw;
                     auto delayed_armors = getArmorPositions(
                         pos,
                         yaw,
@@ -247,7 +257,8 @@ GimbalCmd ArmorSolver::solve(
                 break;
 
             default:
-                gobal::armor_slove_state = gobal::ArmorSloveState::TRACKING_ARMOR;
+                gobal_state.armor_slove_state = GobalState::ArmorSloveState::TRACKING_ARMOR;
+                gobal::stringanyting.set_value("gobal_state", gobal_state);
                 break;
         }
 
@@ -285,8 +296,7 @@ GimbalCmd ArmorSolver::solve(
         using namespace std::chrono;
         double fly_t = trajectory_compensator_->getFlyingTime(pos);
         double dt_sec = fly_t + prediction_delay_
-            + duration<double>(current_time - best_target.timestamp).count()
-            + gobal::controller_delay;
+            + duration<double>(current_time - best_target.timestamp).count() + controller_delay;
 
         vel += dt_sec * acc;
         pos += dt_sec * vel;
@@ -508,39 +518,27 @@ int ArmorSolver::selectBestTarget(
     double min_angle_diff = std::numeric_limits<double>::max();
     const armor::OneTarget* best_target_ptr = nullptr;
 
-    // Step 1: 优先选择 is_omni == false 的目标
-    for (int pass = 0; pass < 2; ++pass) {
-        bool require_omni = (pass == 1); // pass 0: 只选 false，pass 1: 选 true
-
-        // 如果目标已在跟踪中，不再考虑 is_omni == true 的目标
-        if (is_target_tracking && require_omni)
+    // 遍历所有正在跟踪的目标
+    for (int i = 0; i < targets.size(); ++i) {
+        const auto& tgt = targets[i];
+        if (!tgt.tracking)
             continue;
 
-        for (int i = 0; i < targets.size(); ++i) {
-            const auto& tgt = targets[i];
-            if (!tgt.tracking)
-                continue;
-            if (tgt.is_omni != require_omni)
-                continue;
+        // 计算目标方向角度差
+        double alpha = std::atan2(tgt.position_.y, tgt.position_.x);
+        double beta = tgt.yaw;
 
-            double alpha = std::atan2(tgt.position_.y, tgt.position_.x);
-            double beta = tgt.yaw;
+        Eigen::Matrix2d Ra, Rb;
+        Ra << std::cos(alpha), std::sin(alpha), -std::sin(alpha), std::cos(alpha);
+        Rb << std::cos(beta), std::sin(beta), -std::sin(beta), std::cos(beta);
 
-            Eigen::Matrix2d Ra, Rb;
-            Ra << std::cos(alpha), std::sin(alpha), -std::sin(alpha), std::cos(alpha);
-            Rb << std::cos(beta), std::sin(beta), -std::sin(beta), std::cos(beta);
+        double decision_angle = -std::asin((Ra.transpose() * Rb)(0, 1));
 
-            double decision_angle = -std::asin((Ra.transpose() * Rb)(0, 1));
-
-            if (std::abs(decision_angle) < min_angle_diff) {
-                min_angle_diff = std::abs(decision_angle);
-                best_idx = i;
-                best_target_ptr = &tgt;
-            }
+        if (std::abs(decision_angle) < min_angle_diff) {
+            min_angle_diff = std::abs(decision_angle);
+            best_idx = i;
+            best_target_ptr = &tgt;
         }
-
-        if (best_target_ptr)
-            break; // 如果本轮找到合适目标，就退出
     }
 
     if (best_idx == -1 || best_target_ptr == nullptr)

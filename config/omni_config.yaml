@@ -5,6 +5,7 @@ common:
   use_armor_detect_ncnn: false
   max_infer_running: 5
   max_detect_armors: 15
+  valid_duration: 0.5
   armor_detect_backend: onnxruntime
 
 omni_vision:

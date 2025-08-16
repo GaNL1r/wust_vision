@@ -24,9 +24,8 @@ ArmorDetectorOrtWrapper::ArmorDetectorOrtWrapper(
     float conf_threshold = config["armor_detect"]["model"]["conf_threshold"].as<float>();
     int top_k = config["armor_detect"]["model"]["top_k"].as<int>();
     float nms_threshold = config["armor_detect"]["model"]["nms_threshold"].as<float>();
-    bool use_gpu = config["armor_detect"]["model"]["use_gpu"].as<bool>();
-    int device_id = config["armor_detect"]["model"]["device_id"].as<int>();
     std::string model_type = config["armor_detect"]["model"]["model_type"].as<std::string>();
+    std::string provider = config["armor_detect"]["model"]["provider"].as<std::string>("CPU");
     WUST_INFO("armor_detector") << "model_path: " << model_path;
     int binary_thres;
     float expand_ratio_w, expand_ratio_h;
@@ -63,14 +62,13 @@ ArmorDetectorOrtWrapper::ArmorDetectorOrtWrapper(
     };
 
     detector_ = std::make_unique<ArmorDetectOnnxRuntime>(
+        provider,
         model_type,
         model_path,
         armor_detect_common_params,
         conf_threshold,
         top_k,
         nms_threshold,
-        use_gpu,
-        device_id,
         use_armor_detect_common
     );
 }

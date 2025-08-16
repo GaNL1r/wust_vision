@@ -21,39 +21,7 @@
 #include <cmath>
 #include <numeric>
 #include <yaml-cpp/yaml.h>
-std::vector<cv::Point3f> MonoMeasureTool::SMALL_ARMOR_3D_POINTS = {
-    { 0, 0.025, -0.066 },
-    { 0, -0.025, -0.066 },
-    { 0, -0.025, 0.066 },
-    { 0, 0.025, 0.066 },
-};
-
-std::vector<cv::Point3f> MonoMeasureTool::BIG_ARMOR_3D_POINTS = {
-    { 0, 0.025, -0.1125 },
-    { 0, -0.025, -0.1125 },
-    { 0, -0.025, 0.1125 },
-    { 0, 0.025, 0.1125 },
-};
-std::vector<cv::Point3f> MonoMeasureTool::SMALL_ARMOR_3D_POINTS_NET = {
-    { 0, 0.027, -0.066 },
-    { 0, -0.027, -0.066 },
-    { 0, -0.027, 0.066 },
-    { 0, 0.027, 0.066 },
-};
-
-std::vector<cv::Point3f> MonoMeasureTool::BIG_ARMOR_3D_POINTS_NET = {
-    { 0, 0.027, -0.1125 },
-    { 0, -0.027, -0.1125 },
-    { 0, -0.027, 0.1125 },
-    { 0, 0.027, 0.1125 },
-};
-
-std::vector<cv::Point3f> MonoMeasureTool::R_BOX_POINTS = {
-    { 0, 0.05, -0.05 },
-    { 0, -0.05, -0.05 },
-    { 0, -0.05, 0.05 },
-    { 0, 0.05, 0.05 },
-};
+namespace mono_measure_tool {
 
 bool is_big_armor(const armor::ArmorObject& obj) {
     switch (obj.number) {
@@ -65,7 +33,7 @@ bool is_big_armor(const armor::ArmorObject& obj) {
     }
 }
 
-bool MonoMeasureTool::solvePnp(
+bool solvePnp(
     const std::vector<cv::Point2f>& points2d,
     const std::vector<cv::Point3f>& points3d,
     cv::Point3f& position,
@@ -107,18 +75,8 @@ bool MonoMeasureTool::solvePnp(
     position = cv::Point3f(trans);
     return true;
 }
-cv::Point3f MonoMeasureTool::unproject(cv::Point2f p, double distance) {
-    double zc = distance;
-    double xc = (p.x - u0_) * distance / fx_;
-    double yc = (p.y - v0_) * distance / fy_;
-    return cv::Point3f(xc, yc, zc);
-}
-void MonoMeasureTool::calcViewAngle(cv::Point2f p, float& pitch, float& yaw) {
-    pitch = atan2((p.y - v0_), fy_);
-    yaw = atan2((p.x - u0_), fx_);
-}
 
-bool MonoMeasureTool::calcRTarget(
+bool calcRTarget(
     const std::vector<cv::Point2f>& manual_r_box,
     Eigen::Matrix4d& TRodom,
     const Eigen::Matrix4d& T_camera_to_odom,
@@ -126,7 +84,7 @@ bool MonoMeasureTool::calcRTarget(
     const cv::Mat& camera_distortion
 ) {
     if (camera_intrinsic.empty() || camera_distortion.empty()) {
-        WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
+        //WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
         return false;
     }
 
@@ -167,7 +125,7 @@ bool MonoMeasureTool::calcRTarget(
 
     return true;
 }
-bool MonoMeasureTool::projectRTargetToImage(
+bool projectRTargetToImage(
     const Eigen::Matrix4d& TRodom,
     const Eigen::Matrix4d& T_camera_to_odom,
     std::vector<cv::Point2f>& manual_r_box,
@@ -175,7 +133,7 @@ bool MonoMeasureTool::projectRTargetToImage(
     const cv::Mat& camera_distortion
 ) {
     if (camera_intrinsic.empty() || camera_distortion.empty()) {
-        WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
+        //WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
         return false;
     }
 
@@ -198,7 +156,7 @@ bool MonoMeasureTool::projectRTargetToImage(
     return true;
 }
 
-bool MonoMeasureTool::calcArmorTarget(
+bool calcArmorTarget(
     const armor::ArmorObject& obj,
     cv::Point3f& position,
     cv::Mat& rvec,
@@ -232,7 +190,7 @@ bool MonoMeasureTool::calcArmorTarget(
 
     // Ensure camera parameters initialized
     if (camera_intrinsic.empty() || camera_distortion.empty()) {
-        WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
+        //WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
         return false;
     }
 
@@ -249,7 +207,7 @@ bool MonoMeasureTool::calcArmorTarget(
         cv::SOLVEPNP_IPPE
     );
     if (!generic_ok || rvecs.empty()) {
-        WUST_WARN(mono_logger) << "solvePnPGeneric failed.";
+        // WUST_WARN(mono_logger) << "solvePnPGeneric failed.";
         return false;
     }
 
@@ -281,14 +239,9 @@ bool MonoMeasureTool::calcArmorTarget(
     cv::Mat tvec = tvecs[best_idx].clone();
     position = cv::Point3f(tvec);
 
-    // Store for next-frame iterative refinement
-    prev_rvec_ = rvec;
-    prev_tvec_ = tvec;
-    has_prev_ = true;
-
     return true;
 }
-float MonoMeasureTool::calcDistanceToCenter(
+float calcDistanceToCenter(
     const armor::ArmorObject& obj,
     const cv::Mat& camera_intrinsic_,
     const cv::Mat& camera_distortion_
@@ -310,14 +263,14 @@ float MonoMeasureTool::calcDistanceToCenter(
     return sqrt(dis_vec.dot(dis_vec));
 }
 
-bool MonoMeasureTool::reprojectArmorCorners(
+bool reprojectArmorCorners(
     const armor::Armor& armor,
     std::vector<cv::Point2f>& image_points,
     const cv::Mat& camera_intrinsic,
     const cv::Mat& camera_distortion
 ) {
     if (camera_intrinsic.empty() || camera_distortion.empty()) {
-        WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
+        //WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
         return false;
     }
 
@@ -328,7 +281,7 @@ bool MonoMeasureTool::reprojectArmorCorners(
     } else if (armor.type == "small") {
         model_points = &SMALL_ARMOR_3D_POINTS;
     } else {
-        WUST_ERROR(mono_logger) << "Unknown armor type: " << armor.type;
+        //WUST_ERROR(mono_logger) << "Unknown armor type: " << armor.type;
         return false;
     }
 
@@ -358,14 +311,14 @@ bool MonoMeasureTool::reprojectArmorCorners(
 
     return true;
 }
-bool MonoMeasureTool::reprojectArmorCorners_raw(
+bool reprojectArmorCorners_raw(
     const armor::Armor& armor,
     std::vector<cv::Point2f>& image_points,
     const cv::Mat& camera_intrinsic,
     const cv::Mat& camera_distortion
 ) {
     if (camera_intrinsic.empty() || camera_distortion.empty()) {
-        WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
+        //WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
         return false;
     }
 
@@ -376,7 +329,7 @@ bool MonoMeasureTool::reprojectArmorCorners_raw(
     } else if (armor.type == "small") {
         model_points = &SMALL_ARMOR_3D_POINTS;
     } else {
-        WUST_ERROR(mono_logger) << "Unknown armor type: " << armor.type;
+        //WUST_ERROR(mono_logger) << "Unknown armor type: " << armor.type;
         return false;
     }
 
@@ -405,14 +358,14 @@ bool MonoMeasureTool::reprojectArmorCorners_raw(
 
     return true;
 }
-bool MonoMeasureTool::reprojectArmorsCorners(
+bool reprojectArmorsCorners(
     armor::Armors& armors,
     Target_info& target_info,
     const cv::Mat& camera_intrinsic,
     const cv::Mat& camera_distortion
 ) {
     if (camera_intrinsic.empty() || camera_distortion.empty()) {
-        WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
+        //WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
         return false;
     }
     for (auto& armor: armors.armors) {
@@ -427,7 +380,7 @@ bool MonoMeasureTool::reprojectArmorsCorners(
     }
     return true;
 }
-void MonoMeasureTool::processDetectedArmors(
+void processDetectedArmors(
     const std::vector<armor::ArmorObject>& objs,
     armor::Armors& armors_out,
     Eigen::Matrix4d T_camera_to_odom,
@@ -490,7 +443,7 @@ void MonoMeasureTool::processDetectedArmors(
             if (!std::isfinite(tf_quaternion.x) || !std::isfinite(tf_quaternion.y)
                 || !std::isfinite(tf_quaternion.z) || !std::isfinite(tf_quaternion.w))
             {
-                WUST_WARN(mono_logger) << "Quaternion contains NaN or Inf";
+                //WUST_WARN(mono_logger) << "Quaternion contains NaN or Inf";
                 continue;
             }
 
@@ -508,9 +461,10 @@ void MonoMeasureTool::processDetectedArmors(
             armors_out.armors.emplace_back(armor);
 
         } catch (const cv::Exception& e) {
-            WUST_ERROR(mono_logger) << "cv::Rodrigues failed: " << e.what();
+            //WUST_ERROR(mono_logger) << "cv::Rodrigues failed: " << e.what();
             continue;
         }
     }
     utils::transformArmorData(armors_out, T_camera_to_odom);
 }
+} // namespace mono_measure_tool

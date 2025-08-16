@@ -1,6 +1,6 @@
 common:
   armor_detect_backend: opencv
-  rune_detect_backend: tensorrt
+  rune_detect_backend: openvino
   detect_color: 0
   init_attack_mode: 0
   max_detect_armors: 12
@@ -11,8 +11,6 @@ common:
   use_calculation: false
   use_ba: false
   use_omni: false
-  hit_omni_dt: 5.0
-  receive_omni_dt: 1.0
   use_fun: true
 
 camera:
@@ -23,13 +21,13 @@ camera:
   exposure_time: 1000
   gain: 16.9
   gamma: 0.7 #Bayer用不了
-  pixel_format:  BayerRG8 #RGB8Packed
+  pixel_format: BayerRG8 #RGB8Packed
   acquisition_frame_rate_enable: true
   reverse_x: false
   reverse_y: false
   recorder: false
   video_player:
-    fps: 200
+    fps: 60
     loop: true
     #path: /home/hy/wust_data/video/222.MP4
     path: /home/hy/wust_data/video/jiao.avi
@@ -53,7 +51,6 @@ control:
   jump_yaw: 1.0
   use_nav: false
   use_serial: false
-
 tf:
   gimbal2camera_pitch: 0
   gimbal2camera_roll: 0
@@ -78,6 +75,7 @@ logger:
 
 shoot:
   bullet_speed: 21
+  controller_delay: 0.01
 
 armor_optimize:
   max_iter_R: 3000
@@ -90,7 +88,6 @@ armor_optimize:
 
 armor_solver:
   compenstator_type: ideal
-  controller_delay: 0.01
   gravity: 9.8
   iteration_times: 20
   min_switching_v_yaw: 1
