@@ -29,6 +29,7 @@
 // project
 #include "common/ThreadPool.h"
 #include "detect/rune_detect/rune_infer.hpp"
+#include "ml_net/ncnn/ncnn_net.hpp"
 #include "type/type.hpp"
 class RuneDetectorNCNN {
 public:
@@ -69,8 +70,6 @@ private:
     bool processCallback(const CommonFrame& frame);
 
 private:
-    ncnn::Net net_;
-    ncnn::Option opt_;
     std::string model_path_param_;
     std::string model_path_bin_;
     float conf_threshold_;
@@ -86,4 +85,5 @@ private:
     bool use_lightmode_ = true;
     std::unique_ptr<rune_infer::RuneInfer> rune_infer_;
     int current_id_ = 0;
+    std::unique_ptr<ml_net::NCNNNet> ncnn_net_;
 };

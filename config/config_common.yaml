@@ -1,6 +1,6 @@
 common:
-  armor_detect_backend: opencv
-  rune_detect_backend: openvino
+  armor_detect_backend: tensorrt
+  rune_detect_backend: tensorrt
   detect_color: 0
   init_attack_mode: 0
   max_detect_armors: 12

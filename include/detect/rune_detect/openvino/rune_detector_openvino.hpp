@@ -34,6 +34,7 @@
 // project
 #include "common/ThreadPool.h"
 #include "detect/rune_detect/rune_infer.hpp"
+#include "ml_net/openvino/openvino_net.hpp"
 #include "type/type.hpp"
 class RuneDetectorOpenvino {
 public:
@@ -76,9 +77,7 @@ private:
     std::vector<int> strides_;
     std::vector<GridAndStride> grid_strides_;
     CallbackType infer_callback_;
-    std::unique_ptr<ov::Core> ov_core_;
-    std::unique_ptr<ov::CompiledModel> compiled_model_;
-    std::shared_ptr<ov::Model> model_;
+    std::unique_ptr<ml_net::OpenvinoNet> openvino_net_;
     ov::preprocess::PrePostProcessor* ppp_;
     bool use_throughputmode_ = false;
     std::unique_ptr<rune_infer::RuneInfer> rune_infer_;

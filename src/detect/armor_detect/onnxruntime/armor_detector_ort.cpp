@@ -148,50 +148,11 @@ ArmorDetectOnnxRuntime::ArmorDetectOnnxRuntime(
 }
 
 void ArmorDetectOnnxRuntime::init() {
-    // 1. 创建 ONNX Runtime 环境
-    env_ = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "ArmorDetectONNX");
-
-    // 2. 配置 SessionOptions
-    Ort::SessionOptions session_options;
-    session_options.SetIntraOpNumThreads(4);
-    session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
-
-    // 3. 选择执行提供器
-    switch (provider_) {
-        case OrtProvider::CUDA:
-            session_options.AppendExecutionProvider_CUDA({});
-            break;
-        case OrtProvider::TensorRT:
-            session_options.AppendExecutionProvider_TensorRT({});
-            break;
-        case OrtProvider::OpenVINO: {
-            OrtOpenVINOProviderOptions options;
-            options.device_type = "CPU_FP32"; // 可改为 MYRIAD / GPU_FP32 等
-            session_options.AppendExecutionProvider_OpenVINO(options);
-            break;
-        }
-        case OrtProvider::CPU:
-        default:
-            // 默认使用 CPU
-            break;
-    }
-
-    // 4. 创建推理 Session
-    session_ = std::make_unique<Ort::Session>(*env_, model_path_.c_str(), session_options);
-
-    // 5. 分配默认内存管理器
-    Ort::AllocatorWithDefaultOptions allocator;
-
-    // 6. 获取输入节点名称
-    input_name_ = session_->GetInputNameAllocated(0, allocator).get();
-
-    // 7. 获取输入张量形状
-    auto input_type_info = session_->GetInputTypeInfo(0);
-    auto input_tensor_info = input_type_info.GetTensorTypeAndShapeInfo();
-    input_dims_ = input_tensor_info.GetShape();
-
-    // 8. 获取输出节点名称
-    output_name_ = session_->GetOutputNameAllocated(0, allocator).get();
+    onnxruntime_net_ = std::make_unique<ml_net::OnnxRuntimeNet>();
+    ml_net::OnnxRuntimeNet::Params params;
+    params.model_path = model_path_;
+    params.provider = provider_;
+    onnxruntime_net_->init(params);
 
     // 9. 准备 YOLO 网格和步幅
     strides_ = { 8, 16, 32 };
@@ -204,8 +165,7 @@ void ArmorDetectOnnxRuntime::init() {
 }
 
 ArmorDetectOnnxRuntime::~ArmorDetectOnnxRuntime() {
-    env_.reset();
-    session_.reset();
+    onnxruntime_net_.reset();
     armor_detect_common_.reset();
 }
 
@@ -228,22 +188,9 @@ bool ArmorDetectOnnxRuntime::processCallback(const CommonFrame& frame) {
         false
     );
 
-    Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
-    Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
-        memory_info,
-        input_tensor_values.data(),
-        input_tensor_values.size(),
-        input_dims_.data(),
-        input_dims_.size()
-    );
+    auto output_data = onnxruntime_net_->infer(input_tensor_values);
 
-    const char* input_names[] = { input_name_.c_str() };
-    const char* output_names[] = { output_name_.c_str() };
-    auto output_tensors =
-        session_->Run(Ort::RunOptions { nullptr }, input_names, &input_tensor, 1, output_names, 1);
-
-    float* output_data = output_tensors.front().GetTensorMutableData<float>();
-    auto output_shape = output_tensors.front().GetTensorTypeAndShapeInfo().GetShape();
+    auto output_shape = onnxruntime_net_->getOutputShape();
     int rows = static_cast<int>(output_shape[1]);
     int cols = static_cast<int>(output_shape[2]);
     cv::Mat output_buffer(rows, cols, CV_32F, output_data);
@@ -261,12 +208,6 @@ bool ArmorDetectOnnxRuntime::processCallback(const CommonFrame& frame) {
         }
     } else {
         for (auto obj: objs_result) {
-            auto detect_color = gobal::stringanyting.get_value<int>("detect_color");
-            if (detect_color == 0 && obj.color == armor::ArmorColor::BLUE) {
-                continue;
-            } else if (detect_color == 1 && obj.color == armor::ArmorColor::RED) {
-                continue;
-            }
         }
         if (this->infer_callback_) {
             this->infer_callback_(armors, frame);

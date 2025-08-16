@@ -23,6 +23,7 @@
 #include "fmt/color.h"
 #include "fmt/core.h"
 #include "fmt/printf.h"
+#include "ml_net/ncnn/ncnn_net.hpp"
 #include "ncnn/net.h"
 #include "opencv2/opencv.hpp"
 class ArmorDetectNCNN {
@@ -53,8 +54,6 @@ public:
     void pushInput(CommonFrame& frame);
 
 private:
-    ncnn::Net net_;
-    ncnn::Option opt_;
     std::string model_path_param_;
     std::string model_path_bin_;
     DetectorCallback infer_callback_;
@@ -72,4 +71,5 @@ private:
     bool use_armor_detect_common_ = true;
     std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;
     int current_id_ = 0;
+    std::unique_ptr<ml_net::NCNNNet> ncnn_net_;
 };

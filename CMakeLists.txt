@@ -58,6 +58,7 @@ if(BUILD_WITH_ORT)
 endif()
 
 add_subdirectory(KalmanHyLib)
+add_subdirectory(ml_net)
 add_subdirectory(3rdparty/backward-cpp)
 
 # 公共源码
@@ -173,6 +174,7 @@ set(BUILD_LIBS
   GL
   tbb
   KalmanHyLib
+  ml_net
   Backward::Interface
   TBB::tbb
   sfml-audio

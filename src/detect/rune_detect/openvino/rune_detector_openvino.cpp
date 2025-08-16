@@ -51,46 +51,35 @@ RuneDetectorOpenvino::RuneDetectorOpenvino(
 }
 
 void RuneDetectorOpenvino::init() {
-    // 1) Core／Model 读取
-    if (!ov_core_) {
-        ov_core_ = std::make_unique<ov::Core>();
-    }
-    // load IR
-    model_ = ov_core_->read_model(model_path_);
+    openvino_net_ = std::make_unique<ml_net::OpenvinoNet>();
+    auto ppp_init_fun = [this](ov::preprocess::PrePostProcessor& ppp) {
+        // 1) 设置输入输出 tensor 的类型、布局、颜色格式等
+        ppp.input()
+            .tensor()
+            .set_element_type(ov::element::u8)
+            .set_layout("NHWC")
+            .set_color_format(ov::preprocess::ColorFormat::BGR);
 
-    // 2) PrePostProcessor 配置
-    ov::preprocess::PrePostProcessor ppp(model_);
+        // 预处理管线：u8→f32、BGR→RGB
+        float scale = rune_infer_->getUseNorm() ? 255.0f : 1.0f;
+        ppp.input()
+            .preprocess()
+            .convert_element_type(ov::element::f32)
+            .convert_color(ov::preprocess::ColorFormat::RGB)
+            .scale({ scale, scale, scale });
 
-    // 告诉引擎：输入 tensor 是 u8、NHWC、BGR
-    ppp.input()
-        .tensor()
-        .set_element_type(ov::element::u8)
-        .set_layout("NHWC")
-        .set_color_format(ov::preprocess::ColorFormat::BGR);
+        // 告诉引擎：模型内部期望的布局是 NCHW
+        ppp.input().model().set_layout("NCHW");
 
-    // 预处理管线：u8→f32、BGR→RGB
-    float scale = rune_infer_->getUseNorm() ? 255.0f : 1.0f;
-    ppp.input()
-        .preprocess()
-        .convert_element_type(ov::element::f32)
-        .convert_color(ov::preprocess::ColorFormat::RGB)
-        .scale({ scale, scale, scale });
-
-    // 告诉引擎：模型内部期望的布局是 NCHW
-    ppp.input().model().set_layout("NCHW");
-
-    // 输出也要 f32
-    ppp.output().tensor().set_element_type(ov::element::f32);
-
-    // 把预处理节点「贴」到模型里
-    model_ = ppp.build();
-
-    // 3) 编译模型（可以带 performance_mode hint）
-    ov::hint::PerformanceMode mode = use_throughputmode_ ? ov::hint::PerformanceMode::THROUGHPUT
-                                                         : ov::hint::PerformanceMode::LATENCY;
-    compiled_model_ = std::make_unique<ov::CompiledModel>(
-        ov_core_->compile_model(model_, device_name_, ov::hint::performance_mode(mode))
-    );
+        // 输出也要 f32
+        ppp.output().tensor().set_element_type(ov::element::f32);
+    };
+    ml_net::OpenvinoNet::Params params;
+    params.model_path = model_path_;
+    params.device_name = device_name_;
+    params.mode = use_throughputmode_ ? ov::hint::PerformanceMode::THROUGHPUT
+                                      : ov::hint::PerformanceMode::LATENCY;
+    openvino_net_->init(params, ppp_init_fun);
 
     strides_ = { 8, 16, 32 };
     rune_infer_->generateGridsAndStride(
@@ -140,20 +129,9 @@ bool RuneDetectorOpenvino::processCallback(const CommonFrame& frame) {
         rune_infer_->getInputW(),
         rune_infer_->getInputH()
     );
-    auto input_tensor = ov::Tensor(
-        compiled_model_->input().get_element_type(),
-        compiled_model_->input().get_shape(),
-        resized_img.data
-    );
-
-    // Start inference
-    // Lock because of the thread race condition within the openvino library
-
-    auto infer_request = compiled_model_->create_infer_request();
-    infer_request.set_input_tensor(input_tensor);
-    infer_request.infer();
-
-    auto output = infer_request.get_output_tensor();
+    auto input_info = openvino_net_->getInputInfo();
+    auto input_tensor = ov::Tensor(input_info.first, input_info.second, resized_img.data);
+    auto output = openvino_net_->infer(input_tensor);
 
     // Process output data
     auto output_shape = output.get_shape();

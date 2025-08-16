@@ -34,6 +34,7 @@
 // project
 #include "common/ThreadPool.h"
 #include "detect/rune_detect/rune_infer.hpp"
+#include "ml_net/onnxruntime/onnxruntime_net.hpp"
 #include "onnxruntime_cxx_api.h"
 #include "type/type.hpp"
 class RuneDetectorOnnxRuntime {
@@ -72,16 +73,11 @@ private:
     float conf_threshold_;
     int top_k_;
     float nms_threshold_;
-    std::unique_ptr<Ort::Env> env_;
-    std::unique_ptr<Ort::Session> session_;
-    Ort::SessionOptions session_options_;
     OrtProvider provider_ = OrtProvider::CPU;
-    std::vector<int64_t> input_dims_;
-    std::string input_name_;
-    std::string output_name_;
     std::vector<int> strides_;
     std::vector<GridAndStride> grid_strides_;
     CallbackType infer_callback_;
     std::unique_ptr<rune_infer::RuneInfer> rune_infer_;
     int current_id_ = 0;
+    std::unique_ptr<ml_net::OnnxRuntimeNet> onnxruntime_net_;
 };

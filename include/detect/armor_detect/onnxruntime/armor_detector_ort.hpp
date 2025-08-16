@@ -1,3 +1,17 @@
+// Copyright 2025 Xiaojian Wu
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+#pragma once
 #include "common/ThreadPool.h"
 #include "common/logger.hpp"
 #include "detect/armor_detect/armor_detect_common.hpp"
@@ -6,6 +20,7 @@
 #include "fmt/color.h"
 #include "fmt/core.h"
 #include "fmt/printf.h"
+#include "ml_net/onnxruntime/onnxruntime_net.hpp"
 #include "opencv2/opencv.hpp"
 #include <filesystem>
 #include <onnxruntime_cxx_api.h>
@@ -41,13 +56,6 @@ private:
     float conf_threshold_;
     int top_k_;
     float nms_threshold_;
-    std::unique_ptr<Ort::Env> env_;
-    std::unique_ptr<Ort::Session> session_;
-    Ort::SessionOptions session_options_;
-
-    std::vector<int64_t> input_dims_;
-    std::string input_name_;
-    std::string output_name_;
     OrtProvider provider_ = OrtProvider::CPU;
     std::vector<int> strides_;
     std::vector<GridAndStride> grid_strides_;
@@ -56,4 +64,5 @@ private:
     bool use_armor_detect_common_ = true;
     std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;
     int current_id_ = 0;
+    std::unique_ptr<ml_net::OnnxRuntimeNet> onnxruntime_net_;
 };

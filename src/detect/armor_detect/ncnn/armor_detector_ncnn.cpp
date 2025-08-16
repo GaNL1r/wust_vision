@@ -115,53 +115,22 @@ ArmorDetectNCNN::ArmorDetectNCNN(
     init(device_id);
 }
 ArmorDetectNCNN::~ArmorDetectNCNN() {
-    net_.clear();
     armor_detect_common_.reset();
+    ncnn_net_.reset();
 }
 
 void ArmorDetectNCNN::init(int device_id) {
-    if (use_gpu_) {
-        ncnn::create_gpu_instance();
-        opt_.use_vulkan_compute = true;
-        ncnn::VulkanDevice* vkdev = ncnn::get_gpu_device(device_id);
-        if (vkdev) {
-            net_.set_vulkan_device(vkdev);
-        }
-        WUST_INFO("armor_ncnn") << "ncnn: use gpu";
-    } else {
-        opt_.use_vulkan_compute = false;
-        WUST_INFO("armor_ncnn") << "ncnn: use cpu";
-    }
-    if (use_lightmode_) {
-        opt_.lightmode = true;
-    }
-
-    opt_.num_threads = cpu_threads_;
-    net_.opt = opt_;
-
-    if (net_.load_param(model_path_param_.c_str()) != 0) {
-        WUST_ERROR("armor_ncnn") << "Failed to load param";
-        return;
-    }
-    if (net_.load_model(model_path_bin_.c_str()) != 0) {
-        WUST_ERROR("armor_ncnn") << "Failed to load model";
-        return;
-    }
-
-    int ret = net_.load_param((model_path_param_).c_str());
-    if (ret != 0) {
-        WUST_ERROR("armor_ncnn") << "Failed to load param file: " << model_path_param_;
-        return;
-    }
-
-    ret = net_.load_model((model_path_bin_).c_str());
-    if (ret != 0) {
-        WUST_ERROR("armor_ncnn") << "Failed to load bin file: " << model_path_bin_;
-        return;
-    }
-
-    // input_name_ = "images";
-    // output_name_ = "output";
+    ml_net::NCNNNet::Params params;
+    params.model_path_param = model_path_param_;
+    params.model_path_bin = model_path_bin_;
+    params.input_name = input_name_;
+    params.output_name = output_name_;
+    params.use_vulkan = use_gpu_;
+    params.device_id = device_id;
+    params.use_light_mode = use_lightmode_;
+    params.cpu_threads = cpu_threads_;
+    ncnn_net_ = std::make_unique<ml_net::NCNNNet>();
+    ncnn_net_->init(params);
 
     strides_ = { 8, 16, 32 };
     armor_infer_->generate_grids_and_stride(
@@ -189,11 +158,7 @@ bool ArmorDetectNCNN::processCallback(const CommonFrame& frame) {
         armor_infer_->getUseNorm()
     );
 
-    ncnn::Extractor ex = net_.create_extractor();
-    ex.input(input_name_.c_str(), in);
-
-    ncnn::Mat out;
-    ex.extract(output_name_.c_str(), out);
+    auto out = ncnn_net_->infer(in);
 
     cv::Mat output_buffer(out.h, out.w, CV_32F, out.data);
 

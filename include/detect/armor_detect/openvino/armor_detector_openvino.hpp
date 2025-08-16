@@ -13,7 +13,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
+#pragma once
 #include "common/ThreadPool.h"
 #include "common/logger.hpp"
 #include "detect/armor_detect/armor_detect_common.hpp"
@@ -22,6 +22,7 @@
 #include "fmt/color.h"
 #include "fmt/core.h"
 #include "fmt/printf.h"
+#include "ml_net/openvino/openvino_net.hpp"
 #include "opencv2/opencv.hpp"
 #include "openvino/openvino.hpp"
 #include <filesystem>
@@ -57,10 +58,7 @@ private:
     float conf_threshold_;
     int top_k_;
     float nms_threshold_;
-    std::unique_ptr<ov::Core> ov_core_;
-    std::unique_ptr<ov::CompiledModel> compiled_model_;
-    std::shared_ptr<ov::Model> model_;
-    ov::preprocess::PrePostProcessor* ppp_;
+    std::unique_ptr<ml_net::OpenvinoNet> openvino_net_;
     std::vector<int> strides_;
     std::vector<GridAndStride> grid_strides_;
     DetectorCallback infer_callback_;

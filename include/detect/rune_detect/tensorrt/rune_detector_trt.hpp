@@ -31,9 +31,9 @@
 #include "common/ThreadPool.h"
 #include "common/adaptive_resource_pool.hpp"
 #include "detect/rune_detect/rune_infer.hpp"
+#include "ml_net/tensorrt/tensorrt_net.hpp"
 #include "rune_infer.hpp"
 #include "type/type.hpp"
-
 class RuneDetectorTrt {
 public:
     using CallbackType = std::function<void(std::vector<rune::RuneObject>&, const CommonFrame&)>;
@@ -75,11 +75,9 @@ public:
 private:
     // Do inference and call the infer_callback_ after inference
     bool processCallback(const CommonFrame& frame, Infer* infer);
-    void buildEngine(const std::string& onnx_path);
 
 private:
     std::string model_path_;
-    std::string device_name_;
     float conf_threshold_;
     int top_k_;
     float nms_threshold_;
@@ -87,18 +85,10 @@ private:
     std::vector<GridAndStride> grid_strides_;
     CallbackType infer_callback_;
     Params params_;
-    nvinfer1::ICudaEngine* engine_;
-    nvinfer1::IExecutionContext* context_;
-    void* device_buffers_[2]; // 输入输出显存指针
-    float* output_buffer_; // 输出数据主机内存
-    cudaStream_t stream_; // CUDA流
-    int input_idx_, output_idx_;
-    size_t input_sz_, output_sz_;
     nvinfer1::Dims input_dims_;
     nvinfer1::Dims output_dims_;
-    TRTLogger g_logger_;
-    nvinfer1::IRuntime* runtime_ = nullptr;
     std::unique_ptr<AdaptiveResourcePool<Infer>> infer_pool_;
     std::unique_ptr<rune_infer::RuneInfer> rune_infer_;
     int current_id_ = 0;
+    std::unique_ptr<ml_net::TensorRTNet> trt_net_;
 };

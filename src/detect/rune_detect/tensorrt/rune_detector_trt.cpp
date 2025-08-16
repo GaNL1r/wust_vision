@@ -28,13 +28,6 @@
 #include "detect/rune_detect/rune_infer.hpp"
 #include "fmt/core.h"
 #include "type/type.hpp"
-#define TRT_ASSERT(expr) \
-    do { \
-        if (!(expr)) { \
-            fmt::print(fmt::fg(fmt::color::red), "assert fail: '" #expr "'"); \
-            exit(-1); \
-        } \
-    } while (0)
 
 RuneDetectorTrt::RuneDetectorTrt(
     std::string model_type,
@@ -45,10 +38,13 @@ RuneDetectorTrt::RuneDetectorTrt(
     model_path_(model_path) {
     int device_id = params_.device_id;
     cudaSetDevice(device_id);
-    buildEngine(model_path);
-    TRT_ASSERT(context_ = engine_->createExecutionContext());
-    TRT_ASSERT((input_idx_ = engine_->getBindingIndex("images")) == 0);
-    TRT_ASSERT((output_idx_ = engine_->getBindingIndex("output")) == 1);
+    trt_net_ = std::make_unique<ml_net::TensorRTNet>();
+    ml_net::TensorRTNet::Params trt_params;
+    trt_params.model_path = model_path_;
+    trt_net_->init(trt_params);
+    auto input_output_dims = trt_net_->getInputOutputDims();
+    input_dims_ = std::get<0>(input_output_dims);
+    output_dims_ = std::get<1>(input_output_dims);
     auto model = rune_infer::modeFromString(model_type);
     rune_infer_ = std::make_unique<rune_infer::RuneInfer>(
         model,
@@ -56,14 +52,6 @@ RuneDetectorTrt::RuneDetectorTrt(
         params.nms_threshold,
         params.top_k
     );
-    input_dims_ = engine_->getBindingDimensions(input_idx_);
-    output_dims_ = engine_->getBindingDimensions(output_idx_);
-    input_sz_ = input_dims_.d[1] * input_dims_.d[2] * input_dims_.d[3];
-    output_sz_ = output_dims_.d[1] * output_dims_.d[2];
-    TRT_ASSERT(cudaMalloc(&device_buffers_[input_idx_], input_sz_ * sizeof(float)) == 0);
-    TRT_ASSERT(cudaMalloc(&device_buffers_[output_idx_], output_sz_ * sizeof(float)) == 0);
-    output_buffer_ = new float[output_sz_];
-    TRT_ASSERT(cudaStreamCreate(&stream_) == 0);
     strides_ = { 8, 16, 32 };
     rune_infer_->generateGridsAndStride(
         rune_infer_->getInputW(),
@@ -76,7 +64,7 @@ RuneDetectorTrt::RuneDetectorTrt(
         std::vector<std::unique_ptr<Infer>> infers;
         for (int i = 0; i < params.max_infer_running; ++i) {
             auto infer = std::make_unique<Infer>();
-            auto ctx = engine_->createExecutionContext();
+            auto ctx = trt_net_->getAContext();
             infer->context = std::unique_ptr<nvinfer1::IExecutionContext>(ctx);
             if (params_.use_cuda_pre || params_.use_cuda_post) {
                 infer->cuda_infer = std::make_unique<rune_cuda_infer::CudaInfer>();
@@ -133,7 +121,7 @@ RuneDetectorTrt::RuneDetectorTrt(
     };
     auto restore_func = [=](size_t idx) -> std::unique_ptr<Infer> {
         auto infer = std::make_unique<Infer>();
-        auto ctx = engine_->createExecutionContext();
+        auto ctx = trt_net_->getAContext();
         infer->context = std::unique_ptr<nvinfer1::IExecutionContext>(ctx);
         if (params_.use_cuda_pre || params_.use_cuda_post) {
             infer->cuda_infer = std::make_unique<rune_cuda_infer::CudaInfer>();
@@ -189,78 +177,12 @@ RuneDetectorTrt::RuneDetectorTrt(
     };
     infer_pool_ = std::make_unique<AdaptiveResourcePool<Infer>>(pool_params);
 }
-void RuneDetectorTrt::buildEngine(const std::string& onnx_path) {
-    std::string engine_path = onnx_path.substr(0, onnx_path.find_last_of('.')) + ".engine";
-    std::ifstream engine_file(engine_path, std::ios::binary);
-    if (engine_file.good()) {
-        engine_file.seekg(0, std::ios::end);
-        size_t size = engine_file.tellg();
-        engine_file.seekg(0, std::ios::beg);
-        std::vector<char> engine_data(size);
-        engine_file.read(engine_data.data(), size);
-        engine_file.close();
-
-        runtime_ = nvinfer1::createInferRuntime(g_logger_);
-        engine_ = runtime_->deserializeCudaEngine(engine_data.data(), size);
-        if (engine_ != nullptr) {
-            WUST_INFO("TRT") << "Load engine from " << engine_path << " successfully.";
-            return;
-        }
-    }
-    WUST_INFO("TRT") << "building new engine...";
-
-    // 构建新引擎
-    auto builder = nvinfer1::createInferBuilder(g_logger_);
-    const auto explicit_batch = 1U
-        << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
-    auto network = builder->createNetworkV2(explicit_batch);
-    auto parser = nvonnxparser::createParser(*network, g_logger_);
-    parser->parseFromFile(onnx_path.c_str(), static_cast<int>(nvinfer1::ILogger::Severity::kINFO));
-
-    auto config = builder->createBuilderConfig();
-    if (builder->platformHasFastFp16()) {
-        config->setFlag(nvinfer1::BuilderFlag::kFP16);
-    }
-    engine_ = builder->buildEngineWithConfig(*network, *config);
-
-    // 保存引擎
-    auto serialized_engine = engine_->serialize();
-    std::ofstream out_file(engine_path, std::ios::binary);
-    out_file.write(
-        reinterpret_cast<const char*>(serialized_engine->data()),
-        serialized_engine->size()
-    );
-    out_file.close();
-    serialized_engine->destroy();
-
-    // 反序列化仍然需要 runtime_
-    if (!runtime_) {
-        runtime_ = nvinfer1::createInferRuntime(g_logger_);
-    }
-
-    // 清理
-    parser->destroy();
-    network->destroy();
-    config->destroy();
-    builder->destroy();
-
-    WUST_INFO("TRT") << "Build engine from " << onnx_path << " successfully.";
-}
 
 RuneDetectorTrt::~RuneDetectorTrt() {
-    delete[] output_buffer_;
-    cudaStreamDestroy(stream_);
-    cudaFree(device_buffers_[output_idx_]);
-    cudaFree(device_buffers_[input_idx_]);
     if (infer_pool_) {
         infer_pool_.reset();
     }
-    if (context_)
-        context_->destroy();
-    if (engine_)
-        engine_->destroy();
-    if (runtime_)
-        runtime_->destroy();
+    trt_net_.reset();
 }
 
 void RuneDetectorTrt::setCallback(CallbackType callback) {
@@ -306,7 +228,7 @@ bool RuneDetectorTrt::processCallback(const CommonFrame& frame, Infer* infer) {
             frame.src_img.cols,
             frame.src_img.rows,
             transform_matrix,
-            stream_
+            trt_net_->getStream()
         );
     } else {
         cv::Mat resized_img = rune_infer_->letterbox(
@@ -323,29 +245,17 @@ bool RuneDetectorTrt::processCallback(const CommonFrame& frame, Infer* infer) {
             cv::Scalar(0, 0, 0),
             true
         );
-        cudaMemcpyAsync(
-            device_buffers_[input_idx_],
-            blob.ptr<float>(),
-            input_sz_ * sizeof(float),
-            cudaMemcpyHostToDevice,
-            stream_
-        );
-        input_tensor_ptr = device_buffers_[input_idx_];
+        trt_net_->input2Device(blob.ptr<float>());
+        input_tensor_ptr = trt_net_->getInputTensorPtr();
     }
     auto t1 = time_utils::now();
     if (infer->context && input_tensor_ptr) {
-        infer->context->setTensorAddress("images", input_tensor_ptr);
-        infer->context->setTensorAddress("output", device_buffers_[output_idx_]);
-
-        if (!infer->context->enqueueV3(stream_)) {
-            std::cerr << "enqueueV3 failed!";
-            return {};
-        }
+        trt_net_->infer(input_tensor_ptr, infer->context.get());
     }
     auto t2 = time_utils::now();
     if (infer->cuda_infer && params_.use_cuda_post) {
         auto host_results = infer->cuda_infer->postprocess(
-            (float*)device_buffers_[output_idx_],
+            (float*)trt_net_->getDeviceOutput(),
             grid_strides_.size(),
             transform_matrix,
             params_.conf_threshold,
@@ -354,15 +264,7 @@ bool RuneDetectorTrt::processCallback(const CommonFrame& frame, Infer* infer) {
         );
         buildCpuResult(host_results, objs_result);
     } else {
-        cudaMemcpyAsync(
-            output_buffer_,
-            device_buffers_[output_idx_],
-            output_sz_ * sizeof(float),
-            cudaMemcpyDeviceToHost,
-            stream_
-        );
-        cudaStreamSynchronize(stream_);
-        cv::Mat output_mat(output_dims_.d[1], output_dims_.d[2], CV_32F, output_buffer_);
+        cv::Mat output_mat(output_dims_.d[1], output_dims_.d[2], CV_32F, trt_net_->output2Host());
         objs_result = rune_infer_->postProcess(output_mat, transform_matrix, grid_strides_);
     }
 

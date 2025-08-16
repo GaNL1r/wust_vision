@@ -33,6 +33,7 @@
 #include "fmt/color.h"
 #include "fmt/core.h"
 #include "fmt/printf.h"
+#include "ml_net/tensorrt/tensorrt_net.hpp"
 #include "opencv2/opencv.hpp"
 class ArmorDetectTrt {
 public:
@@ -71,27 +72,17 @@ public:
     void setCallback(DetectorCallback callback);
 
 private:
-    void buildEngine(const std::string& onnx_path);
-
     // 成员变量
     Params params_;
-    nvinfer1::ICudaEngine* engine_;
-    nvinfer1::IExecutionContext* context_;
-    void* device_buffers_[2]; // 输入输出显存指针
-    float* output_buffer_; // 输出数据主机内存
-    cudaStream_t stream_; // CUDA流
-    int input_idx_, output_idx_;
-    size_t input_sz_, output_sz_;
     nvinfer1::Dims input_dims_;
     nvinfer1::Dims output_dims_;
-    TRTLogger g_logger_;
     std::vector<int> strides_;
     std::vector<GridAndStride> grid_strides_;
     DetectorCallback infer_callback_;
-    nvinfer1::IRuntime* runtime_ = nullptr;
     std::unique_ptr<ArmorDetectCommon> armor_detect_common_;
     bool use_armor_detect_common_ = true;
     std::unique_ptr<AdaptiveResourcePool<Infer>> infer_pool_;
     std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;
     int current_id_ = 0;
+    std::unique_ptr<ml_net::TensorRTNet> trt_net_;
 };
