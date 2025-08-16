@@ -174,7 +174,7 @@ set(BUILD_LIBS
   GL
   tbb
   KalmanHyLib
-  wust_vl::ml_net
+  wust_vl::wust_vl_ml_net
   Backward::Interface
   TBB::tbb
   sfml-audio
