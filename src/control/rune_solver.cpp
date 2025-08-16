@@ -352,11 +352,11 @@ RuneSolver::solvePose(const rune::Rune& predicted_target, Eigen::Matrix4d T_came
 GimbalCmd RuneSolver::solveGimbalCmd(const Eigen::Vector3d& target) {
     // Get current yaw and pitch of gimbal
     double current_yaw = 0.0, current_pitch = 0.0;
-    auto motion_buffer = gobal::stringanyting.get_ptr<MotionBuffer>("motion_buffer");
+    auto motion_buffer = gobal::stringanyting.try_get_ptr<MotionBuffer>("motion_buffer");
     auto gimbal2camera_rpy =
         gobal::stringanyting.get_value<std::array<double, 3>>("gimbal2camera_rpy");
     if (motion_buffer) {
-        auto last_att = motion_buffer->get_last();
+        auto last_att = motion_buffer->get()->get_last();
         if (last_att) {
             current_pitch = last_att->pitch + gimbal2camera_rpy[1];
             current_yaw = last_att->yaw + gimbal2camera_rpy[2];

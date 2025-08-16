@@ -130,32 +130,39 @@ bool WustVision::init() {
                 if (infer_running_count_.load() >= max_infer_running_) {
                     return;
                 }
-                auto motion_buffer = gobal::stringanyting.get_ptr<MotionBuffer>("motion_buffer");
+                auto motion_buffer =
+                    gobal::stringanyting.try_get_ptr<MotionBuffer>("motion_buffer");
                 auto gimbal2camera_rpy =
                     gobal::stringanyting.get_value<std::array<double, 3>>("gimbal2camera_rpy");
-                auto apply_motion = [&](const MotionBuffer::MotionStamped& att) {
-                    frame.v = Eigen::Vector3d(att.vx, att.vy, att.vz);
-                    frame.R_gimbal2odom = Eigen::AngleAxisd(
-                                              att.yaw + gimbal2camera_rpy[2],
-                                              Eigen::Vector3d::UnitZ()
-                                          )
-                        * Eigen::AngleAxisd(-att.pitch - gimbal2camera_rpy[1],
-                                            Eigen::Vector3d::UnitY())
-                        * Eigen::AngleAxisd(att.roll + gimbal2camera_rpy[0],
-                                            Eigen::Vector3d::UnitX());
-                };
-                auto delay = std::chrono::microseconds(
-                    static_cast<int64_t>(std::round(-communication_delay_μs_))
-                );
-                auto t_query = std::chrono::steady_clock::now() - delay;
-                if (auto past_att = motion_buffer->get_interpolated(t_query)) {
-                    apply_motion(*past_att);
-                } else if (auto last_att = motion_buffer->get_last()) {
-                    apply_motion(*last_att);
+                if (motion_buffer) {
+                    auto apply_motion = [&](const MotionBuffer::MotionStamped& att) {
+                        frame.v = Eigen::Vector3d(att.vx, att.vy, att.vz);
+                        frame.R_gimbal2odom = Eigen::AngleAxisd(
+                                                  att.yaw + gimbal2camera_rpy[2],
+                                                  Eigen::Vector3d::UnitZ()
+                                              )
+                            * Eigen::AngleAxisd(-att.pitch - gimbal2camera_rpy[1],
+                                                Eigen::Vector3d::UnitY())
+                            * Eigen::AngleAxisd(att.roll + gimbal2camera_rpy[0],
+                                                Eigen::Vector3d::UnitX());
+                    };
+                    auto delay = std::chrono::microseconds(
+                        static_cast<int64_t>(std::round(-communication_delay_μs_))
+                    );
+                    auto t_query = std::chrono::steady_clock::now() - delay;
+                    if (auto past_att = motion_buffer->get()->get_interpolated(t_query)) {
+                        apply_motion(*past_att);
+                    } else if (auto last_att = motion_buffer->get()->get_last()) {
+                        apply_motion(*last_att);
+                    } else {
+                        frame.R_gimbal2odom = Eigen::Matrix3d::Identity();
+                        frame.v = Eigen::Vector3d::Zero();
+                    }
                 } else {
                     frame.R_gimbal2odom = Eigen::Matrix3d::Identity();
                     frame.v = Eigen::Vector3d::Zero();
                 }
+
                 gobal::stringanyting.get_ptr<ThreadPool>("thread_pool")
                     ->enqueue(
                         [frame = std::move(frame), this]() {

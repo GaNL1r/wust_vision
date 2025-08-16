@@ -90,11 +90,11 @@ GimbalCmd ArmorSolver::solve(
 ) {
     // 1. 获取最新的云台 RPY
     std::array<double, 3> rpy;
-    auto motion_buffer = gobal::stringanyting.get_ptr<MotionBuffer>("motion_buffer");
+    auto motion_buffer = gobal::stringanyting.try_get_ptr<MotionBuffer>("motion_buffer");
     auto gimbal2camera_rpy =
         gobal::stringanyting.get_value<std::array<double, 3>>("gimbal2camera_rpy");
     if (motion_buffer) {
-        auto last_att = motion_buffer->get_last();
+        auto last_att = motion_buffer->get()->get_last();
         if (last_att) {
             rpy[0] = last_att->roll + gimbal2camera_rpy[0];
             rpy[1] = last_att->pitch + gimbal2camera_rpy[1];

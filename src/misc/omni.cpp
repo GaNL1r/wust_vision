@@ -300,12 +300,12 @@ void OmniManager::ArmorDetectCallback(
 
 std::vector<armor::OneTarget> OmniManager::buildOneTargetsfromOmni(const armor::Armors& armors) {
     std::vector<armor::OneTarget> one_targets;
-    auto omni_queue = gobal::stringanyting.get_ptr<TimedQueue<armor::OneTarget>>("omni_queue");
+    auto omni_queue = gobal::stringanyting.try_get_ptr<TimedQueue<armor::OneTarget>>("omni_queue");
     if (!omni_queue) {
         WUST_ERROR(vision_logger_) << "Omni queue not initialized.";
         return one_targets;
     }
-    omni_queue->clear_stale();
+    omni_queue->get()->clear_stale();
     for (const auto& armor: armors.armors) {
         if (armor.is_none_purple) {
             continue;
@@ -320,7 +320,7 @@ std::vector<armor::OneTarget> OmniManager::buildOneTargetsfromOmni(const armor::
         target.tracking = true;
         target.is_omni = true;
         one_targets.push_back(target);
-        omni_queue->push(target, target.timestamp);
+        omni_queue->get()->push(target, target.timestamp);
     }
     return one_targets;
 }

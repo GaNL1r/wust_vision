@@ -415,9 +415,10 @@ void WustVision::timerCallback(double dt_ms) {
         one_targets = armor_solver_target_.one_targets;
     }
     if (omni_manager_) {
-        auto omni_queue = gobal::stringanyting.get_ptr<TimedQueue<armor::OneTarget>>("omni_queue");
+        auto omni_queue =
+            gobal::stringanyting.try_get_ptr<TimedQueue<armor::OneTarget>>("omni_queue");
         if (omni_queue) {
-            auto omni_vector = omni_queue->get_valid_targets(); //具体逻辑有车再写
+            auto omni_vector = omni_queue->get()->get_valid_targets(); //具体逻辑有车再写
         }
     }
 

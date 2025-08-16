@@ -176,9 +176,9 @@ void Serial::aimCbk(ReceiveAimINFO& aim_data) {
 
     auto now = std::chrono::steady_clock::now();
     try {
-        auto motion_buffer = gobal::stringanyting.get_ptr<MotionBuffer>("motion_buffer");
+        auto motion_buffer = gobal::stringanyting.try_get_ptr<MotionBuffer>("motion_buffer");
         if (motion_buffer) {
-            motion_buffer->push(yaw, pitch, roll, v_x, v_y, v_z, now);
+            motion_buffer->get()->push(yaw, pitch, roll, v_x, v_y, v_z, now);
         } else {
             WUST_ERROR(serial_logger_) << "MotionBuffer null in stringanyting";
         }
@@ -256,9 +256,9 @@ void Serial::transformGimbalCmd(GimbalCmd& gimbal_cmd, bool appear) {
         send_robot_cmd_data_.v_yaw = gimbal_cmd.v_yaw;
         send_robot_cmd_data_.v_pitch = gimbal_cmd.v_pitch;
     } else {
-        auto motion_buffer = gobal::stringanyting.get_ptr<MotionBuffer>("motion_buffer");
+        auto motion_buffer = gobal::stringanyting.try_get_ptr<MotionBuffer>("motion_buffer");
         if (motion_buffer) {
-            auto last_att = motion_buffer->get_last();
+            auto last_att = motion_buffer->get()->get_last();
             if (last_att) {
                 send_robot_cmd_data_.pitch = last_att->pitch * 180 / M_PI;
                 send_robot_cmd_data_.yaw = last_att->yaw * 180 / M_PI;
