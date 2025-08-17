@@ -16,7 +16,7 @@
 #include "Eigen/Dense"
 #include "fmt/format.h"
 #include "opencv2/opencv.hpp"
-#include "wust_vl/common/logger.hpp"
+#include "wust_vl/common/utils/logger.hpp"
 #include <chrono>
 #include <cmath>
 #include <iostream>

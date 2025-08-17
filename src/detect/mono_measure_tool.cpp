@@ -17,7 +17,7 @@
 #include "detect/mono_measure_tool.hpp"
 #include "common/utils.hpp"
 #include "type/type.hpp"
-#include "wust_vl/common/logger.hpp"
+#include "wust_vl/common/utils/logger.hpp"
 #include <cmath>
 #include <numeric>
 #include <yaml-cpp/yaml.h>

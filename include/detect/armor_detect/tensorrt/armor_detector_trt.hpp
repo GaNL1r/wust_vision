@@ -31,9 +31,9 @@
 #include "fmt/core.h"
 #include "fmt/printf.h"
 #include "opencv2/opencv.hpp"
-#include "wust_vl/common/ThreadPool.h"
-#include "wust_vl/common/adaptive_resource_pool.hpp"
-#include "wust_vl/common/logger.hpp"
+#include "wust_vl/common/concurrency/ThreadPool.h"
+#include "wust_vl/common/concurrency/adaptive_resource_pool.hpp"
+#include "wust_vl/common/utils/logger.hpp"
 #include "wust_vl/ml_net/tensorrt/tensorrt_net.hpp"
 class ArmorDetectTrt {
 public:

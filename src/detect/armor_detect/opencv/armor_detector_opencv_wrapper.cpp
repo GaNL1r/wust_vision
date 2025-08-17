@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "detect/armor_detect/opencv/armor_detector_opencv_wrapper.hpp"
-#include "wust_vl/common/logger.hpp"
+#include "wust_vl/common/utils/logger.hpp"
 ArmorDetectorOpencvWrapper::ArmorDetectorOpencvWrapper(const YAML::Node& config) {
     auto classify_model_path =
         config["armor_detect_opencv"]["classify"]["model_path"].as<std::string>();

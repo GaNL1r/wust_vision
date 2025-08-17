@@ -14,8 +14,8 @@
 #pragma once
 
 #include "MvCameraControl.h"
-#include "driver/tools/recorder.hpp"
 #include "type/image.hpp"
+#include "wust_vl/wust_vl.hpp"
 #include <Eigen/Dense>
 #include <chrono>
 #include <condition_variable>

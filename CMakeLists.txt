@@ -91,7 +91,6 @@ set(COMMON_SOURCES
   src/driver/hik.cpp
   src/driver/serial.cpp
   src/driver/tools/labeler.cpp
-  src/driver/tools/recorder.cpp
   src/driver/tools/video_player.cpp
   src/misc/omni.cpp
   src/tracker/curve_fitter.cpp
@@ -174,7 +173,7 @@ set(BUILD_LIBS
   GL
   tbb
   KalmanHyLib
-  wust_vl::wust_vl_ml_net
+  ${WUST_VL_LIBS}
   Backward::Interface
   TBB::tbb
   sfml-audio
@@ -209,6 +208,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
   ${G2O_INCLUDE_DIRS}
   ${CERES_INCLUDE_DIRS}
   ${HikSDK_INCLUDE_DIR}
+  ${WUST_VL_INCLUDE_DIRS}
   $<$<BOOL:${BUILD_WITH_OPENVINO}>:${OpenVINO_INCLUDE_DIRS}>
   $<$<BOOL:${BUILD_WITH_TRT}>:${TensorRT_INCLUDE_DIR}>
   $<$<BOOL:${BUILD_WITH_NCNN}>:${ncnn_INCLUDE_DIRS}>
@@ -225,7 +225,7 @@ add_executable(camera_calibrator
   src/driver/hik.cpp
   src/misc/camera_calibrator.cpp
   src/common/gobal.cpp
-  src/driver/tools/recorder.cpp )
+ )
 target_include_directories(
   camera_calibrator PRIVATE
   ${HikSDK_INCLUDE_DIR}
@@ -241,4 +241,5 @@ target_link_libraries(
   ${Python3_LIBRARIES}
   yaml-cpp
   TBB::tbb
+  ${WUST_VL_LIBS}
 )

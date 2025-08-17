@@ -16,8 +16,8 @@
 #include "detect/armor_detect/openvino/armor_detector_openvino.hpp"
 #include "common/gobal.hpp"
 #include "detect/armor_detect/armor_infer.hpp"
-#include "wust_vl/common/logger.hpp"
-#include "wust_vl/common/timer.hpp"
+#include "wust_vl/common/utils/logger.hpp"
+#include "wust_vl/common/utils/timer.hpp"
 #include <functional>
 #include <opencv2/highgui.hpp>
 

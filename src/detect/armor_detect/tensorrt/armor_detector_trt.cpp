@@ -18,8 +18,8 @@
 #include "common/gobal.hpp"
 #include "cuda_runtime_api.h"
 #include "detect/armor_detect/armor_infer.hpp"
-#include "wust_vl/common/logger.hpp"
-#include "wust_vl/common/timer.hpp"
+#include "wust_vl/common/utils/logger.hpp"
+#include "wust_vl/common/utils/timer.hpp"
 #include <cuda.h>
 #include <device_launch_parameters.h>
 #include <fstream>

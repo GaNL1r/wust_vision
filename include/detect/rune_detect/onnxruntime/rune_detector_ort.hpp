@@ -35,7 +35,7 @@
 #include "detect/rune_detect/rune_infer.hpp"
 #include "onnxruntime_cxx_api.h"
 #include "type/type.hpp"
-#include "wust_vl/common/ThreadPool.h"
+#include "wust_vl/common/concurrency/ThreadPool.h"
 #include "wust_vl/ml_net/onnxruntime/onnxruntime_net.hpp"
 class RuneDetectorOnnxRuntime {
 public:

@@ -13,7 +13,7 @@
 // limitations under the License.
 #include "driver/tools/video_player.hpp"
 #include "common/utils.hpp"
-#include "wust_vl/common/logger.hpp"
+#include "wust_vl/common/utils/logger.hpp"
 #include <chrono>
 #include <iostream>
 #include <thread>

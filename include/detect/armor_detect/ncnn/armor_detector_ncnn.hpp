@@ -23,8 +23,8 @@
 #include "fmt/printf.h"
 #include "ncnn/net.h"
 #include "opencv2/opencv.hpp"
-#include "wust_vl/common/ThreadPool.h"
-#include "wust_vl/common/logger.hpp"
+#include "wust_vl/common/concurrency/ThreadPool.h"
+#include "wust_vl/common/utils/logger.hpp"
 #include "wust_vl/ml_net/ncnn/ncnn_net.hpp"
 class ArmorDetectNCNN {
 public:

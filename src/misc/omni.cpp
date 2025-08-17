@@ -1,7 +1,7 @@
 #include "misc/omni.hpp"
 #include "common/debug/tools.hpp"
 #include "common/utils.hpp"
-#include "wust_vl/common/queues.hpp"
+#include "wust_vl/common/concurrency/queues.hpp"
 OmniVision::OmniVision() {
     // Constructor implementation
 }

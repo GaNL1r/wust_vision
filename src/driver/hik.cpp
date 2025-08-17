@@ -14,7 +14,7 @@
 #include "driver/hik.hpp"
 #include "common/gobal.hpp"
 #include "common/utils.hpp"
-#include "wust_vl/common/logger.hpp"
+#include "wust_vl/common/utils/logger.hpp"
 #include <Eigen/Dense>
 #include <algorithm>
 #include <chrono>

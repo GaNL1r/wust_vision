@@ -1,7 +1,7 @@
 #include "detect/armor_detect/ncnn/armor_detector_ncnn.hpp"
 #include "common/gobal.hpp"
 #include "detect/armor_detect/armor_infer.hpp"
-#include "wust_vl/common/logger.hpp"
+#include "wust_vl/common/utils/logger.hpp"
 #include <ncnn/simpleomp.h>
 static ncnn::Mat letterbox_to_ncnn(
     const cv::Mat& img,

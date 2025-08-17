@@ -35,7 +35,7 @@
 #include "tracker/motion_models/motion_modelr.hpp"
 #include "tracker/motion_models/motion_modelrypd.hpp"
 #include "type/type.hpp"
-#include "wust_vl/common/logger.hpp"
+#include "wust_vl/common/utils/logger.hpp"
 
 // Usage:
 //   1. init(msg), if tracker_state == LOST

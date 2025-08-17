@@ -22,8 +22,8 @@
 #include "fmt/printf.h"
 #include "opencv2/opencv.hpp"
 #include "openvino/openvino.hpp"
-#include "wust_vl/common/ThreadPool.h"
-#include "wust_vl/common/logger.hpp"
+#include "wust_vl/common/concurrency/ThreadPool.h"
+#include "wust_vl/common/utils/logger.hpp"
 #include "wust_vl/ml_net/openvino/openvino_net.hpp"
 #include <filesystem>
 class ArmorDetectOpenVino {

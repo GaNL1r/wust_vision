@@ -32,7 +32,7 @@
 // project
 #include "detect/graph_optimizer.hpp"
 #include "type/type.hpp"
-#include "wust_vl/common/logger.hpp"
+#include "wust_vl/common/utils/logger.hpp"
 
 #include "common/utils.hpp"
 

@@ -35,8 +35,8 @@
 // project
 #include "common/gobal.hpp"
 #include "type/type.hpp"
-#include "wust_vl/common/logger.hpp"
-#include "wust_vl/common/timer.hpp"
+#include "wust_vl/common/utils/logger.hpp"
+#include "wust_vl/common/utils/timer.hpp"
 #include <fmt/core.h>
 
 ArmorDetectOpenCV::ArmorDetectOpenCV(

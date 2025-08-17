@@ -19,8 +19,8 @@
 #include "fmt/core.h"
 #include "fmt/printf.h"
 #include "opencv2/opencv.hpp"
-#include "wust_vl/common/ThreadPool.h"
-#include "wust_vl/common/logger.hpp"
+#include "wust_vl/common/concurrency/ThreadPool.h"
+#include "wust_vl/common/utils/logger.hpp"
 #include "wust_vl/ml_net/onnxruntime/onnxruntime_net.hpp"
 #include <filesystem>
 #include <onnxruntime_cxx_api.h>

@@ -14,7 +14,7 @@
 #pragma once
 #include "common/gobal.hpp"
 #include "driver/packet_typedef.hpp"
-#include "driver/serial_type.hpp"
+#include "wust_vl/common/drivers/serial_driver.hpp"
 #include <memory>
 #include <string>
 #include <thread>

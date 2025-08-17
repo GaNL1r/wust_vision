@@ -27,7 +27,7 @@
 #include "common/tf.hpp"
 #include "common/utils.hpp"
 #include "type/type.hpp"
-#include "wust_vl/common/logger.hpp"
+#include "wust_vl/common/utils/logger.hpp"
 
 RuneSolver::RuneSolver(const YAML::Node& config) {
     // Init

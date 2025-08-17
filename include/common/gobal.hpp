@@ -2,8 +2,8 @@
 
 #include "common/tf.hpp"
 #include "detect/mono_measure_tool.hpp"
-#include "wust_vl/common/ThreadPool.h"
-#include "wust_vl/common/stringanything.hpp"
+#include "wust_vl/common/concurrency/ThreadPool.h"
+#include "wust_vl/common/utils/stringanything.hpp"
 #include "yaml-cpp/yaml.h"
 #include <optional>
 #define ROOT_CONFIG "/home/hy/wust_vision/config/config_common.yaml"

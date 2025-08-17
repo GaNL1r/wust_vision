@@ -19,7 +19,7 @@
 #include "common/gobal.hpp"
 #include "control/manual_compensator.hpp"
 #include "type/type.hpp"
-#include "wust_vl/common/logger.hpp"
+#include "wust_vl/common/utils/logger.hpp"
 #include <Eigen/Dense>
 #include <opencv2/calib3d.hpp>
 #include <opencv2/core.hpp>

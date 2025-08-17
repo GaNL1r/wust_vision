@@ -9,14 +9,13 @@
 #include "driver/hik.hpp"
 #include "driver/serial.hpp"
 #include "driver/tools/labeler.hpp"
-#include "driver/tools/recorder.hpp"
 #include "driver/tools/video_player.hpp"
 #include "fun/have_fun.hpp"
 #include "misc/omni.hpp"
 #include "tracker/tracker_manager.hpp"
 #include "type/type.hpp"
-#include "wust_vl/common/queues.hpp"
-#include "wust_vl/common/timer.hpp"
+#include "wust_vl/common/concurrency/queues.hpp"
+#include "wust_vl/common/utils/timer.hpp"
 #include "yaml-cpp/yaml.h"
 
 class WustVision {

@@ -19,7 +19,7 @@
 #include "common/3rdparty/angles.h"
 #include "common/gobal.hpp"
 #include "common/utils.hpp"
-#include "wust_vl/common/logger.hpp"
+#include "wust_vl/common/utils/logger.hpp"
 #include "yaml-cpp/yaml.h"
 #include <cmath>
 #include <iostream>

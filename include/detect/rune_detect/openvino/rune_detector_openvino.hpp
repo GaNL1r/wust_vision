@@ -34,7 +34,7 @@
 // project
 #include "detect/rune_detect/rune_infer.hpp"
 #include "type/type.hpp"
-#include "wust_vl/common/ThreadPool.h"
+#include "wust_vl/common/concurrency/ThreadPool.h"
 #include "wust_vl/ml_net/openvino/openvino_net.hpp"
 class RuneDetectorOpenvino {
 public:

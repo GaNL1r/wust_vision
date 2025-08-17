@@ -23,7 +23,7 @@
 #include <fmt/format.h>
 // project
 #include "type/type.hpp"
-#include "wust_vl/common/logger.hpp"
+#include "wust_vl/common/utils/logger.hpp"
 
 // Fit two curves simultaneously and choose the one with lower cost
 // This function will change the type_ automatically
