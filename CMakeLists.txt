@@ -72,13 +72,10 @@ set(COMMON_SOURCES
   src/common/debug/tools.cpp
   src/common/debug/toolsgobal.cpp
   src/control/armor_solver.cpp
-  src/control/manual_compensator.cpp
   src/control/rune_solver.cpp
-  src/control/trajectory_compensator.cpp
   src/detect/ba_solver.cpp
   src/detect/graph_optimizer.cpp
   src/detect/mono_measure_tool.cpp
-  src/detect/pnp_solver.cpp
   src/detect/armor_detect/opencv/armor_detector_opencv_wrapper.cpp
   src/detect/armor_detect/opencv/armor_detector_opencv.cpp
   src/detect/armor_detect/armor_detect_common.cpp
@@ -87,10 +84,8 @@ set(COMMON_SOURCES
   src/detect/armor_detect/light_corner_corrector.cpp
   src/detect/armor_detect/number_classifier.cpp
   src/detect/rune_detect/rune_infer.cpp
-  src/driver/crc8_crc16.cpp
   src/driver/hik.cpp
   src/driver/serial.cpp
-  src/driver/tools/labeler.cpp
   src/driver/tools/video_player.cpp
   src/misc/omni.cpp
   src/tracker/curve_fitter.cpp
@@ -194,7 +189,7 @@ if(BUILD_WITH_ORT)
   list(APPEND BUILD_LIBS ${Ort_LIB})
 endif()
 
-# 创建唯一可执行文件
+
 add_executable(${PROJECT_NAME}
   ${COMMON_SOURCES}
   ${BACKEND_SOURCES}

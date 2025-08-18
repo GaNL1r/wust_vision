@@ -14,10 +14,10 @@
 #include "driver/serial.hpp"
 #include "common/debug/tools.hpp"
 #include "common/gobal.hpp"
-#include "driver/crc8_crc16.hpp"
 #include "driver/packet_typedef.hpp"
 #include "driver/sharetype.hpp"
 #include "type/type.hpp"
+#include "wust_vl/common/drivers/crc8_crc16.hpp"
 #include "wust_vl/common/utils/logger.hpp"
 #include <cmath>
 #include <fcntl.h>

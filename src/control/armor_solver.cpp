@@ -122,7 +122,10 @@ GimbalCmd ArmorSolver::solve(
         double yaw = target.yaw;
 
         using namespace std::chrono;
-        double fly_t = trajectory_compensator_->getFlyingTime(pos);
+        double fly_t = trajectory_compensator_->getFlyingTime(
+            pos,
+            gobal::stringanything.get_value<double>("bullet_speed")
+        );
         double dt_sec =
             fly_t + prediction_delay_ + duration<double>(current_time - target.timestamp).count();
 
@@ -294,7 +297,10 @@ GimbalCmd ArmorSolver::solve(
         double yaw = best_target.yaw;
 
         using namespace std::chrono;
-        double fly_t = trajectory_compensator_->getFlyingTime(pos);
+        double fly_t = trajectory_compensator_->getFlyingTime(
+            pos,
+            gobal::stringanything.get_value<double>("bullet_speed")
+        );
         double dt_sec = fly_t + prediction_delay_
             + duration<double>(current_time - best_target.timestamp).count() + controller_delay;
 
@@ -344,7 +350,11 @@ GimbalCmd ArmorSolver::solve(
 }
 
 std::vector<std::pair<double, double>> ArmorSolver::getTrajectory() const noexcept {
-    auto traj = trajectory_compensator_->getTrajectory(15, rpy_[1]);
+    auto traj = trajectory_compensator_->getTrajectory(
+        15,
+        rpy_[1],
+        gobal::stringanything.get_value<double>("bullet_speed")
+    );
     for (auto& p: traj) {
         double x = p.first, y = p.second;
         p.first = x * std::cos(rpy_[1]) + y * std::sin(rpy_[1]);
@@ -434,7 +444,10 @@ void ArmorSolver::calcYawAndPitch(
     yaw = atan2(p.y(), p.x());
     pitch = atan2(p.z(), p.head(2).norm());
 
-    if (double temp_pitch = pitch; trajectory_compensator_->compensate(p, temp_pitch)) {
+    if (double temp_pitch = pitch;
+        trajectory_compensator_
+            ->compensate(p, temp_pitch, gobal::stringanything.get_value<double>("bullet_speed")))
+    {
         pitch = temp_pitch;
     }
 }

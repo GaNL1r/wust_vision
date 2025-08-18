@@ -26,8 +26,8 @@
 // project
 #include "detect/ba_solver.hpp"
 
-#include "detect/pnp_solver.hpp"
 #include "type/type.hpp"
+#include "wust_vl/algorithm/pnp_solver.hpp"
 #include "yaml-cpp/yaml.h"
 
 class ArmorPoseEstimator {

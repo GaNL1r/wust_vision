@@ -30,9 +30,9 @@
 // project
 #include "common/gobal.hpp"
 #include "common/tf.hpp" // Transform, TfTree, eulerToQuaternion
-#include "control/manual_compensator.hpp"
-#include "control/trajectory_compensator.hpp"
 #include "type/type.hpp" // Position, Target, GimbalCmd
+#include "wust_vl/common/utils/manual_compensator.hpp"
+#include "wust_vl/common/utils/trajectory_compensator.hpp"
 
 // Normalize to (–π, +π]
 inline double normalize_angle(double a) noexcept {

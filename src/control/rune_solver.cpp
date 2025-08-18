@@ -372,7 +372,12 @@ GimbalCmd RuneSolver::solveGimbalCmd(const Eigen::Vector3d& target) {
     trajectory_compensator_->gravity_ = rune_solver_params_.gravity;
     trajectory_compensator_->iteration_times_ = 30;
 
-    if (double temp_pitch = pitch; trajectory_compensator_->compensate(target, temp_pitch)) {
+    if (double temp_pitch = pitch; trajectory_compensator_->compensate(
+            target,
+            temp_pitch,
+            gobal::stringanything.get_value<double>("bullet_speed")
+        ))
+    {
         pitch = temp_pitch;
     }
     double distance = target.norm();
@@ -509,7 +514,10 @@ GimbalCmd RuneSolver::solve() {
     GimbalCmd gimbal_control_cmd;
     // Calculate predict time
     Eigen::Vector3d cur_pos = getTargetPosition(0);
-    double flying_time = trajectory_compensator_->getFlyingTime(cur_pos);
+    double flying_time = trajectory_compensator_->getFlyingTime(
+        cur_pos,
+        gobal::stringanything.get_value<double>("bullet_speed")
+    );
     auto now = std::chrono::steady_clock::now();
 
     auto predict_time_point = now + std::chrono::duration<double>(flying_time + predict_offset_);

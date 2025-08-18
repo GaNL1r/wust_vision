@@ -6,8 +6,6 @@
 #include "detect/armor_detect/armor_pose_estimator.hpp"
 #include "detect/detector_factory.hpp"
 #include "driver/hik.hpp"
-#include "driver/serial.hpp"
-#include "driver/tools/labeler.hpp"
 #include "driver/tools/video_player.hpp"
 #include "tracker/tracker_manager.hpp"
 #include "type/type.hpp"
