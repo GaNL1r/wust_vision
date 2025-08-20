@@ -8,7 +8,6 @@ common:
   thread_multiplier: 1
   only_nav_enable: false
   use_auto_labeler: false
-  use_calculation: false
   use_ba: false
   use_omni: false
   use_fun: true

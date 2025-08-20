@@ -155,7 +155,6 @@ private:
     // Manual calibration
     static std::vector<cv::Point2f> clicked_points_;
     bool manual_r_init_ = false;
-    bool use_calculation_ = false;
     cv::Point2f manual_r_center_;
     std::vector<cv::Point2f> manual_r_box_;
     bool use_manual_r_ = false;

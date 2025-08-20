@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "common/calculation.hpp"
+
 #include "common/debug/toolsgobal.hpp"
 #include "common/utils.hpp"
 #include "core/wust_vision.hpp"
@@ -172,10 +172,8 @@ void WustVision::RuneDetectCallback(std::vector<rune::RuneObject>& objs, const C
         debug_img = frame.src_img.clone();
 
     if (!objs.empty()) {
-        // 1. 按概率排序
         std::sort(objs.begin(), objs.end(), [](auto& a, auto& b) { return a.prob > b.prob; });
 
-        // 2. 计算 R tag 中心
         cv::Point2f r_tag;
         cv::Mat binary_roi(1, 1, CV_8UC3, cv::Scalar(0));
 
@@ -209,18 +207,15 @@ void WustVision::RuneDetectCallback(std::vector<rune::RuneObject>& objs, const C
             );
         }
 
-        // 3. 赋值 R tag 中心
         for (auto& o: objs)
             o.pts.r_center = r_tag;
 
-        // 4. 绘制调试图
         if (common_info.debug_mode && !debug_img.empty()) {
             cv::Rect roi(debug_img.cols - binary_roi.cols, 0, binary_roi.cols, binary_roi.rows);
             binary_roi.copyTo(debug_img(roi));
             cv::rectangle(debug_img, roi, cv::Scalar(150, 150, 150), 2);
         }
 
-        // 5. 选择目标（未激活 & 颜色匹配）
         auto target_it = std::find_if(
             objs.begin(),
             objs.end(),
@@ -245,7 +240,6 @@ void WustVision::RuneDetectCallback(std::vector<rune::RuneObject>& objs, const C
         }
     }
 
-    // 6. 攻击模式切换
     auto gobal_state = gobal::stringanything.get_value<GobalState>("gobal_state");
     switch (toAttackMode(gobal_state.attack_mode)) {
         case AttackMode::BIG_RUNE:
@@ -266,7 +260,6 @@ void WustVision::RuneDetectCallback(std::vector<rune::RuneObject>& objs, const C
     //runeTargetCallback(rune_target);
     T_camera_to_odom_ = frame.T_camera_to_odom;
 
-    // 8. 保存调试信息
     if (common_info.debug_mode) {
         std::lock_guard<std::mutex> lock(dbg_mutex_);
         debug_gobal_frame_.imgframe = { debug_img.clone(), rune_target.timestamp };
@@ -344,9 +337,6 @@ void WustVision::armorsCallback(armor::Armors armors) {
     if (armors.timestamp <= tracker_manager_->last_time_) {
         WUST_WARN(vision_logger_) << "Received out-of-order armor data, discarded.";
         return;
-    }
-    if (use_calculation_) {
-        commandCallbackYpd(armors);
     }
     armor::Target target;
     std::vector<armor::OneTarget> one_targets;

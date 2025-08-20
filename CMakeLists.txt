@@ -32,7 +32,7 @@ find_package(OpenGL      REQUIRED)
 find_package(Ceres       REQUIRED)
 find_package(HikSDK      REQUIRED)
 find_package(TBB REQUIRED)
-find_package(SFML 2.5 COMPONENTS audio system REQUIRED)
+find_package(SFML COMPONENTS audio system REQUIRED)
 find_package(wust_vl REQUIRED)
 if(BUILD_WITH_OPENVINO)
   find_package(OpenVINO REQUIRED COMPONENTS Runtime ONNX)
@@ -67,7 +67,6 @@ set(COMMON_SOURCES
   src/core/wust_vision_base.cpp
   src/core/wust_vision_core.cpp
   src/core/wust_vision_debug.cpp
-  src/common/calculation.cpp
   src/common/gobal.cpp
   src/common/debug/tools.cpp
   src/common/debug/toolsgobal.cpp
@@ -93,6 +92,7 @@ set(COMMON_SOURCES
   src/tracker/one_tracker.cpp
   src/tracker/tracker_manager.cpp
   src/tracker/tracker.cpp
+  src/task/auto_aim.cpp
 )
 
 # 各后端专属源码，启用则加入
