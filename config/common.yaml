@@ -1,0 +1,23 @@
+max_infer_running: 6
+detect_color: 0
+debug_mode: true
+attack_mode: 0
+tf:
+  gimbal2camera_pitch: 0
+  gimbal2camera_roll: 0
+  gimbal2camera_x: 0.07
+  gimbal2camera_y: 0.05
+  gimbal2camera_yaw: 0.0
+  gimbal2camera_z: 0.0
+control:
+  control_rate: 2000
+  communication_delay: 1000
+  device_name: /dev/ttyACM0
+  use_nav: false
+  use_serial: true
+logger:
+  log_level: INFO
+  log_path: /home/hy/wust_log
+  use_logcli: true
+  use_logfile: true
+  use_simplelog: true

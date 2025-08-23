@@ -1,0 +1,27 @@
+rune_detect_backend: tensorrt
+
+rune_solver:
+  auto_type_determined: true
+  compensator_type: resistance
+  ekf:
+    iteration_num: 1
+    q_ypdyaw:
+      - 2e-4
+      - 1e-4
+      - 1e-4
+      - 1e-4
+    r_ypdyaw:
+      - 1
+      - 1
+      - 0.0005
+      - 5
+  gravity: 9.8
+  lost_time_thres: 0.5
+  predict_offset: 0.1
+  trajectory_offset:
+    - d_max: 6
+      d_min: 5
+      h_max: 0.4
+      h_min: -1
+      pitch_off: 0.1
+      yaw_off: 0

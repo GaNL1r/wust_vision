@@ -1,0 +1,1046 @@
+#include "tasks/debug.hpp"
+#include "tasks/utils.hpp"
+#include <fcntl.h>
+#include <nlohmann/json.hpp>
+#include <sys/mman.h>
+armor::Armors visualizeTargetProjection(
+    armor::Target armor_target_,
+    std::vector<armor::OneTarget> one_armor_targets_
+) {
+    armor::Armors armor_data;
+    armor_data.frame_id = "gimbal_odom";
+    armor_data.timestamp = armor_target_.timestamp;
+
+    if (armor_target_.tracking) {
+        tf::Position pos = armor_target_.position_;
+        tf::Position vel = armor_target_.velocity_;
+        utils::addVelFromAccDt(vel, armor_target_.acceleration_, 0.1);
+        utils::addPosFromVelDt(pos, vel, 0.1);
+        if (pos.norm() > 0.5) {
+            double yaw = armor_target_.yaw + armor_target_.v_yaw * 0.1;
+            double r1 = armor_target_.radius_1;
+            double r2 = armor_target_.radius_2;
+            double d_za = armor_target_.d_za;
+            double d_zc = armor_target_.d_zc;
+            float xc = pos.x;
+            float yc = pos.y;
+            float zc = pos.z;
+            bool is_current_pair = true;
+            armor_data.armors.clear();
+            size_t a_n = armor_target_.armors_num;
+            armor_data.armors.reserve(a_n);
+            for (size_t i = 0; i < a_n; ++i) {
+                double tmp_yaw = yaw + i * (2 * M_PI / a_n);
+                double cos_yaw = std::cos(tmp_yaw);
+                double sin_yaw = std::sin(tmp_yaw);
+
+                tf::Position pos;
+                if (a_n == 4) {
+                    double r = is_current_pair ? r1 : r2;
+                    pos.z = zc + d_zc + (is_current_pair ? 0 : d_za);
+                    pos.x = xc - r * cos_yaw;
+                    pos.y = yc - r * sin_yaw;
+                    is_current_pair = !is_current_pair;
+                } else {
+                    pos.z = zc;
+                    pos.x = xc - r1 * cos_yaw;
+                    pos.y = yc - r1 * sin_yaw;
+                }
+
+                tf::Quaternion ori;
+                ori.setRPY(
+                    M_PI / 2,
+                    armor_target_.id == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
+                    tmp_yaw
+                );
+
+                armor_data.armors.emplace_back(armor::Armor { .type = armor_target_.type,
+                                                              .pos = pos,
+                                                              .ori = ori,
+                                                              .is_ok = true,
+                                                              .distance_to_image_center = 0.0f });
+            }
+        }
+    }
+    for (auto one_armor_target_: one_armor_targets_) {
+        if (one_armor_target_.tracking) {
+            tf::Position pos = one_armor_target_.position_;
+            tf::Position vel = one_armor_target_.velocity_;
+            utils::addVelFromAccDt(vel, one_armor_target_.acceleration_, 0.1);
+            utils::addPosFromVelDt(pos, vel, 0.1);
+            if (pos.norm() > 0.5) {
+                double tmp_yaw = one_armor_target_.yaw + one_armor_target_.v_yaw * 0.1;
+                tf::Quaternion ori;
+                ori.setRPY(
+                    M_PI / 2,
+                    one_armor_target_.id == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
+                    tmp_yaw
+                );
+
+                armor_data.armors.emplace_back(armor::Armor { .type = one_armor_target_.type,
+                                                              .pos = pos,
+                                                              .ori = ori,
+                                                              .is_ok = false,
+                                                              .distance_to_image_center = 0.0f });
+            }
+        }
+    }
+
+    return armor_data;
+}
+
+void drawDebugArmorContent(
+    cv::Mat& debug_img,
+    const DebugArmor& dbg,
+    std::pair<cv::Mat, cv::Mat> camera_info
+) {
+    auto now = std::chrono::steady_clock::now();
+    auto armors = dbg.armors;
+    auto gimbal_cmd = dbg.gimbal_cmd;
+    auto target = dbg.target;
+    auto one_targets = dbg.one_targets;
+    static const int next_indices[] = { 2, 0, 3, 1 };
+
+    // =================== 绘制装甲板 ===================
+    for (const auto& armor: armors.armors) {
+        std::vector<cv::Point2f> pts;
+        if (!mono_measure_tool::reprojectArmorCorners_raw(
+                armor,
+                pts,
+                camera_info.first,
+                camera_info.second
+            ))
+            continue;
+
+        for (size_t i = 0; i < 4; ++i) {
+            cv::Scalar color = armor.is_ok ? cv::Scalar(50, 255, 50) : cv::Scalar(50, 255, 255);
+            cv::line(debug_img, pts[i], pts[next_indices[i]], color, 2);
+        }
+
+        std::string yaw_info = fmt::format("Yaw: {:.2f}", armor.yaw * 180.0 / M_PI);
+        cv::putText(
+            debug_img,
+            yaw_info,
+            pts[0] + cv::Point2f(0, -50),
+            cv::FONT_HERSHEY_SIMPLEX,
+            0.7,
+            cv::Scalar(0, 200, 200),
+            2
+        );
+
+        auto armorName = [](armor::ArmorNumber num) {
+            switch (num) {
+                case armor::ArmorNumber::SENTRY:
+                    return "SENTRY";
+                case armor::ArmorNumber::BASE:
+                    return "BASE";
+                case armor::ArmorNumber::OUTPOST:
+                    return "OUTPOST";
+                case armor::ArmorNumber::NO1:
+                    return "NO1";
+                case armor::ArmorNumber::NO2:
+                    return "NO2";
+                case armor::ArmorNumber::NO3:
+                    return "NO3";
+                case armor::ArmorNumber::NO4:
+                    return "NO4";
+                case armor::ArmorNumber::NO5:
+                    return "NO5";
+                default:
+                    return "UNKNOWN";
+            }
+        };
+
+        std::string armor_str = armorName(armor.number);
+        cv::putText(
+            debug_img,
+            armor_str,
+            pts[1] + cv::Point2f(0, 50),
+            cv::FONT_HERSHEY_SIMPLEX,
+            0.7,
+            cv::Scalar(0, 200, 200),
+            2
+        );
+    }
+
+    std::string latency_str = fmt::format("Latency: {:.2f}ms", dbg.latency_ms);
+    cv::putText(
+        debug_img,
+        latency_str,
+        cv::Point(10, 30),
+        cv::FONT_HERSHEY_SIMPLEX,
+        0.8,
+        cv::Scalar(255, 255, 255),
+        2
+    );
+
+    // =================== 目标绘制 ===================
+    std::vector<cv::Point2f> all_corners;
+    auto armor_data = visualizeTargetProjection(dbg.target, dbg.one_targets);
+    utils::transformArmorData(armor_data, dbg.T_camera_to_odom.inverse());
+    Target_info target_info;
+    target_info.select_id = dbg.gimbal_cmd.select_id;
+    if (!mono_measure_tool::reprojectArmorsCorners(
+            armor_data,
+            target_info,
+            camera_info.first,
+            camera_info.second
+        ))
+        return;
+
+    for (size_t i = 0; i < target_info.pts.size(); ++i) {
+        const auto& pts = target_info.pts[i];
+        const auto& pos = target_info.pos[i];
+        const auto& ori = target_info.ori[i];
+        const auto& is_ok = target_info.is_ok[i];
+
+        cv::Scalar color;
+        if (dbg.detect_color) {
+            color = is_ok ? cv::Scalar(255, 0, 0) : cv::Scalar(0, 0, 255);
+        } else {
+            color = !is_ok ? cv::Scalar(255, 0, 0) : cv::Scalar(0, 0, 255);
+        }
+        for (size_t j = 0; j < 4; ++j) {
+            cv::line(debug_img, pts[j], pts[(j + 1) % 4], color, 2);
+        }
+
+        if (is_ok) {
+            all_corners.insert(all_corners.end(), pts.begin(), pts.end());
+        }
+
+        double yaw = getYawFromQuaternion(ori);
+        double distance = std::sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z);
+
+        std::vector<std::string> info_lines = { fmt::format("Dis: {:.1f}cm", distance * 100),
+                                                fmt::format("X: {:.2f}", pos.x),
+                                                fmt::format("Y: {:.2f}", pos.y),
+                                                fmt::format("Z: {:.2f}", pos.z),
+                                                fmt::format("Yaw: {:.2f}", yaw * 180.0 / M_PI) };
+
+        cv::Point2f text_org = pts[0] + cv::Point2f(0, 200);
+        for (int k = 0; k < info_lines.size(); ++k) {
+            cv::putText(
+                debug_img,
+                info_lines[k],
+                text_org + cv::Point2f(0, -10 - 20 * k),
+                cv::FONT_HERSHEY_SIMPLEX,
+                0.6,
+                cv::Scalar(50, 255, 255),
+                1
+            );
+        }
+    }
+    int select_id = -1;
+
+    select_id = gimbal_cmd.select_id;
+
+    if (select_id != -1 && select_id < target_info.pts.size()
+        && !target_info.pts[select_id].empty()) {
+        cv::Point2f center(0.f, 0.f);
+        for (int i = 0; i < 4; ++i)
+            center += target_info.pts[select_id][i];
+        center *= 0.25f;
+        cv::circle(debug_img, center + cv::Point2f(0, -200), 20, cv::Scalar(0, 255, 255), 5);
+
+        if (gimbal_cmd.fire_advice) {
+            int cross_len = 60;
+            cv::line(
+                debug_img,
+                center + cv::Point2f(0, -200) + cv::Point2f(-cross_len, -cross_len),
+                center + cv::Point2f(0, -200) + cv::Point2f(+cross_len, +cross_len),
+                cv::Scalar(0, 0, 255),
+                5
+            );
+            cv::line(
+                debug_img,
+                center + cv::Point2f(0, -200) + cv::Point2f(-cross_len, +cross_len),
+                center + cv::Point2f(0, -200) + cv::Point2f(+cross_len, -cross_len),
+                cv::Scalar(0, 0, 255),
+                5
+            );
+        }
+
+        double scale = 10.0;
+        double v_yaw = gimbal_cmd.v_yaw;
+        double v_pitch = gimbal_cmd.v_pitch;
+        double dx = -scale * v_yaw;
+        double dy = scale * v_pitch;
+
+        cv::Point2f start_pt = center + cv::Point2f(0, -200);
+        cv::Point2f end_pt = start_pt + cv::Point2f(dx, dy);
+        cv::Scalar color = dbg.detect_color ? cv::Scalar(255, 50, 50) : cv::Scalar(50, 50, 255);
+        cv::arrowedLine(debug_img, start_pt, end_pt, color, 4, cv::LINE_AA, 0, 0.2);
+    }
+
+    if (!all_corners.empty()) {
+        cv::Point2f avg(0.f, 0.f);
+        for (const auto& pt: all_corners)
+            avg += pt;
+        avg *= 1.0f / all_corners.size();
+        cv::circle(debug_img, avg, 5, cv::Scalar(50, 255, 50), -1);
+
+        double scale = 10.0;
+        double dy = scale * target.v_yaw;
+        cv::Point2f start_pt = avg;
+        cv::Point2f end_pt = start_pt + cv::Point2f(0, dy);
+        cv::arrowedLine(
+            debug_img,
+            start_pt,
+            end_pt,
+            cv::Scalar(50, 255, 50),
+            2,
+            cv::LINE_AA,
+            0,
+            0.1
+        );
+    }
+
+    bool appear = utils::checkTargetAppear(target, one_targets);
+    Tracker::State state = appear ? Tracker::TRACKING : Tracker::LOST;
+
+    // =================== 状态绘制 ===================
+    std::string state_str;
+    switch (state) {
+        case Tracker::LOST:
+            state_str = "LOST";
+            break;
+        case Tracker::DETECTING:
+            state_str = "DETECTING";
+            break;
+        case Tracker::TRACKING:
+            state_str = "TRACKING";
+            break;
+        case Tracker::TEMP_LOST:
+            state_str = "TEMP_LOST";
+            break;
+        default:
+            state_str = "UNKNOWN";
+            break;
+    }
+
+    int baseline = 0;
+    cv::Size text_size = cv::getTextSize(state_str, cv::FONT_HERSHEY_SIMPLEX, 2.5, 2, &baseline);
+
+    // 保证在图像内
+    int x = std::clamp(debug_img.cols - text_size.width - 10, 0, debug_img.cols - text_size.width);
+    int y = std::clamp(text_size.height + 10, text_size.height, debug_img.rows - 1);
+
+    cv::putText(
+        debug_img,
+        state_str,
+        { x, y },
+        cv::FONT_HERSHEY_SIMPLEX,
+        2.5,
+        cv::Scalar(0, 0, 255),
+        2
+    );
+
+    // =================== Attack ID ===================
+    std::string id_str = fmt::format("Attack: {}", armorNumberToString(dbg.target.id));
+    cv::Size id_size = cv::getTextSize(id_str, cv::FONT_HERSHEY_SIMPLEX, 1.6, 2, &baseline);
+
+    // 保证在图像内
+    int id_x = std::clamp(debug_img.cols - 300, 0, debug_img.cols - id_size.width - 10);
+    int id_y = std::clamp(150, id_size.height, debug_img.rows - 1);
+
+    cv::putText(
+        debug_img,
+        id_str,
+        { id_x, id_y },
+        cv::FONT_HERSHEY_SIMPLEX,
+        1.6,
+        cv::Scalar(255, 0, 255),
+        2
+    );
+
+    // =================== Fire 标志 ===================
+    if (gimbal_cmd.fire_advice) {
+        std::string fire_str = "Fire!";
+        cv::putText(
+            debug_img,
+            fire_str,
+            { debug_img.cols / 2 - 100, 200 },
+            cv::FONT_HERSHEY_SIMPLEX,
+            2.85,
+            cv::Scalar(0, 0, 255),
+            2
+        );
+    }
+
+    // =================== 云台指令 ===================
+    std::string gimbal_str = fmt::format(
+        "Pitch: {:.2f}, Yaw: {:.2f}, Pitch_diff: {:.2f}, Yaw_diff: {:.2f}, V_yaw: {:.2f}, V_pitch: {:.2f}",
+        gimbal_cmd.pitch,
+        gimbal_cmd.yaw,
+        gimbal_cmd.pitch_diff,
+        gimbal_cmd.yaw_diff,
+        gimbal_cmd.v_yaw,
+        gimbal_cmd.v_pitch
+    );
+    cv::putText(
+        debug_img,
+        gimbal_str,
+        { 10, debug_img.rows - 30 },
+        cv::FONT_HERSHEY_SIMPLEX,
+        0.8,
+        cv::Scalar(255, 255, 0),
+        2
+    );
+
+    // =================== 屏幕中心点 ===================
+    cv::circle(
+        debug_img,
+        cv::Point2i(debug_img.cols / 2, debug_img.rows / 2),
+        5,
+        cv::Scalar(255, 255, 255),
+        2
+    );
+}
+static cv::Point2f normalize(const cv::Point2f& v) {
+    float norm = std::sqrt(v.x * v.x + v.y * v.y);
+    if (norm > 1e-6f)
+        return v / norm;
+    else
+        return cv::Point2f(0, 0);
+}
+void drawDebugRuneContent(cv::Mat& debug_img, const DebugRune& dbg, std::pair<cv::Mat, cv::Mat> camera_info) {
+    const auto& objs = dbg.objs;
+    const auto& gimbal_cmd = dbg.gimbal_cmd;
+    double predict_angle = dbg.predict_angle;
+    const auto& manual_r_box = dbg.manual_r_box;
+    const auto& debug_text = dbg.debug_text;
+
+    for (const auto& obj: objs) {
+        if (obj.type == rune::RuneType::INACTIVATED) {
+            const auto pts = obj.pts.toVector2f();
+            if (pts.size() < 3)
+                break;
+
+            int sharpest_idx = 0;
+            const cv::Point2f& tip = pts[sharpest_idx];
+            cv::Point2f aim_point =
+                std::accumulate(pts.begin(), pts.end(), cv::Point2f(0, 0)) - tip;
+            aim_point *= (1.f / (pts.size() - 1));
+
+            cv::Point2f vec_to_aim = normalize(aim_point - tip);
+            float base_angle = std::atan2(vec_to_aim.y, vec_to_aim.x);
+            float angle_rad = base_angle - predict_angle;
+            std::vector<cv::Point2f> pts_exclude_tip;
+            for (size_t i = 0; i < pts.size(); ++i) {
+                if (i != sharpest_idx)
+                    pts_exclude_tip.push_back(pts[i]);
+            }
+            float area = std::fabs(cv::contourArea(pts_exclude_tip));
+
+            float radius = std::sqrt(area / static_cast<float>(CV_PI));
+
+            float length = cv::norm(aim_point - tip);
+            cv::Point2f end_point_line =
+                tip + cv::Point2f(std::cos(angle_rad), std::sin(angle_rad)) * (length - radius);
+            cv::Point2f end_point_circle =
+                tip + cv::Point2f(std::cos(angle_rad), std::sin(angle_rad)) * length;
+
+            cv::line(debug_img, tip, end_point_line, cv::Scalar(255, 255, 255), 2);
+
+            cv::circle(
+                debug_img,
+                end_point_circle,
+                static_cast<int>(radius),
+                cv::Scalar(255, 255, 255),
+                5
+            );
+            cv::circle(debug_img, end_point_circle, 5, cv::Scalar(255, 255, 255), -1);
+
+            break;
+        }
+    }
+
+    for (int i = 0; i < manual_r_box.size(); i++) {
+        cv::line(debug_img, manual_r_box[i], manual_r_box[(i + 1) % 4], cv::Scalar(48, 48, 255), 1);
+    }
+
+    for (const auto& obj: objs) {
+        auto pts = obj.pts.toVector2f();
+        cv::Point2f aim_point =
+            std::accumulate(pts.begin() + 1, pts.end(), cv::Point2f(0, 0)) / 4.0f;
+
+        cv::Scalar line_color = obj.type == rune::RuneType::INACTIVATED ? cv::Scalar(50, 255, 50)
+                                                                        : cv::Scalar(255, 50, 255);
+
+        cv::putText(
+            debug_img,
+            fmt::format("{:.2f}", obj.prob),
+            cv::Point2i(pts[1]),
+            cv::FONT_HERSHEY_SIMPLEX,
+            0.8,
+            line_color,
+            2
+        );
+        cv::polylines(debug_img, obj.pts.toVector2i(), true, line_color, 2);
+        cv::circle(debug_img, aim_point, 5, line_color, -1);
+
+        std::string rune_type = obj.type == rune::RuneType::INACTIVATED ? "_HIT" : "_OK";
+        std::string rune_color = enemyColorToString(obj.color);
+        cv::putText(
+            debug_img,
+            rune_color + rune_type,
+            cv::Point2i(pts[2]),
+            cv::FONT_HERSHEY_SIMPLEX,
+            0.8,
+            line_color,
+            2
+        );
+        for (int i = 0; i < pts.size(); i++) {
+            std::string str = std::to_string(i);
+            cv::putText(
+                debug_img,
+                str,
+                pts[i],
+                cv::FONT_HERSHEY_SIMPLEX,
+                0.8,
+                cv::Scalar(0, 50, 255),
+                2
+            );
+        }
+    }
+
+    std::string latency_str = fmt::format("Latency: {:.2f}ms", dbg.latency_ms);
+    cv::putText(
+        debug_img,
+        latency_str,
+        cv::Point2i(10, 30),
+        cv::FONT_HERSHEY_SIMPLEX,
+        0.8,
+        cv::Scalar(255, 255, 255),
+        2
+    );
+
+    cv::circle(
+        debug_img,
+        cv::Point2i(debug_img.cols / 2, debug_img.rows / 2),
+        5,
+        cv::Scalar(255, 255, 255),
+        2
+    );
+
+    int baseline = 0;
+    std::string fire_str = gimbal_cmd.fire_advice ? "Fire!" : "";
+    cv::Size fire_size = cv::getTextSize(fire_str, cv::FONT_HERSHEY_SIMPLEX, 1.2, 2, &baseline);
+    int fire_x = 1440 / 2 - fire_size.width - 10;
+    int fire_y = 200;
+
+    cv::putText(
+        debug_img,
+        fire_str,
+        { fire_x, fire_y },
+        cv::FONT_HERSHEY_SIMPLEX,
+        2.85,
+        cv::Scalar(0, 0, 255),
+        2
+    );
+
+    std::string gimbal_str = fmt::format(
+        "Pitch: {:.2f}, Yaw: {:.2f}, Pitch_diff: {:.2f}, Yaw_diff: {:.2f}",
+        gimbal_cmd.pitch,
+        gimbal_cmd.yaw,
+        gimbal_cmd.pitch_diff,
+        gimbal_cmd.yaw_diff
+    );
+    cv::putText(
+        debug_img,
+        gimbal_str,
+        { 10, debug_img.rows - 30 },
+        cv::FONT_HERSHEY_SIMPLEX,
+        0.8,
+        cv::Scalar(255, 255, 0),
+        2
+    );
+
+    int baseline_ = 0;
+    cv::Size text_size = cv::getTextSize(debug_text, cv::FONT_HERSHEY_SIMPLEX, 1.0, 2, &baseline_);
+
+    int margin_x = 10;
+    int margin_y = 30;
+    int pos_x = debug_img.cols - text_size.width - margin_x;
+    int pos_y = margin_y + text_size.height;
+
+    cv::putText(
+        debug_img,
+        debug_text,
+        { pos_x, pos_y },
+        cv::FONT_HERSHEY_SIMPLEX,
+        1.0,
+        cv::Scalar(0, 0, 255),
+        2
+    );
+}
+void drawDebugOverlayWrite(
+    const DebugArmor& dbg,
+    std::pair<cv::Mat, cv::Mat> camera_info,
+    bool auto_fps
+) {
+    static auto last_show_time = std::chrono::steady_clock::now();
+
+    if (dbg.src_img.img.empty())
+        return;
+    cv::Mat src_img = dbg.src_img.img;
+    auto now = std::chrono::steady_clock::now();
+    const double min_interval_ms = 1000.0 / 30.0;
+    if (std::chrono::duration<double, std::milli>(now - last_show_time).count() < min_interval_ms
+        && auto_fps)
+        return;
+    last_show_time = now;
+
+    // 图像构造
+    cv::Mat debug_img;
+    src_img.convertTo(debug_img, -1, 1, 0);
+    cv::cvtColor(debug_img, debug_img, cv::COLOR_BGR2RGB);
+    if (debug_img.empty())
+        return;
+
+    // 封装后的绘图函数
+    drawDebugArmorContent(debug_img, dbg, camera_info);
+    cv::cvtColor(debug_img, debug_img, cv::COLOR_RGB2BGR);
+    // 编码写入共享内存路径
+    std::vector<uchar> buf;
+    cv::imencode(".jpg", debug_img, buf);
+    std::ofstream ofs("/dev/shm/debug_frame.jpg.tmp", std::ios::binary);
+    ofs.write(reinterpret_cast<const char*>(buf.data()), buf.size());
+    ofs.close();
+    std::rename("/dev/shm/debug_frame.jpg.tmp", "/dev/shm/debug_frame.jpg");
+}
+void drawDebugOverlayShm(
+    const DebugArmor& dbg,
+    std::pair<cv::Mat, cv::Mat> camera_info,
+    bool auto_fps
+) {
+    static auto last_show_time = std::chrono::steady_clock::now();
+    const char* shm_name = "/debug_frame";
+    const size_t shm_max_size = 2 * 1024 * 1024; // 2MB 最大图像编码缓存
+
+    if (dbg.src_img.img.empty())
+        return;
+    cv::Mat src_img = dbg.src_img.img;
+
+    auto now = std::chrono::steady_clock::now();
+    const double min_interval_ms = 1000.0 / 30.0;
+    if (std::chrono::duration<double, std::milli>(now - last_show_time).count() < min_interval_ms
+        && auto_fps)
+        return;
+    last_show_time = now;
+
+    // 复制并转RGB
+    cv::Mat debug_img;
+    src_img.convertTo(debug_img, -1, 1, 0);
+    cv::cvtColor(debug_img, debug_img, cv::COLOR_BGR2RGB);
+    if (debug_img.empty())
+        return;
+
+    // 绘制内容
+    drawDebugArmorContent(debug_img, dbg, camera_info);
+    // 编码为 JPG
+    std::vector<uchar> buf;
+    cv::imencode(".jpg", debug_img, buf);
+    size_t img_size = buf.size();
+
+    if (img_size > shm_max_size) {
+        std::cerr << "[drawDebugOverlayWrite] 图像过大: " << img_size << " bytes\n";
+        return;
+    }
+
+    // 创建/打开共享内存
+    int fd = shm_open(shm_name, O_CREAT | O_RDWR, 0666);
+    if (fd == -1) {
+        perror("shm_open failed");
+        return;
+    }
+
+    // 设置共享内存大小
+    if (ftruncate(fd, shm_max_size) == -1) {
+        perror("ftruncate failed");
+        close(fd);
+        return;
+    }
+
+    // 映射共享内存
+    void* ptr = mmap(nullptr, shm_max_size, PROT_WRITE, MAP_SHARED, fd, 0);
+    if (ptr == MAP_FAILED) {
+        perror("mmap failed");
+        close(fd);
+        return;
+    }
+
+    // 写入图像数据
+    uint32_t size = static_cast<uint32_t>(img_size);
+    std::memcpy(ptr, &size, 4); // 前4字节写入长度
+    std::memcpy(static_cast<char*>(ptr) + 4, buf.data(), img_size);
+
+    // 关闭映射和文件描述符
+    munmap(ptr, shm_max_size);
+    close(fd);
+}
+void drawDebugOverlayShow(
+    const DebugArmor& dbg,
+    std::pair<cv::Mat, cv::Mat> camera_info,
+    bool auto_fps
+) {
+    static auto last_show_time = std::chrono::steady_clock::now();
+
+    if (dbg.src_img.img.empty())
+        return;
+    cv::Mat src_img = dbg.src_img.img;
+    auto now = std::chrono::steady_clock::now();
+    const double min_interval_ms = 1000.0 / 30.0;
+    if (std::chrono::duration<double, std::milli>(now - last_show_time).count() < min_interval_ms
+        && auto_fps)
+        return;
+    last_show_time = now;
+
+    // 图像构造
+    cv::Mat debug_img;
+    src_img.convertTo(debug_img, -1, 1, 0);
+    cv::cvtColor(debug_img, debug_img, cv::COLOR_BGR2RGB);
+    if (debug_img.empty())
+        return;
+
+    // 封装后的绘图函数
+    drawDebugArmorContent(debug_img, dbg, camera_info);
+
+    cv::imshow("debug_armor", debug_img);
+    cv::waitKey(1);
+}
+void drawDebugOverlayWrite(
+    const DebugRune& dbg,
+    std::pair<cv::Mat, cv::Mat> camera_info,
+    bool auto_fps
+) {
+    static auto last_show_time = std::chrono::steady_clock::now();
+
+    if (dbg.src_img.img.empty())
+        return;
+    cv::Mat src_img = dbg.src_img.img;
+    auto now = std::chrono::steady_clock::now();
+    const double min_interval_ms = 1000.0 / 30.0;
+    if (std::chrono::duration<double, std::milli>(now - last_show_time).count() < min_interval_ms
+        && auto_fps)
+        return;
+    last_show_time = now;
+
+    // 图像构造
+    cv::Mat debug_img;
+    src_img.convertTo(debug_img, -1, 1, 0);
+    cv::cvtColor(debug_img, debug_img, cv::COLOR_BGR2RGB);
+    if (debug_img.empty())
+        return;
+
+    // 封装后的绘图函数
+    drawDebugRuneContent(debug_img, dbg, camera_info);
+    cv::cvtColor(debug_img, debug_img, cv::COLOR_RGB2BGR);
+    // 编码写入共享内存路径
+    std::vector<uchar> buf;
+    cv::imencode(".jpg", debug_img, buf);
+    std::ofstream ofs("/dev/shm/debug_frame.jpg.tmp", std::ios::binary);
+    ofs.write(reinterpret_cast<const char*>(buf.data()), buf.size());
+    ofs.close();
+    std::rename("/dev/shm/debug_frame.jpg.tmp", "/dev/shm/debug_frame.jpg");
+}
+void drawDebugOverlayShm(
+    const DebugRune& dbg,
+    std::pair<cv::Mat, cv::Mat> camera_info,
+    bool auto_fps
+) {
+    static auto last_show_time = std::chrono::steady_clock::now();
+    const char* shm_name = "/debug_frame";
+    const size_t shm_max_size = 2 * 1024 * 1024; // 2MB 最大图像编码缓存
+
+    if (dbg.src_img.img.empty())
+        return;
+    cv::Mat src_img = dbg.src_img.img;
+
+    auto now = std::chrono::steady_clock::now();
+    const double min_interval_ms = 1000.0 / 30.0;
+    if (std::chrono::duration<double, std::milli>(now - last_show_time).count() < min_interval_ms
+        && auto_fps)
+        return;
+    last_show_time = now;
+
+    // 复制并转RGB
+    cv::Mat debug_img;
+    src_img.convertTo(debug_img, -1, 1, 0);
+    cv::cvtColor(debug_img, debug_img, cv::COLOR_BGR2RGB);
+    if (debug_img.empty())
+        return;
+
+    // 绘制内容
+    drawDebugRuneContent(debug_img, dbg, camera_info);
+    // 编码为 JPG
+    std::vector<uchar> buf;
+    cv::imencode(".jpg", debug_img, buf);
+    size_t img_size = buf.size();
+
+    if (img_size > shm_max_size) {
+        std::cerr << "[drawDebugOverlayWrite] 图像过大: " << img_size << " bytes\n";
+        return;
+    }
+
+    // 创建/打开共享内存
+    int fd = shm_open(shm_name, O_CREAT | O_RDWR, 0666);
+    if (fd == -1) {
+        perror("shm_open failed");
+        return;
+    }
+
+    // 设置共享内存大小
+    if (ftruncate(fd, shm_max_size) == -1) {
+        perror("ftruncate failed");
+        close(fd);
+        return;
+    }
+
+    // 映射共享内存
+    void* ptr = mmap(nullptr, shm_max_size, PROT_WRITE, MAP_SHARED, fd, 0);
+    if (ptr == MAP_FAILED) {
+        perror("mmap failed");
+        close(fd);
+        return;
+    }
+
+    // 写入图像数据
+    uint32_t size = static_cast<uint32_t>(img_size);
+    std::memcpy(ptr, &size, 4); // 前4字节写入长度
+    std::memcpy(static_cast<char*>(ptr) + 4, buf.data(), img_size);
+
+    // 关闭映射和文件描述符
+    munmap(ptr, shm_max_size);
+    close(fd);
+}
+void drawDebugOverlayShow(
+    const DebugRune& dbg,
+    std::pair<cv::Mat, cv::Mat> camera_info,
+    bool auto_fps
+) {
+    static auto last_show_time = std::chrono::steady_clock::now();
+
+    if (dbg.src_img.img.empty())
+        return;
+    cv::Mat src_img = dbg.src_img.img;
+    auto now = std::chrono::steady_clock::now();
+    const double min_interval_ms = 1000.0 / 30.0;
+    if (std::chrono::duration<double, std::milli>(now - last_show_time).count() < min_interval_ms
+        && auto_fps)
+        return;
+    last_show_time = now;
+
+    // 图像构造
+    cv::Mat debug_img;
+    src_img.convertTo(debug_img, -1, 1, 0);
+    cv::cvtColor(debug_img, debug_img, cv::COLOR_BGR2RGB);
+    if (debug_img.empty())
+        return;
+
+    // 封装后的绘图函数
+    drawDebugRuneContent(debug_img, dbg, camera_info);
+
+    cv::imshow("debug_rune", debug_img);
+    cv::waitKey(1);
+}
+
+void writeTargetLogToJson(const armor::Target& target) {
+    nlohmann::json j;
+
+    j["frame_id"] = target.frame_id;
+    j["type"] = target.type;
+    j["tracking"] = target.tracking;
+    j["id"] = static_cast<int>(target.id);
+    j["armors_num"] = target.armors_num;
+
+    auto now = std::chrono::steady_clock::now();
+    auto age_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(now - target.timestamp).count();
+    j["timestamp_age_ms"] = age_ms;
+
+    j["position"] = { { "x", target.position_.x },
+                      { "y", target.position_.y },
+                      { "z", target.position_.z } };
+
+    j["velocity"] = { { "x", target.velocity_.x },
+                      { "y", target.velocity_.y },
+                      { "z", target.velocity_.z } };
+
+    j["acceleration"] = { { "x", target.acceleration_.x },
+                          { "y", target.acceleration_.y },
+                          { "z", target.acceleration_.z } };
+
+    j["yaw"] = target.yaw;
+    j["v_yaw"] = target.v_yaw;
+    j["yaw_diff"] = target.yaw_diff;
+
+    j["radius_1"] = target.radius_1;
+    j["radius_2"] = target.radius_2;
+    j["d_za"] = target.d_za;
+    j["d_zc"] = target.d_zc;
+    j["position_diff"] = target.position_diff;
+    j["z_diff"] = std::abs(target.d_za) + std::abs(target.d_zc);
+
+    std::ofstream file("/dev/shm/target_log.json");
+    if (file.is_open()) {
+        file << j.dump(2);
+    }
+}
+void writeSerialLogToJson(const ReceiveAimINFO& aim) {
+    nlohmann::json j;
+
+    j["timestamp"] = aim.time_stamp;
+    j["yaw"] = aim.yaw;
+    j["pitch"] = aim.pitch;
+    j["roll"] = aim.roll;
+
+    j["yaw_vel"] = aim.yaw_vel;
+    j["pitch_vel"] = aim.pitch_vel;
+    j["roll_vel"] = aim.roll_vel;
+
+    j["manual_reset_count"] = aim.manual_reset_count;
+    j["bullet_speed"] = aim.bullet_speed;
+    j["controller_delay"] = aim.controller_delay;
+    j["detect_color"] = (aim.detect_color == 0 ? "Red" : "Blue");
+
+    // FPS 统计
+    static int frame_count = 0;
+    static double fps = 0.0;
+    static auto last_time = std::chrono::steady_clock::now();
+
+    ++frame_count;
+    auto now = std::chrono::steady_clock::now();
+    double elapsed = std::chrono::duration<double>(now - last_time).count();
+    if (elapsed >= 1.0) {
+        fps = frame_count / elapsed;
+        frame_count = 0;
+        last_time = now;
+    }
+    j["fps"] = fps;
+
+    std::ofstream file("/dev/shm/serial_log.json");
+    if (file.is_open()) {
+        file << j.dump(2);
+    }
+}
+void debuglog(const DebugArmor& dbg_armor, const DebugRune& dbg_rune) {
+    static bool first_log = true;
+    static std::chrono::steady_clock::time_point start_time;
+
+    // last_* 静态化
+    static armor::Armor last_armor_;
+    static double last_armor_yaw_ = 0.0;
+    static double last_ypd_y_ = 0.0;
+    static double last_ypd_p_ = 0.0;
+    static double last_distance_ = 0.0;
+    static DebugLogs log;
+
+    if (first_log) {
+        start_time = std::chrono::steady_clock::now();
+        first_log = false;
+    }
+
+    auto now = std::chrono::steady_clock::now();
+    armor::Armors armors = dbg_armor.armors;
+    double t = std::chrono::duration<double>(now - start_time).count();
+    armor::Target target = dbg_armor.target;
+    writeTargetLogToJson(target);
+
+    double armor_yaw = 0.0, ypd_y = 0.0, ypd_p = 0.0, armor_distance = 0.0;
+
+    if (!armors.armors.empty()) {
+        std::vector<armor::Armor> ok_armors;
+        for (const auto& armor: armors.armors) {
+            if (armor.number != armor::ArmorNumber::OUTPOST)
+                ok_armors.push_back(armor);
+        }
+
+        if (!ok_armors.empty()) {
+            const armor::Armor& min_armor = *std::min_element(
+                ok_armors.begin(),
+                ok_armors.end(),
+                [](const armor::Armor& a, const armor::Armor& b) {
+                    return a.distance_to_image_center < b.distance_to_image_center;
+                }
+            );
+
+            last_armor_ = min_armor;
+
+            armor_distance =
+                std::hypot(min_armor.target_pos.x, min_armor.target_pos.y, min_armor.target_pos.z);
+
+            armor_yaw =
+                last_armor_yaw_ + angles::shortest_angular_distance(last_armor_yaw_, min_armor.yaw);
+            last_armor_yaw_ = armor_yaw;
+
+            ypd_y = std::atan2(min_armor.target_pos.y, min_armor.target_pos.x);
+            ypd_y = last_ypd_y_ + angles::shortest_angular_distance(last_ypd_y_, ypd_y);
+            last_ypd_y_ = ypd_y;
+
+            ypd_p = std::atan2(
+                min_armor.target_pos.z,
+                std::hypot(min_armor.target_pos.x, min_armor.target_pos.y)
+            );
+            last_ypd_p_ = ypd_p;
+
+            last_distance_ = armor_distance;
+        }
+    }
+
+    auto last_cmd = dbg_armor.gimbal_cmd;
+
+    log.time_log.push_back(t);
+    log.cmd_yaw_log.push_back(last_cmd.yaw);
+    log.cmd_pitch_log.push_back(last_cmd.pitch);
+    log.rune_obs_log.push_back(dbg_rune.obs_angle);
+    log.rune_pre_log.push_back(dbg_rune.pre_angle);
+    log.rune_v_log.push_back(dbg_rune.fitter_v);
+    log.armor_yaw_log.push_back(armor_yaw * 180.0 / M_PI);
+    log.armor_x_log.push_back(last_armor_.target_pos.x);
+    log.armor_y_log.push_back(last_armor_.target_pos.y);
+    log.armor_z_log.push_back(last_armor_.target_pos.z);
+    log.ypd_y_log.push_back(last_ypd_y_ * 180.0 / M_PI);
+    log.ypd_p_log.push_back(last_ypd_p_ * 180.0 / M_PI);
+    log.armor_dis_log.push_back(last_distance_);
+
+    // 控制长度不超过 1000
+    auto trim = [](std::vector<double>& v) {
+        if (v.size() > 1000)
+            v.erase(v.begin());
+    };
+
+    trim(log.time_log);
+    trim(log.cmd_yaw_log);
+    trim(log.cmd_pitch_log);
+    trim(log.rune_obs_log);
+    trim(log.rune_pre_log);
+    trim(log.rune_v_log);
+    trim(log.armor_yaw_log);
+    trim(log.armor_x_log);
+    trim(log.armor_y_log);
+    trim(log.armor_z_log);
+    trim(log.ypd_y_log);
+    trim(log.ypd_p_log);
+    trim(log.armor_dis_log);
+    nlohmann::json j;
+    {
+        j["time"] = log.time_log;
+        j["yaw"] = log.cmd_yaw_log;
+        j["pitch"] = log.cmd_pitch_log;
+        j["armor_dis"] = log.armor_dis_log;
+        j["armor_x"] = log.armor_x_log;
+        j["armor_y"] = log.armor_y_log;
+        j["armor_z"] = log.armor_z_log;
+        j["armor_yaw"] = log.armor_yaw_log;
+        j["ypd_y"] = log.ypd_y_log;
+        j["ypd_p"] = log.ypd_p_log;
+        j["rune_obs"] = log.rune_obs_log;
+        j["rune_pre"] = log.rune_pre_log;
+        j["rune_v"] = log.rune_v_log;
+    }
+    std::ofstream file("/dev/shm/cmd_log.json");
+    if (file.is_open()) {
+        file << j.dump();
+    }
+}

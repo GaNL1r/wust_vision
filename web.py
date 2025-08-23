@@ -8,6 +8,13 @@ import fcntl
 
 app = Flask(__name__)
 
+# ===============================
+# 参数设置：选择模式
+# ===============================
+# True -> 强制共享内存模式
+# False -> 文件模式
+USE_SHARED_MEMORY_MODE = True
+
 # 通信参数
 shared_memory_path = "/dev/shm/debug_frame"
 shared_size = 2 * 1024 * 1024  # 2MB
@@ -26,24 +33,19 @@ def ensure_shared_memory_permissions():
     """确保共享内存文件存在且权限正确"""
     with permission_lock:
         try:
-            # 1. 确保文件存在
             if not os.path.exists(shared_memory_path):
                 print(f"创建共享内存文件: {shared_memory_path}")
                 with open(shared_memory_path, "wb") as f:
                     f.write(b"\0" * shared_size)
 
-            # 2. 检查并修复权限
             current_mode = oct(os.stat(shared_memory_path).st_mode & 0o777)
             if current_mode != "0o666":
                 print(f"修复权限 (当前: {current_mode} -> 目标: 666)")
-
-                # 使用 sudo 修复权限
                 result = subprocess.run(
                     ["sudo", "chmod", "666", shared_memory_path],
                     capture_output=True,
                     text=True,
                 )
-
                 if result.returncode == 0:
                     print("权限修复成功")
                     return True
@@ -60,53 +62,53 @@ def init_shared_memory():
     """初始化共享内存连接"""
     global use_shared_memory, mapfile, fd
 
-    # 确保权限正确
     if not ensure_shared_memory_permissions():
-        print("[WARN] 权限修复失败，回退到文件模式")
+        print("[WARN] 权限修复失败")
         use_shared_memory = False
         return False
 
     try:
-        # 使用直接文件访问方式
         fd = os.open(shared_memory_path, os.O_RDONLY)
         mapfile = mmap.mmap(fd, shared_size, mmap.MAP_SHARED, mmap.PROT_READ)
-
-        # 设置非阻塞锁
         fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
-
         use_shared_memory = True
         print("[INFO] 共享内存初始化成功")
         return True
     except Exception as e:
         print(f"[WARN] 共享内存初始化失败: {e}")
-        use_shared_memory = False
-
-        # 清理资源
         if mapfile:
             try:
                 mapfile.close()
             except:
                 pass
             mapfile = None
-
         if fd:
             try:
                 os.close(fd)
             except:
                 pass
             fd = None
-
+        use_shared_memory = False
         return False
 
 
-# 初始连接尝试
-if init_shared_memory():
-    print("✅ 使用共享内存模式")
+# ===============================
+# 初始化模式
+# ===============================
+if USE_SHARED_MEMORY_MODE:
+    if init_shared_memory():
+        print("✅ 使用共享内存模式")
+    else:
+        print("⚠️ 强制共享内存模式失败，回退到文件模式")
+        use_shared_memory = False
 else:
-    print("⚠️ 使用文件回退模式")
+    use_shared_memory = False
+    print("ℹ️ 使用文件模式")
 
 
+# ===============================
 # 清理函数
+# ===============================
 @atexit.register
 def cleanup():
     if mapfile:
@@ -114,7 +116,6 @@ def cleanup():
             mapfile.close()
         except:
             pass
-
     if fd:
         try:
             os.close(fd)
@@ -122,94 +123,66 @@ def cleanup():
             pass
 
 
+# ===============================
 # MJPEG 流生成器
+# ===============================
 def mjpeg_stream():
     global use_shared_memory, mapfile
-
     last_fix_attempt = 0
 
     while True:
         try:
             if use_shared_memory and mapfile:
                 try:
-                    # 重置到文件开头
                     mapfile.seek(0)
-
-                    # 读取JPEG大小 (前4字节)
                     size_bytes = mapfile.read(4)
                     if len(size_bytes) < 4:
-                        print("[WARN] 未读取到完整的大小头")
                         time.sleep(0.03)
                         continue
-
                     jpg_size = struct.unpack("I", size_bytes)[0]
-
-                    # 验证大小有效性
                     if jpg_size <= 0 or jpg_size > shared_size - 4:
-                        print(f"[WARN] 无效的JPEG大小: {jpg_size}")
                         time.sleep(0.03)
                         continue
-
-                    # 读取JPEG数据
                     jpg_bytes = mapfile.read(jpg_size)
-
-                    # 验证数据完整性
                     if len(jpg_bytes) != jpg_size:
-                        print(f"[WARN] 数据不完整: {len(jpg_bytes)}/{jpg_size} 字节")
                         time.sleep(0.03)
                         continue
-
-                    # 检查JPEG头部
                     if jpg_bytes[0:3] != b"\xff\xd8\xff":
-                        print("[WARN] 无效的JPEG头部")
                         time.sleep(0.03)
                         continue
-
                 except (OSError, ValueError) as e:
-                    print(f"[ERROR] 共享内存访问错误: {e}")
-
-                    # 限流：每分钟最多尝试修复一次
                     current_time = time.time()
                     if current_time - last_fix_attempt > 60:
                         print("尝试重新初始化共享内存...")
                         if init_shared_memory():
                             continue
                         last_fix_attempt = current_time
-
-                    # 暂时回退到文件模式
                     use_shared_memory = False
                     continue
 
-            # 文件模式回退
             if not use_shared_memory or not mapfile:
                 try:
                     with open(shared_frame_path, "rb") as f:
                         jpg_bytes = f.read()
-
-                    # 验证JPEG文件
                     if jpg_bytes[0:3] != b"\xff\xd8\xff":
-                        print("[WARN] 文件模式: 无效的JPEG头部")
                         time.sleep(0.03)
                         continue
                 except FileNotFoundError:
-                    print(f"[WARN] 文件未找到: {shared_frame_path}")
                     time.sleep(0.1)
                     continue
-                except Exception as e:
-                    print(f"[ERROR] 文件读取失败: {e}")
+                except Exception:
                     time.sleep(0.1)
                     continue
 
-            # 生成MJPEG帧
-            yield (
-                b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + jpg_bytes + b"\r\n"
-            )
+            yield b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + jpg_bytes + b"\r\n"
             time.sleep(0.03)
-        except Exception as e:
-            print(f"[CRITICAL] MJPEG 生成器异常: {e}")
+        except Exception:
             time.sleep(0.5)
 
 
+# ===============================
+# Flask 路由
+# ===============================
 @app.route("/")
 def index():
     def get_local_ip():
@@ -261,11 +234,13 @@ def target_log():
         return jsonify({"error": str(e)}), 500
 
 
+# ===============================
+# 主函数
+# ===============================
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
-    # 获取本地IP
     def get_local_ip():
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:

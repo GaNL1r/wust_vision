@@ -1,0 +1,70 @@
+// Copyright (C) FYT Vision Group. All rights reserved.
+// Copyright 2025 XiaoJian Wu
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#pragma once
+
+// std
+#include <array>
+#include <memory>
+#include <vector>
+// OpenCV
+#include <opencv2/opencv.hpp>
+// Eigen
+#include <Eigen/Dense>
+// project
+#include "tasks/auto_aim/armor_optimize/ba_solver.hpp"
+
+#include "tasks/auto_aim/type.hpp"
+#include "wust_vl/algorithm/pnp_solver.hpp"
+#include "yaml-cpp/yaml.h"
+
+class ArmorPoseEstimator {
+public:
+    explicit ArmorPoseEstimator(YAML::Node config, std::pair<cv::Mat, cv::Mat> camera_info);
+
+    std::vector<armor::Armor> extractArmorPoses(
+        const std::vector<armor::ArmorObject>& armors,
+        Eigen::Matrix4d T_camera_to_odom,
+        const cv::Mat& camera_intrinsic,
+        const cv::Mat& camera_distortion
+    );
+
+    void enableBA(bool enable) {
+        use_ba_ = enable;
+    }
+    std::unique_ptr<BaSolver> ba_solver_;
+    double distance_fix_a2_ = 0;
+
+private:
+    // Select the best PnP solution according to the armor's direction in image,
+    // only available for SOLVEPNP_IPPE
+    void sortPnPResult(
+        const armor::ArmorObject& armor,
+        std::vector<cv::Mat>& rvecs,
+        std::vector<cv::Mat>& tvecs,
+        std::string coord_frame_name,
+        const cv::Mat& camera_intrinsic,
+        const cv::Mat& camera_distortion
+    ) const;
+
+    // Convert a rotation matrix to RPY
+    static Eigen::Vector3d rotationMatrixToRPY(const Eigen::Matrix3d& R);
+
+    bool use_ba_;
+
+    Eigen::Matrix3d R_gimbal_camera_;
+
+    std::unique_ptr<PnPSolver> pnp_solver_;
+};

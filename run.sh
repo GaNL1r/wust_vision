@@ -76,31 +76,31 @@ if [ "$1" == "build" ] || [ "$1" == "rebuild" ]; then
     exit 0
 fi
 
-cp ./wust_vision /usr/local/bin/
-if [ $? -ne 0 ]; then
-    echo -e "${red}\n--- Failed to copy wust_vision to /usr/local/bin ---${reset}"
-    exit 1
-fi
+# cp ./wust_vision /usr/local/bin/
+# if [ $? -ne 0 ]; then
+#     echo -e "${red}\n--- Failed to copy wust_vision to /usr/local/bin ---${reset}"
+#     exit 1
+# fi
 
 # Run mode
 if [ "$1" == "run" ]; then
     echo -e "${yellow}\n<--- Running WUST_VISION --->${reset}"
-    ./wust_vision
+    ./$2
     if [ $? -ne 0 ]; then
         echo -e "${red}\n--- Program crashed, running guard.sh ---${reset}"
-        pkill wust_vision
+        pkill $2
         timeout=10
-        while pgrep wust_vision > /dev/null; do
+        while pgrep $2 > /dev/null; do
             sleep 0.5
             timeout=$((timeout - 1))
             if [ $timeout -le 0 ]; then
-                echo "wust_vision did not exit after 10 seconds, forcing kill"
-                pkill -9 wust_vision
+                echo "$2 did not exit after 10 seconds, forcing kill"
+                pkill -9 $2
                 break
             fi
         done
         cd ..
-        ./config/guard.sh
+        # ./config/guard.sh
         exit 1
     fi
 elif [ "$1" == "cal" ]; then

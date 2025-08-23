@@ -1,0 +1,147 @@
+// Maintained by Chengfu Zou, Labor
+// Copyright (C) FYT Vision Group. All rights reserved.
+// Copyright 2025 Xiaojian Wu
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#pragma once
+
+// std
+#include <algorithm>
+#include <array>
+#include <deque>
+#include <iostream>
+#include <memory>
+#include <tuple>
+#include <vector>
+
+// project
+#include "KalmanHyLib/kalman_hybird_lib.hpp"
+#include "curve_fitter.hpp"
+#include "tasks/auto_buff/motion_models/motion_modelrypd.hpp"
+#include "tasks/auto_buff/type.hpp"
+#include "wust_vl/algorithm/pnp_solver.hpp"
+#include "wust_vl/common/utils/logger.hpp"
+#include "wust_vl/common/utils/manual_compensator.hpp"
+#include "wust_vl/common/utils/trajectory_compensator.hpp"
+#include "yaml-cpp/yaml.h"
+
+// Usage:
+//   1. init(msg), if tracker_state == LOST
+//   2. update(msg), if tracker_state == DETECTING or TRACKING
+//   3. p = predictTarget(timestamp), to get the predicted position
+//   4. cmd = solveGimbalCmd(p), to get the gimbal command
+class RuneSolver {
+public:
+    struct RuneSolverParams {
+        std::string compensator_type;
+        double gravity;
+        double bullet_speed;
+        double angle_offset_thres;
+        double lost_time_thres;
+        bool auto_type_determined;
+    };
+    struct StateResult {
+        std::array<double, 3> rpy;
+        double controller_delay;
+        double bullet_speed;
+    };
+
+    enum State {
+        LOST,
+        DETECTING,
+        TRACKING,
+    } tracker_state;
+    using StateCallback = std::function<StateResult()>;
+    RuneSolver(const YAML::Node& config, std::pair<cv::Mat, cv::Mat> camera_info);
+
+    // Return: initial angle
+    double init(const rune::Rune received_target, Eigen::Matrix4d T_camera_to_odom);
+
+    // Return: normalized angle
+    double update(const rune::Rune receive_target, Eigen::Matrix4d T_camera_to_odom);
+
+    // Return: normalized predicted angle
+    double predictTarget(Eigen::Vector3d& predicted_position, double timestamp);
+
+    // Return: transormation matrix from rune to odom
+    // Throws: tf::TransformException or std::runtime_error
+    Eigen::Matrix4d solvePose(const rune::Rune& target, Eigen::Matrix4d T_camera_to_odom);
+
+    GimbalCmd solveGimbalCmd(const Eigen::Vector3d& target);
+
+    // Return: 3d position of R tag
+    Eigen::Vector3d getCenterPosition() const;
+
+    // Param: angle_diff: how much the angle target should prerotate, 0 for no
+    // prediction Return: 3d position of target to be aimed at
+    Eigen::Vector3d getTargetPosition(double angle_diff) const;
+
+    double getCurAngle() const;
+
+    GimbalCmd solve();
+    GimbalCmd returnDefaultCmd() {
+        GimbalCmd dft;
+        dft.pitch = state_result_.rpy[1];
+        dft.yaw = state_result_.rpy[2];
+        dft.fire_advice = false;
+        return dft;
+    }
+    // Solvers
+    std::unique_ptr<PnPSolver> pnp_solver_;
+    std::unique_ptr<TrajectoryCompensator> trajectory_compensator_;
+    std::unique_ptr<CurveFitter> curve_fitter_;
+
+    std::unique_ptr<ypdrune_motion_model::RuneCenterEKF> ekf_ypd_;
+    std::unique_ptr<ManualCompensator> manual_compensator_;
+
+    RuneSolverParams rune_solver_params_;
+    double predict_offset_;
+    double last_pre_angle;
+    // last_observed_angle_ is continuously increasing (or decreasing)
+    // from the first detection (call init()) of the target without
+    // any abrupt change in between.
+    double last_observed_angle_;
+    int iteration_num_;
+    std::vector<double> yr_vec_;
+    std::vector<double> yq_vec_;
+    std::pair<cv::Mat, cv::Mat> camera_info_;
+    StateResult state_result_;
+    StateCallback state_callback_;
+    void setStateCallback(StateCallback cb) {
+        state_callback_ = cb;
+    }
+
+private:
+    double getNormalAngle(const rune::Rune received_target);
+
+    double getObservedAngle(double normal_angle);
+
+    // Return the centroid of the input armor points
+    cv::Point2f getCenterPoint(const std::array<cv::Point2f, ARMOR_KEYPOINTS_NUM>& armor_points);
+
+    // Return ekf state
+    Eigen::Vector4d getStateFromTransform(const Eigen::Matrix4d& transform) const;
+
+    // Observation data
+
+    // last_angle_ would change (N * DEG_72) when the target jumps
+    double last_angle_;
+    double start_time_;
+    double last_time_;
+    double last_ypd_y_;
+
+    std::string rune_solver_logger_ = "rune_solver";
+
+    Eigen::Vector4d ekf_state_;
+};
