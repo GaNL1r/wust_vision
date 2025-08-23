@@ -51,208 +51,187 @@ sudo ./run.sh run/rebuild/build/cal #编译并运行/删除build缓存重新编�
 ## 文件树
 ```
 .
-├── CMakeLists.txt
-├── cmake_modules
+├── 3rdparty
+│   ├── angles.h
+│   └── backward-cpp
+│       
+├── cmake
 │   ├── FindG2O.cmake
 │   ├── FindHikSDK.cmake
 │   ├── FindOrt.cmake
 │   └── FindTensorRT.cmake
+├── CMakeLists.txt
 ├── config
-│   ├── 7.9-600-20s-7.5rad-60-113.yaml
-│   ├── armor_detect_opencv.yaml
+│   ├── auto_aim.yaml
+│   ├── auto_buff.yaml
 │   ├── camera_calibrator.yaml
 │   ├── camera_info.yaml
-│   ├── config_common.yaml
+│   ├── camera.yaml
+│   ├── common.yaml
 │   ├── detect_ncnn.yaml
+│   ├── detect_opencv.yaml
 │   ├── detect_openvino.yaml
 │   ├── detect_ort.yaml
 │   ├── detect_trt.yaml
+│   ├── fun.yaml
 │   ├── guard.sh
 │   └── omni_config.yaml
-├── dandao.py
-├── format.sh
-├── include
-│   ├── common
-│   │   ├── 3rdparty
-│   │   │   └── angles.h
-│   │   │    
-│   │   ├── calculation.hpp
-│   │   ├── camera_calibrator.hpp
-│   │   ├── debug
-│   │   │   ├── toolsgobal.hpp
-│   │   │   └── tools.hpp
-│   │   ├── gobal.hpp
-│   │   ├── logger.hpp
-│   │   ├── tf.hpp
-│   │   ├── ThreadPool.h
-│   │   └── utils.hpp
-│   ├── control
-│   │   ├── armor_solver.hpp
-│   │   ├── manual_compensator.hpp
-│   │   ├── rune_solver.hpp
-│   │   └── trajectory_compensator.hpp
-│   ├── detect
-│   │   ├── armor_detect
-│   │   │   ├── armor_detect_common.hpp
-│   │   │   ├── armor_detector_base.hpp
-│   │   │   ├── armor_detector_opencv.hpp
-│   │   │   ├── armor_detector_opencv_wrapper.hpp
-│   │   │   ├── armor_pose_estimator.hpp
-│   │   │   ├── light_corner_corrector.hpp
-│   │   │   ├── ncnn
-│   │   │   │   ├── armor_detector_ncnn.hpp
-│   │   │   │   └── armor_detector_ncnn_wrapper.hpp
-│   │   │   ├── number_classifier.hpp
-│   │   │   ├── onnxruntime
-│   │   │   │   ├── armor_detector_ort.hpp
-│   │   │   │   └── armor_detector_ort_wrapper.hpp
-│   │   │   ├── openvino
-│   │   │   │   ├── armor_detector_openvino.hpp
-│   │   │   │   └── armor_detector_openvino_wrapper.hpp
-│   │   │   └── tensorrt
-│   │   │       ├── armor_detector_trt.hpp
-│   │   │       └── armor_detector_trt_wrapper.hpp
-│   │   ├── ba_solver.hpp
-│   │   ├── detector_factory.hpp
-│   │   ├── graph_optimizer.hpp
-│   │   ├── mono_measure_tool.hpp
-│   │   ├── pnp_solver.hpp
-│   │   └── rune_detect
-│   │       ├── ncnn
-│   │       │   ├── rune_detector_ncnn.hpp
-│   │       │   └── rune_detector_ncnn_wrapper.hpp
-│   │       ├── onnxruntime
-│   │       │   ├── rune_detector_ort.hpp
-│   │       │   └── rune_detector_ort_wrapper.hpp
-│   │       ├── openvino
-│   │       │   ├── rune_detector_openvino.hpp
-│   │       │   └── rune_detector_openvino_wrapper.hpp
-│   │       ├── rune_detector_base.hpp
-│   │       └── tensorrt
-│   │           ├── rune_detector_trt.hpp
-│   │           └── rune_detector_trt_wrapper.hpp
-│   ├── driver
-│   │   ├── crc8_crc16.hpp
-│   │   ├── hik.hpp
-│   │   ├── packet_typedef.hpp
-│   │   ├── serial.hpp
-│   │   ├── serial_type.hpp
-│   │   ├── sharetype.hpp
-│   │   └── tools
-│   │       ├── labeler.hpp
-│   │       ├── recorder.hpp
-│   │       └── video_player.hpp
-│   ├── omni.hpp
-│   ├── tracker
-│   │   ├── curve_fitter.hpp
-│   │   ├── motion_models
-│   │   │   ├── acc_model.hpp
-│   │   │   ├── motion_modela.hpp
-│   │   │   ├── motion_modelonea.hpp
-│   │   │   ├── motion_modeloneca.hpp
-│   │   │   ├── motion_modeloneypd.hpp
-│   │   │   ├── motion_modelr.hpp
-│   │   │   ├── motion_modelrypd.hpp
-│   │   │   └── motion_modelypd.hpp
-│   │   ├── one_ca_tracker.hpp
-│   │   ├── one_tracker.hpp
-│   │   ├── tracker.hpp
-│   │   └── tracker_manager.hpp
-│   ├── type
-│   │   ├── image.hpp
-│   │   └── type.hpp
-│   └── wust_vision.hpp
-├── KalmanHyLib
+├── cuda_infer
+│   ├── armor_infer.cu
+│   ├── armor_infer.hpp
 │   ├── CMakeLists.txt
-│   ├── include
-│   │   ├── 3rdparty
-│   │   │   └── angles.h
-│   │   └── KalmanHyLib
-│   │       ├── adaptive_extended_kalman_filter.hpp
-│   │       ├── error_state_extended_kalman_filter.hpp
-│   │       ├── extended_kalman_filter.hpp
-│   │       ├── kalman_hybird_lib.hpp
-│   │       └── unscented_kalman_filter.hpp
-│   └── README.md
+│   ├── letter_box.cu
+│   ├── letter_box.hpp
+│   ├── rune_infer.cu
+│   └── rune_infer.hpp
+├── dandao.py
+├── env.bash
+├── format.sh
+├── fun
+│ 
+├── KalmanHyLib
+│   ├── adaptive_extended_kalman_filter.hpp
+│   ├── error_state_extended_kalman_filter.hpp
+│   ├── extended_kalman_filter.hpp
+│   ├── kalman_hybird_lib.hpp
+│   └── unscented_kalman_filter.hpp
 ├── model
-│
+│ 
 ├── README.md
 ├── run.sh
 ├── src
-│   ├── camera_calibrator_main.cpp
-│   ├── common
-│   │   ├── calculation.cpp
-│   │   ├── camera_calibrator.cpp
-│   │   ├── debug
-│   │   │   ├── matplottools.cpp
-│   │   │   ├── tools.cpp
-│   │   │   └── toolsgobal.cpp
-│   │   └── gobal.cpp
-│   ├── control
-│   │   ├── armor_solver.cpp
-│   │   ├── manual_compensator.cpp
-│   │   ├── rune_solver.cpp
-│   │   └── trajectory_compensator.cpp
-│   ├── detect
+│   └── auto_aim.cpp
+├── static
+│   ├── 崇实战队logo图标.png
+│   ├── css
+│   │   └── style.css
+│   ├── js
+│   │   ├── chart_logic.js
+│   │   ├── json_view.js
+│   │   └── main.js
+│   └── logo.JPG
+├── tasks
+│   ├── auto_aim
 │   │   ├── armor_detect
 │   │   │   ├── armor_detect_common.cpp
-│   │   │   ├── armor_detector_opencv.cpp
-│   │   │   ├── armor_detector_opencv_wrapper.cpp
+│   │   │   ├── armor_detect_common.hpp
+│   │   │   ├── armor_detector_base.hpp
+│   │   │   ├── armor_infer.cpp
+│   │   │   ├── armor_infer.hpp
 │   │   │   ├── armor_pose_estimator.cpp
+│   │   │   ├── armor_pose_estimator.hpp
+│   │   │   ├── detector_factory.hpp
 │   │   │   ├── light_corner_corrector.cpp
+│   │   │   ├── light_corner_corrector.hpp
 │   │   │   ├── ncnn
 │   │   │   │   ├── armor_detector_ncnn.cpp
-│   │   │   │   └── armor_detector_ncnn_wrapper.cpp
+│   │   │   │   ├── armor_detector_ncnn.hpp
+│   │   │   │   ├── armor_detector_ncnn_wrapper.cpp
+│   │   │   │   └── armor_detector_ncnn_wrapper.hpp
 │   │   │   ├── number_classifier.cpp
+│   │   │   ├── number_classifier.hpp
 │   │   │   ├── onnxruntime
 │   │   │   │   ├── armor_detector_ort.cpp
-│   │   │   │   └── armor_detector_ort_wrapper.cpp
+│   │   │   │   ├── armor_detector_ort.hpp
+│   │   │   │   ├── armor_detector_ort_wrapper.cpp
+│   │   │   │   └── armor_detector_ort_wrapper.hpp
+│   │   │   ├── opencv
+│   │   │   │   ├── armor_detector_opencv.cpp
+│   │   │   │   ├── armor_detector_opencv.hpp
+│   │   │   │   ├── armor_detector_opencv_wrapper.cpp
+│   │   │   │   └── armor_detector_opencv_wrapper.hpp
 │   │   │   ├── openvino
 │   │   │   │   ├── armor_detector_openvino.cpp
-│   │   │   │   └── armor_detector_openvino_wrapper.cpp
+│   │   │   │   ├── armor_detector_openvino.hpp
+│   │   │   │   ├── armor_detector_openvino_wrapper.cpp
+│   │   │   │   └── armor_detector_openvino_wrapper.hpp
 │   │   │   └── tensorrt
 │   │   │       ├── armor_detector_trt.cpp
-│   │   │       └── armor_detector_trt_wrapper.cpp
-│   │   ├── ba_solver.cpp
-│   │   ├── graph_optimizer.cpp
-│   │   ├── mono_measure_tool.cpp
-│   │   ├── pnp_solver.cpp
-│   │   └── rune_detect
-│   │       ├── ncnn
-│   │       │   ├── rune_detector_ncnn.cpp
-│   │       │   └── rune_detector_ncnn_wrapper.cpp
-│   │       ├── onnxruntime
-│   │       │   ├── rune_detector_ort.cpp
-│   │       │   └── rune_detector_ort_wrapper.cpp
-│   │       ├── openvino
-│   │       │   ├── rune_detector_openvino.cpp
-│   │       │   └── rune_detector_openvino_wrapper.cpp
-│   │       └── tensorrt
-│   │           ├── rune_detector_trt.cpp
-│   │           └── rune_detector_trt_wrapper.cpp
-│   ├── driver
-│   │   ├── crc8_crc16.cpp
-│   │   ├── hik.cpp
-│   │   ├── serial.cpp
-│   │   └── tools
-│   │       ├── labeler.cpp
-│   │       ├── recorder.cpp
-│   │       └── video_player.cpp
-│   ├── main.cpp
-│   ├── omni.cpp
-│   ├── tracker
+│   │   │       ├── armor_detector_trt.hpp
+│   │   │       ├── armor_detector_trt_wrapper.cpp
+│   │   │       └── armor_detector_trt_wrapper.hpp
+│   │   ├── armor_optimize
+│   │   │   ├── ba_solver.cpp
+│   │   │   ├── ba_solver.hpp
+│   │   │   ├── graph_optimizer.cpp
+│   │   │   └── graph_optimizer.hpp
+│   │   ├── armor_solver.cpp
+│   │   ├── armor_solver.hpp
+│   │   ├── armor_tracker
+│   │   │   ├── motion_models
+│   │   │   │   ├── acc_model.hpp
+│   │   │   │   ├── motion_modela.hpp
+│   │   │   │   ├── motion_modelonea.hpp
+│   │   │   │   ├── motion_modeloneca.hpp
+│   │   │   │   ├── motion_modeloneypd.hpp
+│   │   │   │   ├── motion_modelr.hpp
+│   │   │   │   ├── motion_modelrypd.hpp
+│   │   │   │   ├── motion_modelypd.hpp
+│   │   │   │   ├── tracker.hpp
+│   │   │   │   └── tracker_manager.hpp
+│   │   │   ├── one_ca_tracker.cpp
+│   │   │   ├── one_ca_tracker.hpp
+│   │   │   ├── one_tracker.cpp
+│   │   │   ├── one_tracker.hpp
+│   │   │   ├── tracker.cpp
+│   │   │   ├── tracker.hpp
+│   │   │   ├── tracker_manager.cpp
+│   │   │   └── tracker_manager.hpp
+│   │   ├── auto_aim.cpp
+│   │   ├── auto_aim.hpp
+│   │   ├── CMakeLists.txt
+│   │   ├── tf.hpp
+│   │   └── type.hpp
+│   ├── auto_buff
+│   │   ├── auto_buff.cpp
+│   │   ├── auto_buff.hpp
+│   │   ├── CMakeLists.txt
 │   │   ├── curve_fitter.cpp
-│   │   ├── one_ca_tracker.cpp
-│   │   ├── one_tracker.cpp
-│   │   ├── tracker.cpp
-│   │   └── tracker_manager.cpp
-│   └── wust_vision.cpp
-├── static
-│   └── logo.JPG
+│   │   ├── curve_fitter.hpp
+│   │   ├── motion_models
+│   │   │   ├── motion_modelr.hpp
+│   │   │   └── motion_modelrypd.hpp
+│   │   ├── rune_detect
+│   │   │   ├── detect_factory.hpp
+│   │   │   ├── ncnn
+│   │   │   │   ├── rune_detector_ncnn.cpp
+│   │   │   │   ├── rune_detector_ncnn.hpp
+│   │   │   │   ├── rune_detector_ncnn_wrapper.cpp
+│   │   │   │   └── rune_detector_ncnn_wrapper.hpp
+│   │   │   ├── onnxruntime
+│   │   │   │   ├── rune_detector_ort.cpp
+│   │   │   │   ├── rune_detector_ort.hpp
+│   │   │   │   ├── rune_detector_ort_wrapper.cpp
+│   │   │   │   └── rune_detector_ort_wrapper.hpp
+│   │   │   ├── openvino
+│   │   │   │   ├── rune_detector_openvino.cpp
+│   │   │   │   ├── rune_detector_openvino.hpp
+│   │   │   │   ├── rune_detector_openvino_wrapper.cpp
+│   │   │   │   └── rune_detector_openvino_wrapper.hpp
+│   │   │   ├── rune_detector_base.hpp
+│   │   │   ├── rune_infer.cpp
+│   │   │   ├── rune_infer.hpp
+│   │   │   └── tensorrt
+│   │   │       ├── rune_detector_trt.cpp
+│   │   │       ├── rune_detector_trt.hpp
+│   │   │       ├── rune_detector_trt_wrapper.cpp
+│   │   │       └── rune_detector_trt_wrapper.hpp
+│   │   ├── rune_solver.cpp
+│   │   ├── rune_solver.hpp
+│   │   └── type.hpp
+│   ├── CMakeLists.txt
+│   ├── debug.cpp
+│   ├── debug.hpp
+│   ├── mono_measure_tool.cpp
+│   ├── mono_measure_tool.hpp
+│   ├── packet_typedef.hpp
+│   ├── type_common.hpp
+│   └── utils.hpp
 ├── templates
 │   └── index.html
 ├── video.py
 └── web.py
+
 
 
 
