@@ -15,10 +15,10 @@ armor_tracker:
   ekf:
     use_esekf: false
     fusion_esekf_ekf: true
-    iteration_num: 2
+    iteration_num: 1
 
-    oyr_d_front: 0.007 #1m处
-    oyr_d_side: 0.007 #1m处
+    oyr_d_front: 0.09 #1m处
+    oyr_d_side: 0.09 #1m处
     oyr_p: 1 #角度
     oyr_y: 1 #角度
     oyr_yaw_front: 1
@@ -38,8 +38,8 @@ armor_tracker:
 
     ys2qd_zc_a: 700
     ys2qr_a: 70
-    ys2qx_a: 7
-    ys2qy_a: 7
+    ys2qx_a: 22
+    ys2qy_a: 22
     ys2qyaw_a: 30
     ys2qz_a: 1.0
     #----------------
@@ -57,7 +57,7 @@ armor_tracker:
     ys2qyaw_c: 35
     ys2qz_c: 1.0
     #----------------
-    r_v: 20
+    r_v: 100.0
     q_v: 5.0
     q_a: 1.0
   jump_thresh: 0.4

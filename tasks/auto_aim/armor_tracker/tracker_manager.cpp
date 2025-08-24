@@ -14,13 +14,17 @@
 #include "tracker_manager.hpp"
 #include "tasks/auto_aim/type.hpp"
 #include "tasks/utils.hpp"
-TrackerManager::TrackerManager(const YAML::Node& config_) {
-    track_one_num_ = config_["track_one_num"].as<int>(2);
+TrackerManager::TrackerManager(
+    const YAML::Node& config_,
+    std::shared_ptr<ConfigBinder> config_binder
+) {
+    config_binder_ = config_binder;
+    track_one_num_ = config_["armor_tracker"]["track_one_num"].as<int>(2);
 
-    double max_match_distance = config_["max_match_distance"].as<double>(0.2);
-    double max_match_yaw_diff = config_["max_match_yaw_diff"].as<double>(1.0);
-    double max_match_z_diff = config_["max_match_z_diff"].as<double>(0.1);
-    double jump_thresh = config_["jump_thresh"].as<double>(0.4);
+    double max_match_distance = config_["armor_tracker"]["max_match_distance"].as<double>(0.2);
+    double max_match_yaw_diff = config_["armor_tracker"]["max_match_yaw_diff"].as<double>(1.0);
+    double max_match_z_diff = config_["armor_tracker"]["max_match_z_diff"].as<double>(0.1);
+    double jump_thresh = config_["armor_tracker"]["jump_thresh"].as<double>(0.4);
     tracker_ = std::make_unique<Tracker>(
         max_match_distance,
         max_match_yaw_diff,
@@ -35,67 +39,78 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
             max_match_z_diff,
             jump_thresh
         );
-        o_tracker_->tracking_thres_ = config_["one_tracking_thres"].as<int>(1);
+        o_tracker_->tracking_thres_ = config_["armor_tracker"]["one_tracking_thres"].as<int>(1);
         one_trackers_.push_back(std::move(o_tracker_));
     }
 
-    v_yaw_to_one_thres_high_ = config_["v_yaw_to_one_thres_high"].as<float>(1.0);
-    v_yaw_to_one_thres_low_ = config_["v_yaw_to_one_thres_low"].as<float>(0.7);
+    v_yaw_to_one_thres_high_ = config_["armor_tracker"]["v_yaw_to_one_thres_high"].as<float>(1.0);
+    v_yaw_to_one_thres_low_ = config_["armor_tracker"]["v_yaw_to_one_thres_low"].as<float>(0.7);
 
-    tracker_->tracking_thres_ = config_["tracking_thres"].as<int>(5);
+    tracker_->tracking_thres_ = config_["armor_tracker"]["tracking_thres"].as<int>(5);
 
-    lost_time_thres_ = config_["lost_time_thres"].as<double>();
-    one_lost_time_thres_ = config_["one_lost_time_thres"].as<double>(0.1);
+    lost_time_thres_ = config_["armor_tracker"]["lost_time_thres"].as<double>();
+    one_lost_time_thres_ = config_["armor_tracker"]["one_lost_time_thres"].as<double>(0.1);
 
-    iteration_num_ = config_["ekf"]["iteration_num"].as<int>(1);
-    bool use_esekf = config_["ekf"]["use_esekf"].as<bool>(false);
-    bool fusion_esekf_ekf = config_["ekf"]["fusion_esekf_ekf"].as<bool>(false);
+    // iteration_num
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "iteration_num" }, &iteration_num_, 1);
+    bool use_esekf = config_["armor_tracker"]["ekf"]["use_esekf"].as<bool>(false);
+    bool fusion_esekf_ekf = config_["armor_tracker"]["ekf"]["fusion_esekf_ekf"].as<bool>(false);
     tracker_->use_esekf_ = use_esekf;
+
     // EKF 噪声参数
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "ys2qx_a" }, &ys2qx_a_, 20.0);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "ys2qy_a" }, &ys2qy_a_, 20.0);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "ys2qz_a" }, &ys2qz_a_, 20.0);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "ys2qyaw_a" }, &ys2qyaw_a_, 100.0);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "ys2qr_a" }, &ys2qr_a_, 800.0);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "ys2qd_zc_a" }, &ys2qd_zc_a_, 800.0);
 
-    ys2qx_a_ = config_["ekf"]["ys2qx_a"].as<double>(20.0);
-    ys2qy_a_ = config_["ekf"]["ys2qy_a"].as<double>(20.0);
-    ys2qz_a_ = config_["ekf"]["ys2qz_a"].as<double>(20.0);
-    ys2qyaw_a_ = config_["ekf"]["ys2qyaw_a"].as<double>(100.0);
-    ys2qr_a_ = config_["ekf"]["ys2qr_a"].as<double>(800.0);
-    ys2qd_zc_a_ = config_["ekf"]["ys2qd_zc_a"].as<double>(800.0);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "yr_y_a" }, &yr_y_a_, 0.05);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "yr_p_a" }, &yr_p_a_, 0.05);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "yr_d_front_a" }, &yr_d_front_a_, 0.05);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "yr_d_side_a" }, &yr_d_side_a_, 0.05);
+    bindConfig(
+        config_binder_,
+        { "armor_tracker", "ekf", "yr_yaw_front_a" },
+        &yr_yaw_front_a_,
+        0.02
+    );
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "yr_yaw_side_a" }, &yr_yaw_side_a_, 0.02);
 
-    yr_y_a_ = config_["ekf"]["yr_y_a"].as<double>(0.05);
-    yr_p_a_ = config_["ekf"]["yr_p_a"].as<double>(0.05);
-    yr_d_front_a_ = config_["ekf"]["yr_d_front_a"].as<double>(0.05);
-    yr_d_side_a_ = config_["ekf"]["yr_d_side_a"].as<double>(0.05);
-    yr_yaw_front_a_ = config_["ekf"]["yr_yaw_front_a"].as<double>(0.02);
-    yr_yaw_side_a_ = config_["ekf"]["yr_yaw_side_a"].as<double>(0.02);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "ys2qx_c" }, &ys2qx_c_, 20.0);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "ys2qy_c" }, &ys2qy_c_, 20.0);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "ys2qz_c" }, &ys2qz_c_, 20.0);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "ys2qyaw_c" }, &ys2qyaw_c_, 100.0);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "ys2qr_c" }, &ys2qr_c_, 800.0);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "ys2qd_zc_c" }, &ys2qd_zc_c_, 800.0);
 
-    ys2qx_c_ = config_["ekf"]["ys2qx_c"].as<double>(20.0);
-    ys2qy_c_ = config_["ekf"]["ys2qy_c"].as<double>(20.0);
-    ys2qz_c_ = config_["ekf"]["ys2qz_c"].as<double>(20.0);
-    ys2qyaw_c_ = config_["ekf"]["ys2qyaw_c"].as<double>(100.0);
-    ys2qr_c_ = config_["ekf"]["ys2qr_c"].as<double>(800.0);
-    ys2qd_zc_c_ = config_["ekf"]["ys2qd_zc_c"].as<double>(800.0);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "yr_y_c" }, &yr_y_c_, 0.05);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "yr_p_c" }, &yr_p_c_, 0.05);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "yr_d_front_c" }, &yr_d_front_c_, 0.05);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "yr_d_side_c" }, &yr_d_side_c_, 0.05);
+    bindConfig(
+        config_binder_,
+        { "armor_tracker", "ekf", "yr_yaw_front_c" },
+        &yr_yaw_front_c_,
+        0.02
+    );
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "yr_yaw_side_c" }, &yr_yaw_side_c_, 0.02);
 
-    yr_y_c_ = config_["ekf"]["yr_y_c"].as<double>(0.05);
-    yr_p_c_ = config_["ekf"]["yr_p_c"].as<double>(0.05);
-    yr_d_front_c_ = config_["ekf"]["yr_d_front_c"].as<double>(0.05);
-    yr_d_side_c_ = config_["ekf"]["yr_d_side_c"].as<double>(0.05);
-    yr_yaw_front_c_ = config_["ekf"]["yr_yaw_front_c"].as<double>(0.02);
-    yr_yaw_side_c_ = config_["ekf"]["yr_yaw_side_c"].as<double>(0.02);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "oys2qx" }, &oys2qx_, 20.0);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "oys2qy" }, &oys2qy_, 20.0);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "oys2qz" }, &oys2qz_, 20.0);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "oys2qyaw" }, &oys2qyaw_, 100.0);
 
-    oys2qx_ = config_["ekf"]["oys2qx"].as<double>(20.0);
-    oys2qy_ = config_["ekf"]["oys2qy"].as<double>(20.0);
-    oys2qz_ = config_["ekf"]["oys2qz"].as<double>(20.0);
-    oys2qyaw_ = config_["ekf"]["oys2qyaw"].as<double>(100.0);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "oyr_y" }, &oyr_y_, 0.05);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "oyr_p" }, &oyr_p_, 0.05);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "oyr_d_front" }, &oyr_d_front_, 0.05);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "oyr_d_side" }, &oyr_d_side_, 0.05);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "oyr_yaw_front" }, &oyr_yaw_front_, 0.02);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "oyr_yaw_side" }, &oyr_yaw_side_, 0.02);
 
-    oyr_y_ = config_["ekf"]["oyr_y"].as<double>(0.05);
-    oyr_p_ = config_["ekf"]["oyr_p"].as<double>(0.05);
-    oyr_d_front_ = config_["ekf"]["oyr_d_front"].as<double>(0.05);
-    oyr_d_side_ = config_["ekf"]["oyr_d_side"].as<double>(0.05);
-    oyr_yaw_front_ = config_["ekf"]["oyr_yaw_front"].as<double>(0.02);
-    oyr_yaw_side_ = config_["ekf"]["oyr_yaw_side"].as<double>(0.02);
-
-    r_v = config_["ekf"]["r_v"].as<double>(0.01);
-    q_v = config_["ekf"]["q_v"].as<double>(0.01);
-    q_a = config_["ekf"]["q_a"].as<double>(0.01);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "r_v" }, &r_v_, 0.01);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "q_v" }, &q_v_, 0.01);
+    bindConfig(config_binder_, { "armor_tracker", "ekf", "q_a" }, &q_a_, 0.01);
 
     // EKF 状态预测函数
     auto acc_f = acc_model::Predict(0.005);
@@ -110,8 +125,8 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     // EKF 过程噪声协方差 Q
     auto acc_q = [this]() {
         Eigen::Matrix<double, acc_model::X_N, acc_model::X_N> q;
-        q(0, 0) = q(2, 2) = q(4, 4) = q_v;
-        q(1, 1) = q(3, 3) = q(5, 5) = q_a;
+        q(0, 0) = q(2, 2) = q(4, 4) = q_v_;
+        q(1, 1) = q(3, 3) = q(5, 5) = q_a_;
         return q;
     };
     auto yu_q = [this]() {
@@ -178,7 +193,7 @@ TrackerManager::TrackerManager(const YAML::Node& config_) {
     // EKF 观测噪声协方差 R（基于测量值调整）
     auto acc_r = [this](const Eigen::Matrix<double, acc_model::Z_N, 1>& z) {
         Eigen::Matrix<double, acc_model::Z_N, acc_model::Z_N> r;
-        r *= r_v;
+        r *= r_v_;
         return r;
     };
     auto yu_r = [this](const Eigen::Matrix<double, ypdarmor_motion_model::Z_N, 1>& z) {

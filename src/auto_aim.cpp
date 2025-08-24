@@ -45,21 +45,21 @@ public:
     }
     bool init() {
         config_ = YAML::LoadFile(COMMON_CONFIG);
-        config_binder_ = std::make_shared<ConfigBinder>(config_);
+        config_binder_ = std::make_shared<ConfigBinder>(COMMON_CONFIG);
         std::string log_level_ = config_["logger"]["log_level"].as<std::string>("INFO");
         std::string log_path_ = config_["logger"]["log_path"].as<std::string>("wust_log");
         bool use_logcli = config_["logger"]["use_logcli"].as<bool>();
         bool use_logfile = config_["logger"]["use_logfile"].as<bool>();
         bool use_simplelog = config_["logger"]["use_simplelog"].as<bool>();
         initLogger(log_level_, log_path_, use_logcli, use_logfile, use_simplelog);
-        bindConfig(config_binder_, "max_infer_running", &max_infer_running_);
-        double gimbal2camera_x_ = config_["tf"]["gimbal2camera_x"].as<double>(0.0);
-        double gimbal2camera_y_ = config_["tf"]["gimbal2camera_y"].as<double>(0.0);
-        double gimbal2camera_z_ = config_["tf"]["gimbal2camera_z"].as<double>(0.0);
+        bindConfig(config_binder_, { "max_infer_running" }, &max_infer_running_);
+        std::cout << "max_infer_running: " << max_infer_running_ << std::endl;
         gimbal2camera_roll_ = config_["tf"]["gimbal2camera_roll"].as<double>(0.0);
         gimbal2camera_pitch_ = config_["tf"]["gimbal2camera_pitch"].as<double>(0.0);
         gimbal2camera_yaw_ = config_["tf"]["gimbal2camera_yaw"].as<double>(0.0);
-
+        double gimbal2camera_x_ = config_["tf"]["gimbal2camera_x"].as<double>(0.0);
+        double gimbal2camera_y_ = config_["tf"]["gimbal2camera_y"].as<double>(0.0);
+        double gimbal2camera_z_ = config_["tf"]["gimbal2camera_z"].as<double>(0.0);
         t_gimbal_to_camera_ = Eigen::Vector3d(gimbal2camera_x_, gimbal2camera_y_, gimbal2camera_z_);
 
         R_camera2gimbal_ << 0, 0, 1, -1, 0, 0, 0, -1, 0;
@@ -85,16 +85,17 @@ public:
 
         auto camera_info = std::make_pair(K.clone(), D.clone());
         camera_info_ = camera_info;
-        //attack_mode_ = config_["attack_mode"].as<int>();
-        bindConfig(config_binder_, "attack_mode", &attack_mode_);
+        bindConfig(config_binder_, { "attack_mode" }, &attack_mode_);
         YAML::Node auto_aim_config = YAML::LoadFile(AUTO_AIM_CONFIG);
+        auto_aim_config_binder_ = std::make_shared<ConfigBinder>(AUTO_AIM_CONFIG);
         auto_aim_ = std::make_unique<auto_aim::AutoAim>();
         auto_aim_->init(
             auto_aim_config,
             use_ncnn_count_,
             R_camera2gimbal_,
             t_gimbal_to_camera_,
-            camera_info
+            camera_info,
+            auto_aim_config_binder_
         );
         YAML::Node auto_buff_config = YAML::LoadFile(AUTO_BUFF_CONFIG);
         auto_buff_ = std::make_unique<auto_buff::AutoBuff>();
@@ -137,7 +138,7 @@ public:
 
             ));
             serial_->set_error_callback([&](const boost::system::error_code& ec) {
-                std::cerr << "serial error: " << ec.message() << std::endl;
+                WUST_ERROR("serial") << "serial error: " << ec.message();
             });
         }
 
@@ -333,6 +334,7 @@ public:
                 }
                 debuglog(dbg_armor, dbg_rune);
                 config_binder_->reload(COMMON_CONFIG);
+                auto_aim_config_binder_->reload(AUTO_AIM_CONFIG);
             } catch (std::exception& e) {
                 std::cout << "debug thread error: " << e.what() << std::endl;
             }
@@ -367,6 +369,7 @@ public:
     bool debug_mode_ = false;
     std::pair<cv::Mat, cv::Mat> camera_info_;
     std::shared_ptr<ConfigBinder> config_binder_;
+    std::shared_ptr<ConfigBinder> auto_aim_config_binder_;
     int attack_mode_;
 };
 

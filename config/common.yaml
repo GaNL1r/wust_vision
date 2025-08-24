@@ -1,7 +1,8 @@
 max_infer_running: 6
 detect_color: 0
-debug_mode: true
 attack_mode: 0
+debug_mode: true
+
 tf:
   gimbal2camera_pitch: 0
   gimbal2camera_roll: 0
@@ -12,7 +13,7 @@ tf:
 control:
   control_rate: 2000
   communication_delay: 1000
-  device_name: /dev/ttyACM0
+  device_name: /dev/ttyACM_RMc
   use_nav: false
   use_serial: true
 logger:

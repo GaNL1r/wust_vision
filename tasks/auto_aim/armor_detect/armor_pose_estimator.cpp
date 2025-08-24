@@ -118,7 +118,8 @@ std::vector<armor::Armor> ArmorPoseEstimator::extractArmorPoses(
         Eigen::Matrix3d R = utils::cvToEigen(R_cv);
         Eigen::Vector3d t = utils::cvToEigen(tvecs[0]);
 
-        double roll_deg = utils::matrixToEuler(R_gimbal_camera_ * R, utils::EulerOrder::ZXY)[0] * 180 / M_PI;
+        double roll_deg =
+            utils::matrixToEuler(R_gimbal_camera_ * R, utils::EulerOrder::ZXY)[0] * 180 / M_PI;
         if (use_ba_ && std::abs(roll_deg) < 30 && ba_solver_) {
             Eigen::Matrix3d R0 = R;
             R = ba_solver_->solveBa_R(a, t, R, R_imu_cam, type);
@@ -158,7 +159,7 @@ void ArmorPoseEstimator::sortPnPResult(
         cv::Mat R_cv;
         cv::Rodrigues(c[i].rvec, R_cv);
         c[i].R = utils::cvToEigen(R_cv);
-        c[i].rpy = utils::matrixToEuler(R_gimbal_camera_ * c[i].R,utils::EulerOrder::ZXY);
+        c[i].rpy = utils::matrixToEuler(R_gimbal_camera_ * c[i].R, utils::EulerOrder::ZXY);
 
         c[i].reprojErr = pnp_solver_->calculateReprojectionError(
             armor.landmarks(),

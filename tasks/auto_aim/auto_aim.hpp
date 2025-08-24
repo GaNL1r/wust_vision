@@ -6,6 +6,7 @@
 #include "tasks/debug.hpp"
 #include "tasks/type_common.hpp"
 #include "wust_vl/common/concurrency/queues.hpp"
+#include "wust_vl/common/utils/config_binder.hpp"
 #include "wust_vl/common/utils/timer.hpp"
 #include "yaml-cpp/yaml.h"
 namespace auto_aim {
@@ -26,7 +27,8 @@ public:
         int& use_detect_ncnn_count,
         const Eigen::Matrix3d& R_camera2gimbal,
         const Eigen::Vector3d& t_gimbal_to_camera,
-        const std::pair<cv::Mat, cv::Mat>& camera_info
+        const std::pair<cv::Mat, cv::Mat>& camera_info,
+        std::shared_ptr<ConfigBinder> config_binder
     );
     void start();
     void pushInput(CommonFrame& frame);

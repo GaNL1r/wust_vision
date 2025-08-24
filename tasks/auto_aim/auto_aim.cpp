@@ -2,6 +2,7 @@
 #include "tasks/mono_measure_tool.hpp"
 #include "tasks/utils.hpp"
 #include "wust_vl/common/concurrency/queues.hpp"
+
 namespace auto_aim {
 struct AutoAim::Impl {
     ~Impl() {
@@ -18,12 +19,14 @@ struct AutoAim::Impl {
         int& use_detect_ncnn_count,
         const Eigen::Matrix3d& R_camera2gimbal,
         const Eigen::Vector3d& t_gimbal_to_camera,
-        const std::pair<cv::Mat, cv::Mat>& camera_info
+        const std::pair<cv::Mat, cv::Mat>& camera_info,
+        std::shared_ptr<ConfigBinder> config_binder
     ) {
         config_ = config;
         R_camera2gimbal_ = R_camera2gimbal;
         t_gimbal_to_camera_ = t_gimbal_to_camera;
         camera_info_ = camera_info;
+        config_binder_ = config_binder;
 
         std::string armor_detect_backend = config_["armor_detect_backend"].as<std::string>("");
         auto isBackendEnabled = [&use_detect_ncnn_count](const std::string& backend) -> bool {
@@ -92,7 +95,7 @@ struct AutoAim::Impl {
         armor_pose_estimator_ = std::make_unique<ArmorPoseEstimator>(config, camera_info_);
         bool use_ba = config_["use_ba"].as<bool>(false);
         armor_pose_estimator_->enableBA(use_ba);
-        tracker_manager_ = std::make_unique<TrackerManager>(config_["armor_tracker"]);
+        tracker_manager_ = std::make_unique<TrackerManager>(config_, config_binder_);
         armor_solver_ = std::make_unique<ArmorSolver>(config_);
         armor_solver_->setStateCallback(
             std::bind(&AutoAim::Impl::armorSloverStateCallback, this, std::placeholders::_1)
@@ -318,6 +321,7 @@ struct AutoAim::Impl {
     Eigen::Vector3d t_gimbal_to_camera_;
     std::pair<cv::Mat, cv::Mat> camera_info_;
     YAML::Node config_;
+    std::shared_ptr<ConfigBinder> config_binder_;
     std::shared_ptr<AutoAimShared> shared_;
     void setShared(std::shared_ptr<AutoAimShared> shared) {
         shared_ = shared;
@@ -332,10 +336,17 @@ bool AutoAim::init(
     int& use_detect_ncnn_count,
     const Eigen::Matrix3d& R_camera2gimbal,
     const Eigen::Vector3d& t_gimbal_to_camera,
-    const std::pair<cv::Mat, cv::Mat>& camera_info
+    const std::pair<cv::Mat, cv::Mat>& camera_info,
+    std::shared_ptr<ConfigBinder> config_binder
 ) {
-    return _impl
-        ->init(config, use_detect_ncnn_count, R_camera2gimbal, t_gimbal_to_camera, camera_info);
+    return _impl->init(
+        config,
+        use_detect_ncnn_count,
+        R_camera2gimbal,
+        t_gimbal_to_camera,
+        camera_info,
+        config_binder
+    );
 }
 void AutoAim::start() {
     _impl->start();

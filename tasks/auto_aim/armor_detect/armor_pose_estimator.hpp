@@ -59,7 +59,6 @@ private:
         const cv::Mat& camera_distortion
     ) const;
 
-
     bool use_ba_;
 
     Eigen::Matrix3d R_gimbal_camera_;

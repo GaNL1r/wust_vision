@@ -19,10 +19,11 @@
 #include "tasks/auto_aim/armor_tracker/one_tracker.hpp"
 #include "tasks/auto_aim/armor_tracker/tracker.hpp"
 #include "tasks/auto_aim/type.hpp"
+#include "wust_vl/common/utils/config_binder.hpp"
 #include "yaml-cpp/yaml.h"
 class TrackerManager {
 public:
-    explicit TrackerManager(const YAML::Node& config);
+    explicit TrackerManager(const YAML::Node& config, std::shared_ptr<ConfigBinder> config_binder);
     void update(
         armor::Target& target_,
         std::vector<armor::OneTarget>& one_targets_,
@@ -65,7 +66,7 @@ public:
     double yr_y_c_, yr_p_c_, yr_d_front_c_, yr_d_side_c_, yr_yaw_front_c_, yr_yaw_side_c_;
     double oys2qx_, oys2qy_, oys2qz_, oys2qyaw_;
     double oyr_y_, oyr_p_, oyr_d_front_, oyr_d_side_, oyr_yaw_front_, oyr_yaw_side_;
-    double r_v, q_a, q_v;
+    double r_v_, q_a_, q_v_;
     double lost_time_thres_;
     double one_lost_time_thres_;
     std::chrono::steady_clock::time_point last_time_;
@@ -73,4 +74,5 @@ public:
     double v_yaw_to_one_thres_low_;
     int iteration_num_ = 1;
     enum AttackState { ATTACKONE, ATTACKWHOLECAR } attack_state_;
+    std::shared_ptr<ConfigBinder> config_binder_;
 };
