@@ -1,5 +1,4 @@
 #pragma once
-#include "tasks/auto_aim/tf.hpp"
 #include "tasks/type_common.hpp"
 #include <numeric>
 #include <opencv2/opencv.hpp>
@@ -74,18 +73,6 @@ struct ArmorParams {
 
 enum class ArmorColor { BLUE = 0, RED, NONE, PURPLE };
 
-// inline std::string enemyColorToString(EnemyColor color) {
-//     switch (color) {
-//         case EnemyColor::RED:
-//             return "RED";
-//         case EnemyColor::BLUE:
-//             return "BLUE";
-//         case EnemyColor::WHITE:
-//             return "WHITE";
-//         default:
-//             return "UNKNOWN";
-//     }
-// }
 inline int formArmorColor(ArmorColor color) {
     switch (color) {
         case ArmorColor::RED:
@@ -299,10 +286,10 @@ struct Armor {
     ArmorNumber number;
     std::string type;
 
-    tf::Position pos;
-    tf::Quaternion ori;
-    tf::Position target_pos;
-    tf::Quaternion target_ori;
+    Eigen::Vector3d pos;
+    Eigen::Quaterniond ori;
+    Eigen::Vector3d target_pos;
+    Eigen::Quaterniond target_ori;
     float distance_to_image_center;
     float yaw;
     std::chrono::steady_clock::time_point timestamp;
@@ -325,9 +312,9 @@ struct Target {
     ArmorNumber id = ArmorNumber::UNKNOWN;
     int armors_num = 0;
 
-    tf::Position position_ = tf::Position();
-    tf::Position velocity_ = tf::Position();
-    tf::Position acceleration_ = tf::Position();
+    Eigen::Vector3d position_ = Eigen::Vector3d();
+    Eigen::Vector3d velocity_ = Eigen::Vector3d();
+    Eigen::Vector3d acceleration_ = Eigen::Vector3d();
     float yaw = 0;
     float v_yaw = 0;
     float radius_1 = 0.24;
@@ -343,8 +330,8 @@ struct Target {
         tracking = false;
         armors_num = 0;
         type = "";
-        position_ = tf::Position();
-        velocity_ = tf::Position();
+        position_ = Eigen::Vector3d();
+        velocity_ = Eigen::Vector3d();
         yaw = 0.0;
         v_yaw = 0.0;
         radius_1 = 0.0;
@@ -361,9 +348,9 @@ struct OneTarget {
     std::string type;
     bool tracking = false;
     ArmorNumber id = ArmorNumber::UNKNOWN;
-    tf::Position position_ = tf::Position();
-    tf::Position velocity_ = tf::Position();
-    tf::Position acceleration_ = tf::Position();
+    Eigen::Vector3d position_ = Eigen::Vector3d();
+    Eigen::Vector3d velocity_ = Eigen::Vector3d();
+    Eigen::Vector3d acceleration_ = Eigen::Vector3d();
     float yaw = 0;
     float v_yaw = 0;
     float distance_to_image_center = 0;
@@ -373,10 +360,9 @@ struct OneTarget {
     void clear() {
         id = ArmorNumber::UNKNOWN;
         tracking = false;
-
         type = "";
-        position_ = tf::Position();
-        velocity_ = tf::Position();
+        position_ = Eigen::Vector3d();
+        velocity_ = Eigen::Vector3d();
         yaw = 0.0;
         v_yaw = 0.0;
     }

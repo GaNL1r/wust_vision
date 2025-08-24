@@ -178,12 +178,12 @@ double RuneSolver::update(const rune::Rune received_target, Eigen::Matrix4d T_ca
             Eigen::Vector4d measurement = getStateFromTransform(T_odom_2_rune);
 
             ekf_ypd_->predict();
-            tf::Position p(measurement[0], measurement[1], measurement[2]);
-            double ypd_y = std::atan2(p.y, p.x);
+            Eigen::Vector3d p(measurement[0], measurement[1], measurement[2]);
+            double ypd_y = std::atan2(p.y(), p.x());
             ypd_y = this->last_ypd_y_ + angles::shortest_angular_distance(this->last_ypd_y_, ypd_y);
             this->last_ypd_y_ = ypd_y;
-            double ypd_p = std::atan2(p.z, std::sqrt(p.x * p.x + p.y * p.y));
-            double ypd_d = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
+            double ypd_p = std::atan2(p.z(), std::sqrt(p.x() * p.x() + p.y() * p.y()));
+            double ypd_d = std::sqrt(p.x() * p.x() + p.y() * p.y() + p.z() * p.z());
             Eigen::Vector4d state;
             state << ypd_y, ypd_p, ypd_d, measurement[3];
             ekf_state_ = ekf_ypd_->update(state);
@@ -280,61 +280,35 @@ RuneSolver::solvePose(const rune::Rune& predicted_target, Eigen::Matrix4d T_came
             // clang-format on
             Eigen::Quaterniond quat(rot);
 
-            // Init pose msg
-            tf::Transform tf;
-
-            // Fill pose msg
-            tf.orientation.x = quat.x();
-            tf.orientation.y = quat.y();
-            tf.orientation.z = quat.z();
-            tf.orientation.w = quat.w();
-            tf.position.x = tvec.at<double>(0);
-            tf.position.y = tvec.at<double>(1);
-            tf.position.z = tvec.at<double>(2);
-
-            // Transform to odom
-
             // 构造 4x4 位姿矩阵 pose_camera
             Eigen::Matrix4d pose_camera = Eigen::Matrix4d::Identity();
 
             // 位置
-            pose_camera(0, 3) = tf.position.x;
-            pose_camera(1, 3) = tf.position.y;
-            pose_camera(2, 3) = tf.position.z;
+            pose_camera(0, 3) = tvec.at<double>(0);
+            pose_camera(1, 3) = tvec.at<double>(1);
+            pose_camera(2, 3) = tvec.at<double>(2);
 
             // 旋转：四元数 -> 旋转矩阵
-            Eigen::Quaterniond
-                q_cam(tf.orientation.w, tf.orientation.x, tf.orientation.y, tf.orientation.z);
+            Eigen::Quaterniond q_cam(quat);
             pose_camera.block<3, 3>(0, 0) = q_cam.normalized().toRotationMatrix();
 
             // 从 camera 坐标系变换到 gimbal_odom 坐标系
             Eigen::Matrix4d pose_odom = T_camera_to_odom * pose_camera;
 
-            // 提取变换结果
-            tf::Transform pose_in_target_frame;
-            pose_in_target_frame.position.x = pose_odom(0, 3);
-            pose_in_target_frame.position.y = pose_odom(1, 3);
-            pose_in_target_frame.position.z = pose_odom(2, 3);
-
             // 提取旋转部分转为四元数
             Eigen::Matrix3d R_odom = pose_odom.block<3, 3>(0, 0);
             Eigen::Quaterniond q_odom(R_odom);
 
-            pose_in_target_frame.orientation.w = q_odom.w();
-            pose_in_target_frame.orientation.x = q_odom.x();
-            pose_in_target_frame.orientation.y = q_odom.y();
-            pose_in_target_frame.orientation.z = q_odom.z();
-
             // Fill pose
-            pose(0, 3) = pose_in_target_frame.position.x;
-            pose(1, 3) = pose_in_target_frame.position.y;
-            pose(2, 3) = pose_in_target_frame.position.z;
+            pose(0, 3) = pose_odom(0, 3);
+            pose(1, 3) = pose_odom(1, 3);
+            pose(2, 3) = pose_odom(2, 3);
 
             Eigen::Quaterniond quat_odom;
-            quat_odom.x() = pose_in_target_frame.orientation.x;
-            quat_odom.y() = pose_in_target_frame.orientation.y;
-            quat_odom.z() = pose_in_target_frame.orientation.z;
-            quat_odom.w() = pose_in_target_frame.orientation.w;
+            quat_odom.x() = q_odom.x();
+            quat_odom.y() = q_odom.y();
+            quat_odom.z() = q_odom.z();
+            quat_odom.w() = q_odom.w();
 
             Eigen::Matrix3d rot_odom = quat_odom.toRotationMatrix();
             pose.block(0, 0, 3, 3) = rot_odom;
@@ -482,9 +456,9 @@ Eigen::Vector4d RuneSolver::getStateFromTransform(const Eigen::Matrix4d& transfo
     // Get yaw
     Eigen::Matrix3d R_odom_2_rune = transform.block(0, 0, 3, 3);
     Eigen::Quaterniond q_eigen = Eigen::Quaterniond(R_odom_2_rune);
-    tf::Quaternion q_tf = tf::Quaternion(q_eigen.x(), q_eigen.y(), q_eigen.z(), q_eigen.w());
+
     double roll, pitch, yaw;
-    tf::Matrix3x3(q_tf).getRPY(roll, pitch, yaw);
+    auto euler = utils::quatToEuler(q_eigen, utils::EulerOrder::ZYX);
     yaw = angles::normalize_angle(yaw);
 
     // Make yaw continuos

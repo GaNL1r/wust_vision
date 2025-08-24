@@ -377,15 +377,15 @@ void TrackerManager::updateTracker(
             const auto& acc_state = tracker_->acc_state_;
             target_.id = tracker_->tracked_id_;
             target_.armors_num = static_cast<int>(tracker_->tracked_armors_num_);
-            target_.position_.x = state(0);
-            target_.velocity_.x = state(1);
-            target_.acceleration_.x = acc_state(1);
-            target_.position_.y = state(2);
-            target_.velocity_.y = state(3);
-            target_.acceleration_.y = acc_state(3);
-            target_.position_.z = state(4);
-            target_.velocity_.z = state(5);
-            target_.acceleration_.z = acc_state(5);
+            target_.position_.x() = state(0);
+            target_.velocity_.x() = state(1);
+            target_.acceleration_.x() = acc_state(1);
+            target_.position_.y() = state(2);
+            target_.velocity_.y() = state(3);
+            target_.acceleration_.y() = acc_state(3);
+            target_.position_.z() = state(4);
+            target_.velocity_.z() = state(5);
+            target_.acceleration_.z() = acc_state(5);
             target_.yaw = state(6);
             target_.v_yaw = state(7);
             target_.radius_1 = state(8);
@@ -467,7 +467,11 @@ void TrackerManager::updateOneTrackers(
             }
 
             const auto& armor = armors_.armors[i];
-            Eigen::Vector3d obs_pos(armor.target_pos.x, armor.target_pos.y, armor.target_pos.z);
+            Eigen::Vector3d obs_pos(
+                armor.target_pos.x(),
+                armor.target_pos.y(),
+                armor.target_pos.z()
+            );
             double obs_yaw = otracker->orientationToYaw(armor.target_ori);
 
             double pos_dist = (obs_pos - predicted_position).norm();
@@ -499,15 +503,15 @@ void TrackerManager::updateOneTrackers(
             const auto& acc_state = otracker->acc_state_;
             target.tracking = true;
             target.id = otracker->tracked_id_;
-            target.position_.x = state(0);
-            target.velocity_.x = state(1);
-            target.acceleration_.x = acc_state(1);
-            target.position_.y = state(2);
-            target.velocity_.y = state(3);
-            target.acceleration_.y = acc_state(3);
-            target.position_.z = state(4);
-            target.velocity_.z = state(5);
-            target.acceleration_.z = acc_state(5);
+            target.position_.x() = state(0);
+            target.velocity_.x() = state(1);
+            target.acceleration_.x() = acc_state(1);
+            target.position_.y() = state(2);
+            target.velocity_.y() = state(3);
+            target.acceleration_.y() = acc_state(3);
+            target.position_.z() = state(4);
+            target.velocity_.z() = state(5);
+            target.acceleration_.z() = acc_state(5);
             target.yaw = state(6);
             target.v_yaw = state(7);
             target.type = otracker->type_;

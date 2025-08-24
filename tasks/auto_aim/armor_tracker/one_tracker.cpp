@@ -14,6 +14,7 @@
 #include "one_tracker.hpp"
 #include "3rdparty/angles.h"
 #include "tasks/auto_aim/type.hpp"
+#include "tasks/utils.hpp"
 #include "wust_vl/common/utils/logger.hpp"
 
 // std
@@ -118,10 +119,10 @@ void OneTracker::update(const armor::Armors& armors_msg) noexcept {
                 same_id_armors_count++;
 
                 auto p = armor.target_pos;
-                Eigen::Vector3d position_vec(p.x, p.y, p.z);
+                Eigen::Vector3d position_vec(p.x(), p.y(), p.z());
 
                 double position_diff = (predicted_position - position_vec).norm();
-                double z_diff = std::abs(armor.target_pos.z - predicted_position.z());
+                double z_diff = std::abs(armor.target_pos.z() - predicted_position.z());
 
                 if (position_diff < min_position_diff) {
                     min_position_diff = position_diff;
@@ -146,11 +147,11 @@ void OneTracker::update(const armor::Armors& armors_msg) noexcept {
             auto p = tracked_armor_.target_pos;
             double measured_yaw = orientationToYaw(tracked_armor_.target_ori);
 
-            double ypd_y = std::atan2(p.y, p.x);
+            double ypd_y = std::atan2(p.y(), p.x());
             ypd_y = this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
             this->last_ypd_y = ypd_y;
-            double ypd_p = std::atan2(p.z, std::sqrt(p.x * p.x + p.y * p.y));
-            double ypd_d = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
+            double ypd_p = std::atan2(p.z(), std::sqrt(p.x() * p.x() + p.y() * p.y()));
+            double ypd_d = std::sqrt(p.x() * p.x() + p.y() * p.y() + p.z() * p.z());
             measurement_ = Eigen::Vector4d(ypd_y, ypd_p, ypd_d, measured_yaw);
             ekf_ypd_->update(measurement_);
 
@@ -206,9 +207,9 @@ void OneTracker::update(const armor::Armor& armor_msg) noexcept {
         Eigen::Vector3d(target_state_(1), target_state_(3), target_state_(5));
     acc_ekf_->update(center_velocity_measurement_);
     double dis = std::sqrt(
-        armor_msg.target_pos.x * armor_msg.target_pos.x
-        + armor_msg.target_pos.y * armor_msg.target_pos.y
-        + armor_msg.target_pos.z * armor_msg.target_pos.z
+        armor_msg.target_pos.x() * armor_msg.target_pos.x()
+        + armor_msg.target_pos.y() * armor_msg.target_pos.y()
+        + armor_msg.target_pos.z() * armor_msg.target_pos.z()
     );
 
     if (dis > 0.1) {
@@ -218,11 +219,11 @@ void OneTracker::update(const armor::Armor& armor_msg) noexcept {
         auto p = tracked_armor_.target_pos;
         double measured_yaw = orientationToYaw(tracked_armor_.target_ori);
 
-        double ypd_y = std::atan2(p.y, p.x);
+        double ypd_y = std::atan2(p.y(), p.x());
         ypd_y = this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
         this->last_ypd_y = ypd_y;
-        double ypd_p = std::atan2(p.z, std::sqrt(p.x * p.x + p.y * p.y));
-        double ypd_d = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
+        double ypd_p = std::atan2(p.z(), std::sqrt(p.x() * p.x() + p.y() * p.y()));
+        double ypd_d = std::sqrt(p.x() * p.x() + p.y() * p.y() + p.z() * p.z());
         measurement_ = Eigen::Vector4d(ypd_y, ypd_p, ypd_d, measured_yaw);
         ekf_ypd_->update(measurement_);
 
@@ -263,9 +264,9 @@ void OneTracker::update(const armor::Armor& armor_msg) noexcept {
 }
 
 void OneTracker::initEKF(const armor::Armor& a) noexcept {
-    double xa = a.target_pos.x;
-    double ya = a.target_pos.y;
-    double za = a.target_pos.z;
+    double xa = a.target_pos.x();
+    double ya = a.target_pos.y();
+    double za = a.target_pos.z();
     last_yaw_ = 0;
     double yaw = orientationToYaw(a.target_ori);
 
@@ -293,27 +294,28 @@ void OneTracker::handleArmorJump(const armor::Armor& current_armor) noexcept {
     }
 
     Eigen::Vector3d current_p(
-        current_armor.target_pos.x,
-        current_armor.target_pos.y,
-        current_armor.target_pos.z
+        current_armor.target_pos.x(),
+        current_armor.target_pos.y(),
+        current_armor.target_pos.z()
     );
     Eigen::Vector3d infer_p = getArmorPositionFromState(target_state_);
 
     if ((current_p - infer_p).norm() > max_match_distance_) {
-        target_state_(0) = current_armor.target_pos.x;
+        target_state_(0) = current_armor.target_pos.x();
         target_state_(1) = 0;
-        target_state_(2) = current_armor.target_pos.y;
+        target_state_(2) = current_armor.target_pos.y();
         target_state_(3) = 0;
-        target_state_(4) = current_armor.target_pos.z;
+        target_state_(4) = current_armor.target_pos.z();
         target_state_(5) = 0;
     }
 
     ekf_ypd_->setState(target_state_);
 }
 
-double OneTracker::orientationToYaw(const tf::Quaternion& q) noexcept {
+double OneTracker::orientationToYaw(const Eigen::Quaterniond& q) noexcept {
     double roll, pitch, yaw;
-    tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+    Eigen::Vector3d euler = utils::quatToEuler(q, utils::EulerOrder::ZYX, false);
+    yaw = euler[0];
     yaw = this->last_yaw_ + angles::shortest_angular_distance(this->last_yaw_, yaw);
     this->last_yaw_ = yaw;
     return yaw;

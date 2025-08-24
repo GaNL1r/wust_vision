@@ -59,8 +59,6 @@ private:
         const cv::Mat& camera_distortion
     ) const;
 
-    // Convert a rotation matrix to RPY
-    static Eigen::Vector3d rotationMatrixToRPY(const Eigen::Matrix3d& R);
 
     bool use_ba_;
 

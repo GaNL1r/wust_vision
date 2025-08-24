@@ -19,14 +19,12 @@
 #include <string>
 #include <vector>
 
-#include "tasks/auto_aim/tf.hpp"
-
 #include "opencv2/opencv.hpp"
 #include "tasks/auto_aim/type.hpp"
 struct Target_info {
     std::vector<std::vector<cv::Point2f>> pts;
-    std::vector<tf::Position> pos;
-    std::vector<tf::Quaternion> ori;
+    std::vector<Eigen::Vector3d> pos;
+    std::vector<Eigen::Quaterniond> ori;
     int select_id;
     std::vector<bool> is_ok;
 };

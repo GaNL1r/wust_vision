@@ -285,17 +285,17 @@ bool reprojectArmorCorners(
     }
 
     // 四元数 -> 旋转矩阵
-    tf::Matrix3x3 tf_rot(armor.target_ori);
+    Eigen::Matrix3d tf_rot = armor.target_ori.toRotationMatrix();
     cv::Mat rot_mat =
-        (cv::Mat_<double>(3, 3) << tf_rot[0][0],
-         tf_rot[0][1],
-         tf_rot[0][2],
-         tf_rot[1][0],
-         tf_rot[1][1],
-         tf_rot[1][2],
-         tf_rot[2][0],
-         tf_rot[2][1],
-         tf_rot[2][2]);
+        (cv::Mat_<double>(3, 3) << tf_rot(0, 0),
+         tf_rot(0, 1),
+         tf_rot(0, 2),
+         tf_rot(1, 0),
+         tf_rot(1, 1),
+         tf_rot(1, 2),
+         tf_rot(2, 0),
+         tf_rot(2, 1),
+         tf_rot(2, 2));
 
     // 旋转矩阵 -> 旋转向量
     cv::Mat rvec;
@@ -303,7 +303,8 @@ bool reprojectArmorCorners(
 
     // 平移向量
     cv::Mat tvec =
-        (cv::Mat_<double>(3, 1) << armor.target_pos.x, armor.target_pos.y, armor.target_pos.z);
+        (cv::Mat_<double>(3, 1) << armor.target_pos.x(), armor.target_pos.y(), armor.target_pos.z()
+        );
 
     // 反投影
     cv::projectPoints(*model_points, rvec, tvec, camera_intrinsic, camera_distortion, image_points);
@@ -333,24 +334,24 @@ bool reprojectArmorCorners_raw(
     }
 
     // 四元数 -> 旋转矩阵
-    tf::Matrix3x3 tf_rot(armor.ori);
+    Eigen::Matrix3d tf_rot = armor.ori.toRotationMatrix();
     cv::Mat rot_mat =
-        (cv::Mat_<double>(3, 3) << tf_rot[0][0],
-         tf_rot[0][1],
-         tf_rot[0][2],
-         tf_rot[1][0],
-         tf_rot[1][1],
-         tf_rot[1][2],
-         tf_rot[2][0],
-         tf_rot[2][1],
-         tf_rot[2][2]);
+        (cv::Mat_<double>(3, 3) << tf_rot(0, 0),
+         tf_rot(0, 1),
+         tf_rot(0, 2),
+         tf_rot(1, 0),
+         tf_rot(1, 1),
+         tf_rot(1, 2),
+         tf_rot(2, 0),
+         tf_rot(2, 1),
+         tf_rot(2, 2));
 
     // 旋转矩阵 -> 旋转向量
     cv::Mat rvec;
     cv::Rodrigues(rot_mat, rvec);
 
     // 平移向量
-    cv::Mat tvec = (cv::Mat_<double>(3, 1) << armor.pos.x, armor.pos.y, armor.pos.z);
+    cv::Mat tvec = (cv::Mat_<double>(3, 1) << armor.pos.x(), armor.pos.y(), armor.pos.z());
 
     // 反投影
     cv::projectPoints(*model_points, rvec, tvec, camera_intrinsic, camera_distortion, image_points);
@@ -425,30 +426,12 @@ void processDetectedArmors(
             cv::Rodrigues(target_rvec, rot_mat);
 
             // 再转换为 tf::Quaternion
-            tf::Matrix3x3 tf_rot_mat(
-                rot_mat.at<double>(0, 0),
-                rot_mat.at<double>(0, 1),
-                rot_mat.at<double>(0, 2),
-                rot_mat.at<double>(1, 0),
-                rot_mat.at<double>(1, 1),
-                rot_mat.at<double>(1, 2),
-                rot_mat.at<double>(2, 0),
-                rot_mat.at<double>(2, 1),
-                rot_mat.at<double>(2, 2)
-            );
-            tf::Quaternion tf_quaternion;
-            tf_rot_mat.getRotation(tf_quaternion);
-
-            if (!std::isfinite(tf_quaternion.x) || !std::isfinite(tf_quaternion.y)
-                || !std::isfinite(tf_quaternion.z) || !std::isfinite(tf_quaternion.w))
-            {
-                //WUST_WARN(mono_logger) << "Quaternion contains NaN or Inf";
-                continue;
-            }
+            Eigen::Matrix3d tf_rot_mat = utils::cvToEigen(rot_mat);
+            Eigen::Quaterniond tf_quaternion(tf_rot_mat);
 
             armor::Armor armor;
             armor.pos = { target_position.x, target_position.y, target_position.z };
-            armor.ori = { tf_quaternion.x, tf_quaternion.y, tf_quaternion.z, tf_quaternion.w };
+            armor.ori = tf_quaternion;
             armor.number = obj.number;
             armor.type = armor_type;
             armor.distance_to_image_center =

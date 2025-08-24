@@ -84,7 +84,7 @@ private:
     void initEKF(const armor::Armor& a) noexcept;
     void handleArmorJump(const armor::Armor& a) noexcept;
 
-    double orientationToYaw(const tf::Quaternion& q) noexcept;
+    double orientationToYaw(const Eigen::Quaterniond& q) noexcept;
 
     int detect_count_;
     int lost_count_;

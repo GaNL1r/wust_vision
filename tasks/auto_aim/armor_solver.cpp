@@ -107,9 +107,9 @@ GimbalCmd ArmorSolver::solve(
 
     if (use_multi) {
         // 3.1 预测位置、速度、yaw
-        Eigen::Vector3d pos = target.position_.toEigen();
-        Eigen::Vector3d vel = target.velocity_.toEigen();
-        Eigen::Vector3d acc = target.acceleration_.toEigen();
+        Eigen::Vector3d pos = target.position_;
+        Eigen::Vector3d vel = target.velocity_;
+        Eigen::Vector3d acc = target.acceleration_;
         double yaw = target.yaw;
 
         using namespace std::chrono;
@@ -275,9 +275,9 @@ GimbalCmd ArmorSolver::solve(
         return cmd;
     } else {
         // 4.1 预测 best_target
-        Eigen::Vector3d pos = best_target.position_.toEigen();
-        Eigen::Vector3d vel = best_target.velocity_.toEigen();
-        Eigen::Vector3d acc = best_target.acceleration_.toEigen();
+        Eigen::Vector3d pos = best_target.position_;
+        Eigen::Vector3d vel = best_target.velocity_;
+        Eigen::Vector3d acc = best_target.acceleration_;
         double yaw = best_target.yaw;
 
         using namespace std::chrono;
@@ -514,7 +514,7 @@ int ArmorSolver::selectBestTarget(
             continue;
 
         // 计算目标方向角度差
-        double alpha = std::atan2(tgt.position_.y, tgt.position_.x);
+        double alpha = std::atan2(tgt.position_.y(), tgt.position_.x());
         double beta = tgt.yaw;
 
         Eigen::Matrix2d Ra, Rb;
@@ -545,7 +545,7 @@ int ArmorSolver::selectBestTarget(
     bool same_id = best_target.id == last_target_.id;
     bool same_target = same_id && dist < oneswitch_position_thres_;
 
-    double alpha_last = std::atan2(last_target_.position_.y, last_target_.position_.x);
+    double alpha_last = std::atan2(last_target_.position_.y(), last_target_.position_.x());
     double beta_last = last_target_.yaw;
     Eigen::Matrix2d Ral, Rbl;
     Ral << std::cos(alpha_last), std::sin(alpha_last), -std::sin(alpha_last), std::cos(alpha_last);

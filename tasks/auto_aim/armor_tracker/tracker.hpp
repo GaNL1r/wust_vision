@@ -102,7 +102,7 @@ private:
     void initEKF(const armor::Armor& a) noexcept;
     void handleArmorJump(const armor::Armor& a) noexcept;
 
-    double orientationToYaw(const tf::Quaternion& q) noexcept;
+    double orientationToYaw(const Eigen::Quaterniond& q) noexcept;
     static Eigen::Vector3d getArmorPositionFromState(const Eigen::VectorXd& x) noexcept;
 
     double max_match_distance_;

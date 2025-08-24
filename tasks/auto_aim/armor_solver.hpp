@@ -28,7 +28,6 @@
 #include <yaml-cpp/node/node.h>
 
 // project
-#include "tasks/auto_aim/tf.hpp" // Transform, TfTree, eulerToQuaternion
 #include "tasks/auto_aim/type.hpp" // Position, Target, GimbalCmd
 #include "wust_vl/common/utils/manual_compensator.hpp"
 #include "wust_vl/common/utils/trajectory_compensator.hpp"

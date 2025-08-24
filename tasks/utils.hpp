@@ -32,55 +32,173 @@
 namespace utils {
 // Convert euler angles to rotation matrix
 enum class EulerOrder { XYZ, XZY, YXZ, YZX, ZXY, ZYX };
-template<typename Vec3Like>
-Eigen::Matrix3d eulerToMatrix(const Vec3Like& euler, EulerOrder order = EulerOrder::XYZ) {
-    auto r = Eigen::AngleAxisd(euler[0], Eigen::Vector3d::UnitX());
-    auto p = Eigen::AngleAxisd(euler[1], Eigen::Vector3d::UnitY());
-    auto y = Eigen::AngleAxisd(euler[2], Eigen::Vector3d::UnitZ());
-    switch (order) {
-        case EulerOrder::XYZ:
-            return (y * p * r).matrix();
-        case EulerOrder::XZY:
-            return (p * y * r).matrix();
-        case EulerOrder::YXZ:
-            return (y * r * p).matrix();
-        case EulerOrder::YZX:
-            return (r * y * p).matrix();
-        case EulerOrder::ZXY:
-            return (p * r * y).matrix();
-        case EulerOrder::ZYX:
-            return (r * p * y).matrix();
-    }
+
+inline double limit_rad(double angle) {
+    while (angle > M_PI)
+        angle -= 2.0 * M_PI;
+    while (angle < -M_PI)
+        angle += 2.0 * M_PI;
+    return angle;
 }
 
 inline Eigen::Vector3d
-matrixToEuler(const Eigen::Matrix3d& R, EulerOrder order = EulerOrder::XYZ) noexcept {
+quatToEuler(const Eigen::Quaterniond& q, int axis0, int axis1, int axis2, bool extrinsic = true) {
+    if (!extrinsic)
+        std::swap(axis0, axis2);
+
+    auto i = axis0, j = axis1, k = axis2;
+    bool is_proper = (i == k);
+    if (is_proper)
+        k = 3 - i - j;
+    int sign = (i - j) * (j - k) * (k - i) / 2;
+
+    double a, b, c, d;
+    Eigen::Vector4d xyzw = q.coeffs(); // [x,y,z,w]
+    if (is_proper) {
+        a = xyzw[3];
+        b = xyzw[i];
+        c = xyzw[j];
+        d = xyzw[k] * sign;
+    } else {
+        a = xyzw[3] - xyzw[j];
+        b = xyzw[i] + xyzw[k] * sign;
+        c = xyzw[j] + xyzw[3];
+        d = xyzw[k] * sign - xyzw[i];
+    }
+
+    Eigen::Vector3d eulers;
+    double n2 = a * a + b * b + c * c + d * d;
+    eulers[1] = std::acos(2 * (a * a + b * b) / n2 - 1);
+
+    double half_sum = std::atan2(b, a);
+    double half_diff = std::atan2(-d, c);
+
+    double eps = 1e-7;
+    bool safe1 = std::abs(eulers[1]) >= eps;
+    bool safe2 = std::abs(eulers[1] - M_PI) >= eps;
+    bool safe = safe1 && safe2;
+
+    if (safe) {
+        eulers[0] = half_sum + half_diff;
+        eulers[2] = half_sum - half_diff;
+    } else {
+        if (!extrinsic) {
+            eulers[0] = 0;
+            eulers[2] = !safe1 ? 2 * half_sum : -2 * half_diff;
+        } else {
+            eulers[2] = 0;
+            eulers[0] = !safe1 ? 2 * half_sum : 2 * half_diff;
+        }
+    }
+
+    for (int idx = 0; idx < 3; idx++)
+        eulers[idx] = limit_rad(eulers[idx]);
+
+    if (!is_proper) {
+        eulers[2] *= sign;
+        eulers[1] -= M_PI / 2;
+    }
+
+    if (!extrinsic)
+        std::swap(eulers[0], eulers[2]);
+
+    return eulers;
+}
+
+inline Eigen::Quaterniond
+eulerToQuat(const Eigen::Vector3d& euler, int axis0, int axis1, int axis2, bool extrinsic = true) {
+    double rx = euler[0], ry = euler[1], rz = euler[2];
+    Eigen::Quaterniond qx(Eigen::AngleAxisd(rx, Eigen::Vector3d::UnitX()));
+    Eigen::Quaterniond qy(Eigen::AngleAxisd(ry, Eigen::Vector3d::UnitY()));
+    Eigen::Quaterniond qz(Eigen::AngleAxisd(rz, Eigen::Vector3d::UnitZ()));
+
+    if (!extrinsic)
+        std::swap(axis0, axis2);
+    Eigen::Quaterniond q;
+
+    // 生成四元数
+    if (axis0 == 0 && axis1 == 1 && axis2 == 2)
+        q = qx * qy * qz;
+    else if (axis0 == 0 && axis1 == 2 && axis2 == 1)
+        q = qx * qz * qy;
+    else if (axis0 == 1 && axis1 == 0 && axis2 == 2)
+        q = qy * qx * qz;
+    else if (axis0 == 1 && axis1 == 2 && axis2 == 0)
+        q = qy * qz * qx;
+    else if (axis0 == 2 && axis1 == 0 && axis2 == 1)
+        q = qz * qx * qy;
+    else if (axis0 == 2 && axis1 == 1 && axis2 == 0)
+        q = qz * qy * qx;
+    else
+        throw std::invalid_argument("Unsupported axis order");
+
+    return q;
+}
+
+inline Eigen::Matrix3d eulerToMatrix(
+    const Eigen::Vector3d& euler,
+    int axis0,
+    int axis1,
+    int axis2,
+    bool extrinsic = true
+) {
+    return eulerToQuat(euler, axis0, axis1, axis2, extrinsic).toRotationMatrix();
+}
+
+inline Eigen::Vector3d
+matrixToEuler(const Eigen::Matrix3d& R, int axis0, int axis1, int axis2, bool extrinsic = true) {
+    Eigen::Quaterniond q(R);
+    return quatToEuler(q, axis0, axis1, axis2, extrinsic);
+}
+
+inline Eigen::Vector3d
+quatToEuler(const Eigen::Quaterniond& q, EulerOrder order, bool extrinsic = true) {
     switch (order) {
         case EulerOrder::XYZ:
-            return R.eulerAngles(0, 1, 2);
+            return quatToEuler(q, 0, 1, 2, extrinsic);
         case EulerOrder::XZY:
-            return R.eulerAngles(0, 2, 1);
+            return quatToEuler(q, 0, 2, 1, extrinsic);
         case EulerOrder::YXZ:
-            return R.eulerAngles(1, 0, 2);
+            return quatToEuler(q, 1, 0, 2, extrinsic);
         case EulerOrder::YZX:
-            return R.eulerAngles(1, 2, 0);
+            return quatToEuler(q, 1, 2, 0, extrinsic);
         case EulerOrder::ZXY:
-            return R.eulerAngles(2, 0, 1);
+            return quatToEuler(q, 2, 0, 1, extrinsic);
         case EulerOrder::ZYX:
-            return R.eulerAngles(2, 1, 0);
+            return quatToEuler(q, 2, 1, 0, extrinsic);
+        default:
+            throw std::invalid_argument("Unsupported EulerOrder");
     }
 }
 
-inline Eigen::Vector3d getRPY(const Eigen::Matrix3d& R) {
-    double yaw = atan2(R(0, 1), R(0, 0));
-    double c2 = Eigen::Vector2d(R(2, 2), R(1, 2)).norm();
-    double pitch = atan2(-R(0, 2), c2);
+inline Eigen::Quaterniond
+eulerToQuat(const Eigen::Vector3d& euler, EulerOrder order, bool extrinsic = true) {
+    switch (order) {
+        case EulerOrder::XYZ:
+            return eulerToQuat(euler, 0, 1, 2, extrinsic);
+        case EulerOrder::XZY:
+            return eulerToQuat(euler, 0, 2, 1, extrinsic);
+        case EulerOrder::YXZ:
+            return eulerToQuat(euler, 1, 0, 2, extrinsic);
+        case EulerOrder::YZX:
+            return eulerToQuat(euler, 1, 2, 0, extrinsic);
+        case EulerOrder::ZXY:
+            return eulerToQuat(euler, 2, 0, 1, extrinsic);
+        case EulerOrder::ZYX:
+            return eulerToQuat(euler, 2, 1, 0, extrinsic);
+        default:
+            throw std::invalid_argument("Unsupported EulerOrder");
+    }
+}
 
-    double s1 = sin(yaw);
-    double c1 = cos(yaw);
-    double roll = atan2(s1 * R(2, 0) - c1 * R(2, 1), c1 * R(1, 1) - s1 * R(1, 0));
+inline Eigen::Matrix3d
+eulerToMatrix(const Eigen::Vector3d& euler, EulerOrder order, bool extrinsic = true) {
+    return eulerToQuat(euler, order, extrinsic).toRotationMatrix();
+}
 
-    return -Eigen::Vector3d(roll, pitch, yaw);
+inline Eigen::Vector3d
+matrixToEuler(const Eigen::Matrix3d& R, EulerOrder order, bool extrinsic = true) {
+    return quatToEuler(Eigen::Quaterniond(R), order, extrinsic);
 }
 
 template<typename _Tp, int _rows, int _cols, int _options, int _maxRows, int _maxCols>
@@ -100,25 +218,25 @@ inline void transformArmorData(armor::Armors& armors, Eigen::Matrix4d T_camera_t
     for (auto& armor: armors.armors) {
         try {
             // Step 1: Transform position from camera to odom
-            Eigen::Vector4d pos_camera(armor.pos.x, armor.pos.y, armor.pos.z, 1.0);
+            Eigen::Vector4d pos_camera(armor.pos.x(), armor.pos.y(), armor.pos.z(), 1.0);
             Eigen::Vector4d pos_odom = T_camera_to_odom * pos_camera;
 
-            armor.target_pos.x = pos_odom.x();
-            armor.target_pos.y = pos_odom.y();
-            armor.target_pos.z = pos_odom.z();
+            armor.target_pos.x() = pos_odom.x();
+            armor.target_pos.y() = pos_odom.y();
+            armor.target_pos.z() = pos_odom.z();
 
             // Step 2: Transform orientation from camera to odom
             Eigen::Matrix3d R_camera_to_odom = T_camera_to_odom.block<3, 3>(0, 0);
-            Eigen::Quaterniond q_camera(armor.ori.w, armor.ori.x, armor.ori.y, armor.ori.z);
+            Eigen::Quaterniond q_camera(armor.ori.w(), armor.ori.x(), armor.ori.y(), armor.ori.z());
             Eigen::Matrix3d R_ori_camera = q_camera.normalized().toRotationMatrix();
 
             Eigen::Matrix3d R_ori_odom = R_camera_to_odom * R_ori_camera;
             Eigen::Quaterniond q_odom(R_ori_odom);
 
-            armor.target_ori.w = q_odom.w();
-            armor.target_ori.x = q_odom.x();
-            armor.target_ori.y = q_odom.y();
-            armor.target_ori.z = q_odom.z();
+            armor.target_ori.w() = q_odom.w();
+            armor.target_ori.x() = q_odom.x();
+            armor.target_ori.y() = q_odom.y();
+            armor.target_ori.z() = q_odom.z();
 
             // Step 3: Extract yaw (assuming you have a function like this)
             Eigen::Vector3d euler = R_ori_odom.eulerAngles(2, 1, 0); // ZYX
@@ -133,25 +251,25 @@ inline void transformArmorData(armor::Armors& armors, Eigen::Matrix4d T_camera_t
 inline void transformArmorData(armor::Armor& armor, Eigen::Matrix4d T_camera_to_odom) {
     try {
         // Step 1: Transform position from camera to odom
-        Eigen::Vector4d pos_camera(armor.pos.x, armor.pos.y, armor.pos.z, 1.0);
+        Eigen::Vector4d pos_camera(armor.pos.x(), armor.pos.y(), armor.pos.z(), 1.0);
         Eigen::Vector4d pos_odom = T_camera_to_odom * pos_camera;
 
-        armor.target_pos.x = pos_odom.x();
-        armor.target_pos.y = pos_odom.y();
-        armor.target_pos.z = pos_odom.z();
+        armor.target_pos.x() = pos_odom.x();
+        armor.target_pos.y() = pos_odom.y();
+        armor.target_pos.z() = pos_odom.z();
 
         // Step 2: Transform orientation from camera to odom
         Eigen::Matrix3d R_camera_to_odom = T_camera_to_odom.block<3, 3>(0, 0);
-        Eigen::Quaterniond q_camera(armor.ori.w, armor.ori.x, armor.ori.y, armor.ori.z);
+        Eigen::Quaterniond q_camera(armor.ori.w(), armor.ori.x(), armor.ori.y(), armor.ori.z());
         Eigen::Matrix3d R_ori_camera = q_camera.normalized().toRotationMatrix();
 
         Eigen::Matrix3d R_ori_odom = R_camera_to_odom * R_ori_camera;
         Eigen::Quaterniond q_odom(R_ori_odom);
 
-        armor.target_ori.w = q_odom.w();
-        armor.target_ori.x = q_odom.x();
-        armor.target_ori.y = q_odom.y();
-        armor.target_ori.z = q_odom.z();
+        armor.target_ori.w() = q_odom.w();
+        armor.target_ori.x() = q_odom.x();
+        armor.target_ori.y() = q_odom.y();
+        armor.target_ori.z() = q_odom.z();
 
         // Step 3: Extract yaw (assuming you have a function like this)
         Eigen::Vector3d euler = R_ori_odom.eulerAngles(2, 1, 0); // ZYX
@@ -242,15 +360,15 @@ inline Eigen::Matrix3d getRGimbalToOdom(
     Eigen::Matrix3d R_gimbal2odom = T_gimbal_to_odom.block<3, 3>(0, 0);
     return R_gimbal2odom;
 }
-inline void addVelFromAccDt(tf::Position& vel, const tf::Position& acc, double dt) {
-    vel.x += acc.x * dt;
-    vel.y += acc.y * dt;
-    vel.z += acc.z * dt;
+inline void addVelFromAccDt(Eigen::Vector3d& vel, const Eigen::Vector3d& acc, double dt) {
+    vel.x() += acc.x() * dt;
+    vel.y() += acc.y() * dt;
+    vel.z() += acc.z() * dt;
 }
-inline void addPosFromVelDt(tf::Position pos, const tf::Position& vel, double dt) {
-    pos.x += vel.x * dt;
-    pos.y += vel.y * dt;
-    pos.z += vel.z * dt;
+inline void addPosFromVelDt(Eigen::Vector3d& pos, const Eigen::Vector3d& vel, double dt) {
+    pos.x() += vel.x() * dt;
+    pos.y() += vel.y() * dt;
+    pos.z() += vel.z() * dt;
 }
 template<typename T>
 bool tryGetValue(const YAML::Node& node, const char* key, T& out_val) {

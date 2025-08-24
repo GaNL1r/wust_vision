@@ -5,6 +5,11 @@
 #include "wust_vl/common/drivers/serial_driver.hpp"
 #include "wust_vl/common/utils/config_binder.hpp"
 #include <wust_vl/wust_vl.hpp>
+#define COMMON_CONFIG "/home/hy/wust_vision/config/common.yaml"
+#define CAMERA_CONFIG "/home/hy/wust_vision/config/camera.yaml"
+#define AUTO_AIM_CONFIG "/home/hy/wust_vision/config/auto_aim.yaml"
+#define AUTO_BUFF_CONFIG "/home/hy/wust_vision/config/auto_buff.yaml"
+
 namespace backward {
 backward::SignalHandling sh;
 }
@@ -39,7 +44,7 @@ public:
 #endif
     }
     bool init() {
-        config_ = YAML::LoadFile("/home/hy/wust_vision_dev/config/common.yaml");
+        config_ = YAML::LoadFile(COMMON_CONFIG);
         config_binder_ = std::make_shared<ConfigBinder>(config_);
         std::string log_level_ = config_["logger"]["log_level"].as<std::string>("INFO");
         std::string log_path_ = config_["logger"]["log_path"].as<std::string>("wust_log");
@@ -58,7 +63,7 @@ public:
         t_gimbal_to_camera_ = Eigen::Vector3d(gimbal2camera_x_, gimbal2camera_y_, gimbal2camera_z_);
 
         R_camera2gimbal_ << 0, 0, 1, -1, 0, 0, 0, -1, 0;
-        YAML::Node camera_config = YAML::LoadFile("/home/hy/wust_vision_dev/config/camera.yaml");
+        YAML::Node camera_config = YAML::LoadFile(CAMERA_CONFIG);
         camera_ = std::make_unique<wust_vl_video::Camera>();
         camera_->init(camera_config);
         camera_->setFrameCallback(std::bind(&vision::frameCallback, this, std::placeholders::_1));
@@ -82,8 +87,7 @@ public:
         camera_info_ = camera_info;
         //attack_mode_ = config_["attack_mode"].as<int>();
         bindConfig(config_binder_, "attack_mode", &attack_mode_);
-        YAML::Node auto_aim_config =
-            YAML::LoadFile("/home/hy/wust_vision_dev/config/auto_aim.yaml");
+        YAML::Node auto_aim_config = YAML::LoadFile(AUTO_AIM_CONFIG);
         auto_aim_ = std::make_unique<auto_aim::AutoAim>();
         auto_aim_->init(
             auto_aim_config,
@@ -92,8 +96,7 @@ public:
             t_gimbal_to_camera_,
             camera_info
         );
-        YAML::Node auto_buff_config =
-            YAML::LoadFile("/home/hy/wust_vision_dev/config/auto_buff.yaml");
+        YAML::Node auto_buff_config = YAML::LoadFile(AUTO_BUFF_CONFIG);
         auto_buff_ = std::make_unique<auto_buff::AutoBuff>();
         auto_buff_->init(
             auto_buff_config,
@@ -165,10 +168,12 @@ public:
             double roll = -(aim_data.roll) * M_PI / 180.0;
             double pitch = (aim_data.pitch) * M_PI / 180.0;
             double yaw = (aim_data.yaw) * M_PI / 180.0;
-            double v_x = aim_data.v_x;
-            double v_y = aim_data.v_y;
-            double v_z = aim_data.v_z;
-
+            // double v_x = aim_data.v_x;
+            // double v_y = aim_data.v_y;
+            // double v_z = aim_data.v_z;
+            double v_x = 0;
+            double v_y = 0;
+            double v_z = 0;
             auto now = std::chrono::steady_clock::now();
             if (motion_buffer_) {
                 motion_buffer_->push(
@@ -327,7 +332,7 @@ public:
                     } break;
                 }
                 debuglog(dbg_armor, dbg_rune);
-                config_binder_->reload("/home/hy/wust_vision_dev/config/common.yaml");
+                config_binder_->reload(COMMON_CONFIG);
             } catch (std::exception& e) {
                 std::cout << "debug thread error: " << e.what() << std::endl;
             }

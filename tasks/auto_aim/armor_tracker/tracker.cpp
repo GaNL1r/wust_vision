@@ -18,6 +18,7 @@
 // limitations under the License.
 #include "tracker.hpp"
 #include "3rdparty/angles.h"
+#include "tasks/utils.hpp"
 #include "wust_vl/common/utils/logger.hpp"
 
 // std
@@ -117,9 +118,9 @@ void Tracker::update(const armor::Armors& armors_msg) noexcept {
                 same_id_armors_count++;
 
                 auto p = armor.target_pos;
-                Eigen::Vector3d position_vec(p.x, p.y, p.z);
+                Eigen::Vector3d position_vec(p.x(), p.y(), p.z());
                 double position_diff = (predicted_position - position_vec).norm();
-                double z_diff = std::abs(armor.target_pos.z - predicted_position.z());
+                double z_diff = std::abs(armor.target_pos.z() - predicted_position.z());
 
                 if (position_diff < min_position_diff) {
                     min_position_diff = position_diff;
@@ -148,11 +149,11 @@ void Tracker::update(const armor::Armors& armors_msg) noexcept {
             auto p = tracked_armor_.target_pos;
             double measured_yaw = orientationToYaw(tracked_armor_.target_ori);
 
-            double ypd_y = std::atan2(p.y, p.x);
+            double ypd_y = std::atan2(p.y(), p.x());
             ypd_y = this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
             this->last_ypd_y = ypd_y;
-            double ypd_p = std::atan2(p.z, std::sqrt(p.x * p.x + p.y * p.y));
-            double ypd_d = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
+            double ypd_p = std::atan2(p.z(), std::sqrt(p.x() * p.x() + p.y() * p.y()));
+            double ypd_d = std::sqrt(p.x() * p.x() + p.y() * p.y() + p.z() * p.z());
             measurement_ = Eigen::Vector4d(ypd_y, ypd_p, ypd_d, measured_yaw);
             update_func_(ekf_ypd_, esekf_ypd_, measurement_);
 
@@ -160,7 +161,7 @@ void Tracker::update(const armor::Armors& armors_msg) noexcept {
         {
             handleArmorJump(same_id_armor);
         } else {
-            // WUST_DEBUG(tracker_logger)<<"No matched armor found!";
+            WUST_DEBUG(tracker_logger_) << "No matched armor found!";
         }
     }
 
@@ -206,9 +207,9 @@ void Tracker::update(const armor::Armors& armors_msg) noexcept {
 }
 
 void Tracker::initEKF(const armor::Armor& a) noexcept {
-    double xa = a.target_pos.x;
-    double ya = a.target_pos.y;
-    double za = a.target_pos.z;
+    double xa = a.target_pos.x();
+    double ya = a.target_pos.y();
+    double za = a.target_pos.z();
     last_yaw_ = 0;
     double yaw = orientationToYaw(a.target_ori);
 
@@ -234,7 +235,7 @@ void Tracker::handleArmorJump(const armor::Armor& current_armor) noexcept {
         target_state_(6) = yaw;
 
         if (tracked_armors_num_ == armor::ArmorsNum::NORMAL_4) {
-            d_za_ = target_state_(4) + target_state_(9) - current_armor.target_pos.z;
+            d_za_ = target_state_(4) + target_state_(9) - current_armor.target_pos.z();
             std::swap(target_state_(8), another_r_);
             d_zc_ = d_zc_ == 0 ? -d_za_ : 0;
             target_state_(9) = d_zc_;
@@ -243,20 +244,20 @@ void Tracker::handleArmorJump(const armor::Armor& current_armor) noexcept {
     }
 
     Eigen::Vector3d current_p(
-        current_armor.target_pos.x,
-        current_armor.target_pos.y,
-        current_armor.target_pos.z
+        current_armor.target_pos.x(),
+        current_armor.target_pos.y(),
+        current_armor.target_pos.z()
     );
     Eigen::Vector3d infer_p = getArmorPositionFromState(target_state_);
 
     if ((current_p - infer_p).norm() > max_match_distance_) {
         d_zc_ = 0;
         double r = target_state_(8);
-        target_state_(0) = current_armor.target_pos.x + r * cos(yaw);
+        target_state_(0) = current_armor.target_pos.x() + r * cos(yaw);
         target_state_(1) = 0;
-        target_state_(2) = current_armor.target_pos.y + r * sin(yaw);
+        target_state_(2) = current_armor.target_pos.y() + r * sin(yaw);
         target_state_(3) = 0;
-        target_state_(4) = current_armor.target_pos.z;
+        target_state_(4) = current_armor.target_pos.z();
         target_state_(5) = 0;
         target_state_(9) = d_zc_;
     }
@@ -264,9 +265,10 @@ void Tracker::handleArmorJump(const armor::Armor& current_armor) noexcept {
     setstate_func_(ekf_ypd_, esekf_ypd_, target_state_);
 }
 
-double Tracker::orientationToYaw(const tf::Quaternion& q) noexcept {
+double Tracker::orientationToYaw(const Eigen::Quaterniond& q) noexcept {
     double roll, pitch, yaw;
-    tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+    Eigen::Vector3d euler = utils::quatToEuler(q, utils::EulerOrder::ZYX, false);
+    yaw = euler[0];
     yaw = this->last_yaw_ + angles::shortest_angular_distance(this->last_yaw_, yaw);
     this->last_yaw_ = yaw;
     return yaw;

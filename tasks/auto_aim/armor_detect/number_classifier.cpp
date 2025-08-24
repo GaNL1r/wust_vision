@@ -14,6 +14,7 @@
 // limitations under the License.
 
 #include "tasks/auto_aim/armor_detect/number_classifier.hpp"
+#include <wust_vl/common/utils/logger.hpp>
 
 NumberClassifier::NumberClassifier(
     const std::string& classify_model_path,

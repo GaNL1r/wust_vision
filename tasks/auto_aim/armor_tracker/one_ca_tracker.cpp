@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "one_ca_tracker.hpp"
 #include "3rdparty/angles.h"
+#include "tasks/utils.hpp"
 #include "wust_vl/common/utils/logger.hpp"
 
 // std
@@ -108,10 +109,10 @@ void OneCaTracker::update(const armor::Armors& armors_msg) noexcept {
                 same_id_armors_count++;
 
                 auto p = armor.target_pos;
-                Eigen::Vector3d position_vec(p.x, p.y, p.z);
+                Eigen::Vector3d position_vec(p.x(), p.y(), p.z());
 
                 double position_diff = (predicted_position - position_vec).norm();
-                double z_diff = std::abs(armor.target_pos.z - predicted_position.z());
+                double z_diff = std::abs(armor.target_pos.z() - predicted_position.z());
 
                 if (position_diff < min_position_diff) {
                     min_position_diff = position_diff;
@@ -135,7 +136,7 @@ void OneCaTracker::update(const armor::Armors& armors_msg) noexcept {
             matched = true;
             auto p = tracked_armor_.target_pos;
             double measured_yaw = orientationToYaw(tracked_armor_.target_ori);
-            measurement_ = Eigen::Vector4d(p.x, p.y, p.z, measured_yaw);
+            measurement_ = Eigen::Vector4d(p.x(), p.y(), p.z(), measured_yaw);
             target_state_ = ekf_->update(measurement_);
 
         } else if (same_id_armors_count == 1 && yaw_diff > max_match_yaw_diff_ && min_z_diff < max_match_z_diff_)
@@ -146,7 +147,7 @@ void OneCaTracker::update(const armor::Armors& armors_msg) noexcept {
             matched = true;
             auto p = tracked_armor_.target_pos;
             double measured_yaw = orientationToYaw(tracked_armor_.target_ori);
-            measurement_ = Eigen::Vector4d(p.x, p.y, p.z, measured_yaw);
+            measurement_ = Eigen::Vector4d(p.x(), p.y(), p.z(), measured_yaw);
             target_state_ = ekf_->update(measurement_);
 
         } else {
@@ -190,8 +191,8 @@ void OneCaTracker::update(const armor::Armor& armor_msg) noexcept {
     target_state_ = ekf_prediction;
     std::vector<armor::Armor> another_armors;
     double dis = std::sqrt(
-        armor_msg.pos.x * armor_msg.pos.x + armor_msg.pos.y * armor_msg.pos.y
-        + armor_msg.pos.z * armor_msg.pos.z
+        armor_msg.pos.x() * armor_msg.pos.x() + armor_msg.pos.y() * armor_msg.pos.y()
+        + armor_msg.pos.z() * armor_msg.pos.z()
     );
     if (dis > 0.1) {
         tracked_armor_ = armor_msg;
@@ -199,7 +200,7 @@ void OneCaTracker::update(const armor::Armor& armor_msg) noexcept {
         matched = true;
         auto p = tracked_armor_.target_pos;
         double measured_yaw = orientationToYaw(tracked_armor_.target_ori);
-        measurement_ = Eigen::Vector4d(p.x, p.y, p.z, measured_yaw);
+        measurement_ = Eigen::Vector4d(p.x(), p.y(), p.z(), measured_yaw);
         target_state_ = ekf_->update(measurement_);
         distance_to_image_center_ = armor_msg.distance_to_image_center;
     } else {
@@ -238,9 +239,9 @@ void OneCaTracker::update(const armor::Armor& armor_msg) noexcept {
 }
 
 void OneCaTracker::initEKF(const armor::Armor& a) noexcept {
-    double xa = a.target_pos.x;
-    double ya = a.target_pos.y;
-    double za = a.target_pos.z;
+    double xa = a.target_pos.x();
+    double ya = a.target_pos.y();
+    double za = a.target_pos.z();
     last_yaw_ = 0;
     double yaw = orientationToYaw(a.target_ori);
 
@@ -264,29 +265,30 @@ void OneCaTracker::handleArmorJump(const armor::Armor& current_armor) noexcept {
     }
 
     Eigen::Vector3d current_p(
-        current_armor.target_pos.x,
-        current_armor.target_pos.y,
-        current_armor.target_pos.z
+        current_armor.target_pos.x(),
+        current_armor.target_pos.y(),
+        current_armor.target_pos.z()
     );
     Eigen::Vector3d infer_p = getArmorPositionFromState(target_state_);
 
     if ((current_p - infer_p).norm() > max_match_distance_) {
-        target_state_(0) = current_armor.target_pos.x;
+        target_state_(0) = current_armor.target_pos.x();
         target_state_(1) = 0;
         target_state_(2) = 0;
-        target_state_(3) = current_armor.target_pos.y;
+        target_state_(3) = current_armor.target_pos.y();
         target_state_(4) = 0;
         target_state_(5) = 0;
-        target_state_(6) = current_armor.target_pos.z;
+        target_state_(6) = current_armor.target_pos.z();
         target_state_(7) = 0;
     }
 
     ekf_->setState(target_state_);
 }
 
-double OneCaTracker::orientationToYaw(const tf::Quaternion& q) noexcept {
+double OneCaTracker::orientationToYaw(const Eigen::Quaterniond& q) noexcept {
     double roll, pitch, yaw;
-    tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+    Eigen::Vector3d euler = utils::quatToEuler(q, utils::EulerOrder::ZYX, false);
+    yaw = euler[0];
     yaw = this->last_yaw_ + angles::shortest_angular_distance(this->last_yaw_, yaw);
     this->last_yaw_ = yaw;
     return yaw;
