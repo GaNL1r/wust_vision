@@ -91,6 +91,12 @@ bool reprojectArmorCorners_raw(
     const cv::Mat& camera_intrinsic_,
     const cv::Mat& camera_distortion_
 );
+bool reprojectArmorCornersBlock(
+    const armor::Armor& armor,
+    std::vector<cv::Point2f>& image_points,
+    const cv::Mat& camera_intrinsic,
+    const cv::Mat& camera_distortion
+);
 void processDetectedArmors(
     const std::vector<armor::ArmorObject>& objs,
     armor::Armors& armors_out,
@@ -124,6 +130,22 @@ static std::vector<cv::Point3f> BIG_ARMOR_3D_POINTS_NET = {
     { 0, -0.027, -0.1125 },
     { 0, -0.027, 0.1125 },
     { 0, 0.027, 0.1125 },
+};
+static std::vector<cv::Point3f> SMALL_ARMOR_3D_POINTS_BLOCK = {
+    { 0, 0.025, -0.066 }, // 左上前
+    { 0, -0.025, -0.066 }, // 左下前
+    { 0, -0.025, 0.066 }, // 右下前
+    { 0, 0.025, 0.066 }, // 右上前
+    { 0.015, 0.025, -0.066 }, // 左上后
+    { 0.015, -0.025, -0.066 }, // 左下后
+    { 0.015, -0.025, 0.066 }, // 右下后
+    { 0.015, 0.025, 0.066 }, // 右上后
+};
+
+static std::vector<cv::Point3f> BIG_ARMOR_3D_POINTS_BLOCK = {
+    { 0, 0.025, -0.1125 },     { 0, -0.025, -0.1125 },    { 0, -0.025, 0.1125 },
+    { 0, 0.025, 0.1125 },      { 0.015, 0.025, -0.1125 }, { 0.015, -0.025, -0.1125 },
+    { 0.015, -0.025, 0.1125 }, { 0.015, 0.025, 0.1125 },
 };
 
 static std::vector<cv::Point3f> R_BOX_POINTS = {

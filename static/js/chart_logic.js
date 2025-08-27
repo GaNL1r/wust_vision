@@ -11,6 +11,11 @@ const chartMap = {
   rune_obs: { label: "Rune Obs" },
   rune_pre: { label: "Rune Pre" },
   rune_v: { label: "Rune V" },
+  gimbal_yaw: { label: "Gimbal Yaw" },
+  gimbal_pitch: { label: "Gimbal Pitch" },
+  target_v_yaw: { label: "Target V Yaw" },
+  control_v_yaw: { label: "Control V Yaw" },
+  control_v_pitch: { label: "Control V Pitch" },
 };
 
 const mainCtx = document.getElementById("mainChart").getContext("2d");

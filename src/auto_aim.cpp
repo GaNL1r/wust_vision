@@ -5,10 +5,10 @@
 #include "wust_vl/common/drivers/serial_driver.hpp"
 #include "wust_vl/common/utils/config_binder.hpp"
 #include <wust_vl/wust_vl.hpp>
-#define COMMON_CONFIG "/home/hy/wust_vision/config/common.yaml"
-#define CAMERA_CONFIG "/home/hy/wust_vision/config/camera.yaml"
-#define AUTO_AIM_CONFIG "/home/hy/wust_vision/config/auto_aim.yaml"
-#define AUTO_BUFF_CONFIG "/home/hy/wust_vision/config/auto_buff.yaml"
+#define COMMON_CONFIG "config/common.yaml"
+#define CAMERA_CONFIG "config/camera.yaml"
+#define AUTO_AIM_CONFIG "config/auto_aim.yaml"
+#define AUTO_BUFF_CONFIG "config/auto_buff.yaml"
 
 namespace backward {
 backward::SignalHandling sh;
@@ -53,7 +53,6 @@ public:
         bool use_simplelog = config_["logger"]["use_simplelog"].as<bool>();
         initLogger(log_level_, log_path_, use_logcli, use_logfile, use_simplelog);
         bindConfig(config_binder_, { "max_infer_running" }, &max_infer_running_);
-        std::cout << "max_infer_running: " << max_infer_running_ << std::endl;
         gimbal2camera_roll_ = config_["tf"]["gimbal2camera_roll"].as<double>(0.0);
         gimbal2camera_pitch_ = config_["tf"]["gimbal2camera_pitch"].as<double>(0.0);
         gimbal2camera_yaw_ = config_["tf"]["gimbal2camera_yaw"].as<double>(0.0);
@@ -118,7 +117,11 @@ public:
         auto_buff_->setShared(auto_buff_shared_);
 
         std::string device_name = config_["control"]["device_name"].as<std::string>();
-        communication_delay_μs_ = config_["control"]["communication_delay"].as<double>();
+        bindConfig(
+            config_binder_,
+            { "control", "communication_delay_us" },
+            &communication_delay_μs_
+        );
         bool use_serial = config_["control"]["use_serial"].as<bool>();
         if (use_serial) {
             SerialDriver::SerialPortConfig cfg {
@@ -332,7 +335,13 @@ public:
                         drawDebugOverlayShm(dbg_armor, camera_info_, false);
                     } break;
                 }
-                debuglog(dbg_armor, dbg_rune);
+                auto last_att = motion_buffer_->get_last();
+                std::pair<double, double> gimbal_py;
+                if (last_att) {
+                    gimbal_py.first = last_att->pitch;
+                    gimbal_py.second = last_att->yaw;
+                }
+                debuglog(dbg_armor, dbg_rune, gimbal_py);
                 config_binder_->reload(COMMON_CONFIG);
                 auto_aim_config_binder_->reload(AUTO_AIM_CONFIG);
             } catch (std::exception& e) {
@@ -350,27 +359,27 @@ public:
     std::unique_ptr<auto_buff::AutoBuff> auto_buff_;
     std::unique_ptr<wust_vl_video::Camera> camera_;
     std::shared_ptr<SerialDriver> serial_;
-    std::atomic<int> infer_running_count_ { 0 };
-    int max_infer_running_;
-    bool run_flag_ = true;
+    std::unique_ptr<Timer> timer_;
+    std::shared_ptr<auto_aim::AutoAimShared> auto_aim_shared_;
+    std::shared_ptr<auto_buff::AutoBuffShared> auto_buff_shared_;
+    std::shared_ptr<MotionBuffer> motion_buffer_;
+    std::shared_ptr<ConfigBinder> config_binder_;
+    std::shared_ptr<ConfigBinder> auto_aim_config_binder_;
     YAML::Node config_;
     Eigen::Matrix3d R_camera2gimbal_;
     Eigen::Vector3d t_gimbal_to_camera_;
-    int use_ncnn_count_ = 0;
     double gimbal2camera_roll_;
     double gimbal2camera_pitch_;
     double gimbal2camera_yaw_;
-    std::shared_ptr<MotionBuffer> motion_buffer_;
     double communication_delay_μs_;
-    std::shared_ptr<auto_aim::AutoAimShared> auto_aim_shared_;
-    std::shared_ptr<auto_buff::AutoBuffShared> auto_buff_shared_;
-    std::unique_ptr<Timer> timer_;
+    std::pair<cv::Mat, cv::Mat> camera_info_;
+    int attack_mode_;
+    int max_infer_running_;
+    bool run_flag_ = true;
     int detect_color_ = 0;
     bool debug_mode_ = false;
-    std::pair<cv::Mat, cv::Mat> camera_info_;
-    std::shared_ptr<ConfigBinder> config_binder_;
-    std::shared_ptr<ConfigBinder> auto_aim_config_binder_;
-    int attack_mode_;
+    int use_ncnn_count_ = 0;
+    std::atomic<int> infer_running_count_ { 0 };
 };
 
 int main(int argc, char** argv) {

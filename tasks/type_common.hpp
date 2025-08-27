@@ -59,7 +59,6 @@ struct GimbalCmd {
     float v_pitch = 0;
     float distance = -1;
     bool fire_advice = false;
-    int select_id = -1;
 };
 enum class AttackMode { ARMOR = 0, SMALL_RUNE, BIG_RUNE, UNKNOWN };
 inline AttackMode toAttackMode(int value) {
@@ -176,5 +175,145 @@ private:
         else if (d < -M_PI)
             curr += 2 * M_PI;
         return curr;
+    }
+};
+static std::vector<cv::Point3f> AIM_TARGET_BLOCK = {
+    { -0.025f, -0.025f, -0.025f }, // 0: 左下前
+    { 0.025f, -0.025f, -0.025f }, // 1: 右下前
+    { 0.025f, 0.025f, -0.025f }, // 2: 右上前
+    { -0.025f, 0.025f, -0.025f }, // 3: 左上前
+    { -0.025f, -0.025f, 0.025f }, // 4: 左下后
+    { 0.025f, -0.025f, 0.025f }, // 5: 右下后
+    { 0.025f, 0.025f, 0.025f }, // 6: 右上后
+    { -0.025f, 0.025f, 0.025f } // 7: 左上后
+};
+
+struct AimTarget {
+    Eigen::Vector3d pos = Eigen::Vector3d(0, 0, 0);
+    Eigen::Vector3d vel = Eigen::Vector3d(0, 0, 0);
+
+    bool have_host = false;
+    Eigen::Vector3d host_pos = Eigen::Vector3d(0, 0, 0);
+    Eigen::Vector3d host_vel = Eigen::Vector3d(0, 0, 0);
+
+    double host_v_yaw = 0;
+
+    double shoot_pitch = 0;
+    bool is_big_armor = false;
+    bool is_old = false;
+    Eigen::Quaterniond ori;
+    void predictSelf(double dt_sec) {
+        if (!have_host)
+            return;
+
+        Eigen::Vector3d rel_pos = pos - host_pos;
+
+        double theta = host_v_yaw * dt_sec;
+
+        Eigen::Matrix3d R;
+        R = Eigen::AngleAxisd(theta, Eigen::Vector3d::UnitZ());
+
+        pos = host_pos + R * rel_pos + host_vel * dt_sec;
+    }
+    double calYaw() const {
+        return std::atan2(pos.y(), pos.x());
+    }
+
+    double calRawPitch() const {
+        return std::atan2(pos.z(), std::sqrt(pos.x() * pos.x() + pos.y() * pos.y()));
+    }
+
+    double distance() const {
+        return pos.norm();
+    }
+
+    double calVYaw() const {
+        double x = pos.x();
+        double y = pos.y();
+        double vx = vel.x();
+        double vy = vel.y();
+
+        double denom = x * x + y * y;
+        if (denom < 1e-6)
+            return 0.0;
+
+        return (x * vy - y * vx) / denom;
+    }
+    double calHostVYaw() const {
+        double x = host_pos.x();
+        double y = host_pos.y();
+        double vx = host_vel.x();
+        double vy = host_vel.y();
+
+        double denom = x * x + y * y;
+        if (denom < 1e-6)
+            return 0.0;
+
+        return (x * vy - y * vx) / denom;
+    }
+
+    double calVPitch() const {
+        double x = pos.x();
+        double y = pos.y();
+        double z = pos.z();
+        double vx = vel.x();
+        double vy = vel.y();
+        double vz = vel.z();
+
+        double rho2 = x * x + y * y;
+        double rho = std::sqrt(rho2);
+        double r2 = rho2 + z * z;
+
+        if (r2 < 1e-12 || rho < 1e-6)
+            return 0.0;
+
+        return (x * z * vx + y * z * vy - rho2 * vz) / (r2 * rho);
+    }
+    void tf(Eigen::Matrix4d T_camera_to_odom) {
+        Eigen::Vector4d pos_camera(pos.x(), pos.y(), pos.z(), 1.0);
+        Eigen::Vector4d pos_odom = T_camera_to_odom * pos_camera;
+
+        pos.x() = pos_odom.x();
+        pos.y() = pos_odom.y();
+        pos.z() = pos_odom.z();
+        Eigen::Matrix3d R_camera_to_odom = T_camera_to_odom.block<3, 3>(0, 0);
+        Eigen::Quaterniond q_camera(ori.w(), ori.x(), ori.y(), ori.z());
+        Eigen::Matrix3d R_ori_camera = q_camera.normalized().toRotationMatrix();
+
+        Eigen::Matrix3d R_ori_odom = R_camera_to_odom * R_ori_camera;
+        Eigen::Quaterniond q_odom(R_ori_odom);
+
+        ori.w() = q_odom.w();
+        ori.x() = q_odom.x();
+        ori.y() = q_odom.y();
+        ori.z() = q_odom.z();
+    }
+    std::vector<cv::Point2f>
+    toPts(const cv::Mat& camera_intrinsic, const cv::Mat& camera_distortion) {
+        std::vector<cv::Point2f> pts;
+        if (pos.norm() < 0.5) {
+            return pts;
+        }
+
+        cv::Mat tvec = (cv::Mat_<double>(3, 1) << pos.x(), pos.y(), pos.z());
+        Eigen::Matrix3d tf_rot = ori.toRotationMatrix();
+        cv::Mat rot_mat =
+            (cv::Mat_<double>(3, 3) << tf_rot(0, 0),
+             tf_rot(0, 1),
+             tf_rot(0, 2),
+             tf_rot(1, 0),
+             tf_rot(1, 1),
+             tf_rot(1, 2),
+             tf_rot(2, 0),
+             tf_rot(2, 1),
+             tf_rot(2, 2));
+
+        // 旋转矩阵 -> 旋转向量
+        cv::Mat rvec;
+        cv::Rodrigues(rot_mat, rvec);
+
+        cv::projectPoints(AIM_TARGET_BLOCK, rvec, tvec, camera_intrinsic, camera_distortion, pts);
+
+        return pts;
     }
 };

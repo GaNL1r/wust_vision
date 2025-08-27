@@ -311,6 +311,55 @@ bool reprojectArmorCorners(
 
     return true;
 }
+bool reprojectArmorCornersBlock(
+    const armor::Armor& armor,
+    std::vector<cv::Point2f>& image_points,
+    const cv::Mat& camera_intrinsic,
+    const cv::Mat& camera_distortion
+) {
+    if (camera_intrinsic.empty() || camera_distortion.empty()) {
+        //WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
+        return false;
+    }
+
+    // 获取装甲板的模板角点
+    const std::vector<cv::Point3f>* model_points;
+    if (armor.type == "large") {
+        model_points = &BIG_ARMOR_3D_POINTS_BLOCK;
+    } else if (armor.type == "small") {
+        model_points = &SMALL_ARMOR_3D_POINTS_BLOCK;
+    } else {
+        //WUST_ERROR(mono_logger) << "Unknown armor type: " << armor.type;
+        return false;
+    }
+
+    // 四元数 -> 旋转矩阵
+    Eigen::Matrix3d tf_rot = armor.target_ori.toRotationMatrix();
+    cv::Mat rot_mat =
+        (cv::Mat_<double>(3, 3) << tf_rot(0, 0),
+         tf_rot(0, 1),
+         tf_rot(0, 2),
+         tf_rot(1, 0),
+         tf_rot(1, 1),
+         tf_rot(1, 2),
+         tf_rot(2, 0),
+         tf_rot(2, 1),
+         tf_rot(2, 2));
+
+    // 旋转矩阵 -> 旋转向量
+    cv::Mat rvec;
+    cv::Rodrigues(rot_mat, rvec);
+
+    // 平移向量
+    cv::Mat tvec =
+        (cv::Mat_<double>(3, 1) << armor.target_pos.x(), armor.target_pos.y(), armor.target_pos.z()
+        );
+
+    // 反投影
+    cv::projectPoints(*model_points, rvec, tvec, camera_intrinsic, camera_distortion, image_points);
+
+    return true;
+}
 bool reprojectArmorCorners_raw(
     const armor::Armor& armor,
     std::vector<cv::Point2f>& image_points,
@@ -371,7 +420,7 @@ bool reprojectArmorsCorners(
     for (auto& armor: armors.armors) {
         std::vector<cv::Point2f> pts;
 
-        if (!reprojectArmorCorners(armor, pts, camera_intrinsic, camera_distortion))
+        if (!reprojectArmorCornersBlock(armor, pts, camera_intrinsic, camera_distortion))
             return false;
         target_info.pts.push_back(pts);
         target_info.pos.push_back(armor.pos);

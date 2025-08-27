@@ -2,23 +2,23 @@
 
 
 while true; do
-    pkill wust_vision
+    pkill $1
 
     # 等待进程全部退出，最多等10秒
     timeout=10
-    while pgrep wust_vision > /dev/null; do
+    while pgrep $1 > /dev/null; do
         sleep 0.5
         timeout=$((timeout - 1))
         if [ $timeout -le 0 ]; then
-            echo "wust_vision did not exit after 10 seconds, forcing kill"
-            pkill -9 wust_vision
+            echo "$1 did not exit after 10 seconds, forcing kill"
+            pkill -9 $1
             break
         fi
     done
 
     source env.bash
-    wust_vision
+    $1
     sleep 1
 done
 
-#ps -ef | grep wust_vision
+#ps -ef | grep $1

@@ -288,7 +288,7 @@ inline double getNoiseFromCameraYaw(double camera_yaw_deg, double r_front, doubl
 }
 inline double getNoiseVarFromCameraYaw(double camera_yaw_deg, double r_front, double r_side) {
     double noise_deg = getNoiseFromCameraYaw(camera_yaw_deg, r_front, r_side);
-    return std::pow(r_front * M_PI / 180.0, 2);
+    return noise_deg;
 }
 inline cv::Point2f computeCenter(const std::vector<cv::Point2f>& points) {
     if (points.empty()) {

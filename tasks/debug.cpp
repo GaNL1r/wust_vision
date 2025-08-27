@@ -10,14 +10,15 @@ armor::Armors visualizeTargetProjection(
     armor::Armors armor_data;
     armor_data.frame_id = "gimbal_odom";
     armor_data.timestamp = armor_target_.timestamp;
+    double debug_dt = 0.01;
 
     if (armor_target_.tracking) {
         Eigen::Vector3d pos = armor_target_.position_;
         Eigen::Vector3d vel = armor_target_.velocity_;
-        utils::addVelFromAccDt(vel, armor_target_.acceleration_, 0.1);
-        utils::addPosFromVelDt(pos, vel, 0.1);
+        utils::addVelFromAccDt(vel, armor_target_.acceleration_, debug_dt);
+        utils::addPosFromVelDt(pos, vel, debug_dt);
         if (pos.norm() > 0.5) {
-            double yaw = armor_target_.yaw + armor_target_.v_yaw * 0.1;
+            double yaw = armor_target_.yaw + armor_target_.v_yaw * debug_dt;
             double r1 = armor_target_.radius_1;
             double r2 = armor_target_.radius_2;
             double d_za = armor_target_.d_za;
@@ -63,10 +64,10 @@ armor::Armors visualizeTargetProjection(
         if (one_armor_target_.tracking) {
             Eigen::Vector3d pos = one_armor_target_.position_;
             Eigen::Vector3d vel = one_armor_target_.velocity_;
-            utils::addVelFromAccDt(vel, one_armor_target_.acceleration_, 0.1);
-            utils::addPosFromVelDt(pos, vel, 0.1);
+            utils::addVelFromAccDt(vel, one_armor_target_.acceleration_, debug_dt);
+            utils::addPosFromVelDt(pos, vel, debug_dt);
             if (pos.norm() > 0.5) {
-                double tmp_yaw = one_armor_target_.yaw + one_armor_target_.v_yaw * 0.1;
+                double tmp_yaw = one_armor_target_.yaw + one_armor_target_.v_yaw * debug_dt;
                 Eigen::Vector3d euler;
                 euler.x() = M_PI / 2;
                 euler.y() = armor_target_.id == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
@@ -95,25 +96,21 @@ void drawDebugArmorContent(
     auto gimbal_cmd = dbg.gimbal_cmd;
     auto target = dbg.target;
     auto one_targets = dbg.one_targets;
+    auto aim_target = dbg.aim_target;
+    auto armor_objs = dbg.armor_objs;
     static const int next_indices[] = { 2, 0, 3, 1 };
 
     // =================== 绘制装甲板 ===================
-    for (const auto& armor: armors.armors) {
-        std::vector<cv::Point2f> pts;
-        if (!mono_measure_tool::reprojectArmorCorners_raw(
-                armor,
-                pts,
-                camera_info.first,
-                camera_info.second
-            ))
-            continue;
+    for (size_t i = 0; i < armor_objs.size(); i++) {
+        auto pts = armor_objs[i].toPts();
 
-        for (size_t i = 0; i < 4; ++i) {
-            cv::Scalar color = armor.is_ok ? cv::Scalar(50, 255, 50) : cv::Scalar(50, 255, 255);
-            cv::line(debug_img, pts[i], pts[next_indices[i]], color, 2);
+        for (size_t j = 0; j < 4; ++j) {
+            cv::Scalar color =
+                armor_objs[i].is_ok ? cv::Scalar(50, 255, 50) : cv::Scalar(50, 255, 255);
+            cv::line(debug_img, pts[j], pts[next_indices[j]], color, 2);
         }
 
-        std::string yaw_info = fmt::format("Yaw: {:.2f}", armor.yaw * 180.0 / M_PI);
+        std::string yaw_info = fmt::format("Yaw: {:.2f}", armors.armors[i].yaw * 180.0 / M_PI);
         cv::putText(
             debug_img,
             yaw_info,
@@ -147,7 +144,7 @@ void drawDebugArmorContent(
             }
         };
 
-        std::string armor_str = armorName(armor.number);
+        std::string armor_str = armorName(armors.armors[i].number);
         cv::putText(
             debug_img,
             armor_str,
@@ -175,7 +172,6 @@ void drawDebugArmorContent(
     auto armor_data = visualizeTargetProjection(dbg.target, dbg.one_targets);
     utils::transformArmorData(armor_data, dbg.T_camera_to_odom.inverse());
     Target_info target_info;
-    target_info.select_id = dbg.gimbal_cmd.select_id;
     if (!mono_measure_tool::reprojectArmorsCorners(
             armor_data,
             target_info,
@@ -196,8 +192,19 @@ void drawDebugArmorContent(
         } else {
             color = !is_ok ? cv::Scalar(255, 0, 0) : cv::Scalar(0, 0, 255);
         }
+        // 绘制前表面
         for (size_t j = 0; j < 4; ++j) {
             cv::line(debug_img, pts[j], pts[(j + 1) % 4], color, 2);
+        }
+
+        // 绘制后表面
+        for (size_t j = 4; j < 8; ++j) {
+            cv::line(debug_img, pts[j], pts[4 + (j + 1) % 4], color, 2);
+        }
+
+        // 绘制侧边
+        for (size_t j = 0; j < 4; ++j) {
+            cv::line(debug_img, pts[j], pts[j + 4], color, 2);
         }
 
         if (is_ok) {
@@ -226,46 +233,57 @@ void drawDebugArmorContent(
             );
         }
     }
-    int select_id = -1;
+    aim_target.tf(dbg.T_camera_to_odom.inverse());
+    if (!aim_target.is_old) {
+        auto pts = aim_target.toPts(camera_info.first, camera_info.second);
+        if (!pts.empty()) {
+            cv::Scalar color = cv::Scalar(255, 255, 255);
+            for (int i = 0; i < 4; i++)
+                cv::line(debug_img, pts[i], pts[(i + 1) % 4], color, 2);
 
-    select_id = gimbal_cmd.select_id;
+            // 后表面
+            for (int i = 4; i < 8; i++)
+                cv::line(debug_img, pts[i], pts[4 + (i + 1) % 4], color, 2);
 
-    if (select_id != -1 && select_id < target_info.pts.size()
-        && !target_info.pts[select_id].empty()) {
-        cv::Point2f center(0.f, 0.f);
-        for (int i = 0; i < 4; ++i)
-            center += target_info.pts[select_id][i];
-        center *= 0.25f;
-        cv::circle(debug_img, center + cv::Point2f(0, -200), 20, cv::Scalar(0, 255, 255), 5);
+            // 侧边
+            for (int i = 0; i < 4; i++)
+                cv::line(debug_img, pts[i], pts[i + 4], color, 2);
+            cv::Point2f center(0.f, 0.f);
+            for (auto pt: pts) {
+                center += pt;
+            }
+            center *= 1.0 / pts.size();
 
-        if (gimbal_cmd.fire_advice) {
-            int cross_len = 60;
-            cv::line(
-                debug_img,
-                center + cv::Point2f(0, -200) + cv::Point2f(-cross_len, -cross_len),
-                center + cv::Point2f(0, -200) + cv::Point2f(+cross_len, +cross_len),
-                cv::Scalar(0, 0, 255),
-                5
-            );
-            cv::line(
-                debug_img,
-                center + cv::Point2f(0, -200) + cv::Point2f(-cross_len, +cross_len),
-                center + cv::Point2f(0, -200) + cv::Point2f(+cross_len, -cross_len),
-                cv::Scalar(0, 0, 255),
-                5
-            );
+            if (gimbal_cmd.fire_advice) {
+                int cross_len = 60;
+                cv::line(
+                    debug_img,
+                    center + cv::Point2f(-cross_len, -cross_len),
+                    center + cv::Point2f(+cross_len, +cross_len),
+                    cv::Scalar(0, 0, 255),
+                    5
+                );
+                cv::line(
+                    debug_img,
+                    center + cv::Point2f(-cross_len, +cross_len),
+                    center + cv::Point2f(+cross_len, -cross_len),
+                    cv::Scalar(0, 0, 255),
+                    5
+                );
+            }
+
+            double scale = 10.0;
+            double v_yaw = gimbal_cmd.v_yaw;
+            double v_pitch = gimbal_cmd.v_pitch;
+            double dx = -scale * v_yaw;
+            double dy = scale * v_pitch;
+
+            cv::Point2f start_pt = center;
+            cv::Point2f end_pt = start_pt + cv::Point2f(dx, dy);
+            cv::Scalar color_x =
+                dbg.detect_color ? cv::Scalar(255, 50, 50) : cv::Scalar(50, 50, 255);
+            cv::arrowedLine(debug_img, start_pt, end_pt, color_x, 4, cv::LINE_AA, 0, 0.2);
         }
-
-        double scale = 10.0;
-        double v_yaw = gimbal_cmd.v_yaw;
-        double v_pitch = gimbal_cmd.v_pitch;
-        double dx = -scale * v_yaw;
-        double dy = scale * v_pitch;
-
-        cv::Point2f start_pt = center + cv::Point2f(0, -200);
-        cv::Point2f end_pt = start_pt + cv::Point2f(dx, dy);
-        cv::Scalar color = dbg.detect_color ? cv::Scalar(255, 50, 50) : cv::Scalar(50, 50, 255);
-        cv::arrowedLine(debug_img, start_pt, end_pt, color, 4, cv::LINE_AA, 0, 0.2);
     }
 
     if (!all_corners.empty()) {
@@ -273,9 +291,9 @@ void drawDebugArmorContent(
         for (const auto& pt: all_corners)
             avg += pt;
         avg *= 1.0f / all_corners.size();
-        cv::circle(debug_img, avg, 5, cv::Scalar(50, 255, 50), -1);
+        cv::circle(debug_img, avg, 10, cv::Scalar(50, 255, 50), -1);
 
-        double scale = 10.0;
+        double scale = 50.0;
         double dy = scale * target.v_yaw;
         cv::Point2f start_pt = avg;
         cv::Point2f end_pt = start_pt + cv::Point2f(0, dy);
@@ -284,35 +302,17 @@ void drawDebugArmorContent(
             start_pt,
             end_pt,
             cv::Scalar(50, 255, 50),
-            2,
+            3,
             cv::LINE_AA,
             0,
             0.1
         );
     }
 
-    bool appear = utils::checkTargetAppear(target, one_targets);
-    Tracker::State state = appear ? Tracker::TRACKING : Tracker::LOST;
 
     // =================== 状态绘制 ===================
     std::string state_str;
-    switch (state) {
-        case Tracker::LOST:
-            state_str = "LOST";
-            break;
-        case Tracker::DETECTING:
-            state_str = "DETECTING";
-            break;
-        case Tracker::TRACKING:
-            state_str = "TRACKING";
-            break;
-        case Tracker::TEMP_LOST:
-            state_str = "TEMP_LOST";
-            break;
-        default:
-            state_str = "UNKNOWN";
-            break;
-    }
+    state_str=auto_aim_fsm_to_string(dbg.fsm);
 
     int baseline = 0;
     cv::Size text_size = cv::getTextSize(state_str, cv::FONT_HERSHEY_SIMPLEX, 2.5, 2, &baseline);
@@ -924,7 +924,11 @@ void writeSerialLogToJson(const ReceiveAimINFO& aim) {
         file << j.dump(2);
     }
 }
-void debuglog(const DebugArmor& dbg_armor, const DebugRune& dbg_rune) {
+void debuglog(
+    const DebugArmor& dbg_armor,
+    const DebugRune& dbg_rune,
+    const std::pair<double, double>& gimbal_py
+) {
     static bool first_log = true;
     static std::chrono::steady_clock::time_point start_time;
 
@@ -1006,6 +1010,11 @@ void debuglog(const DebugArmor& dbg_armor, const DebugRune& dbg_rune) {
     log.ypd_y_log.push_back(last_ypd_y_ * 180.0 / M_PI);
     log.ypd_p_log.push_back(last_ypd_p_ * 180.0 / M_PI);
     log.armor_dis_log.push_back(last_distance_);
+    log.gimbal_pitch_log.push_back(gimbal_py.first * 180.0 / M_PI);
+    log.gimbal_yaw_log.push_back(gimbal_py.second * 180.0 / M_PI);
+    log.target_v_yaw_log.push_back(target.v_yaw);
+    log.control_v_pitch_log.push_back(last_cmd.v_pitch);
+    log.control_v_yaw_log.push_back(last_cmd.v_yaw);
 
     // 控制长度不超过 1000
     auto trim = [](std::vector<double>& v) {
@@ -1026,6 +1035,11 @@ void debuglog(const DebugArmor& dbg_armor, const DebugRune& dbg_rune) {
     trim(log.ypd_y_log);
     trim(log.ypd_p_log);
     trim(log.armor_dis_log);
+    trim(log.gimbal_pitch_log);
+    trim(log.gimbal_yaw_log);
+    trim(log.target_v_yaw_log);
+    trim(log.control_v_pitch_log);
+    trim(log.control_v_yaw_log);
     nlohmann::json j;
     {
         j["time"] = log.time_log;
@@ -1041,6 +1055,11 @@ void debuglog(const DebugArmor& dbg_armor, const DebugRune& dbg_rune) {
         j["rune_obs"] = log.rune_obs_log;
         j["rune_pre"] = log.rune_pre_log;
         j["rune_v"] = log.rune_v_log;
+        j["gimbal_yaw"] = log.gimbal_yaw_log;
+        j["gimbal_pitch"] = log.gimbal_pitch_log;
+        j["target_v_yaw"] = log.target_v_yaw_log;
+        j["control_v_pitch"] = log.control_v_pitch_log;
+        j["control_v_yaw"] = log.control_v_yaw_log;
     }
     std::ofstream file("/dev/shm/cmd_log.json");
     if (file.is_open()) {

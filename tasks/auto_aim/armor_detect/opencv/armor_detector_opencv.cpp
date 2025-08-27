@@ -99,9 +99,6 @@ ArmorDetectOpenCV::detect(const cv::Mat& input, int detect_color) noexcept {
             }
         }
     );
-    // auto t4 = time_utils::now();
-    // std::cout << "time: " << time_utils::durationMs(t1, t2) << " " << time_utils::durationMs(t2, t3)
-    //           << " " << time_utils::durationMs(t3, t4) << std::endl;
 
     return valid_armors;
 }
@@ -121,7 +118,7 @@ ArmorDetectOpenCV::findLights(const cv::Mat& rgb_img, const cv::Mat& binary_img)
     using std::vector;
     vector<vector<cv::Point>> contours;
     vector<cv::Vec4i> hierarchy;
-    cv::findContours(binary_img, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+    cv::findContours(binary_img, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
 
     vector<armor::Light> lights;
 
@@ -185,6 +182,7 @@ ArmorDetectOpenCV::matchLights(const std::vector<armor::Light>& lights, int dete
             if (type != armor::ArmorType::INVALID) {
                 // auto armor = Armor(*light_1, *light_2);
                 armor::ArmorObject armor(*light_1, *light_2);
+                armor.type = type;
                 if (detect_color == 0) {
                     armor.color = armor::ArmorColor::RED;
                 } else {
@@ -284,8 +282,6 @@ cv::Mat ArmorDetectOpenCV::extractNumber(const cv::Mat& src, const armor::ArmorO
     const int large_armor_width = 54;
     // Number ROI size
     const cv::Size roi_size(20, 28);
-    bool is_large =
-        (armor.number == armor::ArmorNumber::NO1 || armor.number == armor::ArmorNumber::BASE);
 
     // Warp perspective transform
     cv::Point2f lights_vertices[4] = { armor.lights[0].bottom,
@@ -295,7 +291,8 @@ cv::Mat ArmorDetectOpenCV::extractNumber(const cv::Mat& src, const armor::ArmorO
 
     const int top_light_y = (warp_height - light_length) / 2 - 1;
     const int bottom_light_y = top_light_y + light_length;
-    const int warp_width = is_large ? large_armor_width : small_armor_width;
+    const int warp_width =
+        armor.type == armor::ArmorType::SMALL ? small_armor_width : large_armor_width;
     cv::Point2f target_vertices[4] = {
         cv::Point(0, bottom_light_y),
         cv::Point(0, top_light_y),
@@ -311,7 +308,6 @@ cv::Mat ArmorDetectOpenCV::extractNumber(const cv::Mat& src, const armor::ArmorO
         number_image(cv::Rect(cv::Point((warp_width - roi_size.width) / 2, 0), roi_size));
 
     // Binarize
-    //cv::cvtColor(number_image, number_image, cv::COLOR_RGB2GRAY);
     cv::threshold(number_image, number_image, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
 
     return number_image;

@@ -10,8 +10,11 @@ struct DebugArmor {
     armor::Target target;
     std::vector<armor::OneTarget> one_targets;
     GimbalCmd gimbal_cmd;
+    AutoAimFsm fsm;
+    AimTarget aim_target;
     double latency_ms;
     Eigen::Matrix4d T_camera_to_odom;
+    std::vector<armor::ArmorObject> armor_objs;
     int detect_color = 0;
 };
 struct DebugRune {
@@ -40,6 +43,11 @@ struct DebugLogs {
     std::vector<double> rune_obs_log;
     std::vector<double> rune_pre_log;
     std::vector<double> rune_v_log;
+    std::vector<double> gimbal_yaw_log;
+    std::vector<double> gimbal_pitch_log;
+    std::vector<double> target_v_yaw_log;
+    std::vector<double> control_v_yaw_log;
+    std::vector<double> control_v_pitch_log;
 
     void clear() {
         time_log.clear();
@@ -55,36 +63,10 @@ struct DebugLogs {
         rune_obs_log.clear();
         rune_pre_log.clear();
         rune_v_log.clear();
-    }
-
-    void push_back(
-        double time,
-        double cmd_yaw,
-        double cmd_pitch,
-        double armor_dis,
-        double armor_x,
-        double armor_y,
-        double armor_z,
-        double armor_yaw,
-        double ypd_y,
-        double ypd_p,
-        double rune_obs,
-        double rune_pre,
-        double rune_v
-    ) {
-        time_log.push_back(time);
-        cmd_yaw_log.push_back(cmd_yaw);
-        cmd_pitch_log.push_back(cmd_pitch);
-        armor_dis_log.push_back(armor_dis);
-        armor_x_log.push_back(armor_x);
-        armor_y_log.push_back(armor_y);
-        armor_z_log.push_back(armor_z);
-        armor_yaw_log.push_back(armor_yaw);
-        ypd_y_log.push_back(ypd_y);
-        ypd_p_log.push_back(ypd_p);
-        rune_obs_log.push_back(rune_obs);
-        rune_pre_log.push_back(rune_pre);
-        rune_v_log.push_back(rune_v);
+        gimbal_yaw_log.clear();
+        gimbal_pitch_log.clear();
+        target_v_yaw_log.clear();
+        control_v_yaw_log.clear();
     }
 };
 
@@ -130,5 +112,9 @@ void drawDebugRuneContent(
     const DebugRune& dbg,
     std::pair<cv::Mat, cv::Mat> camera_info
 );
-void debuglog(const DebugArmor& dbg_armor, const DebugRune& dbg_rune);
+void debuglog(
+    const DebugArmor& dbg_armor,
+    const DebugRune& dbg_rune,
+    const std::pair<double, double>& gimbal_py
+);
 void writeSerialLogToJson(const ReceiveAimINFO& aim);

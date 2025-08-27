@@ -26,13 +26,10 @@ public:
     explicit TrackerManager(const YAML::Node& config, std::shared_ptr<ConfigBinder> config_binder);
     void update(
         armor::Target& target_,
-        std::vector<armor::OneTarget>& one_targets_,
-        armor::Armors armors_,
-        std::chrono::steady_clock::time_point time,
-        const Eigen::Matrix3d& R_gimbal2odom,
-        const Eigen::Vector3d& v
+        const armor::Armors& armors_,
+        const std::chrono::steady_clock::time_point& time,
+        AutoAimFsmController& auto_aim_fsm_cl
     );
-    void updateAttackState(const double& v_yaw_abs);
     void updateTracker(
         armor::Target& target_,
         armor::Armors armors_,
@@ -70,9 +67,7 @@ public:
     double lost_time_thres_;
     double one_lost_time_thres_;
     std::chrono::steady_clock::time_point last_time_;
-    double v_yaw_to_one_thres_high_;
-    double v_yaw_to_one_thres_low_;
     int iteration_num_ = 1;
-    enum AttackState { ATTACKONE, ATTACKWHOLECAR } attack_state_;
     std::shared_ptr<ConfigBinder> config_binder_;
+    AutoAimFsm auto_aim_fsm_ = AutoAimFsm::AIM_WHOLE_CAR_ARMOR;
 };

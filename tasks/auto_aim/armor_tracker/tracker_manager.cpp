@@ -43,9 +43,6 @@ TrackerManager::TrackerManager(
         one_trackers_.push_back(std::move(o_tracker_));
     }
 
-    v_yaw_to_one_thres_high_ = config_["armor_tracker"]["v_yaw_to_one_thres_high"].as<float>(1.0);
-    v_yaw_to_one_thres_low_ = config_["armor_tracker"]["v_yaw_to_one_thres_low"].as<float>(0.7);
-
     tracker_->tracking_thres_ = config_["armor_tracker"]["tracking_thres"].as<int>(5);
 
     lost_time_thres_ = config_["armor_tracker"]["lost_time_thres"].as<double>();
@@ -133,14 +130,13 @@ TrackerManager::TrackerManager(
         Eigen::Matrix<double, ypdarmor_motion_model::X_N, ypdarmor_motion_model::X_N> q;
         double t = dt_;
         double x, y, z, yaw, r, d_zc;
-        // auto gobal_state = gobal::stringanything.get_value<GobalState>("gobal_state");
-        // if (gobal_state.armor_slove_state == GobalState::ArmorSloveState::TRACKING_ARMOR) {
-        x = ys2qx_a_, y = ys2qy_a_, z = ys2qz_a_, yaw = ys2qyaw_a_, r = ys2qr_a_,
-        d_zc = ys2qd_zc_a_;
-        // } else {
-        //     x = ys2qx_c_, y = ys2qy_c_, z = ys2qz_c_, yaw = ys2qyaw_c_, r = ys2qr_c_,
-        //     d_zc = ys2qd_zc_c_;
-        // }
+        if (auto_aim_fsm_ != AutoAimFsm::AIM_WHOLE_CAR_CENTER) {
+            x = ys2qx_a_, y = ys2qy_a_, z = ys2qz_a_, yaw = ys2qyaw_a_, r = ys2qr_a_,
+            d_zc = ys2qd_zc_a_;
+        } else {
+            x = ys2qx_c_, y = ys2qy_c_, z = ys2qz_c_, yaw = ys2qyaw_c_, r = ys2qr_c_,
+            d_zc = ys2qd_zc_c_;
+        }
 
         double q_x_x = pow(t, 4) / 4 * x, q_x_vx = pow(t, 3) / 2 * x, q_vx_vx = pow(t, 2) * x;
         double q_y_y = pow(t, 4) / 4 * y, q_y_vy = pow(t, 3) / 2 * y, q_vy_vy = pow(t, 2) * y;
@@ -204,19 +200,18 @@ TrackerManager::TrackerManager(
 
         double camera_yaw = std::atan2(dir_gimbal.y(), dir_gimbal.x()) * 180.0 / M_PI;
         double ry, rp, rd_front, rd_side, ryaw_front, ryaw_side;
-        // auto gobal_state = gobal::stringanything.get_value<GobalState>("gobal_state");
-        // if (gobal_state.armor_slove_state == GobalState::ArmorSloveState::TRACKING_ARMOR) {
-        ry = yr_y_a_, rp = yr_p_a_, rd_front = yr_d_front_a_, rd_side = yr_d_side_a_,
-        ryaw_front = yr_yaw_front_a_, ryaw_side = yr_yaw_side_a_;
-        // } else {
-        //     ry = yr_y_c_, rp = yr_p_c_, rd_front = yr_d_front_c_, rd_side = yr_d_side_c_,
-        //     ryaw_front = yr_yaw_front_c_, ryaw_side = yr_yaw_side_c_;
-        // }
+        if (auto_aim_fsm_ != AutoAimFsm::AIM_WHOLE_CAR_CENTER) {
+            ry = yr_y_a_, rp = yr_p_a_, rd_front = yr_d_front_a_, rd_side = yr_d_side_a_,
+            ryaw_front = yr_yaw_front_a_, ryaw_side = yr_yaw_side_a_;
+        } else {
+            ry = yr_y_c_, rp = yr_p_c_, rd_front = yr_d_front_c_, rd_side = yr_d_side_c_,
+            ryaw_front = yr_yaw_front_c_, ryaw_side = yr_yaw_side_c_;
+        }
         // clang-format off
         r <<pow(ry * M_PI / 180.0, 2), 0, 0, 0,
                 0, pow(rp * M_PI / 180.0, 2) , 0, 0,
                 0, 0, utils::getNoiseVarFromCameraYaw(camera_yaw ,rd_front , rd_side) * std::abs(z[2]) *std::abs(z[2]), 0,//pnp得到的distance的误差与distance的平方正相关
-                0, 0, 0, utils::getNoiseVarFromCameraYaw(camera_yaw ,ryaw_front , ryaw_side);//相机系下yaw正对误差大
+                0, 0, 0, pow(utils::getNoiseVarFromCameraYaw(camera_yaw ,ryaw_front , ryaw_side)* M_PI / 180.0,2);//相机系下yaw正对误差大
         // clang-format on
         return r;
     };
@@ -232,7 +227,7 @@ TrackerManager::TrackerManager(
             r <<pow(oyr_y_ * M_PI / 180.0, 2), 0, 0, 0,
                 0, pow(oyr_p_ * M_PI / 180.0, 2) , 0, 0,
                 0, 0, utils::getNoiseVarFromCameraYaw(camera_yaw ,oyr_d_front_ , oyr_d_side_) * std::abs(z[2]) *std::abs(z[2]), 0,
-                0, 0, 0, utils::getNoiseVarFromCameraYaw(camera_yaw ,oyr_yaw_front_ , oyr_yaw_side_);
+                0, 0, 0, pow(utils::getNoiseVarFromCameraYaw(camera_yaw ,oyr_yaw_front_ , oyr_yaw_side_)* M_PI / 180.0,2);
         // clang-format on
         return r;
     };
@@ -251,31 +246,30 @@ TrackerManager::TrackerManager(
             const std::unique_ptr<ypdarmor_motion_model::RobotStateESEKF>& esekf) {
             Eigen::VectorXd x1 = ekf->predict();
             Eigen::VectorXd x2 = esekf->predict();
-            // auto gobal_state = gobal::stringanything.get_value<GobalState>("gobal_state");
-            // if (gobal_state.armor_slove_state == GobalState::ArmorSloveState::TRACKING_ARMOR) {
-            if (fusion_esekf_ekf) {
-                const double eps = 1e-6;
-                Eigen::MatrixXd P1 = ekf->getPriorCovariance();
-                Eigen::MatrixXd P2 = esekf->getPriorCovariance();
-                Eigen::MatrixXd info1 = P1.inverse();
-                Eigen::MatrixXd info2 = P2.inverse();
-                double norm1 = ekf->getResidualNorm();
-                double norm2 = esekf->getResidualNorm();
-                double w1 = 1.0 / (norm1 + eps);
-                double w2 = 1.0 / (norm2 + eps);
-                double sum_w = w1 + w2;
-                w1 /= sum_w;
-                w2 /= sum_w;
-                Eigen::MatrixXd info_fused = w1 * info1 + w2 * info2;
-                Eigen::MatrixXd P_fused = info_fused.inverse();
-                Eigen::VectorXd x_fused = P_fused * (w1 * info1 * x1 + w2 * info2 * x2);
-                return x_fused;
+            if (auto_aim_fsm_ == AutoAimFsm::AIM_WHOLE_CAR_ARMOR) {
+                if (fusion_esekf_ekf) {
+                    const double eps = 1e-6;
+                    Eigen::MatrixXd P1 = ekf->getPriorCovariance();
+                    Eigen::MatrixXd P2 = esekf->getPriorCovariance();
+                    Eigen::MatrixXd info1 = P1.inverse();
+                    Eigen::MatrixXd info2 = P2.inverse();
+                    double norm1 = ekf->getResidualNorm();
+                    double norm2 = esekf->getResidualNorm();
+                    double w1 = 1.0 / (norm1 + eps);
+                    double w2 = 1.0 / (norm2 + eps);
+                    double sum_w = w1 + w2;
+                    w1 /= sum_w;
+                    w2 /= sum_w;
+                    Eigen::MatrixXd info_fused = w1 * info1 + w2 * info2;
+                    Eigen::MatrixXd P_fused = info_fused.inverse();
+                    Eigen::VectorXd x_fused = P_fused * (w1 * info1 * x1 + w2 * info2 * x2);
+                    return x_fused;
+                } else {
+                    return use_esekf ? x2 : x1;
+                }
             } else {
-                return use_esekf ? x2 : x1;
+                return x1;
             }
-            // } else {
-            //     return x1;
-            // }
         };
     auto tracker_update_func =
         [&](const std::unique_ptr<ypdarmor_motion_model::RobotStateEKF>& ekf,
@@ -332,7 +326,6 @@ TrackerManager::TrackerManager(
         o_tracker->acc_ekf_ =
             std::make_unique<acc_model::VelocityAccelEKF>(acc_f, acc_h, acc_q, acc_r, accp0);
     }
-    attack_state_ = ATTACKWHOLECAR;
 }
 
 void TrackerManager::updateTracker(
@@ -409,7 +402,7 @@ void TrackerManager::updateTracker(
             target_.d_za = tracker_->d_za_;
             target_.type = tracker_->type_;
 
-            //target_.acceleration_ = tf::Position(0, 0, 0);
+            target_.acceleration_ = Eigen::Vector3d::Zero();
         }
     }
 }
@@ -531,7 +524,7 @@ void TrackerManager::updateOneTrackers(
             target.v_yaw = state(7);
             target.type = otracker->type_;
 
-            //target.acceleration_ = tf::Position(0, 0, 0);
+            target.acceleration_ = Eigen::Vector3d::Zero();
 
             target.distance_to_image_center = otracker->distance_to_image_center_;
 
@@ -543,52 +536,34 @@ void TrackerManager::updateOneTrackers(
         one_targets_.push_back(target);
     }
 }
-void TrackerManager::updateAttackState(const double& v_yaw_abs) {
-    switch (attack_state_) {
-        case ATTACKONE:
-            if (v_yaw_abs > v_yaw_to_one_thres_high_ || tracker_->tracker_state == Tracker::LOST) {
-                attack_state_ = ATTACKWHOLECAR;
-            }
-            break;
-
-        case ATTACKWHOLECAR:
-            if (v_yaw_abs < v_yaw_to_one_thres_low_) {
-                attack_state_ = ATTACKONE;
-            }
-            break;
-
-        default:
-            if (v_yaw_abs > v_yaw_to_one_thres_high_) {
-                attack_state_ = ATTACKWHOLECAR;
-            } else {
-                attack_state_ = ATTACKONE;
-            }
-
-            break;
-    }
-}
 
 void TrackerManager::update(
     armor::Target& target_,
-    std::vector<armor::OneTarget>& one_targets_,
-    armor::Armors armors_,
-    std::chrono::steady_clock::time_point time,
-    const Eigen::Matrix3d& R_gimbal2odom,
-    const Eigen::Vector3d& v
+    const armor::Armors& armors_,
+    const std::chrono::steady_clock::time_point& time,
+    AutoAimFsmController& auto_aim_fsm_cl
 ) {
-    this->R_gimbal2odom_ = R_gimbal2odom;
-    updateTracker(target_, armors_, time, v);
-    updateAttackState(std::abs(target_.v_yaw));
-
+    this->R_gimbal2odom_ = armors_.R_gimbal2odom;
+    updateTracker(target_, armors_, time, armors_.v);
+    auto_aim_fsm_cl.update(std::abs(target_.v_yaw));
+    auto_aim_fsm_ = auto_aim_fsm_cl.fsm_state_;
+    std::vector<armor::OneTarget> one_targets;
     armor::Armors armors_empty;
-    switch (attack_state_) {
-        case ATTACKONE: {
-            updateOneTrackers(one_targets_, armors_, time, v);
-        } break;
-        case ATTACKWHOLECAR: {
-            std::vector<armor::OneTarget> one_targets_fake;
-            updateOneTrackers(one_targets_fake, armors_empty, time, v);
-        } break;
+    if (auto_aim_fsm_ == AutoAimFsm::AIM_SINGLE_ARMOR) {
+        updateOneTrackers(one_targets, armors_, time, armors_.v);
+        bool one_targets_is_valid = false;
+        for (auto one_target: one_targets) {
+            if (one_target.tracking) {
+                one_targets_is_valid = true;
+                break;
+            }
+        }
+        target_.one_targets_is_valid=one_targets_is_valid;
+        target_.one_targets = one_targets;
+    } else {
+        std::vector<armor::OneTarget> one_targets_fake;
+        updateOneTrackers(one_targets_fake, armors_empty, time, armors_.v);
+        target_.one_targets_is_valid = false;
     }
 
     last_time_ = time;

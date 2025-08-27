@@ -120,9 +120,10 @@ std::vector<armor::Armor> ArmorPoseEstimator::extractArmorPoses(
 
         double roll_deg =
             utils::matrixToEuler(R_gimbal_camera_ * R, utils::EulerOrder::ZXY)[0] * 180 / M_PI;
-        if (use_ba_ && std::abs(roll_deg) < 30 && ba_solver_) {
+        if (use_ba_ && ba_solver_) {
             Eigen::Matrix3d R0 = R;
-            R = ba_solver_->solveBa_R(a, t, R, R_imu_cam, type);
+            R = ba_solver_
+                    ->solveBa_R(a, t, R, R_imu_cam, type, camera_intrinsic, camera_distortion);
             t = ba_solver_->solveBa_t(a, t, R0, R_imu_cam, type);
         }
 

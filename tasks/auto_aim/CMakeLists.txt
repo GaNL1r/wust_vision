@@ -44,7 +44,8 @@ target_include_directories(auto_aim PRIVATE
 # ================== 公共源文件 ==================
 target_sources(auto_aim PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/auto_aim.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/armor_solver.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/aimer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/shooter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/one_ca_tracker.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/one_tracker.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/tracker_manager.cpp

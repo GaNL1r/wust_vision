@@ -9,6 +9,9 @@ red="\033[1;31m"
 
 rm /dev/shm/debug_frame.jpg /dev/shm/cmd_log.json /dev/shm/aim_log.json /dev/shm/target_log.json
 chmod 666 /dev/shm/debug_frame
+rm -rf build/config
+ln -s ../config build/config
+
 # 如果参数为 rebuild，则删除 build 文件夹
 if [ "$1" == "rebuild" ]; then
     echo -e "${yellow}<--- Rebuilding: Removing build directory --->${reset}"
@@ -100,7 +103,8 @@ if [ "$1" == "run" ]; then
             fi
         done
         cd ..
-        # ./config/guard.sh
+        
+        #./config/guard.sh $2
         exit 1
     fi
 elif [ "$1" == "cal" ]; then

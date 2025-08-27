@@ -74,6 +74,7 @@ bool NumberClassifier::classifyNumber(armor::ArmorObject& armor) {
     }
 
     cv::Mat image = armor.number_img.clone();
+
     image = image / 255.0;
 
     cv::Mat blob;

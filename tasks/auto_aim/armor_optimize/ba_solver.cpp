@@ -31,6 +31,7 @@
 #include <sophus/so3.hpp>
 // project
 #include "graph_optimizer.hpp"
+#include "tasks/utils.hpp"
 #include "wust_vl/common/utils/logger.hpp"
 
 G2O_USE_OPTIMIZATION_LIBRARY(dense)
@@ -68,13 +69,183 @@ BaSolver::BaSolver(
     );
     lm_algorithm_->setUserLambdaInit(0.1);
 }
+constexpr double SEARCH_RANGE_DEG = 140.0;
+
+std::vector<cv::Point2d> reproject_armor(
+    const Eigen::Matrix3d& R_camera_armor, // camera <- armor
+    const Eigen::Vector3d& t_camera_armor, // translation camera <- armor
+    const std::string& type,
+    const cv::Mat& camera_matrix_in,
+    const cv::Mat& distort_coeffs_in
+) {
+    // Convert rotation (Eigen -> cv::Mat) and get Rodrigues vector
+    cv::Mat R_cv;
+    cv::eigen2cv(R_camera_armor, R_cv);
+    cv::Mat rvec;
+    cv::Rodrigues(R_cv, rvec); // rvec will be 3x1 CV_64F
+
+    // translation as 3x1 CV_64F
+    cv::Mat tvec =
+        (cv::Mat_<double>(3, 1) << t_camera_armor.x(), t_camera_armor.y(), t_camera_armor.z());
+
+    // Force camera params to CV_64F (avoid implicit mixed-depth issues)
+    cv::Mat cam_mat, dist;
+    camera_matrix_in.convertTo(cam_mat, CV_64F);
+    distort_coeffs_in.convertTo(dist, CV_64F);
+
+    // Armor size
+    Eigen::Vector2d armor_size = (type == "large")
+        ? Eigen::Vector2d(LARGE_ARMOR_WIDTH, LARGE_ARMOR_HEIGHT)
+        : Eigen::Vector2d(SMALL_ARMOR_WIDTH, SMALL_ARMOR_HEIGHT);
+
+    // Build object points (Eigen -> vector<cv::Point3d>)
+    auto object_points =
+        armor::ArmorObject::buildObjectPoints<Eigen::Vector3d>(armor_size.x(), armor_size.y());
+    std::vector<cv::Point3d> cv_object_points;
+    cv_object_points.reserve(object_points.size());
+    for (const auto& p: object_points) {
+        cv_object_points.emplace_back(p.x(), p.y(), p.z());
+    }
+
+    // Basic sanity checks
+    if (cam_mat.rows != 3 || cam_mat.cols != 3) {
+        std::cerr << "[reproject_armor] camera_matrix not 3x3\n";
+        return {};
+    }
+    if (rvec.empty() || tvec.empty()) {
+        std::cerr << "[reproject_armor] empty rvec/tvec\n";
+        return {};
+    }
+
+    // Reproject
+    std::vector<cv::Point2d> image_points;
+    try {
+        cv::projectPoints(cv_object_points, rvec, tvec, cam_mat, dist, image_points);
+    } catch (const cv::Exception& e) {
+        std::cerr << "[reproject_armor] OpenCV exception: " << e.what() << std::endl;
+        return {};
+    }
+
+    // sanity: check finite
+    for (size_t i = 0; i < image_points.size(); ++i) {
+        if (!std::isfinite(image_points[i].x) || !std::isfinite(image_points[i].y)) {
+            std::cerr << "[reproject_armor] got non-finite proj pt idx=" << i << " ("
+                      << image_points[i].x << "," << image_points[i].y << ")\n";
+            return {};
+        }
+    }
+
+    return image_points;
+}
+
+// Eigen::Matrix3d BaSolver::solveBa_R(
+//     const armor::ArmorObject& armor,
+//     const Eigen::Vector3d& t_camera_armor,
+//     const Eigen::Matrix3d& R_camera_armor, // camera <- armor
+//     const Eigen::Matrix3d& R_imu_camera, // imu -> camera
+//     const std::string& type,
+//     const cv::Mat& camera_matrix,
+//     const cv::Mat& distort_coeffs
+// ) noexcept {
+//     // ---- NOTE ON CHAINING ----
+//     // You must ensure R_camera_armor and R_imu_camera have the meanings above.
+//     // If R_imu_camera is (imu -> camera) and R_camera_armor is (camera -> armor),
+//     // then armor -> imu can be computed as:
+//     //   R_armor_imu = (R_camera_armor * R_imu_camera).transpose();
+//     // or equivalently:
+//     //   R_armor_imu = R_imu_camera.transpose() * R_camera_armor.transpose();
+//     // If your conventions differ, adjust accordingly.
+//     Eigen::Matrix3d R_armor_imu = (R_camera_armor * R_imu_camera).transpose();
+
+//     // Convert to Euler (2,1,0) as before (matrixToEuler must return [yaw, pitch, roll] under your util)
+//     auto eulers = utils::matrixToEuler(R_armor_imu, 2, 1, 0);
+//     double raw_yaw = eulers[0];
+
+//     // choose nominal pitch based on armor type
+//     double pitch = (armor.number == armor::ArmorNumber::OUTPOST) ? -15.0 * CV_PI / 180.0
+//                                                                  : 15.0 * CV_PI / 180.0;
+//     double sin_pitch = std::sin(pitch);
+//     double cos_pitch = std::cos(pitch);
+
+//     double min_error = 1e10;
+//     double best_yaw = raw_yaw;
+
+//     // compute yaw search start (normalize_angle: keep in [-pi,pi] or your convention)
+//     double yaw_start = angles::normalize_angle(raw_yaw - (SEARCH_RANGE_DEG / 2.0) * CV_PI / 180.0);
+
+//     const auto& landmarks = armor.landmarks();
+
+//     // Pre-convert camera matrices once to CV_64F to avoid repeated conversions
+//     cv::Mat cam_mat, dist;
+//     camera_matrix.convertTo(cam_mat, CV_64F);
+//     distort_coeffs.convertTo(dist, CV_64F);
+
+//     for (int i = 0; i < static_cast<int>(SEARCH_RANGE_DEG); ++i) {
+//         double yaw = angles::normalize_angle(yaw_start + i * CV_PI / 180.0);
+//         double sin_yaw = std::sin(yaw);
+//         double cos_yaw = std::cos(yaw);
+
+//         // build rotation of armor in *world* (as you had)
+//         const Eigen::Matrix3d R_armor2imu { { cos_yaw * cos_pitch, -sin_yaw, cos_yaw * sin_pitch },
+//                                             { sin_yaw * cos_pitch, cos_yaw, sin_yaw * sin_pitch },
+//                                             { -sin_pitch, 0.0, cos_pitch } };
+
+//         // armor -> camera
+//         Eigen::Matrix3d R_armor2camera = R_imu_camera * R_armor2imu;
+
+//         // pass camera <- armor into reproject_armor
+//         Eigen::Matrix3d R_camera2armor = R_armor2camera.transpose();
+
+//         // reproject (returns double points)
+//         auto image_points = reproject_armor(R_camera2armor, t_camera_armor, type, cam_mat, dist);
+
+//         // if reproject failed (empty), skip iteration
+//         if (image_points.empty()) {
+//             std::cerr << "[solveBa_R] iter " << i << " reproject returned empty -> skip\n";
+//             continue;
+//         }
+
+//         if (static_cast<int>(image_points.size()) != static_cast<int>(landmarks.size())) {
+//             std::cerr << "[solveBa_R] iter " << i
+//                       << " size mismatch: image_pts=" << image_points.size()
+//                       << " landmarks=" << landmarks.size() << " -> skip\n";
+//             continue;
+//         }
+
+//         // compute reprojection error (L2 sum)
+//         double error = 0.0;
+//         for (size_t j = 0; j < landmarks.size(); ++j) {
+//             cv::Point2d lm_pt(landmarks[j].x, landmarks[j].y);
+//             error += cv::norm(lm_pt - image_points[j]);
+//         }
+
+//         if (error < min_error) {
+//             min_error = error;
+//             best_yaw = yaw;
+//         }
+//         std::cout << "iter=" << i << " raw_yaw(deg)=" << (raw_yaw * 180.0 / CV_PI)
+//                   << " best_yaw(deg)=" << (best_yaw * 180.0 / CV_PI) << " min_error=" << min_error
+//                   << " img_pts=" << image_points.size() << std::endl;
+//     }
+
+//     // Build final rotation to return:
+//     // R_camera_imu here we take as (camera <- imu) i.e., transpose of (imu -> camera)
+//     Sophus::SO3d R_yaw = Sophus::SO3d::exp(Eigen::Vector3d(0.0, 0.0, best_yaw));
+//     Sophus::SO3d R_pitch = Sophus::SO3d::exp(Eigen::Vector3d(0.0, pitch, 0.0));
+//     Sophus::SO3d R_camera_imu(R_imu_camera.transpose());
+//     Eigen::Matrix3d R_result = (R_camera_imu * R_yaw * R_pitch).matrix();
+
+//     return R_result;
+// }
 
 Eigen::Matrix3d BaSolver::solveBa_R(
     const armor::ArmorObject& armor,
     const Eigen::Vector3d& t_camera_armor,
-    const Eigen::Matrix3d& R_camera_armor,
-    const Eigen::Matrix3d& R_imu_camera,
-    const std::string type
+    const Eigen::Matrix3d& R_camera_armor, // camera <- armor
+    const Eigen::Matrix3d& R_imu_camera, // imu -> camera
+    const std::string& type,
+    const cv::Mat& camera_matrix,
+    const cv::Mat& distort_coeffs
 ) noexcept {
     optimizer_.clear();
 

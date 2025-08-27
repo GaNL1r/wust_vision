@@ -67,7 +67,9 @@ public:
         const Eigen::Vector3d& t_camera_armor,
         const Eigen::Matrix3d& R_camera_armor,
         const Eigen::Matrix3d& R_imu_camera,
-        const std::string type
+        const std::string& type,
+        const cv::Mat& camera_matrix,
+        const cv::Mat& distort_coeffs
     ) noexcept;
     Eigen::Vector3d solveBa_t(
         const armor::ArmorObject& armor,

@@ -1,7 +1,9 @@
 #pragma once
+#include "3rdparty/angles.h"
 #include "tasks/type_common.hpp"
 #include <numeric>
 #include <opencv2/opencv.hpp>
+#include <yaml-cpp/yaml.h>
 constexpr double SMALL_ARMOR_WIDTH = 133.0 / 1000.0; // 135
 constexpr double SMALL_ARMOR_HEIGHT = 50.0 / 1000.0; // 55
 constexpr double LARGE_ARMOR_WIDTH = 225.0 / 1000.0;
@@ -211,6 +213,7 @@ struct ArmorObject {
     double new_y = 0;
     bool is_ok = false;
     bool is_ok_yaw = false;
+    armor::ArmorType type;
     static constexpr const int N_LANDMARKS = 6;
     static constexpr const int N_LANDMARKS_2 = N_LANDMARKS * 2;
 
@@ -226,6 +229,13 @@ struct ArmorObject {
             return { PointType(0, w / 2, -h / 2), PointType(0, w / 2, 0),
                      PointType(0, w / 2, h / 2),  PointType(0, -w / 2, h / 2),
                      PointType(0, -w / 2, 0),     PointType(0, -w / 2, -h / 2) };
+        }
+    }
+    std::vector<cv::Point2f> toPts() const {
+        if (is_ok) {
+            return { pts_binary[0], pts_binary[1], pts_binary[2], pts_binary[3] };
+        } else {
+            return { pts[0], pts[1], pts[2], pts[3] };
         }
     }
 
@@ -304,44 +314,6 @@ struct Armors {
     Eigen::Matrix3d R_gimbal2odom;
     Eigen::Vector3d v;
 };
-struct Target {
-    std::chrono::steady_clock::time_point timestamp;
-    std::string frame_id;
-    std::string type;
-    bool tracking = false;
-    ArmorNumber id = ArmorNumber::UNKNOWN;
-    int armors_num = 0;
-
-    Eigen::Vector3d position_ = Eigen::Vector3d();
-    Eigen::Vector3d velocity_ = Eigen::Vector3d();
-    Eigen::Vector3d acceleration_ = Eigen::Vector3d();
-    float yaw = 0;
-    float v_yaw = 0;
-    float radius_1 = 0.24;
-    float radius_2 = 0.24;
-    float d_za = 0;
-    float d_zc = 0;
-    float yaw_diff;
-    float position_diff;
-    int count = 0;
-
-    void clear() {
-        id = ArmorNumber::UNKNOWN;
-        tracking = false;
-        armors_num = 0;
-        type = "";
-        position_ = Eigen::Vector3d();
-        velocity_ = Eigen::Vector3d();
-        yaw = 0.0;
-        v_yaw = 0.0;
-        radius_1 = 0.0;
-        radius_2 = 0.0;
-        d_zc = 0.0;
-        d_za = 0.0;
-        yaw_diff = 0.0;
-        position_diff = 0.0;
-    }
-};
 struct OneTarget {
     std::chrono::steady_clock::time_point timestamp;
     std::string frame_id;
@@ -367,9 +339,195 @@ struct OneTarget {
         v_yaw = 0.0;
     }
 };
+struct Target {
+    std::chrono::steady_clock::time_point timestamp;
+    std::string frame_id;
+    std::string type;
+    bool tracking = false;
+    ArmorNumber id = ArmorNumber::UNKNOWN;
+    int armors_num = 0;
+
+    Eigen::Vector3d position_ = Eigen::Vector3d();
+    Eigen::Vector3d velocity_ = Eigen::Vector3d();
+    Eigen::Vector3d acceleration_ = Eigen::Vector3d();
+    float yaw = 0;
+    float v_yaw = 0;
+    float radius_1 = 0.24;
+    float radius_2 = 0.24;
+    float d_za = 0;
+    float d_zc = 0;
+    float yaw_diff;
+    float position_diff;
+    int count = 0;
+    std::vector<OneTarget> one_targets;
+    bool one_targets_is_valid;
+    void clear() {
+        id = ArmorNumber::UNKNOWN;
+        tracking = false;
+        armors_num = 0;
+        type = "";
+        position_ = Eigen::Vector3d();
+        velocity_ = Eigen::Vector3d();
+        yaw = 0.0;
+        v_yaw = 0.0;
+        radius_1 = 0.0;
+        radius_2 = 0.0;
+        d_zc = 0.0;
+        d_za = 0.0;
+        yaw_diff = 0.0;
+        position_diff = 0.0;
+    }
+    void Predict(double dt_sec) {
+        velocity_ += dt_sec * acceleration_;
+        position_ += dt_sec * velocity_;
+        yaw += dt_sec * v_yaw;
+        for (auto& one_target: one_targets) {
+            one_target.velocity_ += dt_sec * one_target.acceleration_;
+            one_target.position_ += dt_sec * one_target.velocity_;
+        }
+    }
+    std::vector<double> getArmorYaw() const noexcept {
+        auto angles = std::vector<double>(armors_num, 0);
+        for (size_t i = 0; i < armors_num; i++) {
+            double temp_yaw = yaw + i * (2 * M_PI / armors_num);
+            angles[i] = angles::normalize_angle(temp_yaw);
+        }
+        return angles;
+    }
+    std::vector<Eigen::Vector3d> getArmorPositions() const noexcept {
+        auto armor_positions = std::vector<Eigen::Vector3d>(armors_num, Eigen::Vector3d::Zero());
+        // Calculate the position of each armor
+        bool is_current_pair = true;
+        double r = 0., target_dz = 0.;
+        for (size_t i = 0; i < armors_num; i++) {
+            double temp_yaw = yaw + i * (2 * M_PI / armors_num);
+            if (armors_num == 4) {
+                r = is_current_pair ? radius_1 : radius_2;
+                target_dz = d_zc + (is_current_pair ? 0 : d_za);
+                is_current_pair = !is_current_pair;
+            } else {
+                r = radius_1;
+                target_dz = d_zc;
+            }
+            armor_positions[i] =
+                position_ + Eigen::Vector3d(-r * cos(temp_yaw), -r * sin(temp_yaw), target_dz);
+        }
+        return armor_positions;
+    }
+    std::vector<Eigen::Vector3d> getArmorVelocities() const noexcept {
+        auto velocities = std::vector<Eigen::Vector3d>(armors_num, Eigen::Vector3d::Zero());
+
+        bool is_current_pair = true;
+        for (size_t i = 0; i < armors_num; ++i) {
+            double temp_yaw = yaw + i * (2 * M_PI / armors_num);
+
+            double r = (armors_num == 4 && !is_current_pair) ? radius_2 : radius_1;
+            double target_dz = d_zc + ((armors_num == 4 && !is_current_pair) ? d_za : 0.0);
+            is_current_pair = !is_current_pair;
+
+            Eigen::Vector3d offset(-r * cos(temp_yaw), -r * sin(temp_yaw), target_dz);
+            Eigen::Vector3d armor_pos = position_ + offset;
+            Eigen::Vector3d r_vec = armor_pos - position_;
+            Eigen::Vector3d omega(0, 0, v_yaw);
+            Eigen::Vector3d v_rot = omega.cross(r_vec);
+            Eigen::Vector3d v_total = velocity_ + v_rot;
+
+            velocities[i] = v_total;
+        }
+
+        return velocities;
+    }
+};
 
 } // namespace armor
-struct ArmorSolverTarget {
-    armor::Target target;
-    std::vector<armor::OneTarget> one_targets;
+enum class AutoAimFsm { AIM_WHOLE_CAR_ARMOR, AIM_WHOLE_CAR_CENTER, AIM_SINGLE_ARMOR };
+inline std::string auto_aim_fsm_to_string(AutoAimFsm state) {
+    switch (state) {
+        case AutoAimFsm::AIM_WHOLE_CAR_ARMOR: return "AIM_WHOLE_CAR_ARMOR";
+        case AutoAimFsm::AIM_WHOLE_CAR_CENTER: return "AIM_WHOLE_CAR_CENTER";
+        case AutoAimFsm::AIM_SINGLE_ARMOR:     return "AIM_SINGLE_ARMOR";
+        default:                               return "UNKNOWN";
+    }
+}
+class AutoAimFsmController {
+public:
+    AutoAimFsm fsm_state_ { AutoAimFsm::AIM_SINGLE_ARMOR };
+    int overflow_count_ = 0;
+    int transfer_thresh_ = 5; // 防抖计数阈值
+
+    // 上下阈值
+    double thres_up_1 = 1.0; // SINGLE -> WHOLE_ARMOR
+    double thres_down_1 = 0.5; // WHOLE_ARMOR -> SINGLE
+
+    double thres_up_2 = 6.0; // WHOLE_ARMOR -> CENTER
+    double thres_down_2 = 5.0; // CENTER -> WHOLE_ARMOR
+    void load(const YAML::Node& config)
+    {
+        thres_up_1=config["auto_aim_fsm"]["thres_up_1"].as<double>(1.0);
+        thres_down_1=config["auto_aim_fsm"]["thres_down_1"].as<double>(0.5);
+        thres_up_2=config["auto_aim_fsm"]["thres_up_2"].as<double>(6.0);
+        thres_down_2=config["auto_aim_fsm"]["thres_down_2"].as<double>(5.0);
+    }
+    AutoAimFsmController(
+        double up1 = 1.0,
+        double down1 = 0.5,
+        double up2 = 2.0,
+        double down2 = 1.5,
+        int transfer = 3
+    ):
+        thres_up_1(up1),
+        thres_down_1(down1),
+        thres_up_2(up2),
+        thres_down_2(down2),
+        transfer_thresh_(transfer) {}
+    void update(double v_yaw) {
+        switch (fsm_state_) {
+            case AutoAimFsm::AIM_SINGLE_ARMOR:
+                if (std::abs(v_yaw) > thres_up_1)
+                    ++overflow_count_;
+                else
+                    overflow_count_ = 0;
+
+                if (overflow_count_ > transfer_thresh_) {
+                    fsm_state_ = AutoAimFsm::AIM_WHOLE_CAR_ARMOR;
+                    overflow_count_ = 0;
+                }
+                break;
+
+            case AutoAimFsm::AIM_WHOLE_CAR_ARMOR:
+                if (std::abs(v_yaw) > thres_up_2)
+                    ++overflow_count_;
+                else if (std::abs(v_yaw) < thres_down_1)
+                    ++overflow_count_;
+                else
+                    overflow_count_ = 0;
+
+                if (overflow_count_ > transfer_thresh_) {
+                    if (std::abs(v_yaw) > thres_up_2) {
+                        fsm_state_ = AutoAimFsm::AIM_WHOLE_CAR_CENTER;
+                    } else {
+                        fsm_state_ = AutoAimFsm::AIM_SINGLE_ARMOR;
+                    }
+                    overflow_count_ = 0;
+                }
+                break;
+
+            case AutoAimFsm::AIM_WHOLE_CAR_CENTER:
+                if (std::abs(v_yaw) < thres_down_2)
+                    ++overflow_count_;
+                else
+                    overflow_count_ = 0;
+
+                if (overflow_count_ > transfer_thresh_) {
+                    fsm_state_ = AutoAimFsm::AIM_WHOLE_CAR_ARMOR;
+                    overflow_count_ = 0;
+                }
+                break;
+
+            default:
+                fsm_state_ = AutoAimFsm::AIM_SINGLE_ARMOR;
+                overflow_count_ = 0;
+                break;
+        }
+    }
 };

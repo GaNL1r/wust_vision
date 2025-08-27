@@ -1,8 +1,9 @@
 #include "auto_aim.hpp"
+#include "aimer.hpp"
+#include "shooter.hpp"
 #include "tasks/mono_measure_tool.hpp"
 #include "tasks/utils.hpp"
 #include "wust_vl/common/concurrency/queues.hpp"
-
 namespace auto_aim {
 struct AutoAim::Impl {
     ~Impl() {
@@ -96,10 +97,11 @@ struct AutoAim::Impl {
         bool use_ba = config_["use_ba"].as<bool>(false);
         armor_pose_estimator_->enableBA(use_ba);
         tracker_manager_ = std::make_unique<TrackerManager>(config_, config_binder_);
-        armor_solver_ = std::make_unique<ArmorSolver>(config_);
-        armor_solver_->setStateCallback(
-            std::bind(&AutoAim::Impl::armorSloverStateCallback, this, std::placeholders::_1)
-        );
+        auto_aim_fsm_cl_.load(config_);
+        aimer_ = std::make_unique<Aimer>();
+        aimer_->init(config_);
+        shooter_ = std::make_unique<Shooter>();
+        shooter_->init(config_);
         max_detect_armors_ = config_["max_detect_armors"].as<int>(10);
         armor_queue_ = std::make_unique<OrderedQueue<armor::Armors>>(10, 500);
         latency_averager_ = std::make_unique<Averager<double>>(100);
@@ -138,8 +140,6 @@ struct AutoAim::Impl {
 
         armor::Armors armors;
         armors.timestamp = frame.timestamp;
-        // auto camera_info =
-        //     gobal::stringanything.get_value<std::pair<cv::Mat, cv::Mat>>("camera_info");
         armors.armors = armor_pose_estimator_->extractArmorPoses(
             sorted_objs,
             frame.T_camera_to_odom,
@@ -154,10 +154,6 @@ struct AutoAim::Impl {
             camera_info_.first,
             camera_info_.second
         );
-        // Eigen::Matrix3d R_camera2gimbal =
-        //     gobal::stringanything.get_value<Eigen::Matrix3d>("R_camera2gimbal");
-        // Eigen::Vector3d t_gimbal_to_camera =
-        //     gobal::stringanything.get_value<Eigen::Vector3d>("t_gimbal_to_camera");
         Eigen::Matrix3d R_gimbal2odom =
             utils::getRGimbalToOdom(frame.T_camera_to_odom, R_camera2gimbal_, t_gimbal_to_camera_);
         armors.R_gimbal2odom = R_gimbal2odom;
@@ -171,6 +167,8 @@ struct AutoAim::Impl {
             auto_aim_debug_.src_img.timestamp = armors.timestamp;
             auto_aim_debug_.armors = armors;
             auto_aim_debug_.T_camera_to_odom = frame.T_camera_to_odom;
+            auto_aim_debug_.detect_color = frame.detect_color;
+            auto_aim_debug_.armor_objs = objs;
         }
     }
     void armorsCallback(armor::Armors armors) {
@@ -179,14 +177,12 @@ struct AutoAim::Impl {
             return;
         }
         armor::Target target;
-        std::vector<armor::OneTarget> one_targets;
         auto time = armors.timestamp;
 
-        tracker_manager_->update(target, one_targets, armors, time, armors.R_gimbal2odom, armors.v);
+        tracker_manager_->update(target, armors, time, auto_aim_fsm_cl_);
         {
             std::lock_guard<std::mutex> lock(armor_solver_target_mutex_);
-            armor_solver_target_.target = target;
-            armor_solver_target_.one_targets = one_targets;
+            armor_solver_target_ = target;
         }
         auto now = std::chrono::steady_clock::now();
 
@@ -196,45 +192,52 @@ struct AutoAim::Impl {
         if (debug_mode_) {
             std::lock_guard<std::mutex> lock(dbg_mutex_);
             auto_aim_debug_.target = target;
-            auto_aim_debug_.one_targets = one_targets;
+            auto_aim_debug_.one_targets = target.one_targets;
+            auto_aim_debug_.fsm=auto_aim_fsm_cl_.fsm_state_;
         }
-    }
-    ArmorSolver::StateResult armorSloverStateCallback(const ArmorSolver::ArmorSloveState state) {
-        auto result = ArmorSolver::StateResult();
-        if (shared_->motion_buffer) {
-            auto last_att = shared_->motion_buffer->get_last();
-            if (last_att) {
-                result.rpy[0] = last_att->roll;
-                result.rpy[1] = last_att->pitch;
-                result.rpy[2] = last_att->yaw;
-            }
-        }
-        result.bullet_speed = shared_->bullet_speed;
-        result.controller_delay = shared_->controller_delay;
-        armor_slove_state_ = state;
-
-        return result;
     }
     GimbalCmd solve() {
         GimbalCmd gimbal_cmd;
+        AimTarget aim_target;
         armor::Target target;
-        std::vector<armor::OneTarget> one_targets;
         {
             std::lock_guard<std::mutex> lock(armor_solver_target_mutex_);
-            target = armor_solver_target_.target;
-            one_targets = armor_solver_target_.one_targets;
+            target = armor_solver_target_;
         }
-        bool appear = utils::checkTargetAppear(target, one_targets);
+        bool appear = utils::checkTargetAppear(target, target.one_targets);
         Tracker::State state = appear ? Tracker::TRACKING : Tracker::LOST;
         if (appear) {
             auto now = std::chrono::steady_clock::now();
             try {
-                gimbal_cmd = armor_solver_->solve(armor_solver_target_, now);
+                aim_target = aimer_->aimTarget(
+                    target,
+                    now,
+                    shared_->bullet_speed,
+                    auto_aim_fsm_cl_.fsm_state_
+                );
+                bool shoot_center=false;
+                if(auto_aim_fsm_cl_.fsm_state_==AutoAimFsm::AIM_WHOLE_CAR_CENTER)
+                {
+                    shoot_center=true;
+                }
+                auto last_att = shared_->motion_buffer->get_last();
+                if (aim_target.is_old) {
+                    gimbal_cmd = shooter_->returnDefaultCmd();
+                } else {
+                    gimbal_cmd = shooter_->shoot(
+                        aim_target,
+                        last_att->yaw,
+                        last_att->pitch,
+                        shared_->controller_delay,
+                        shoot_center
+                    );
+                }
+
             } catch (const std::exception& e) {
-                gimbal_cmd = armor_solver_->returnDefaultCmd();
+                gimbal_cmd = shooter_->returnDefaultCmd();
             }
         } else {
-            gimbal_cmd = armor_solver_->returnDefaultCmd();
+            gimbal_cmd = shooter_->returnDefaultCmd();
         }
         if (gimbal_cmd.fire_advice) {
             fire_count_++;
@@ -242,6 +245,7 @@ struct AutoAim::Impl {
         if (debug_mode_) {
             std::lock_guard<std::mutex> lock(dbg_mutex_);
             auto_aim_debug_.gimbal_cmd = gimbal_cmd;
+            auto_aim_debug_.aim_target = aim_target;
         }
         return gimbal_cmd;
     }
@@ -267,10 +271,6 @@ struct AutoAim::Impl {
     DebugArmor getDebugFrame() {
         std::lock_guard<std::mutex> lock(dbg_mutex_);
         return auto_aim_debug_;
-    }
-    ArmorSolverTarget getArmorSolverTarget() {
-        std::lock_guard<std::mutex> lock(armor_solver_target_mutex_);
-        return armor_solver_target_;
     }
     void printStats() {
         using namespace std::chrono;
@@ -302,8 +302,9 @@ struct AutoAim::Impl {
     std::unique_ptr<OrderedQueue<armor::Armors>> armor_queue_;
     std::thread processing_thread_;
     std::unique_ptr<Timer> timer_;
-    std::unique_ptr<ArmorSolver> armor_solver_;
-    ArmorSolver::ArmorSloveState armor_slove_state_ = ArmorSolver::TRACKING_ARMOR;
+    std::unique_ptr<Aimer> aimer_;
+    std::unique_ptr<Shooter> shooter_;
+    AutoAimFsmController auto_aim_fsm_cl_;
     int max_detect_armors_;
     bool run_flag_ = false;
     int detect_finish_count_ = 0;
@@ -311,7 +312,7 @@ struct AutoAim::Impl {
     int tracker_finish_count_ = 0;
     int fire_count_;
     std::chrono::steady_clock::time_point last_stat_time_steady_ = std::chrono::steady_clock::now();
-    ArmorSolverTarget armor_solver_target_;
+    armor::Target armor_solver_target_;
     std::mutex armor_solver_target_mutex_;
     bool debug_mode_ = false;
     DebugArmor auto_aim_debug_;
@@ -359,9 +360,6 @@ void AutoAim::setDebug(bool debug) {
 }
 DebugArmor AutoAim::getDebugFrame() {
     return _impl->getDebugFrame();
-}
-ArmorSolverTarget AutoAim::getArmorSolverTarget() {
-    return _impl->getArmorSolverTarget();
 }
 void AutoAim::setShared(std::shared_ptr<AutoAimShared> shared) {
     _impl->setShared(shared);

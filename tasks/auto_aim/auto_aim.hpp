@@ -1,7 +1,6 @@
 #pragma once
 #include "tasks/auto_aim/armor_detect/armor_pose_estimator.hpp"
 #include "tasks/auto_aim/armor_detect/detector_factory.hpp"
-#include "tasks/auto_aim/armor_solver.hpp"
 #include "tasks/auto_aim/armor_tracker/tracker_manager.hpp"
 #include "tasks/debug.hpp"
 #include "tasks/type_common.hpp"
@@ -34,7 +33,6 @@ public:
     void pushInput(CommonFrame& frame);
     void setDebug(bool debug);
     DebugArmor getDebugFrame();
-    ArmorSolverTarget getArmorSolverTarget();
     GimbalCmd solve();
     void setShared(std::shared_ptr<AutoAimShared> shared);
     struct Impl;
