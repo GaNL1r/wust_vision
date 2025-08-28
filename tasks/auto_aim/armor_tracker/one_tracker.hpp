@@ -44,8 +44,6 @@ public:
         double jump_thresh
     );
 
-    void init(const armor::Armors& armors_msg) noexcept;
-    void update(const armor::Armors& armors_msg) noexcept;
     void init(const armor::Armor& armor_msg) noexcept;
     void update(const armor::Armor& armor_msg) noexcept;
 
@@ -88,7 +86,6 @@ public:
 
 private:
     void initEKF(const armor::Armor& a) noexcept;
-    void handleArmorJump(const armor::Armor& a) noexcept;
 
     int detect_count_;
     int lost_count_;

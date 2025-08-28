@@ -7,7 +7,7 @@ public:
     ~Aimer();
     void init(const YAML::Node& config);
     AimTarget aimTarget(
-        const armor::Target& armor_slover_target,
+        const Target& armor_slover_target,
         std::chrono::steady_clock::time_point time,
         const double bullet_speed,
         const AutoAimFsm& auto_aim_fsm

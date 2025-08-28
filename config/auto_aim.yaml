@@ -12,63 +12,13 @@ armor_optimize:
   distance_fix_a2: 0.00
 
 armor_tracker:
-  ekf:
-    use_esekf: false
-    fusion_esekf_ekf: true
-    iteration_num: 2
-
-    oyr_d_front: 0.09 #1m处
-    oyr_d_side: 0.09 #1m处
-    oyr_p: 3 #角度
-    oyr_y: 3 #角度
-    oyr_yaw_front: 3
-    oyr_yaw_side: 3
-
-    oys2qx: 40
-    oys2qy: 40
-    oys2qyaw: 30
-    oys2qz: 5
-    #----------------
-    yr_d_front_a: 0.03 #1m处
-    yr_d_side_a: 0.05 #1m处
-    yr_p_a: 5 #角度
-    yr_y_a: 5 #角度
-    yr_yaw_front_a: 10
-    yr_yaw_side_a: 4
-
-    ys2qd_zc_a: 900
-    ys2qr_a: 70
-    ys2qx_a: 15
-    ys2qy_a: 15
-    ys2qyaw_a: 30
-    ys2qz_a: 3.0
-    #----------------
-    yr_d_front_c: 0.07 #1m处
-    yr_d_side_c: 0.05 #1m处
-    yr_p_c: 6 #角度
-    yr_y_c: 6 #角度
-    yr_yaw_front_c: 4
-    yr_yaw_side_c: 4
-
-    ys2qd_zc_c: 700
-    ys2qr_c: 70
-    ys2qx_c: 22
-    ys2qy_c: 22
-    ys2qyaw_c: 35
-    ys2qz_c: 1.0
-    #----------------
-    r_v: 100.0
-    q_v: 5.0
-    q_a: 1.0
-  jump_thresh: 0.4
   lost_time_thres: 0.9
-  max_match_distance: 0.5
-  max_match_yaw_diff: 0.5
-  max_match_z_diff: 0.1
-  one_lost_time_thres: 0.1
   tracking_thres: 5
-  one_tracking_thres: 1
-  track_one_num: 2
+  max_yaw_diff_deg: 70.0
+  qxyz_common: 100.0
+  qyaw_common: 300.0
+  qxyz_output: 10.0
+  qyaw_output: 0.1
 
 auto_aim_fsm:
   thres_up_1: 1.5

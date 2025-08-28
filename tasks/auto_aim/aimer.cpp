@@ -1,5 +1,6 @@
 #include "aimer.hpp"
 #include "tasks/utils.hpp"
+#include <wust_vl/common/utils/timer.hpp>
 #include <wust_vl/common/utils/trajectory_compensator.hpp>
 struct Aimer::Impl {
     void init(const YAML::Node& config) {
@@ -16,96 +17,96 @@ struct Aimer::Impl {
         trajectory_compensator_->resistance_ = resistance_;
     }
     AimTarget aimTarget(
-        const armor::Target& target,
+        const Target& target,
         std::chrono::steady_clock::time_point time,
         const double bullet_speed,
         const AutoAimFsm& auto_aim_fsm
     ) {
-        AimTarget aim_target;
-        if (target.one_targets_is_valid) {
-            aim_target = aimTargetSingleArmor(target, time, bullet_speed);
-        } else {
-            aim_target = aimTargetWholeCar(target, time, bullet_speed);
+        bool aim_first = false;
+        if (auto_aim_fsm == AutoAimFsm::AIM_SINGLE_ARMOR) {
+            aim_first = true;
         }
-        return aim_target;
+        return aimTargetWholeCar(target, time, bullet_speed, aim_first);
     }
-    AimTarget aimTargetSingleArmor(
-        const armor::Target& target,
-        std::chrono::steady_clock::time_point time,
-        const double bullet_speed
-    ) {
-        using namespace std::chrono;
 
-        double fly_t = trajectory_compensator_->getFlyingTime(target.position_, bullet_speed);
-        double dt_sec =
-            fly_t + prediction_delay_ + duration<double>(time - target.timestamp).count();
-        armor::Target tmp_target = target;
-        tmp_target.Predict(dt_sec);
-        int idx = selectBestArmor(target);
-        if (idx < 0 || idx >= (int)target.one_targets.size()
-            || target.one_targets[idx].position_.norm() < 0.1)
-        {
-            return returnDefaultAimTarget();
-        }
-        AimTarget aim_target;
-        aim_target.have_host = true;
-        aim_target.host_pos = target.position_;
-        aim_target.host_vel = target.velocity_;
-        aim_target.pos = target.one_targets[idx].position_;
-        aim_target.vel = target.one_targets[idx].velocity_;
-
-        aim_target.host_v_yaw = target.v_yaw;
-        double raw_pitch = aim_target.calRawPitch();
-        trajectory_compensator_->compensate(aim_target.pos, raw_pitch, bullet_speed);
-        aim_target.shoot_pitch = raw_pitch;
-        if (target.id == armor::ArmorNumber::BASE || target.id == armor::ArmorNumber::NO1) {
-            aim_target.is_big_armor = true;
-        }
-        double tmp_yaw = target.one_targets[idx].yaw;
-        Eigen::Vector3d euler;
-        euler.x() = M_PI / 2;
-        euler.y() = target.id == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
-        euler.z() = tmp_yaw;
-        Eigen::Quaterniond ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
-        aim_target.ori = ori;
-        return aim_target;
-    }
     AimTarget aimTargetWholeCar(
-        const armor::Target& target,
+        const Target& target,
         std::chrono::steady_clock::time_point time,
-        const double bullet_speed
+        const double bullet_speed,
+        bool aim_first
     ) {
-        using namespace std::chrono;
+        Target tmp_target = target;
 
-        double fly_t = trajectory_compensator_->getFlyingTime(target.position_, bullet_speed);
-        double dt_sec =
-            fly_t + prediction_delay_ + duration<double>(time - target.timestamp).count();
-        armor::Target tmp_target = target;
-        tmp_target.Predict(dt_sec);
+        double dt0 = time_utils::durationSec(target.timestamp_, time) + prediction_delay_;
+        std::chrono::steady_clock::time_point future =
+            time + std::chrono::microseconds(int(dt0 * 1e6));
+        tmp_target.predict(future);
         auto p_armors = tmp_target.getArmorPositions();
         auto v_armors = tmp_target.getArmorVelocities();
-        int idx = selectBestArmor(p_armors, target);
+        int idx = selectBestArmor(tmp_target, aim_first);
         if (idx < 0 || idx >= (int)p_armors.size() || p_armors[idx].norm() < 0.1) {
             return returnDefaultAimTarget();
         }
+        bool converged = false;
+        double prev_fly_time = trajectory_compensator_->getFlyingTime(p_armors[idx], bullet_speed);
+        auto pre_time0 = future + std::chrono::microseconds(static_cast<int>(prev_fly_time * 1e6));
+        tmp_target.predict(pre_time0);
+        auto p_armors_fallback = tmp_target.getArmorPositions();
+        auto v_armors_fallback = tmp_target.getArmorVelocities();
+        int idx_fallback = selectBestArmor(tmp_target, aim_first);
+        if (idx_fallback < 0 || idx_fallback >= (int)p_armors_fallback.size()
+            || p_armors_fallback[idx_fallback].norm() < 0.1)
+        {
+            return returnDefaultAimTarget();
+        }
+        std::vector<Target> iteration_target(10, tmp_target);
+        int best_iter = -1;
+        Eigen::Vector3d best_pos, best_vel;
+        for (int iter = 0; iter < 10; ++iter) {
+            auto predict_time =
+                future + std::chrono::microseconds(static_cast<int>(prev_fly_time * 1e6));
+            iteration_target[iter].predict(predict_time);
+            int iter_idx = selectBestArmor(iteration_target[iter], aim_first);
+            auto iter_p_armors = iteration_target[iter].getArmorPositions();
+            auto iter_v_armors = iteration_target[iter].getArmorVelocities();
+            if (idx < 0 || idx >= (int)iter_p_armors.size() || iter_p_armors[iter_idx].norm() < 0.1)
+            {
+                continue;
+            }
+            best_iter = iter;
+            best_pos = iter_p_armors[iter_idx];
+            best_vel = iter_v_armors[iter_idx];
+            double iter_fly_time =
+                trajectory_compensator_->getFlyingTime(iter_p_armors[iter_idx], bullet_speed);
+            if (std::abs(iter_fly_time - prev_fly_time) < 0.001) {
+                converged = true;
+                break;
+            }
+            prev_fly_time = iter_fly_time;
+        }
         AimTarget aim_target;
         aim_target.have_host = true;
-        aim_target.host_pos = target.position_;
-        aim_target.host_vel = target.velocity_;
-        aim_target.pos = p_armors[idx];
-        aim_target.vel = v_armors[idx];
-
-        aim_target.host_v_yaw = target.v_yaw;
+        aim_target.host_pos = tmp_target.position();
+        aim_target.host_vel = tmp_target.velocity();
+        if (best_iter > 0) {
+            aim_target.pos = best_pos;
+            aim_target.vel = best_vel;
+        } else {
+            aim_target.pos = p_armors_fallback[idx_fallback];
+            aim_target.vel = v_armors_fallback[idx_fallback];
+        }
+        aim_target.host_v_yaw = target.v_yaw();
         double raw_pitch = aim_target.calRawPitch();
         trajectory_compensator_->compensate(aim_target.pos, raw_pitch, bullet_speed);
         aim_target.shoot_pitch = raw_pitch;
-        if (target.id == armor::ArmorNumber::BASE || target.id == armor::ArmorNumber::NO1) {
+        if (target.tracked_id_ == armor::ArmorNumber::BASE
+            || target.tracked_id_ == armor::ArmorNumber::NO1) {
             aim_target.is_big_armor = true;
         }
-        double tmp_yaw = target.getArmorYaw()[idx];
+        double tmp_yaw = target.getArmorYaws()[idx];
         Eigen::Vector3d euler;
         euler.x() = M_PI / 2;
-        euler.y() = target.id == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
+        euler.y() = target.tracked_id_ == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
         euler.z() = tmp_yaw;
         Eigen::Quaterniond ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
         aim_target.ori = ori;
@@ -115,57 +116,47 @@ struct Aimer::Impl {
         last_aim_target_.is_old = true;
         return last_aim_target_;
     }
-    int selectBestArmor(const armor::Target& target) {
-        static Eigen::Vector3d last_pos = Eigen::Vector3d::Zero();
-        static constexpr double switch_threshold = 0.2; // 防抖阈值
 
-        if (!target.one_targets_is_valid || target.one_targets.empty()) {
-            last_pos = Eigen::Vector3d::Zero();
-            return -1;
-        }
-
-        int best_idx = 0;
-        double best_score = target.one_targets[0].position_.norm();
-
-        for (size_t i = 0; i < target.one_targets.size(); ++i) {
-            double dist = target.one_targets[i].position_.norm();
-
-            // 防抖：如果距离上次选择的位置较近，优先锁定
-            double delta_last = (target.one_targets[i].position_ - last_pos).norm();
-            if (delta_last < best_score) {
-                best_idx = static_cast<int>(i);
-                best_score = delta_last;
-            }
-        }
-
-        // 更新 last_pos 为当前选择的目标位置
-        last_pos = target.one_targets[best_idx].position_;
-        return best_idx;
-    }
-
-    int selectBestArmor(
-        const std::vector<Eigen::Vector3d>& armor_positions,
-        const armor::Target& target
-    ) const noexcept {
-        if (armor_positions.empty())
-            return -1;
-
-        double center_yaw = std::atan2(target.position_.y(), target.position_.x());
-        auto angles = target.getArmorYaw();
+    int selectBestArmor(const Target& target, bool aim_first) noexcept {
+        std::vector<Eigen::Vector4d> armor_xyza_list = target.getArmorPosAndYaw();
+        auto armor_num = armor_xyza_list.size();
+        double center_yaw = std::atan2(target.position().y(), target.position().x());
         std::vector<double> delta_angle_list;
-        for (int i = 0; i < target.armors_num; i++) {
-            auto delta_angle = angles::normalize_angle(angles[i] - center_yaw);
+        for (int i = 0; i < armor_num; i++) {
+            auto delta_angle = angles::normalize_angle(armor_xyza_list[i][3] - center_yaw);
             delta_angle_list.emplace_back(delta_angle);
         }
 
+        if (aim_first && target.tracked_id_ != armor::ArmorNumber::OUTPOST) {
+            std::vector<int> id_list;
+            for (int i = 0; i < armor_num; i++) {
+                if (std::abs(delta_angle_list[i]) > 60 / 57.3)
+                    continue;
+                id_list.push_back(i);
+            }
+            if (id_list.empty()) {
+                return -1;
+            }
+
+            if (id_list.size() > 1) {
+                int id0 = id_list[0], id1 = id_list[1];
+                if (lock_id_ != id0 && lock_id_ != id1)
+                    lock_id_ = (std::abs(delta_angle_list[id0]) < std::abs(delta_angle_list[id1]))
+                        ? id0
+                        : id1;
+                return lock_id_;
+            }
+            lock_id_ = -1;
+            return id_list[0];
+        }
         double coming_angle = comming_angle_ / 180.0 * M_PI;
         double leaving_angle = leaving_angle_ / 180.0 * M_PI;
-        for (size_t i = 0; i < target.armors_num; ++i) {
+        for (size_t i = 0; i < target.armor_num_; ++i) {
             if (std::abs(delta_angle_list[i]) > coming_angle)
                 continue;
-            if (target.v_yaw > 0 && delta_angle_list[i] < leaving_angle)
+            if (target.v_yaw() > 0 && delta_angle_list[i] < leaving_angle)
                 return static_cast<int>(i);
-            if (target.v_yaw < 0 && delta_angle_list[i] > -leaving_angle)
+            if (target.v_yaw() < 0 && delta_angle_list[i] > -leaving_angle)
                 return static_cast<int>(i);
         }
         return -1;
@@ -176,6 +167,7 @@ struct Aimer::Impl {
     double comming_angle_;
     double leaving_angle_;
     AimTarget last_aim_target_;
+    int lock_id_ = -1;
 };
 Aimer::Aimer(): _impl(std::make_unique<Impl>()) {}
 Aimer::~Aimer() {
@@ -185,7 +177,7 @@ void Aimer::init(const YAML::Node& config) {
     _impl->init(config);
 }
 AimTarget Aimer::aimTarget(
-    const armor::Target& armor_slover_target,
+    const Target& armor_slover_target,
     std::chrono::steady_clock::time_point time,
     const double bullet_speed,
     const AutoAimFsm& auto_aim_fsm

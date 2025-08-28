@@ -6,7 +6,7 @@ hik_camera:
   target_sn: DA1094119
   acquisition_frame_rate: 250
   adc_bit_depth: Bits_8
-  exposure_time: 2500
+  exposure_time: 1500
   gain: 16.9
   gamma: 0.7 #Bayer用不了
   pixel_format: BayerRG8 #RGB8Packed

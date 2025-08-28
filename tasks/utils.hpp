@@ -317,14 +317,6 @@ inline double clamp_pm_pi(auto&& angle) {
 inline double ratio(const auto& point) {
     return atan2(point.y, point.x);
 }
-inline bool
-checkTargetAppear(const armor::Target& target, const std::vector<armor::OneTarget>& one_targets) {
-    if (target.tracking)
-        return true;
-    return std::any_of(one_targets.begin(), one_targets.end(), [](const armor::OneTarget& t) {
-        return t.tracking;
-    });
-}
 inline Eigen::Matrix4d computeCameraToOdomTransform(
     const Eigen::Matrix3d& R_gimbal2odom,
     const Eigen::Matrix3d& R_camera_to_gimbal,
@@ -499,4 +491,12 @@ inline CommonFrame toCommonFrame(wust_vl_video::ImageFrame& frame) {
     }
     common_frame.src_img = std::move(frame.src_img);
 }
+inline Eigen::Vector3d xyz2ypd(const Eigen::Vector3d& xyz) {
+    auto x = xyz[0], y = xyz[1], z = xyz[2];
+    auto yaw = std::atan2(y, x);
+    auto pitch = std::atan2(z, std::sqrt(x * x + y * y));
+    auto distance = std::sqrt(x * x + y * y + z * z);
+    return { yaw, pitch, distance };
+}
+
 } // namespace utils

@@ -3,81 +3,41 @@
 #include <fcntl.h>
 #include <nlohmann/json.hpp>
 #include <sys/mman.h>
-armor::Armors visualizeTargetProjection(
-    armor::Target armor_target_,
-    std::vector<armor::OneTarget> one_armor_targets_
-) {
+#include <wust_vl/common/utils/timer.hpp>
+armor::Armors visualizeTargetProjection(Target armor_target) {
     armor::Armors armor_data;
     armor_data.frame_id = "gimbal_odom";
-    armor_data.timestamp = armor_target_.timestamp;
+    armor_data.timestamp = armor_target.timestamp_;
     double debug_dt = 0.01;
 
-    if (armor_target_.tracking) {
-        Eigen::Vector3d pos = armor_target_.position_;
-        Eigen::Vector3d vel = armor_target_.velocity_;
-        utils::addVelFromAccDt(vel, armor_target_.acceleration_, debug_dt);
+    if (armor_target.is_tracking) {
+        Eigen::Vector3d pos = armor_target.position();
+        Eigen::Vector3d vel = armor_target.velocity();
         utils::addPosFromVelDt(pos, vel, debug_dt);
         if (pos.norm() > 0.5) {
-            double yaw = armor_target_.yaw + armor_target_.v_yaw * debug_dt;
-            double r1 = armor_target_.radius_1;
-            double r2 = armor_target_.radius_2;
-            double d_za = armor_target_.d_za;
-            double d_zc = armor_target_.d_zc;
-            float xc = pos.x();
-            float yc = pos.y();
-            float zc = pos.z();
-            bool is_current_pair = true;
             armor_data.armors.clear();
-            size_t a_n = armor_target_.armors_num;
+            size_t a_n = armor_target.armor_num_;
             armor_data.armors.reserve(a_n);
+            auto now = time_utils::now();
+            double dt0 = time_utils::durationSec(armor_target.timestamp_, now);
+            std::chrono::steady_clock::time_point future =
+                now + std::chrono::microseconds(int(dt0 * 1e6));
+            armor_target.predict(future);
+            std::vector<Eigen::Vector4d> armors_posandyaw = armor_target.getArmorPosAndYaw();
             for (size_t i = 0; i < a_n; ++i) {
-                double tmp_yaw = yaw + i * (2 * M_PI / a_n);
-                double cos_yaw = std::cos(tmp_yaw);
-                double sin_yaw = std::sin(tmp_yaw);
-
-                Eigen::Vector3d pos;
-                if (a_n == 4) {
-                    double r = is_current_pair ? r1 : r2;
-                    pos.z() = zc + d_zc + (is_current_pair ? 0 : d_za);
-                    pos.x() = xc - r * cos_yaw;
-                    pos.y() = yc - r * sin_yaw;
-                    is_current_pair = !is_current_pair;
-                } else {
-                    pos.z() = zc;
-                    pos.x() = xc - r1 * cos_yaw;
-                    pos.y() = yc - r1 * sin_yaw;
-                }
+                Eigen::Vector3d pos = Eigen::Vector3d { armors_posandyaw[i][0],
+                                                        armors_posandyaw[i][1],
+                                                        armors_posandyaw[i][2] };
                 Eigen::Vector3d euler;
                 euler.x() = M_PI / 2;
-                euler.y() = armor_target_.id == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
-                euler.z() = tmp_yaw;
+                euler.y() =
+                    armor_target.tracked_id_ == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
+                euler.z() = armors_posandyaw[i][3];
                 Eigen::Quaterniond ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
-                armor_data.armors.emplace_back(armor::Armor { .type = armor_target_.type,
+                armor_data.armors.emplace_back(armor::Armor { .type = armor_target.type_,
                                                               .pos = pos,
                                                               .ori = ori,
                                                               .is_ok = true,
-                                                              .distance_to_image_center = 0.0f });
-            }
-        }
-    }
-    for (auto one_armor_target_: one_armor_targets_) {
-        if (one_armor_target_.tracking) {
-            Eigen::Vector3d pos = one_armor_target_.position_;
-            Eigen::Vector3d vel = one_armor_target_.velocity_;
-            utils::addVelFromAccDt(vel, one_armor_target_.acceleration_, debug_dt);
-            utils::addPosFromVelDt(pos, vel, debug_dt);
-            if (pos.norm() > 0.5) {
-                double tmp_yaw = one_armor_target_.yaw + one_armor_target_.v_yaw * debug_dt;
-                Eigen::Vector3d euler;
-                euler.x() = M_PI / 2;
-                euler.y() = armor_target_.id == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
-                euler.z() = tmp_yaw;
-                Eigen::Quaterniond ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
-
-                armor_data.armors.emplace_back(armor::Armor { .type = one_armor_target_.type,
-                                                              .pos = pos,
-                                                              .ori = ori,
-                                                              .is_ok = false,
                                                               .distance_to_image_center = 0.0f });
             }
         }
@@ -95,7 +55,6 @@ void drawDebugArmorContent(
     auto armors = dbg.armors;
     auto gimbal_cmd = dbg.gimbal_cmd;
     auto target = dbg.target;
-    auto one_targets = dbg.one_targets;
     auto aim_target = dbg.aim_target;
     auto armor_objs = dbg.armor_objs;
     static const int next_indices[] = { 2, 0, 3, 1 };
@@ -169,7 +128,7 @@ void drawDebugArmorContent(
 
     // =================== 目标绘制 ===================
     std::vector<cv::Point2f> all_corners;
-    auto armor_data = visualizeTargetProjection(dbg.target, dbg.one_targets);
+    auto armor_data = visualizeTargetProjection(dbg.target);
     utils::transformArmorData(armor_data, dbg.T_camera_to_odom.inverse());
     Target_info target_info;
     if (!mono_measure_tool::reprojectArmorsCorners(
@@ -294,7 +253,7 @@ void drawDebugArmorContent(
         cv::circle(debug_img, avg, 10, cv::Scalar(50, 255, 50), -1);
 
         double scale = 50.0;
-        double dy = scale * target.v_yaw;
+        double dy = scale * target.v_yaw();
         cv::Point2f start_pt = avg;
         cv::Point2f end_pt = start_pt + cv::Point2f(0, dy);
         cv::arrowedLine(
@@ -309,10 +268,9 @@ void drawDebugArmorContent(
         );
     }
 
-
     // =================== 状态绘制 ===================
     std::string state_str;
-    state_str=auto_aim_fsm_to_string(dbg.fsm);
+    state_str = auto_aim_fsm_to_string(dbg.fsm);
 
     int baseline = 0;
     cv::Size text_size = cv::getTextSize(state_str, cv::FONT_HERSHEY_SIMPLEX, 2.5, 2, &baseline);
@@ -332,7 +290,7 @@ void drawDebugArmorContent(
     );
 
     // =================== Attack ID ===================
-    std::string id_str = fmt::format("Attack: {}", armorNumberToString(dbg.target.id));
+    std::string id_str = fmt::format("Attack: {}", armorNumberToString(dbg.target.tracked_id_));
     cv::Size id_size = cv::getTextSize(id_str, cv::FONT_HERSHEY_SIMPLEX, 1.6, 2, &baseline);
 
     // 保证在图像内
@@ -845,42 +803,33 @@ void drawDebugOverlayShow(
     cv::waitKey(1);
 }
 
-void writeTargetLogToJson(const armor::Target& target) {
+void writeTargetLogToJson(const Target& target) {
     nlohmann::json j;
 
-    j["frame_id"] = target.frame_id;
-    j["type"] = target.type;
-    j["tracking"] = target.tracking;
-    j["id"] = static_cast<int>(target.id);
-    j["armors_num"] = target.armors_num;
+    j["type"] = target.type_;
+    j["tracking"] = target.is_tracking;
+    j["id"] = static_cast<int>(target.tracked_id_);
+    j["armors_num"] = target.armor_num_;
 
     auto now = std::chrono::steady_clock::now();
     auto age_ms =
-        std::chrono::duration_cast<std::chrono::milliseconds>(now - target.timestamp).count();
+        std::chrono::duration_cast<std::chrono::milliseconds>(now - target.timestamp_).count();
     j["timestamp_age_ms"] = age_ms;
 
-    j["position"] = { { "x", target.position_.x() },
-                      { "y", target.position_.y() },
-                      { "z", target.position_.z() } };
+    j["position"] = { { "x", target.position().x() },
+                      { "y", target.position().y() },
+                      { "z", target.position().z() } };
 
-    j["velocity"] = { { "x", target.velocity_.x() },
-                      { "y", target.velocity_.y() },
-                      { "z", target.velocity_.z() } };
+    j["velocity"] = { { "x", target.velocity().x() },
+                      { "y", target.velocity().y() },
+                      { "z", target.velocity().z() } };
 
-    j["acceleration"] = { { "x", target.acceleration_.x() },
-                          { "y", target.acceleration_.y() },
-                          { "z", target.acceleration_.z() } };
+    // j["acceleration"] = { { "x", target.acceleration().x() },
+    //                       { "y", target.acceleration_.y() },
+    //                       { "z", target.acceleration_.z() } };
 
-    j["yaw"] = target.yaw;
-    j["v_yaw"] = target.v_yaw;
-    j["yaw_diff"] = target.yaw_diff;
-
-    j["radius_1"] = target.radius_1;
-    j["radius_2"] = target.radius_2;
-    j["d_za"] = target.d_za;
-    j["d_zc"] = target.d_zc;
-    j["position_diff"] = target.position_diff;
-    j["z_diff"] = std::abs(target.d_za) + std::abs(target.d_zc);
+    //j["yaw"] = target.yaw;
+    j["v_yaw"] = target.v_yaw();
 
     std::ofstream file("/dev/shm/target_log.json");
     if (file.is_open()) {
@@ -948,7 +897,7 @@ void debuglog(
     auto now = std::chrono::steady_clock::now();
     armor::Armors armors = dbg_armor.armors;
     double t = std::chrono::duration<double>(now - start_time).count();
-    armor::Target target = dbg_armor.target;
+    Target target = dbg_armor.target;
     writeTargetLogToJson(target);
 
     double armor_yaw = 0.0, ypd_y = 0.0, ypd_p = 0.0, armor_distance = 0.0;
@@ -1012,7 +961,7 @@ void debuglog(
     log.armor_dis_log.push_back(last_distance_);
     log.gimbal_pitch_log.push_back(gimbal_py.first * 180.0 / M_PI);
     log.gimbal_yaw_log.push_back(gimbal_py.second * 180.0 / M_PI);
-    log.target_v_yaw_log.push_back(target.v_yaw);
+    log.target_v_yaw_log.push_back(target.v_yaw());
     log.control_v_pitch_log.push_back(last_cmd.v_pitch);
     log.control_v_yaw_log.push_back(last_cmd.v_yaw);
 

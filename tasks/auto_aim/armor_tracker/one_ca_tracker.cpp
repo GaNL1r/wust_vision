@@ -43,28 +43,6 @@ OneCaTracker::OneCaTracker(
     lost_count_(0),
     last_yaw_(0) {}
 
-void OneCaTracker::init(const armor::Armors& armors_msg) noexcept {
-    if (armors_msg.armors.empty())
-        return;
-
-    double min_distance = DBL_MAX;
-    tracked_armor_ = armors_msg.armors[0];
-    for (const auto& armor: armors_msg.armors) {
-        if (armor.is_none_purple) {
-            continue;
-        }
-        if (armor.distance_to_image_center < min_distance) {
-            min_distance = armor.distance_to_image_center;
-            tracked_armor_ = armor;
-
-            type_ = armor.type;
-        }
-    }
-    WUST_DEBUG(tracker_logger_) << "INIT EKF";
-    initEKF(tracked_armor_);
-    tracked_id_ = tracked_armor_.number;
-    tracker_state = DETECTING;
-}
 void OneCaTracker::init(const armor::Armor& armor_msg) noexcept {
     if (armor_msg.is_none_purple) {
         return;
@@ -83,108 +61,6 @@ void OneCaTracker::init(const armor::Armor& armor_msg) noexcept {
     tracker_state = DETECTING;
 }
 
-void OneCaTracker::update(const armor::Armors& armors_msg) noexcept {
-    Eigen::VectorXd ekf_prediction = ekf_->predict();
-    bool matched = false;
-    target_state_ = ekf_prediction;
-    std::vector<armor::Armor> another_armors;
-    // auto common_info = gobal::stringanything.get_value<CommonInfo>("common_info");
-    // if (common_info.if_manual_reset) {
-    //     tracker_state = LOST;
-    //     return;
-    // }
-
-    if (!armors_msg.armors.empty()) {
-        armor::Armor same_id_armor;
-        int same_id_armors_count = 0;
-        auto predicted_position = getArmorPositionFromState(ekf_prediction);
-        double min_position_diff = DBL_MAX;
-        double min_z_diff = DBL_MAX;
-
-        double yaw_diff = DBL_MAX;
-
-        for (auto& armor: armors_msg.armors) {
-            if (isSameTarget(armor.number, tracked_id_)) {
-                same_id_armor = armor;
-                same_id_armors_count++;
-
-                auto p = armor.target_pos;
-                Eigen::Vector3d position_vec(p.x(), p.y(), p.z());
-
-                double position_diff = (predicted_position - position_vec).norm();
-                double z_diff = std::abs(armor.target_pos.z() - predicted_position.z());
-
-                if (position_diff < min_position_diff) {
-                    min_position_diff = position_diff;
-                    min_z_diff = z_diff;
-
-                    yaw_diff = std::abs(orientationToYaw(armor.target_ori) - ekf_prediction(8));
-                    tracked_armor_ = armor;
-                    tracked_armor_.timestamp = armors_msg.timestamp;
-                    yaw_diff_ = yaw_diff;
-
-                } else {
-                    another_armors.push_back(armor);
-                    position_diff_ = position_diff;
-                }
-            }
-        }
-
-        if (min_position_diff < max_match_distance_ && yaw_diff < max_match_yaw_diff_
-            && min_z_diff < max_match_z_diff_)
-        {
-            matched = true;
-            auto p = tracked_armor_.target_pos;
-            double measured_yaw = orientationToYaw(tracked_armor_.target_ori);
-            measurement_ = Eigen::Vector4d(p.x(), p.y(), p.z(), measured_yaw);
-            target_state_ = ekf_->update(measurement_);
-
-        } else if (same_id_armors_count == 1 && yaw_diff > max_match_yaw_diff_ && min_z_diff < max_match_z_diff_)
-        {
-            // handleArmorJump(same_id_armor);
-
-            if_have_last_track_ = false;
-            matched = true;
-            auto p = tracked_armor_.target_pos;
-            double measured_yaw = orientationToYaw(tracked_armor_.target_ori);
-            measurement_ = Eigen::Vector4d(p.x(), p.y(), p.z(), measured_yaw);
-            target_state_ = ekf_->update(measurement_);
-
-        } else {
-            // WUST_DEBUG(tracker_logger)<<"No matched armor found!";
-        }
-    }
-
-    // 状态机管理
-    if (tracker_state == DETECTING) {
-        if (matched) {
-            detect_count_++;
-            if (detect_count_ > tracking_thres_) {
-                detect_count_ = 0;
-                tracker_state = TRACKING;
-            }
-        } else {
-            detect_count_ = 0;
-            tracker_state = LOST;
-        }
-    } else if (tracker_state == TRACKING) {
-        if (!matched) {
-            tracker_state = TEMP_LOST;
-            lost_count_++;
-        }
-    } else if (tracker_state == TEMP_LOST) {
-        if (!matched) {
-            lost_count_++;
-            if (lost_count_ > lost_thres_) {
-                lost_count_ = 0;
-                tracker_state = LOST;
-            }
-        } else {
-            tracker_state = TRACKING;
-            lost_count_ = 0;
-        }
-    }
-}
 void OneCaTracker::update(const armor::Armor& armor_msg) noexcept {
     Eigen::VectorXd ekf_prediction = ekf_->predict();
     bool matched = false;
@@ -247,41 +123,6 @@ void OneCaTracker::initEKF(const armor::Armor& a) noexcept {
 
     target_state_ = Eigen::VectorXd::Zero(onecaarmor_motion_model::X_N);
     target_state_ << xa, 0, 0, ya, 0, 0, za, 0, yaw, 0;
-    ekf_->setState(target_state_);
-}
-
-void OneCaTracker::handleArmorJump(const armor::Armor& current_armor) noexcept {
-    double last_yaw = target_state_(6);
-    double yaw = orientationToYaw(current_armor.target_ori);
-    double delta_yaw = onormalizeAnglem(yaw - last_yaw);
-
-    if (std::abs(delta_yaw) > jump_thresh) {
-        double v_yaw = target_state_(7);
-        initEKF(current_armor);
-        target_state_(8) = yaw;
-        target_state_(9) = v_yaw;
-
-        WUST_DEBUG(tracker_logger_) << "Armor Jump!";
-    }
-
-    Eigen::Vector3d current_p(
-        current_armor.target_pos.x(),
-        current_armor.target_pos.y(),
-        current_armor.target_pos.z()
-    );
-    Eigen::Vector3d infer_p = getArmorPositionFromState(target_state_);
-
-    if ((current_p - infer_p).norm() > max_match_distance_) {
-        target_state_(0) = current_armor.target_pos.x();
-        target_state_(1) = 0;
-        target_state_(2) = 0;
-        target_state_(3) = current_armor.target_pos.y();
-        target_state_(4) = 0;
-        target_state_(5) = 0;
-        target_state_(6) = current_armor.target_pos.z();
-        target_state_(7) = 0;
-    }
-
     ekf_->setState(target_state_);
 }
 

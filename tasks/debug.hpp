@@ -1,4 +1,5 @@
 #pragma once
+#include "tasks/auto_aim/armor_tracker/target.hpp"
 #include "tasks/auto_aim/armor_tracker/tracker.hpp"
 #include "tasks/auto_aim/type.hpp"
 #include "tasks/auto_buff/type.hpp"
@@ -7,8 +8,7 @@
 struct DebugArmor {
     imgframe src_img;
     armor::Armors armors;
-    armor::Target target;
-    std::vector<armor::OneTarget> one_targets;
+    Target target;
     GimbalCmd gimbal_cmd;
     AutoAimFsm fsm;
     AimTarget aim_target;

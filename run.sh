@@ -104,7 +104,7 @@ if [ "$1" == "run" ]; then
         done
         cd ..
         
-        #./config/guard.sh $2
+        ./config/guard.sh $2
         exit 1
     fi
 elif [ "$1" == "cal" ]; then

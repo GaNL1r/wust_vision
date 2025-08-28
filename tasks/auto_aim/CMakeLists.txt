@@ -50,6 +50,9 @@ target_sources(auto_aim PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/one_tracker.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/tracker_manager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/tracker.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/trackerv2.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/trackerv3.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/target.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_optimize/ba_solver.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_optimize/graph_optimizer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/opencv/armor_detector_opencv_wrapper.cpp

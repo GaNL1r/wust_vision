@@ -93,11 +93,6 @@ void Tracker::update(const armor::Armors& armors_msg) noexcept {
     center_velocity_measurement_ =
         Eigen::Vector3d(target_state_(1), target_state_(3), target_state_(5));
     acc_ekf_->update(center_velocity_measurement_);
-    // auto common_info = gobal::stringanything.get_value<CommonInfo>("common_info");
-    // if (common_info.if_manual_reset) {
-    //     tracker_state = LOST;
-    //     return;
-    // }
 
     if (!armors_msg.armors.empty()) {
         armor::Armor same_id_armor;

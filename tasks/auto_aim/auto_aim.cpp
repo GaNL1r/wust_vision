@@ -159,6 +159,9 @@ struct AutoAim::Impl {
         armors.R_gimbal2odom = R_gimbal2odom;
         armors.v = frame.v;
         armors.id = frame.id;
+        for (auto& armor: armors.armors) {
+            armor.timestamp = armors.timestamp;
+        }
         armor_queue_->enqueue(armors);
         detect_finish_count_++;
         if (debug_mode_) {
@@ -171,15 +174,17 @@ struct AutoAim::Impl {
             auto_aim_debug_.armor_objs = objs;
         }
     }
-    void armorsCallback(armor::Armors armors) {
+    void armorsCallback(const armor::Armors& armors) {
         if (armors.timestamp <= tracker_manager_->last_time_) {
             WUST_WARN(logger_) << "Received out-of-order armor data, discarded.";
             return;
         }
-        armor::Target target;
-        auto time = armors.timestamp;
-
-        tracker_manager_->update(target, armors, time, auto_aim_fsm_cl_);
+        Target target;
+        if (!tracker_manager_) {
+            std::cout << "cao" << std::endl;
+            return;
+        }
+        target = tracker_manager_->update(armors, auto_aim_fsm_cl_);
         {
             std::lock_guard<std::mutex> lock(armor_solver_target_mutex_);
             armor_solver_target_ = target;
@@ -192,20 +197,18 @@ struct AutoAim::Impl {
         if (debug_mode_) {
             std::lock_guard<std::mutex> lock(dbg_mutex_);
             auto_aim_debug_.target = target;
-            auto_aim_debug_.one_targets = target.one_targets;
-            auto_aim_debug_.fsm=auto_aim_fsm_cl_.fsm_state_;
+            auto_aim_debug_.fsm = auto_aim_fsm_cl_.fsm_state_;
         }
     }
     GimbalCmd solve() {
         GimbalCmd gimbal_cmd;
         AimTarget aim_target;
-        armor::Target target;
+        Target target;
         {
             std::lock_guard<std::mutex> lock(armor_solver_target_mutex_);
             target = armor_solver_target_;
         }
-        bool appear = utils::checkTargetAppear(target, target.one_targets);
-        Tracker::State state = appear ? Tracker::TRACKING : Tracker::LOST;
+        bool appear = target.checkTargetAppear();
         if (appear) {
             auto now = std::chrono::steady_clock::now();
             try {
@@ -215,10 +218,9 @@ struct AutoAim::Impl {
                     shared_->bullet_speed,
                     auto_aim_fsm_cl_.fsm_state_
                 );
-                bool shoot_center=false;
-                if(auto_aim_fsm_cl_.fsm_state_==AutoAimFsm::AIM_WHOLE_CAR_CENTER)
-                {
-                    shoot_center=true;
+                bool shoot_center = false;
+                if (auto_aim_fsm_cl_.fsm_state_ == AutoAimFsm::AIM_WHOLE_CAR_CENTER) {
+                    shoot_center = true;
                 }
                 auto last_att = shared_->motion_buffer->get_last();
                 if (aim_target.is_old) {
@@ -312,7 +314,7 @@ struct AutoAim::Impl {
     int tracker_finish_count_ = 0;
     int fire_count_;
     std::chrono::steady_clock::time_point last_stat_time_steady_ = std::chrono::steady_clock::now();
-    armor::Target armor_solver_target_;
+    Target armor_solver_target_;
     std::mutex armor_solver_target_mutex_;
     bool debug_mode_ = false;
     DebugArmor auto_aim_debug_;
