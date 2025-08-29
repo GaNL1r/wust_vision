@@ -1,7 +1,8 @@
 #!/bin/bash
-
+sleep 5
 
 while true; do
+
     pkill $1
 
     # 等待进程全部退出，最多等10秒
@@ -17,7 +18,7 @@ while true; do
     done
 
     source env.bash
-    $1
+    ./$1
     sleep 1
 done
 

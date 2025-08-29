@@ -1,4 +1,5 @@
 const chartMap = {
+  raw_yaw: { label: "Raw Yaw" },
   yaw: { label: "Yaw" },
   pitch: { label: "Pitch" },
   armor_dis: { label: "Armor Distance" },

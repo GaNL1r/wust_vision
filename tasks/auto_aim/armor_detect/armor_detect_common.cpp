@@ -242,8 +242,11 @@ std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
 
         try {
             bool ok = false;
+            if (src_img.empty()) {
+                return;
+            }
             try {
-                ok = extractNetImage(src_img, armor); // 可能崩溃的函数
+                ok = extractNetImage(src_img.clone(), armor); // 可能崩溃的函数
             } catch (const cv::Exception& e) {
                 std::cerr << "[detectNet] OpenCV exception in extractNetImage: " << e.what()
                           << std::endl;

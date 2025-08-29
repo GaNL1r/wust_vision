@@ -1,6 +1,7 @@
 #include "auto_aim.hpp"
-#include "aimer.hpp"
-#include "shooter.hpp"
+#include "tasks/auto_aim/armor_control/aimer.hpp"
+#include "tasks/auto_aim/armor_control/planner.hpp"
+#include "tasks/auto_aim/armor_control/shooter.hpp"
 #include "tasks/mono_measure_tool.hpp"
 #include "tasks/utils.hpp"
 #include "wust_vl/common/concurrency/queues.hpp"
@@ -98,10 +99,11 @@ struct AutoAim::Impl {
         armor_pose_estimator_->enableBA(use_ba);
         tracker_manager_ = std::make_unique<TrackerManager>(config_, config_binder_);
         auto_aim_fsm_cl_.load(config_);
-        aimer_ = std::make_unique<Aimer>();
+        aimer_ = std::make_shared<Aimer>();
         aimer_->init(config_);
-        shooter_ = std::make_unique<Shooter>();
+        shooter_ = std::make_shared<Shooter>();
         shooter_->init(config_);
+        planner_ = std::make_unique<Planner>(config_["planner"], aimer_, shooter_);
         max_detect_armors_ = config_["max_detect_armors"].as<int>(10);
         armor_queue_ = std::make_unique<OrderedQueue<armor::Armors>>(10, 500);
         latency_averager_ = std::make_unique<Averager<double>>(100);
@@ -208,6 +210,7 @@ struct AutoAim::Impl {
             std::lock_guard<std::mutex> lock(armor_solver_target_mutex_);
             target = armor_solver_target_;
         }
+
         bool appear = target.checkTargetAppear();
         if (appear) {
             auto now = std::chrono::steady_clock::now();
@@ -224,7 +227,8 @@ struct AutoAim::Impl {
                 }
                 auto last_att = shared_->motion_buffer->get_last();
                 if (aim_target.is_old) {
-                    gimbal_cmd = shooter_->returnDefaultCmd();
+                    last_cmd_.fire_advice = false;
+                    gimbal_cmd = last_cmd_;
                 } else {
                     gimbal_cmd = shooter_->shoot(
                         aim_target,
@@ -234,12 +238,24 @@ struct AutoAim::Impl {
                         shoot_center
                     );
                 }
+                auto plan =
+                    planner_->plan(target, shared_->bullet_speed, auto_aim_fsm_cl_.fsm_state_);
+                gimbal_cmd.raw_yaw = gimbal_cmd.yaw;
 
+                if (plan.control) {
+                    gimbal_cmd.yaw = plan.yaw * 180.0 / M_PI;
+                    gimbal_cmd.pitch = plan.pitch * 180.0 / M_PI;
+                    // gimbal_cmd.v_yaw = plan.yaw_vel * 180.0 / M_PI;
+                    // gimbal_cmd.v_pitch = plan.pitch_vel * 180.0 / M_PI;
+                }
+                last_cmd_ = gimbal_cmd;
             } catch (const std::exception& e) {
-                gimbal_cmd = shooter_->returnDefaultCmd();
+                last_cmd_.fire_advice = false;
+                gimbal_cmd = last_cmd_;
             }
         } else {
-            gimbal_cmd = shooter_->returnDefaultCmd();
+            last_cmd_.fire_advice = false;
+            gimbal_cmd = last_cmd_;
         }
         if (gimbal_cmd.fire_advice) {
             fire_count_++;
@@ -256,6 +272,7 @@ struct AutoAim::Impl {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
         while (run_flag_) {
+            printStats();
             armor::Armors armors_;
             if (!armor_queue_->try_dequeue(armors_)) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -264,7 +281,6 @@ struct AutoAim::Impl {
 
             armorsCallback(armors_);
             tracker_finish_count_++;
-            printStats();
         }
     }
     void setDebug(bool debug) {
@@ -304,9 +320,11 @@ struct AutoAim::Impl {
     std::unique_ptr<OrderedQueue<armor::Armors>> armor_queue_;
     std::thread processing_thread_;
     std::unique_ptr<Timer> timer_;
-    std::unique_ptr<Aimer> aimer_;
-    std::unique_ptr<Shooter> shooter_;
+    std::shared_ptr<Aimer> aimer_;
+    std::shared_ptr<Shooter> shooter_;
+    std::unique_ptr<Planner> planner_;
     AutoAimFsmController auto_aim_fsm_cl_;
+    GimbalCmd last_cmd_;
     int max_detect_armors_;
     bool run_flag_ = false;
     int detect_finish_count_ = 0;

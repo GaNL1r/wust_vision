@@ -45,7 +45,7 @@ public:
         std::chrono::steady_clock::time_point t,
         Eigen::Vector3d self_v = Eigen::Vector3d::Zero()
     );
-    void predict(double dt, const Eigen::Vector3d& self_v);
+    void predict(double dt, Eigen::Vector3d self_v = Eigen::Vector3d::Zero());
     void update(const armor::Armor& armor);
 
     double orientationToYaw(const Eigen::Quaterniond& q) noexcept {
@@ -101,8 +101,10 @@ public:
         auto r_ok = target_state_[8] > 0.05 && target_state_[8] < 0.5;
         auto l_ok =
             target_state_[8] + target_state_[9] > 0.05 && target_state_[8] + target_state_[9] < 0.5;
-
-        if (r_ok && l_ok)
+        auto v_yaw_ok = std::abs(target_state_[7]) < 30.0;
+        Eigen::Vector3d vel = velocity();
+        auto v_xyz_ok = std::abs(vel.norm()) < 10.0;
+        if (r_ok && l_ok && v_xyz_ok && v_yaw_ok)
             return false;
 
         return true;

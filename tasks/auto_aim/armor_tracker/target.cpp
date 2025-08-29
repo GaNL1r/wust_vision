@@ -42,6 +42,10 @@ Target::Target(
         }
         nominal[6] = angles::normalize_angle(nominal[6] + delta[6]);
     });
+    esekf_ypd_.setNisThreshold(9.488);
+    esekf_ypd_.setNeesThreshold(9.488);
+    esekf_ypd_.setWindowSize(50);
+    esekf_ypd_.setRecentFailRateThreshold(0.4);
     double xa = a.target_pos.x();
     double ya = a.target_pos.y();
     double za = a.target_pos.z();
@@ -66,7 +70,7 @@ void Target::predict(std::chrono::steady_clock::time_point t, Eigen::Vector3d se
     predict(dt, self_v);
     last_t_ = t;
 }
-void Target::predict(double dt, const Eigen::Vector3d& self_v) {
+void Target::predict(double dt, Eigen::Vector3d self_v) {
     if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
         esekf_ypd_.setPredictFunc(ypdv2armor_motion_model::Predict {
             dt,

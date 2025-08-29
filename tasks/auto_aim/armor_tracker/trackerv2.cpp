@@ -65,7 +65,6 @@ bool TrackerV2::initTarget(const armor::Armors& armors) {
     double xc = xa + r * cos(yaw);
     double yc = ya + r * sin(yaw);
     double zc = za;
-    //d_za_ = 0, d_zc_ = 0, another_r_ = r;
     target_state_ << xc, 0, yc, 0, zc, 0, yaw, 0, r, 0, 0;
     ekf_ypd_->setState(target_state_);
     tracked_id_ = a.number;

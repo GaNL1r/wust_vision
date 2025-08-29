@@ -11,7 +11,7 @@ rm /dev/shm/debug_frame.jpg /dev/shm/cmd_log.json /dev/shm/aim_log.json /dev/shm
 chmod 666 /dev/shm/debug_frame
 rm -rf build/config
 ln -s ../config build/config
-
+ln -s ../env.bash build/env.bash
 # 如果参数为 rebuild，则删除 build 文件夹
 if [ "$1" == "rebuild" ]; then
     echo -e "${yellow}<--- Rebuilding: Removing build directory --->${reset}"
@@ -102,7 +102,6 @@ if [ "$1" == "run" ]; then
                 break
             fi
         done
-        cd ..
         
         ./config/guard.sh $2
         exit 1

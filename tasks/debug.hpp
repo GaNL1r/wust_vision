@@ -31,6 +31,7 @@ struct DebugRune {
 };
 struct DebugLogs {
     std::vector<double> time_log;
+    std::vector<double> raw_yaw_log;
     std::vector<double> cmd_yaw_log;
     std::vector<double> cmd_pitch_log;
     std::vector<double> armor_dis_log;
@@ -51,6 +52,7 @@ struct DebugLogs {
 
     void clear() {
         time_log.clear();
+        raw_yaw_log.clear();
         cmd_yaw_log.clear();
         cmd_pitch_log.clear();
         armor_dis_log.clear();
@@ -115,6 +117,7 @@ void drawDebugRuneContent(
 void debuglog(
     const DebugArmor& dbg_armor,
     const DebugRune& dbg_rune,
+    const GimbalCmd& gimbal_cmd,
     const std::pair<double, double>& gimbal_py
 );
 void writeSerialLogToJson(const ReceiveAimINFO& aim);

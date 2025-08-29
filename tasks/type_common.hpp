@@ -1,4 +1,5 @@
 #pragma once
+#include "3rdparty/angles.h"
 #include "Eigen/Dense"
 #include <opencv2/opencv.hpp>
 #include <optional>
@@ -51,6 +52,7 @@ struct imgframe {
 };
 struct GimbalCmd {
     std::chrono::steady_clock::time_point timestamp;
+    float raw_yaw;
     float pitch = 0;
     float yaw = 0;
     float yaw_diff = 0;
@@ -199,8 +201,10 @@ struct AimTarget {
     double host_v_yaw = 0;
 
     double shoot_pitch = 0;
+    int idx = -1;
     bool is_big_armor = false;
     bool is_old = false;
+
     Eigen::Quaterniond ori;
     void predictSelf(double dt_sec) {
         if (!have_host)
@@ -216,7 +220,7 @@ struct AimTarget {
         pos = host_pos + R * rel_pos + host_vel * dt_sec;
     }
     double calYaw() const {
-        return std::atan2(pos.y(), pos.x());
+        return angles::normalize_angle(std::atan2(pos.y(), pos.x()));
     }
 
     double calRawPitch() const {

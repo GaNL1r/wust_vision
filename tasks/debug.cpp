@@ -828,7 +828,6 @@ void writeTargetLogToJson(const Target& target) {
     //                       { "y", target.acceleration_.y() },
     //                       { "z", target.acceleration_.z() } };
 
-    //j["yaw"] = target.yaw;
     j["v_yaw"] = target.v_yaw();
 
     std::ofstream file("/dev/shm/target_log.json");
@@ -876,6 +875,7 @@ void writeSerialLogToJson(const ReceiveAimINFO& aim) {
 void debuglog(
     const DebugArmor& dbg_armor,
     const DebugRune& dbg_rune,
+    const GimbalCmd& gimbal_cmd,
     const std::pair<double, double>& gimbal_py
 ) {
     static bool first_log = true;
@@ -888,7 +888,7 @@ void debuglog(
     static double last_ypd_p_ = 0.0;
     static double last_distance_ = 0.0;
     static DebugLogs log;
-
+    static GimbalCmd last_cmd_;
     if (first_log) {
         start_time = std::chrono::steady_clock::now();
         first_log = false;
@@ -944,11 +944,14 @@ void debuglog(
         }
     }
 
-    auto last_cmd = dbg_armor.gimbal_cmd;
-
     log.time_log.push_back(t);
-    log.cmd_yaw_log.push_back(last_cmd.yaw);
-    log.cmd_pitch_log.push_back(last_cmd.pitch);
+    log.raw_yaw_log.push_back(
+
+        gimbal_cmd.raw_yaw
+
+    );
+    log.cmd_yaw_log.push_back(gimbal_cmd.yaw);
+    log.cmd_pitch_log.push_back(last_cmd_.pitch);
     log.rune_obs_log.push_back(dbg_rune.obs_angle);
     log.rune_pre_log.push_back(dbg_rune.pre_angle);
     log.rune_v_log.push_back(dbg_rune.fitter_v);
@@ -962,9 +965,10 @@ void debuglog(
     log.gimbal_pitch_log.push_back(gimbal_py.first * 180.0 / M_PI);
     log.gimbal_yaw_log.push_back(gimbal_py.second * 180.0 / M_PI);
     log.target_v_yaw_log.push_back(target.v_yaw());
-    log.control_v_pitch_log.push_back(last_cmd.v_pitch);
-    log.control_v_yaw_log.push_back(last_cmd.v_yaw);
+    log.control_v_pitch_log.push_back(last_cmd_.v_pitch);
+    log.control_v_yaw_log.push_back(last_cmd_.v_yaw);
 
+    last_cmd_ = gimbal_cmd;
     // 控制长度不超过 1000
     auto trim = [](std::vector<double>& v) {
         if (v.size() > 1000)
@@ -972,6 +976,7 @@ void debuglog(
     };
 
     trim(log.time_log);
+    trim(log.raw_yaw_log);
     trim(log.cmd_yaw_log);
     trim(log.cmd_pitch_log);
     trim(log.rune_obs_log);
@@ -992,6 +997,7 @@ void debuglog(
     nlohmann::json j;
     {
         j["time"] = log.time_log;
+        j["raw_yaw"] = log.raw_yaw_log;
         j["yaw"] = log.cmd_yaw_log;
         j["pitch"] = log.cmd_pitch_log;
         j["armor_dis"] = log.armor_dis_log;

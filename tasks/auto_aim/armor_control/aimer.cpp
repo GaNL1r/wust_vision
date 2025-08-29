@@ -28,6 +28,76 @@ struct Aimer::Impl {
         }
         return aimTargetWholeCar(target, time, bullet_speed, aim_first);
     }
+    AimTarget aimTargetNoPre(const Target& target, const double bullet_speed, bool aim_first) {
+        Target tmp_target = target;
+
+        auto p_armors = tmp_target.getArmorPositions();
+        auto v_armors = tmp_target.getArmorVelocities();
+        int idx = selectBestArmor(tmp_target, aim_first);
+        if (idx < 0 || idx >= (int)p_armors.size() || p_armors[idx].norm() < 0.1) {
+            return returnDefaultAimTarget();
+        }
+
+        AimTarget aim_target;
+        aim_target.idx = idx;
+        aim_target.have_host = true;
+        aim_target.host_pos = tmp_target.position();
+        aim_target.host_vel = tmp_target.velocity();
+
+        aim_target.pos = p_armors[idx];
+        aim_target.vel = v_armors[idx];
+
+        aim_target.host_v_yaw = target.v_yaw();
+        double raw_pitch = aim_target.calRawPitch();
+        trajectory_compensator_->compensate(aim_target.pos, raw_pitch, bullet_speed);
+        aim_target.shoot_pitch = raw_pitch;
+        if (target.tracked_id_ == armor::ArmorNumber::BASE
+            || target.tracked_id_ == armor::ArmorNumber::NO1) {
+            aim_target.is_big_armor = true;
+        }
+        double tmp_yaw = target.getArmorYaws()[idx];
+        Eigen::Vector3d euler;
+        euler.x() = M_PI / 2;
+        euler.y() = target.tracked_id_ == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
+        euler.z() = tmp_yaw;
+        Eigen::Quaterniond ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
+        aim_target.ori = ori;
+        last_aim_target_=aim_target;
+        return aim_target;
+    }
+    AimTarget aimTargetNoPreWithIdx(const Target& target, const double bullet_speed, int idx) {
+        Target tmp_target = target;
+
+        auto p_armors = tmp_target.getArmorPositions();
+        auto v_armors = tmp_target.getArmorVelocities();
+
+        AimTarget aim_target;
+        aim_target.idx = idx;
+        aim_target.have_host = true;
+        aim_target.host_pos = tmp_target.position();
+        aim_target.host_vel = tmp_target.velocity();
+
+        aim_target.pos = p_armors[idx];
+        aim_target.vel = v_armors[idx];
+
+        aim_target.host_v_yaw = target.v_yaw();
+        double raw_pitch = aim_target.calRawPitch();
+        trajectory_compensator_->compensate(aim_target.pos, raw_pitch, bullet_speed);
+        aim_target.shoot_pitch = raw_pitch;
+        if (target.tracked_id_ == armor::ArmorNumber::BASE
+            || target.tracked_id_ == armor::ArmorNumber::NO1) {
+            aim_target.is_big_armor = true;
+        }
+        double tmp_yaw = target.getArmorYaws()[idx];
+        Eigen::Vector3d euler;
+        euler.x() = M_PI / 2;
+        euler.y() = target.tracked_id_ == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
+        euler.z() = tmp_yaw;
+        Eigen::Quaterniond ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
+        aim_target.ori = ori;
+        last_aim_target_=aim_target;
+        return aim_target;
+    }
 
     AimTarget aimTargetWholeCar(
         const Target& target,
@@ -85,6 +155,7 @@ struct Aimer::Impl {
             prev_fly_time = iter_fly_time;
         }
         AimTarget aim_target;
+        aim_target.idx = idx;
         aim_target.have_host = true;
         aim_target.host_pos = tmp_target.position();
         aim_target.host_vel = tmp_target.velocity();
@@ -110,6 +181,7 @@ struct Aimer::Impl {
         euler.z() = tmp_yaw;
         Eigen::Quaterniond ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
         aim_target.ori = ori;
+        last_aim_target_=aim_target;
         return aim_target;
     }
     AimTarget returnDefaultAimTarget() {
@@ -183,4 +255,16 @@ AimTarget Aimer::aimTarget(
     const AutoAimFsm& auto_aim_fsm
 ) {
     return _impl->aimTarget(armor_slover_target, time, bullet_speed, auto_aim_fsm);
+}
+AimTarget Aimer::aimTargetNoPre(const Target& target, const double bullet_speed, bool aim_first) {
+    return _impl->aimTargetNoPre(target, bullet_speed, aim_first);
+}
+int Aimer::selectBestArmor(const Target& target, bool aim_first) {
+    return _impl->selectBestArmor(target, aim_first);
+}
+double Aimer::getFlyingTime(const Eigen::Vector3d& target_position, const double bullet_speed) {
+    return _impl->trajectory_compensator_->getFlyingTime(target_position, bullet_speed);
+}
+AimTarget Aimer::aimTargetNoPreWithIdx(const Target& target, const double bullet_speed, int idx) {
+    return _impl->aimTargetNoPreWithIdx(target, bullet_speed, idx);
 }

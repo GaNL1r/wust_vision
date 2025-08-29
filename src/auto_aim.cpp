@@ -53,6 +53,8 @@ public:
         bool use_simplelog = config_["logger"]["use_simplelog"].as<bool>();
         initLogger(log_level_, log_path_, use_logcli, use_logfile, use_simplelog);
         bindConfig(config_binder_, { "max_infer_running" }, &max_infer_running_);
+        // bindConfig(config_binder_, {    "attack_mode"   }, &attack_mode_);
+        attack_mode_ = config_["attack_mode"].as<int>();
         gimbal2camera_roll_ = config_["tf"]["gimbal2camera_roll"].as<double>(0.0);
         gimbal2camera_pitch_ = config_["tf"]["gimbal2camera_pitch"].as<double>(0.0);
         gimbal2camera_yaw_ = config_["tf"]["gimbal2camera_yaw"].as<double>(0.0);
@@ -84,7 +86,7 @@ public:
 
         auto camera_info = std::make_pair(K.clone(), D.clone());
         camera_info_ = camera_info;
-        bindConfig(config_binder_, { "attack_mode" }, &attack_mode_);
+
         YAML::Node auto_aim_config = YAML::LoadFile(AUTO_AIM_CONFIG);
         auto_aim_config_binder_ = std::make_shared<ConfigBinder>(AUTO_AIM_CONFIG);
         auto_aim_ = std::make_unique<auto_aim::AutoAim>();
@@ -277,6 +279,7 @@ public:
         } catch (const std::exception& e) {
             std::cout << "auto_aim_solve error: " << e.what() << std::endl;
         }
+        last_cmd_ = cmd;
 
         SendRobotCmdData send_data;
         send_data.cmd_ID = ID_ROBOT_CMD;
@@ -341,7 +344,7 @@ public:
                     gimbal_py.first = last_att->pitch;
                     gimbal_py.second = last_att->yaw;
                 }
-                debuglog(dbg_armor, dbg_rune, gimbal_py);
+                debuglog(dbg_armor, dbg_rune, last_cmd_, gimbal_py);
                 config_binder_->reload(COMMON_CONFIG);
                 auto_aim_config_binder_->reload(AUTO_AIM_CONFIG);
             } catch (std::exception& e) {
@@ -368,6 +371,7 @@ public:
     YAML::Node config_;
     Eigen::Matrix3d R_camera2gimbal_;
     Eigen::Vector3d t_gimbal_to_camera_;
+    GimbalCmd last_cmd_;
     double gimbal2camera_roll_;
     double gimbal2camera_pitch_;
     double gimbal2camera_yaw_;

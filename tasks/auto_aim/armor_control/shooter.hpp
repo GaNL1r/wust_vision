@@ -14,6 +14,7 @@ public:
         const double controller_delay,
         const bool shoot_center
     );
+    GimbalCmd calYawPitch(const AimTarget& aim_target, const bool shoot_center);
     GimbalCmd returnDefaultCmd();
 
 private:

@@ -28,7 +28,8 @@ if(BUILD_WITH_ORT)
   list(APPEND BUILD_DEFINITIONS USE_ORT)
   list(APPEND BUILD_LIBS ${Ort_LIB})
 endif()
-
+add_subdirectory(armor_control/tinympc)
+list(APPEND BUILD_LIBS tinympcstatic)
 # ================== 创建目标库 ==================
 add_library(auto_aim OBJECT)
 
@@ -44,8 +45,9 @@ target_include_directories(auto_aim PRIVATE
 # ================== 公共源文件 ==================
 target_sources(auto_aim PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/auto_aim.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/aimer.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/shooter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/armor_control/aimer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/armor_control/shooter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/armor_control/planner.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/one_ca_tracker.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/one_tracker.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/tracker_manager.cpp

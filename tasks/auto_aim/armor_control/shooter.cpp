@@ -23,6 +23,14 @@ struct Shooter::Impl {
             }
         }
         manual_compensator_->updateMapFlow(entries);
+        last_cmd_.yaw = 0;
+    }
+    GimbalCmd calYawPitch(const AimTarget& aim_target, const bool shoot_center) {
+        if (shoot_center) {
+            return calShootCenter(aim_target, 0, 0, 0);
+        } else {
+            return calShootArmor(aim_target, 0, 0, 0);
+        }
     }
     GimbalCmd shoot(
         const AimTarget& aim_target,
@@ -58,23 +66,27 @@ struct Shooter::Impl {
             tmp_aim_target.calYaw(),
             tmp_aim_target.shoot_pitch
         );
-        fire_advice = tmp_aim_target.is_old ? false
-                                            : isOnTarget(
-                                                current_yaw,
-                                                current_pitch,
-                                                fire_yaw,
-                                                fire_pitch,
-                                                distance,
-                                                tmp_aim_target.is_big_armor
-                                            );
-        control_yaw = fire_yaw;
-        control_pitch = fire_pitch;
+        std::tie(control_yaw, control_pitch) = manual_compensator_->applyManualCompensator(
+            aim_target.distance(),
+            aim_target.pos[2],
+            aim_target.calYaw(),
+            aim_target.shoot_pitch
+        );
+        fire_advice = aim_target.is_old ? false
+                                        : isOnTarget(
+                                            current_yaw,
+                                            current_pitch,
+                                            fire_yaw,
+                                            fire_pitch,
+                                            distance,
+                                            aim_target.is_big_armor
+                                        );
         v_yaw = tmp_aim_target.calVYaw();
         v_pitch = tmp_aim_target.calVPitch();
         cmd.fire_advice = fire_advice;
         cmd.timestamp = std::chrono::steady_clock::now();
         cmd.distance = distance;
-        cmd.yaw = control_yaw * 180.0 / M_PI;
+        cmd.yaw = angles::normalize_angle(control_yaw) * 180.0 / M_PI;
         cmd.pitch = control_pitch * 180.0 / M_PI;
         cmd.yaw_diff = angles::normalize_angle(control_yaw - current_yaw) * 180.0 / M_PI;
         cmd.pitch_diff = (control_pitch - current_pitch) * 180.0 / M_PI;
@@ -106,15 +118,21 @@ struct Shooter::Impl {
             tmp_aim_target.calYaw(),
             tmp_aim_target.shoot_pitch
         );
-        fire_advice = tmp_aim_target.is_old ? false
-                                            : isOnTarget(
-                                                current_yaw,
-                                                current_pitch,
-                                                fire_yaw,
-                                                fire_pitch,
-                                                distance,
-                                                tmp_aim_target.is_big_armor
-                                            );
+        std::tie(fake_yaw, control_pitch) = manual_compensator_->applyManualCompensator(
+            aim_target.distance(),
+            aim_target.pos[2],
+            aim_target.calYaw(),
+            aim_target.shoot_pitch
+        );
+        fire_advice = aim_target.is_old ? false
+                                        : isOnTarget(
+                                            current_yaw,
+                                            current_pitch,
+                                            fire_yaw,
+                                            fire_pitch,
+                                            distance,
+                                            aim_target.is_big_armor
+                                        );
         std::tie(control_yaw, fake_pitch) = manual_compensator_->applyManualCompensator(
             distance,
             tmp_aim_target.pos[2],
@@ -122,14 +140,12 @@ struct Shooter::Impl {
             tmp_aim_target.shoot_pitch
         );
 
-        control_yaw = fire_yaw;
-        control_pitch = fire_pitch;
         v_yaw = tmp_aim_target.calHostVYaw();
         v_pitch = tmp_aim_target.calVPitch();
         cmd.fire_advice = fire_advice;
         cmd.timestamp = std::chrono::steady_clock::now();
         cmd.distance = distance;
-        cmd.yaw = control_yaw * 180.0 / M_PI;
+        cmd.yaw = angles::normalize_angle(control_yaw) * 180.0 / M_PI;
         cmd.pitch = control_pitch * 180.0 / M_PI;
         cmd.yaw_diff = angles::normalize_angle(control_yaw - current_yaw) * 180.0 / M_PI;
         cmd.pitch_diff = (control_pitch - current_pitch) * 180.0 / M_PI;
@@ -200,4 +216,7 @@ GimbalCmd Shooter::shoot(
 }
 GimbalCmd Shooter::returnDefaultCmd() {
     return _impl->returnDefaultCmd();
+}
+GimbalCmd Shooter::calYawPitch(const AimTarget& aim_target, const bool shoot_center) {
+    return _impl->calYawPitch(aim_target, shoot_center);
 }
