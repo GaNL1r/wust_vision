@@ -4,20 +4,18 @@
 #include <opencv2/opencv.hpp>
 #include <optional>
 #include <shared_mutex>
-#define ROOT_CONFIG "/home/hy/wust_vision/config/config_common.yaml"
-#define OPENVINO_CONFIG "/home/hy/wust_vision/config/detect_openvino.yaml"
-#define TENSORRT_CONFIG "/home/hy/wust_vision/config/detect_trt.yaml"
-#define NCNN_CONFIG "/home/hy/wust_vision/config/detect_ncnn.yaml"
-#define ONNXRUNTIME_CONFIG "/home/hy/wust_vision/config/detect_ort.yaml"
-#define OPENCV_CONFIG "/home/hy/wust_vision/config/detect_opencv.yaml"
-#define OMNI_CONFIG "/home/hy/wust_vision/config/omni_config.yaml"
-#define FUN_CONFIG "/home/hy/wust_vision/config/fun.yaml"
+#define ROOT_CONFIG "config/config_common.yaml"
+#define OPENVINO_CONFIG "config/detect_openvino.yaml"
+#define TENSORRT_CONFIG "config/detect_trt.yaml"
+#define NCNN_CONFIG "config/detect_ncnn.yaml"
+#define ONNXRUNTIME_CONFIG "config/detect_ort.yaml"
+#define OPENCV_CONFIG "config/detect_opencv.yaml"
+#define OMNI_CONFIG "config/omni_config.yaml"
+#define FUN_CONFIG "config/fun.yaml"
 
 struct CommonFrame {
     cv::Mat src_img;
     std::chrono::steady_clock::time_point timestamp;
-    Eigen::Matrix4d T_camera_to_odom;
-    Eigen::Vector3d v;
     int id;
     int detect_color;
 };
@@ -50,18 +48,7 @@ struct imgframe {
     cv::Mat img;
     std::chrono::steady_clock::time_point timestamp;
 };
-struct GimbalCmd {
-    std::chrono::steady_clock::time_point timestamp;
-    float raw_yaw;
-    float pitch = 0;
-    float yaw = 0;
-    float yaw_diff = 0;
-    float pitch_diff = 0;
-    float v_yaw = 0;
-    float v_pitch = 0;
-    float distance = -1;
-    bool fire_advice = false;
-};
+
 enum class AttackMode { ARMOR = 0, SMALL_RUNE, BIG_RUNE, UNKNOWN };
 inline AttackMode toAttackMode(int value) {
     switch (value) {
@@ -191,6 +178,7 @@ static std::vector<cv::Point3f> AIM_TARGET_BLOCK = {
 };
 
 struct AimTarget {
+    bool valid;
     Eigen::Vector3d pos = Eigen::Vector3d(0, 0, 0);
     Eigen::Vector3d vel = Eigen::Vector3d(0, 0, 0);
 
@@ -206,6 +194,7 @@ struct AimTarget {
     bool is_old = false;
 
     Eigen::Quaterniond ori;
+    std::vector<Eigen::Vector4d> armor_posandyaw;
     void predictSelf(double dt_sec) {
         if (!have_host)
             return;
@@ -320,4 +309,22 @@ struct AimTarget {
 
         return pts;
     }
+};
+struct GimbalCmd {
+    std::chrono::steady_clock::time_point timestamp;
+    float raw_yaw = 0;
+    float raw_pitch = 0;
+    float pitch = 0;
+    float yaw = 0;
+    float yaw_diff = 0;
+    float pitch_diff = 0;
+    float v_yaw = 0;
+    float v_pitch = 0;
+    float distance = -1;
+    bool fire_advice = false;
+    float enable_yaw_diff = 0;
+    float enable_pitch_diff = 0;
+    bool appera = false;
+    std::vector<Eigen::Vector4d> armor_posandyaw;
+    AimTarget aim_target;
 };

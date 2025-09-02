@@ -4,7 +4,8 @@ project(wust_vision LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_BUILD_TYPE "Debug")
+set(CMAKE_BUILD_TYPE "Release")
+message(STATUS "--------------------CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}--------------------")
 add_compile_options(-O3 -w)
 option(BUILD_WITH_TRT      "Enable TensorRT backend"   ON)
 option(BUILD_WITH_OPENVINO "Enable OpenVINO backend"   ON)
@@ -59,10 +60,10 @@ add_subdirectory(tasks/auto_buff)
 add_subdirectory(tasks)
 
 
-add_executable(test src/auto_aim.cpp)
+add_executable(standard src/auto_aim.cpp)
 
-target_include_directories(test PRIVATE ${WUST_VL_INCLUDE_DIRS} ${HikSDK_INCLUDE_DIR})
-target_link_libraries(test
+target_include_directories(standard PRIVATE ${WUST_VL_INCLUDE_DIRS} ${HikSDK_INCLUDE_DIR})
+target_link_libraries(standard
     $<TARGET_OBJECTS:auto_aim>
     ${WUST_AUTO_AIM_LIBS}
     $<TARGET_OBJECTS:auto_buff>
@@ -77,3 +78,66 @@ target_link_libraries(test
     ${HikSDK_LIB}
     fmt::fmt
 )
+
+# add_executable(fire test/check_fire.cpp)
+# target_include_directories(fire PRIVATE ${WUST_VL_INCLUDE_DIRS} ${HikSDK_INCLUDE_DIR})
+# target_link_libraries(fire
+#     ${WUST_VL_LIBS}
+#     ${OpenCV_LIBS}
+#     ${HikSDK_LIB}
+#     yaml-cpp
+#     X11
+# )
+
+
+add_subdirectory(ros2)
+find_package(ament_cmake QUIET)
+find_package(rclcpp QUIET)
+find_package(std_msgs QUIET)
+find_package(geometry_msgs QUIET)
+find_package(rosidl_typesupport_cpp QUIET)
+
+set(ROS2_FOUND FALSE)
+if(ament_cmake_FOUND AND rclcpp_FOUND AND std_msgs_FOUND AND rosidl_typesupport_cpp_FOUND AND geometry_msgs_FOUND)
+  set(ROS2_FOUND TRUE)
+endif()
+
+if(ROS2_FOUND)
+  message(STATUS "ROS2 environment found, compiling ROS2-related code.")
+  
+  add_executable(test_ros2 test/test_ros2.cpp)
+  target_link_libraries(test_ros2
+    ${OpenCV_LIBS}
+    ${WUST_VL_LIBS}
+    yaml-cpp
+    ${HikSDK_LIB}
+    fmt::fmt
+    toros2
+)
+    add_executable(sentry src/sentry.cpp)
+target_include_directories(sentry PRIVATE ${WUST_VL_INCLUDE_DIRS} ${HikSDK_INCLUDE_DIR})
+target_link_libraries(sentry
+    $<TARGET_OBJECTS:auto_aim>
+    ${WUST_AUTO_AIM_LIBS}
+    $<TARGET_OBJECTS:auto_buff>
+    ${WUST_AUTO_BUFF_LIBS}
+    tasks_common
+    ${OpenCV_LIBS}
+    ${CERES_LIBRARIES}
+    ${WUST_VL_LIBS}
+    yaml-cpp
+    TBB::tbb
+    ${G2O_LIBRARIES} g2o_solver_dense
+    ${HikSDK_LIB}
+    fmt::fmt
+    toros2
+)
+  ament_target_dependencies(test_ros2  rclcpp std_msgs geometry_msgs)
+
+  install(TARGETS
+    test_ros2
+    RUNTIME DESTINATION lib/${PROJECT_NAME}
+  )
+else()
+  message(WARNING "ROS2 not found, skipping ROS2 specific code.")
+endif()

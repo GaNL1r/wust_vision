@@ -69,17 +69,6 @@ void drawDebugArmorContent(
             cv::line(debug_img, pts[j], pts[next_indices[j]], color, 2);
         }
 
-        std::string yaw_info = fmt::format("Yaw: {:.2f}", armors.armors[i].yaw * 180.0 / M_PI);
-        cv::putText(
-            debug_img,
-            yaw_info,
-            pts[0] + cv::Point2f(0, -50),
-            cv::FONT_HERSHEY_SIMPLEX,
-            0.7,
-            cv::Scalar(0, 200, 200),
-            2
-        );
-
         auto armorName = [](armor::ArmorNumber num) {
             switch (num) {
                 case armor::ArmorNumber::SENTRY:
@@ -103,7 +92,7 @@ void drawDebugArmorContent(
             }
         };
 
-        std::string armor_str = armorName(armors.armors[i].number);
+        std::string armor_str = armorName(armor_objs[i].number);
         cv::putText(
             debug_img,
             armor_str,
@@ -846,7 +835,9 @@ void writeSerialLogToJson(const ReceiveAimINFO& aim) {
     j["yaw_vel"] = aim.yaw_vel;
     j["pitch_vel"] = aim.pitch_vel;
     j["roll_vel"] = aim.roll_vel;
-
+    j["v_x"] = aim.v_x;
+    j["v_y"] = aim.v_y;
+    j["v_z"] = aim.v_z;
     j["manual_reset_count"] = aim.manual_reset_count;
     j["bullet_speed"] = aim.bullet_speed;
     j["controller_delay"] = aim.controller_delay;
@@ -943,15 +934,17 @@ void debuglog(
             last_distance_ = armor_distance;
         }
     }
-
+    GimbalCmd i_use;
+    if (gimbal_cmd.appera) {
+        i_use = gimbal_cmd;
+    } else {
+        i_use = last_cmd_;
+    }
     log.time_log.push_back(t);
-    log.raw_yaw_log.push_back(
-
-        gimbal_cmd.raw_yaw
-
-    );
-    log.cmd_yaw_log.push_back(gimbal_cmd.yaw);
-    log.cmd_pitch_log.push_back(last_cmd_.pitch);
+    log.raw_yaw_log.push_back(i_use.raw_yaw);
+    log.raw_pitch_log.push_back(i_use.raw_pitch);
+    log.cmd_yaw_log.push_back(i_use.yaw);
+    log.cmd_pitch_log.push_back(i_use.pitch);
     log.rune_obs_log.push_back(dbg_rune.obs_angle);
     log.rune_pre_log.push_back(dbg_rune.pre_angle);
     log.rune_v_log.push_back(dbg_rune.fitter_v);
@@ -965,10 +958,14 @@ void debuglog(
     log.gimbal_pitch_log.push_back(gimbal_py.first * 180.0 / M_PI);
     log.gimbal_yaw_log.push_back(gimbal_py.second * 180.0 / M_PI);
     log.target_v_yaw_log.push_back(target.v_yaw());
-    log.control_v_pitch_log.push_back(last_cmd_.v_pitch);
-    log.control_v_yaw_log.push_back(last_cmd_.v_yaw);
+    log.control_v_pitch_log.push_back(i_use.v_pitch);
+    log.control_v_yaw_log.push_back(i_use.v_yaw);
+    log.yaw_diff_log.push_back(i_use.yaw_diff);
+    log.fire_log.push_back(i_use.fire_advice);
+    if (gimbal_cmd.appera) {
+        last_cmd_ = gimbal_cmd;
+    }
 
-    last_cmd_ = gimbal_cmd;
     // 控制长度不超过 1000
     auto trim = [](std::vector<double>& v) {
         if (v.size() > 1000)
@@ -977,6 +974,7 @@ void debuglog(
 
     trim(log.time_log);
     trim(log.raw_yaw_log);
+    trim(log.raw_pitch_log);
     trim(log.cmd_yaw_log);
     trim(log.cmd_pitch_log);
     trim(log.rune_obs_log);
@@ -994,10 +992,13 @@ void debuglog(
     trim(log.target_v_yaw_log);
     trim(log.control_v_pitch_log);
     trim(log.control_v_yaw_log);
+    trim(log.yaw_diff_log);
+    trim(log.fire_log);
     nlohmann::json j;
     {
         j["time"] = log.time_log;
         j["raw_yaw"] = log.raw_yaw_log;
+        j["raw_pitch"] = log.raw_pitch_log;
         j["yaw"] = log.cmd_yaw_log;
         j["pitch"] = log.cmd_pitch_log;
         j["armor_dis"] = log.armor_dis_log;
@@ -1015,6 +1016,8 @@ void debuglog(
         j["target_v_yaw"] = log.target_v_yaw_log;
         j["control_v_pitch"] = log.control_v_pitch_log;
         j["control_v_yaw"] = log.control_v_yaw_log;
+        j["yaw_diff"] = log.yaw_diff_log;
+        j["fire"] = log.fire_log;
     }
     std::ofstream file("/dev/shm/cmd_log.json");
     if (file.is_open()) {

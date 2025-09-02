@@ -18,8 +18,9 @@ struct AutoBuff::Impl {
         if (rune_detector_) {
             rune_detector_.reset();
         }
-        if (processing_thread_.joinable()) {
-            processing_thread_.join();
+        if (processing_thread_) {
+            processing_thread_->stop();
+            ThreadManager::instance().unregisterThread(processing_thread_->getName());
         }
     }
     bool init(
@@ -105,7 +106,11 @@ struct AutoBuff::Impl {
         return true;
     }
     void start() {
-        processing_thread_ = std::thread(&AutoBuff::Impl::processingLoop, this);
+        processing_thread_ = MonitoredThread::create(
+            "AutoBuffProcessingThread",
+            [this](std::shared_ptr<MonitoredThread> self) { this->processingLoop(self); }
+        );
+        ThreadManager::instance().registerThread(processing_thread_);
         run_flag_ = true;
     }
     void pushInput(CommonFrame& frame) {
@@ -125,7 +130,30 @@ struct AutoBuff::Impl {
                                  .timestamp = frame.timestamp,
                                  .is_big_rune = false,
                                  .is_lost = true };
-
+        Eigen::Vector3d v = Eigen::Vector3d::Zero();
+        Eigen::Matrix3d R_gimbal2odom = Eigen::Matrix3d::Identity();
+        if (shared_->motion_buffer) {
+            auto apply_motion = [&](const MotionBuffer::MotionStamped& att) {
+                v = Eigen::Vector3d(att.vx, att.vy, att.vz);
+                R_gimbal2odom = Eigen::AngleAxisd(att.yaw, Eigen::Vector3d::UnitZ())
+                    * Eigen::AngleAxisd(-att.pitch, Eigen::Vector3d::UnitY())
+                    * Eigen::AngleAxisd(att.roll, Eigen::Vector3d::UnitX());
+            };
+            auto delay = std::chrono::microseconds(
+                static_cast<int64_t>(std::round(shared_->communication_delay_μs))
+            );
+            auto t_query = rune_target.timestamp + delay;
+            if (auto past_att = shared_->motion_buffer->get_interpolated(t_query)) {
+                apply_motion(*past_att);
+            } else if (auto last_att = shared_->motion_buffer->get_last()) {
+                apply_motion(*last_att);
+            }
+        }
+        Eigen::Matrix4d T_camera_to_odom = utils::computeCameraToOdomTransform(
+            R_gimbal2odom,
+            R_camera2gimbal_,
+            t_gimbal_to_camera_
+        );
         cv::Mat debug_img;
         if (debug_mode_)
             debug_img = frame.src_img.clone();
@@ -144,7 +172,7 @@ struct AutoBuff::Impl {
             if (use_manual_r_ && manual_r_init_) {
                 mono_measure_tool::projectRTargetToImage(
                     T_r_,
-                    frame.T_camera_to_odom,
+                    T_camera_to_odom,
                     manual_r_box_,
                     camera_info_.first,
                     camera_info_.second
@@ -210,9 +238,10 @@ struct AutoBuff::Impl {
         }
 
         rune_target.id = frame.id;
-        rune_target.T_camera_to_odom = frame.T_camera_to_odom;
+
+        rune_target.T_camera_to_odom = T_camera_to_odom;
         rune_queue_->enqueue(rune_target);
-        T_camera_to_odom_ = frame.T_camera_to_odom;
+        T_camera_to_odom_ = T_camera_to_odom;
         if (debug_mode_) {
             std::lock_guard<std::mutex> lock(dbg_mutex_);
             auto_buff_debug_.src_img = { debug_img, rune_target.timestamp };
@@ -272,7 +301,6 @@ struct AutoBuff::Impl {
     }
     GimbalCmd solve() {
         GimbalCmd gimbal_cmd;
-
         try {
             gimbal_cmd = rune_solver_->solve();
         } catch (const std::exception& e) {
@@ -286,21 +314,26 @@ struct AutoBuff::Impl {
             std::lock_guard<std::mutex> lock(dbg_mutex_);
             auto_buff_debug_.gimbal_cmd = gimbal_cmd;
         }
+        timer_cout_++;
         return gimbal_cmd;
     }
-    void processingLoop() {
-        while (!run_flag_) {
+    void processingLoop(std::shared_ptr<MonitoredThread> self) {
+        while (!self->isAlive()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
-        while (run_flag_) {
+        while (self->isAlive()) {
+            if (!self->waitPoint())
+                break;
+            printStats();
             rune::Rune rune;
+
             if (!rune_queue_->try_dequeue(rune)) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 continue;
             }
+            self->heartbeat();
             runeTargetCallback(rune);
             tracker_finish_count_++;
-            printStats();
         }
     }
     void setDebug(bool debug) {
@@ -322,13 +355,14 @@ struct AutoBuff::Impl {
         auto elapsed = duration_cast<duration<double>>(now - last_stat_time_steady_);
         if (elapsed.count() >= 1.0) {
             WUST_INFO(logger_) << "Rec: " << img_recv_count_ << ", Det: " << detect_finish_count_
-                               << ", Fin: " << tracker_finish_count_
+                               << ", Fin: " << tracker_finish_count_ << ", Tc: " << timer_cout_
                                << ", Lat: " << auto_buff_debug_.latency_ms << "ms"
                                << ", Fire: " << fire_count_;
             img_recv_count_ = 0;
             detect_finish_count_ = 0;
             fire_count_ = 0;
             tracker_finish_count_ = 0;
+            timer_cout_ = 0;
             last_stat_time_steady_ = now;
         }
     }
@@ -338,11 +372,12 @@ struct AutoBuff::Impl {
     std::unique_ptr<RuneSolver> rune_solver_;
     std::string logger_ = "auto_buff";
     std::unique_ptr<OrderedQueue<rune::Rune>> rune_queue_;
-    std::thread processing_thread_;
+    std::shared_ptr<MonitoredThread> processing_thread_;
     bool run_flag_ = false;
     int detect_finish_count_ = 0;
     int img_recv_count_ = 0;
     int tracker_finish_count_ = 0;
+    int timer_cout_ = 0;
     int fire_count_;
     std::chrono::steady_clock::time_point last_rune_target_time_;
     std::chrono::steady_clock::time_point last_stat_time_steady_ = std::chrono::steady_clock::now();
@@ -501,5 +536,18 @@ GimbalCmd AutoBuff::solve() {
 }
 void AutoBuff::setShared(std::shared_ptr<AutoBuffShared> shared) {
     _impl->setShared(shared);
+}
+bool AutoBuff::isActive() {
+    if (_impl->processing_thread_->getStatus() == MonitoredThread::Status::Running) {
+        return true;
+    } else {
+        return false;
+    }
+}
+void AutoBuff::processingWait() {
+    _impl->processing_thread_->pause();
+}
+void AutoBuff::processingUp() {
+    _impl->processing_thread_->resume();
 }
 } // namespace auto_buff

@@ -1,5 +1,6 @@
 const chartMap = {
   raw_yaw: { label: "Raw Yaw" },
+  raw_pitch: { label: "Raw Pitch" },
   yaw: { label: "Yaw" },
   pitch: { label: "Pitch" },
   armor_dis: { label: "Armor Distance" },
@@ -17,6 +18,8 @@ const chartMap = {
   target_v_yaw: { label: "Target V Yaw" },
   control_v_yaw: { label: "Control V Yaw" },
   control_v_pitch: { label: "Control V Pitch" },
+  yaw_diff: { label: "Yaw Diff" },
+  fire: { label: "Fire" },
 };
 
 const mainCtx = document.getElementById("mainChart").getContext("2d");
@@ -31,6 +34,15 @@ const commonChartOptions = {
     axis: "x",
     intersect: false,
   },
+  elements: {
+    line: {
+      tension: 0, // 直线折角
+    },
+    point: {
+      radius: 0, // 折点不可见
+      hoverRadius: 0,
+    },
+  },
   plugins: {
     tooltip: {
       enabled: true,
@@ -42,18 +54,18 @@ const commonChartOptions = {
       titleFont: {
         size: 12,
         family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-        weight: 'normal',
+        weight: "normal",
         color: "#a0dce6",
       },
       bodyFont: {
         size: 16,
         family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-        weight: 'bold',
+        weight: "bold",
         color: "#00bcd4",
       },
       callbacks: {
-        title: context => `时间: ${context[0].label}`,
-        label: context => `值: ${context.parsed.y.toFixed(3)}`,
+        title: (context) => `时间: ${context[0].label}`,
+        label: (context) => `值: ${context.parsed.y.toFixed(3)}`,
       },
     },
     legend: {
@@ -71,7 +83,10 @@ const commonChartOptions = {
       title: { display: true, text: "Time" },
       ticks: {
         color: "#00bcd4",
-        font: { size: 14, family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" },
+        font: {
+          size: 14,
+          family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+        },
       },
       grid: { color: "#2f3241" },
     },
@@ -79,13 +94,15 @@ const commonChartOptions = {
       title: { display: true, text: "Value" },
       ticks: {
         color: "#00bcd4",
-        font: { size: 14, family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" },
+        font: {
+          size: 14,
+          family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+        },
       },
       grid: { color: "#2f3241" },
     },
   },
 };
-
 
 const mainChart = new Chart(mainCtx, {
   type: "line",
@@ -112,7 +129,9 @@ function updateMainRange() {
 function updateCharts() {
   const showMulti = document.getElementById("multiLineChart").checked;
   const selected = Array.from(
-    document.querySelectorAll('.chart-select-controls input[type="checkbox"]:checked')
+    document.querySelectorAll(
+      '.chart-select-controls input[type="checkbox"]:checked'
+    )
   )
     .map((cb) => cb.dataset.key)
     .filter(Boolean);
@@ -127,7 +146,6 @@ function updateCharts() {
       label: chartMap[key]?.label || key,
       data: [],
       fill: false,
-      tension: 0.2,
     }));
   } else {
     mainChart.data.datasets = [];
@@ -162,7 +180,13 @@ function updateCharts() {
       type: "line",
       data: {
         labels: [],
-        datasets: [{ label: chartMap[key]?.label || key, data: [], fill: false, tension: 0.2 }],
+        datasets: [
+          {
+            label: chartMap[key]?.label || key,
+            data: [],
+            fill: false,
+          },
+        ],
       },
       options: commonChartOptions,
     });
@@ -198,12 +222,32 @@ async function fetchDataAndUpdateCharts() {
         const key = keys[i];
         ds.data = json[key]?.slice(start) || [];
       });
+
+      // === 这里加自适应 margin ===
+      const allValues = mainChart.data.datasets.flatMap(ds => ds.data);
+      if (allValues.length > 0) {
+        const minVal = Math.min(...allValues);
+        const maxVal = Math.max(...allValues);
+        const padding = (maxVal - minVal) * 0.1 || 1; // 至少留1的余量
+        mainChart.options.scales.y.min = minVal - padding;
+        mainChart.options.scales.y.max = maxVal + padding;
+      }
       mainChart.update("none");
     }
 
     Object.entries(individualCharts).forEach(([key, ch]) => {
       ch.data.labels = slicedTime;
       ch.data.datasets[0].data = json[key]?.slice(start) || [];
+
+      // 每个子图也加 margin，避免线条贴边
+      const arr = ch.data.datasets[0].data;
+      if (arr.length > 0) {
+        const minVal = Math.min(...arr);
+        const maxVal = Math.max(...arr);
+        const padding = (maxVal - minVal) * 0.1 || 1;
+        ch.options.scales.y.min = minVal - padding;
+        ch.options.scales.y.max = maxVal + padding;
+      }
       ch.update("none");
     });
   } catch (e) {

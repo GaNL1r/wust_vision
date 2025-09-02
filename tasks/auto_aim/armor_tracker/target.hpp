@@ -104,7 +104,13 @@ public:
         auto v_yaw_ok = std::abs(target_state_[7]) < 30.0;
         Eigen::Vector3d vel = velocity();
         auto v_xyz_ok = std::abs(vel.norm()) < 10.0;
-        if (r_ok && l_ok && v_xyz_ok && v_yaw_ok)
+        bool output_ok = true;
+        if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
+            if (std::abs(target_state_[7]) > 2.0) {
+                output_ok = false;
+            }
+        }
+        if (r_ok && l_ok && v_xyz_ok && v_yaw_ok && output_ok)
             return false;
 
         return true;

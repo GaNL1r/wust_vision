@@ -13,6 +13,9 @@ struct AutoAimShared {
     std::shared_ptr<MotionBuffer> motion_buffer;
     double bullet_speed;
     double controller_delay;
+    Eigen::Matrix3d R_camera2gimbal;
+    Eigen::Vector3d t_gimbal_to_camera;
+    double communication_delay_μs;
     AutoAimShared(std::shared_ptr<MotionBuffer> mb) {
         motion_buffer = mb;
     }
@@ -33,8 +36,11 @@ public:
     void pushInput(CommonFrame& frame);
     void setDebug(bool debug);
     DebugArmor getDebugFrame();
-    GimbalCmd solve();
+    GimbalCmd solve(double dt_ms);
     void setShared(std::shared_ptr<AutoAimShared> shared);
+    bool isActive();
+    void processingWait();
+    void processingUp();
     struct Impl;
     std::unique_ptr<Impl> _impl;
 };

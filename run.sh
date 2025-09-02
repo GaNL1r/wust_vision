@@ -70,12 +70,7 @@ echo -e "${blue}        $total${reset}"
 
 # Only build
 if [ "$1" == "build" ] || [ "$1" == "rebuild" ]; then
-    echo -e "${yellow}\n<--- Only building and copying executable --->${reset}"
-    cp ./wust_vision /usr/local/bin/
-    if [ $? -ne 0 ]; then
-        echo -e "${red}\n--- Failed to copy wust_vision to /usr/local/bin ---${reset}"
-        exit 1
-    fi
+    echo -e "${yellow}\n<--- Only building --->${reset}"
     exit 0
 fi
 
@@ -106,11 +101,8 @@ if [ "$1" == "run" ]; then
         ./config/guard.sh $2
         exit 1
     fi
-elif [ "$1" == "cal" ]; then
-    echo -e "${yellow}\n<--- Running camera_calibrator --->${reset}"
-    ./camera_calibrator
 else
-    echo -e "${red}\n--- Invalid argument: Please specify 'run', 'build', 'cal' or 'rebuild' ---${reset}"
+    echo -e "${red}\n--- Invalid argument: Please specify 'run', 'build', or 'rebuild' ---${reset}"
     exit 1
 fi
 

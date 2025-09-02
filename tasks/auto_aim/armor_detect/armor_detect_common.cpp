@@ -231,6 +231,13 @@ std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
 ) {
     std::vector<armor::ArmorObject> armors;
     std::mutex armors_mutex;
+    if (!src_img.data) {
+        std::cout << "img data nullptr" << std::endl;
+        return armors;
+    }
+    if (src_img.empty()) {
+        return armors;
+    }
 
     std::for_each(std::execution::par, objs_result.begin(), objs_result.end(), [&](auto& armor_in) {
         armor::ArmorObject armor = armor_in;
@@ -242,11 +249,15 @@ std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
 
         try {
             bool ok = false;
+            if (!src_img.data) {
+                std::cout << "img data nullptr" << std::endl;
+                return;
+            }
             if (src_img.empty()) {
                 return;
             }
             try {
-                ok = extractNetImage(src_img.clone(), armor); // 可能崩溃的函数
+                ok = extractNetImage(src_img, armor); // 可能崩溃的函数
             } catch (const cv::Exception& e) {
                 std::cerr << "[detectNet] OpenCV exception in extractNetImage: " << e.what()
                           << std::endl;

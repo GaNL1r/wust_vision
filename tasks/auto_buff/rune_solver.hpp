@@ -99,7 +99,7 @@ public:
     }
     // Solvers
     std::unique_ptr<PnPSolver> pnp_solver_;
-    std::unique_ptr<TrajectoryCompensator> trajectory_compensator_;
+    std::shared_ptr<TrajectoryCompensator> trajectory_compensator_;
     std::unique_ptr<CurveFitter> curve_fitter_;
 
     std::unique_ptr<ypdrune_motion_model::RuneCenterEKF> ekf_ypd_;

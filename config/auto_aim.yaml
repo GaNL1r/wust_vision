@@ -3,33 +3,31 @@ max_detect_armors: 11
 use_ba: true
 
 armor_optimize:
-  max_iter_R: 3000
+  max_iter_R: 300
   max_iter_t: 1000
-  step_R: 300
+  step_R: 30
   step_t: 100
   min_error_R: 0.7
   min_error_t: 0.5
   distance_fix_a2: 0.00
 
 armor_tracker:
-  lost_time_thres: 0.9
-  tracking_thres: 5
-  max_yaw_diff_deg: 70.0
-  max_dis_diff: 0.55
-  max_z_diff: 0.2
+  lost_time_thres: 1.0
+  tracking_thres: 10
+  max_yaw_diff_deg: 80.0
   qxyz_common: 100.0
-  qyaw_common: 300.0
+  qyaw_common: 400.0
   qxyz_output: 10.0
   qyaw_output: 0.1
 
 auto_aim_fsm:
-  thres_up_1: 1.5
-  thres_down_1: 0.5
-  thres_up_2: 7.0
-  thres_down_2: 6.0
+  thres_up_1: 3.5
+  thres_down_1: 2.0
+  thres_up_2: 16.5
+  thres_down_2: 15.0
 
 planner:
-  max_yaw_acc: 50
+  max_yaw_acc: 40
   Q_yaw: [9e6, 0]
   R_yaw: [1]
 
@@ -38,28 +36,28 @@ planner:
   R_pitch: [1]
 
 aimer:
-  compenstator_type: ideal
-  gravity: 9.8
-  iteration_times: 20
-  prediction_delay: 0.0
+  prediction_delay: 0.00
   comming_angle: 60
   leaving_angle: 20
 
 shooter:
-  small_shooting_range_h: 0.12
-  small_shooting_range_w: 0.09
-  big_shooting_range_h: 0.2
-  big_shooting_range_w: 0.15
+  shooting_range_h: 0.01
+  shooting_range_w: 0.01
   trajectory_offset:
-    - d_max: 4
+    - d_max: 9
       d_min: 0
-      h_max: 0.4
+      h_max: 1.4
       h_min: -1
-      pitch_off: -1.5
-      yaw_off: 0
-    - d_max: 7
-      d_min: 4
+      pitch_off: -0.0
+      yaw_off: -0.0
+    - d_max: 10
+      d_min: 9
       h_max: 0.4
       h_min: -1
       pitch_off: -1.3
       yaw_off: 0
+
+trajectory_compensator:
+  compenstator_type: ideal
+  gravity: 9.8
+  iteration_times: 20

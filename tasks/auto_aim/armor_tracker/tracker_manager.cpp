@@ -21,8 +21,6 @@ TrackerManager::TrackerManager(
     double tracking_thres = config_["armor_tracker"]["tracking_thres"].as<int>(5);
     double lost_time_thres = config_["armor_tracker"]["lost_time_thres"].as<double>();
     double max_yaw_diff_deg = config_["armor_tracker"]["max_yaw_diff_deg"].as<double>(80.0);
-    double max_dis_diff = config_["armor_tracker"]["max_dis_diff"].as<double>(0.5);
-    double max_z_diff = config_["armor_tracker"]["max_z_diff"].as<double>(0.2);
     TargetConfig target_config;
     target_config.qxyz_common = config_["armor_tracker"]["qxyz_common"].as<double>();
     target_config.qyaw_common = config_["armor_tracker"]["qyaw_common"].as<double>();
@@ -32,8 +30,6 @@ TrackerManager::TrackerManager(
         tracking_thres,
         lost_time_thres,
         max_yaw_diff_deg,
-        max_dis_diff,
-        max_z_diff,
         target_config
     );
 }

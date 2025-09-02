@@ -124,7 +124,7 @@ std::vector<armor::Armor> ArmorPoseEstimator::extractArmorPoses(
             Eigen::Matrix3d R0 = R;
             R = ba_solver_
                     ->solveBa_R(a, t, R, R_imu_cam, type, camera_intrinsic, camera_distortion);
-            t = ba_solver_->solveBa_t(a, t, R0, R_imu_cam, type);
+            //t = ba_solver_->solveBa_t(a, t, R0, R_imu_cam, type);
         }
 
         armors_msg.push_back(makeArmorMsg(a, t, R));

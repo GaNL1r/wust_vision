@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.14)
-project(auto_aim LANGUAGES CXX CUDA)
+project(auto_aim LANGUAGES CXX )
 
 
-find_package(OpenCV 4.11 REQUIRED)
+find_package(OpenCV  REQUIRED)
 find_package(Eigen3      REQUIRED)
 find_package(fmt         REQUIRED)
 find_package(yaml-cpp    REQUIRED)
@@ -10,7 +10,7 @@ find_package(G2O         REQUIRED)
 find_package(OpenGL      REQUIRED)
 
 
-set(BUILD_DEFINITIONS "")
+set(BUILD_DEFINITIONS "Release")
 
 if(BUILD_WITH_OPENVINO)
   list(APPEND BUILD_DEFINITIONS USE_OPENVINO)

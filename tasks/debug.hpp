@@ -32,6 +32,7 @@ struct DebugRune {
 struct DebugLogs {
     std::vector<double> time_log;
     std::vector<double> raw_yaw_log;
+    std::vector<double> raw_pitch_log;
     std::vector<double> cmd_yaw_log;
     std::vector<double> cmd_pitch_log;
     std::vector<double> armor_dis_log;
@@ -49,10 +50,12 @@ struct DebugLogs {
     std::vector<double> target_v_yaw_log;
     std::vector<double> control_v_yaw_log;
     std::vector<double> control_v_pitch_log;
-
+    std::vector<double> yaw_diff_log;
+    std::vector<double> fire_log;
     void clear() {
         time_log.clear();
         raw_yaw_log.clear();
+        raw_pitch_log.clear();
         cmd_yaw_log.clear();
         cmd_pitch_log.clear();
         armor_dis_log.clear();
@@ -69,6 +72,8 @@ struct DebugLogs {
         gimbal_pitch_log.clear();
         target_v_yaw_log.clear();
         control_v_yaw_log.clear();
+        yaw_diff_log.clear();
+        fire_log.clear();
     }
 };
 

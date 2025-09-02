@@ -10,7 +10,7 @@ export CUDA_HOME=/usr/local/cuda-11.8
 export PATH=$CUDA_HOME/bin:$PATH
 export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=/home/hy/onnxruntime-linux-x64-gpu-1.22.0/lib:$LD_LIBRARY_PATH
-
+source /opt/ros/humble/setup.bash
 blue="\033[1;34m"
 yellow="\033[1;33m"
 reset="\033[0m"

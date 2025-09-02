@@ -1,52 +1,16 @@
 #8mm
-# image_width: 1440
-# image_height: 1080
-# camera_name: narrow_stereo
-# camera_matrix:
-#   rows: 3
-#   cols: 3
-#   data: [2416.70916, 0., 726.72893, 0., 2411.11681, 552.14186, 0., 0., 1.]
-# distortion_model: plumb_bob
-# distortion_coefficients:
-#   rows: 1
-#   cols: 5
-#   data: [-0.031688, 0.018257, -0.000255, -0.000736, 0.000000]
-# rectification_matrix:
-#   rows: 3
-#   cols: 3
-#   data: [1., 0., 0., 0., 1., 0., 0., 0., 1.]
-# projection_matrix:
-#   rows: 3
-#   cols: 4
-#   data:
-#     [
-#       2410.26838,
-#       0.,
-#       726.28814,
-#       0.,
-#       0.,
-#       2407.41429,
-#       552.08692,
-#       0.,
-#       0.,
-#       0.,
-#       1.,
-#       0.,
-#     ]
-#6mm
-
 image_width: 1440
 image_height: 1080
 camera_name: narrow_stereo
 camera_matrix:
   rows: 3
   cols: 3
-  data: [1815.35593, 0., 757.44026, 0., 1812.54923, 540.84684, 0., 0., 1.]
+  data: [2409.65686, 0., 697.53936, 0., 2409.7232, 542.54474, 0., 0., 1.]
 distortion_model: plumb_bob
 distortion_coefficients:
   rows: 1
   cols: 5
-  data: [-0.070270, -0.004536, -0.000523, -0.000291, 0.000000]
+  data: [-0.035576, 0.087575, -0.001803, -0.000411, 0.000000]
 rectification_matrix:
   rows: 3
   cols: 3
@@ -56,16 +20,52 @@ projection_matrix:
   cols: 4
   data:
     [
-      1794.52272,
+      2404.01558,
       0.,
-      758.08426,
+      697.19028,
       0.,
       0.,
-      1801.02279,
-      540.60538,
+      2405.94847,
+      541.89553,
       0.,
       0.,
       0.,
       1.,
       0.,
     ]
+#6mm
+
+# image_width: 1440
+# image_height: 1080
+# camera_name: narrow_stereo
+# camera_matrix:
+#   rows: 3
+#   cols: 3
+#   data: [1815.35593, 0., 757.44026, 0., 1812.54923, 540.84684, 0., 0., 1.]
+# distortion_model: plumb_bob
+# distortion_coefficients:
+#   rows: 1
+#   cols: 5
+#   data: [-0.070270, -0.004536, -0.000523, -0.000291, 0.000000]
+# rectification_matrix:
+#   rows: 3
+#   cols: 3
+#   data: [1., 0., 0., 0., 1., 0., 0., 0., 1.]
+# projection_matrix:
+#   rows: 3
+#   cols: 4
+#   data:
+#     [
+#       1794.52272,
+#       0.,
+#       758.08426,
+#       0.,
+#       0.,
+#       1801.02279,
+#       540.60538,
+#       0.,
+#       0.,
+#       0.,
+#       1.,
+#       0.,
+#     ]

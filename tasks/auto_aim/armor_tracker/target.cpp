@@ -25,7 +25,7 @@ Target::Target(
         // clang-format off
         r <<4e-3, 0, 0, 0,
                 0, 4e-3 , 0, 0,
-                0, 0, log(std::abs(z[2]) + 1) / 200 + 9e-2, 0,//pnp得到的distance的误差与distance的平方正相关
+                0, 0, log(std::abs(z[2]) + 1) / 200 + 9e-2, 0,
                 0, 0, 0, log(std::abs(delta_angle) + 1) + 1;//相机系下yaw正对误差大
         // clang-format on
         return r;
@@ -120,7 +120,6 @@ void Target::predict(double dt, Eigen::Vector3d self_v) {
     };
 
     esekf_ypd_.setUpdateQ(yu_qv2);
-    Eigen::VectorXd x2 = esekf_ypd_.predict();
 
     target_state_ = esekf_ypd_.predict();
 }

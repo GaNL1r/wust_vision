@@ -1,5 +1,6 @@
-#include "tasks/auto_aim/auto_aim.hpp"
 #include "3rdparty/backward-cpp/backward.hpp"
+#include "ros2/ros2.hpp"
+#include "tasks/auto_aim/auto_aim.hpp"
 #include "tasks/auto_buff/auto_buff.hpp"
 #include "tasks/utils.hpp"
 #include "wust_vl/common/drivers/serial_driver.hpp"
@@ -10,6 +11,7 @@
 #define CAMERA_CONFIG "config/camera.yaml"
 #define AUTO_AIM_CONFIG "config/auto_aim.yaml"
 #define AUTO_BUFF_CONFIG "config/auto_buff.yaml"
+
 namespace backward {
 backward::SignalHandling sh;
 }
@@ -154,6 +156,7 @@ public:
                 WUST_ERROR("serial") << "serial error: " << ec.message();
             });
         }
+        ros2_ = std::make_unique<Ros2>(std::bind(&vision::TwistCb, this, std::placeholders::_1));
 
         timer_ = std::make_unique<Timer>();
         detect_color_ = config_["detect_color"].as<int>(0);
@@ -277,7 +280,7 @@ public:
     }
     void timerCallback(double dt_ms) {
         static Averager<double> yaw_avg(5);
-        static Averager<double> pitch_avg(20);
+        static Averager<double> pitch_avg(5);
         static double last_yaw = 0.0;
         static double last_pitch = 0.0;
 
@@ -366,7 +369,22 @@ public:
             debug_thread_ = std::thread([this]() { this->debugThread(); });
         }
     }
-
+    void TwistCb(const geometry_msgs::msg::Twist::SharedPtr msg) {
+        NavRobotCmdData send_data;
+        send_data.cmd_ID = ID_NAV_CMD;
+        send_data.check = true;
+        send_data.time_stamp =
+            static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                                      time_utils::now().time_since_epoch()
+            )
+                                      .count());
+        send_data.vx = msg->linear.x;
+        send_data.vy = msg->linear.y;
+        send_data.wz = msg->angular.z;
+        if (serial_) {
+            serial_->write(std::move(toVector(send_data)));
+        }
+    }
     std::thread debug_thread_;
     void debugThread() {
         using namespace std::chrono;
@@ -411,6 +429,7 @@ public:
         }
     }
     std::unique_ptr<ThreadPool> thread_pool_;
+    std::unique_ptr<Ros2> ros2_;
     std::unique_ptr<auto_aim::AutoAim> auto_aim_;
     std::unique_ptr<auto_buff::AutoBuff> auto_buff_;
     std::unique_ptr<wust_vl_video::Camera> camera_;

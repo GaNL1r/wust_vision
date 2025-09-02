@@ -3,15 +3,11 @@ TrackerV3::TrackerV3(
     int tracking_thres,
     double lost_dt,
     double max_yaw_diff_deg,
-    double max_dis_diff,
-    double max_z_diff,
     const TargetConfig& target_config
 ):
     tracking_thres_(tracking_thres),
     lost_dt_(lost_dt),
     max_yaw_diff_deg_(max_yaw_diff_deg),
-    max_dis_diff_(max_dis_diff),
-    max_z_diff_(max_z_diff),
     target_config_(target_config) {
     tracker_state = LOST;
     target_ = Target();
@@ -24,14 +20,16 @@ Target TrackerV3::track(const armor::Armors& armors_msg) {
     armors = armors_msg;
     std::erase_if(armors.armors, [this](const armor::Armor& a) {
         double center_yaw = std::atan2(target_.position().y(), target_.position().x());
-        double pos_diff = std::abs((a.target_pos - target_.position()).norm());
+        double pos_diff = std::abs(((a.target_pos).norm() - (target_.position()).norm()));
         double z_diff = std::abs(a.target_pos.z() - target_.position().z());
-        return std::abs(
-                   angles::normalize_angle(orientationToYaw(a.target_ori, center_yaw) - center_yaw)
-               )
-            > (max_yaw_diff_deg_ * M_PI / 180.0)
-            && target_.is_inited && tracker_state != LOST && tracker_state != DETECTING
-            && pos_diff < max_dis_diff_ && z_diff < max_z_diff_;
+        bool state_check =
+            target_.is_inited && (tracker_state != LOST && tracker_state != DETECTING);
+        bool pose_check =
+            std::abs(
+                angles::normalize_angle(orientationToYaw(a.target_ori, center_yaw) - center_yaw)
+            )
+            > (max_yaw_diff_deg_ * M_PI / 180.0);
+        return state_check && pose_check;
     });
 
     std::sort(

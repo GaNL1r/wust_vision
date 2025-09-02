@@ -31,7 +31,7 @@ const uint8_t ID_AIM_INFO = 0X02;
 
 // Send
 const uint8_t ID_ROBOT_CMD = 0x01;
-
+const uint8_t ID_NAV_CMD = 0x02;
 struct HeaderFrame {
     uint8_t sof; // 数据帧起始字节，固定值为 0x5A
     uint8_t len; // 数据段长度
@@ -60,7 +60,6 @@ struct ReceiveAimINFO {
 
     uint8_t manual_reset_count;
     uint8_t detect_color; // 0 red 1 blue
-    uint16_t checksum;
 
 } __attribute__((packed));
 // IMU 数据包
@@ -95,14 +94,29 @@ struct SendRobotCmdData {
 
     uint8_t appear;
     uint8_t fire;
+
     float yaw_diff;
     float pitch_diff;
+
     float v_yaw;
     float v_pitch;
 
     uint8_t detect_color; // 0 red 1 blue
+
+    float enable_yaw_diff;
+    float
+        enable_pitch_diff; //计算当前yaw pitch 与本包次发送yaw pitch的差绝对值小于enable（角度） 且 fire ==true ，开火
 } __attribute__((packed));
 
+struct NavRobotCmdData {
+    uint8_t cmd_ID; //命令码
+    uint32_t time_stamp;
+    uint8_t check;
+    float vx;
+    float vy;
+    float wz;
+
+} __attribute__((packed));
 template<typename T>
 inline T fromVector(const std::vector<uint8_t>& data) {
     T packet {};

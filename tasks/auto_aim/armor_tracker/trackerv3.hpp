@@ -7,8 +7,6 @@ public:
         int tracking_thres,
         double lost_dt,
         double max_yaw_diff_deg,
-        double max_dis_diff,
-        double max_z_diff,
         const TargetConfig& target_config
     );
     Target track(const armor::Armors& armors_msg);
@@ -26,8 +24,6 @@ public:
     int lost_count_ = 0;
     double lost_dt_;
     double max_yaw_diff_deg_;
-    double max_dis_diff_;
-    double max_z_diff_;
     Target target_;
     std::chrono::steady_clock::time_point last_time_;
     TargetConfig target_config_;

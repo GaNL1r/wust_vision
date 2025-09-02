@@ -1,5 +1,5 @@
 max_infer_running: 6
-detect_color: 1
+detect_color: 0
 attack_mode: 0
 debug_mode: true
 
@@ -7,12 +7,12 @@ tf:
   gimbal2camera_pitch: 0
   gimbal2camera_roll: 0
   gimbal2camera_x: 0.07
-  gimbal2camera_y: 0.05
-  gimbal2camera_yaw: 0.0
+  gimbal2camera_y: 0.00
+  gimbal2camera_yaw: -0.0
   gimbal2camera_z: 0.0
 control:
-  control_rate: 1000
-  communication_delay_us: 1000
+  control_rate: 200
+  communication_delay_us: 1100
   device_name: /dev/ttyACM_RMc
   use_nav: false
   use_serial: true
@@ -22,3 +22,6 @@ logger:
   use_logcli: true
   use_logfile: true
   use_simplelog: true
+shoot:
+  bullet_speed: 18.0
+  controller_delay: 0.00
