@@ -35,6 +35,7 @@ public:
     int last_id;
     bool is_inited = false;
     bool is_tracking = false;
+    bool is_temp_lost_ = false;
     std::chrono::steady_clock::time_point last_t_;
     std::chrono::steady_clock::time_point timestamp_;
     std::vector<Eigen::Vector4d> getArmorPosAndYaw() const;
@@ -44,9 +45,11 @@ public:
     TargetConfig target_config_;
     void predict(
         std::chrono::steady_clock::time_point t,
-        Eigen::Vector3d self_v = Eigen::Vector3d::Zero()
+        Eigen::Vector3d self_v = Eigen::Vector3d::Zero(),
+        bool use_lin_pre = true
     );
-    void predict(double dt, Eigen::Vector3d self_v = Eigen::Vector3d::Zero());
+    void
+    predict(double dt, Eigen::Vector3d self_v = Eigen::Vector3d::Zero(), bool use_lin_pre = true);
     void update(const armor::Armor& armor);
 
     double orientationToYaw(const Eigen::Quaterniond& q) noexcept {

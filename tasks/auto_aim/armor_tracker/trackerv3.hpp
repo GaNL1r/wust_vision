@@ -7,6 +7,7 @@ public:
         int tracking_thres,
         double lost_dt,
         double max_yaw_diff_deg,
+        double max_dis_diff,
         const TargetConfig& target_config
     );
     Target track(const armor::Armors& armors_msg);
@@ -24,10 +25,12 @@ public:
     int lost_count_ = 0;
     double lost_dt_;
     double max_yaw_diff_deg_;
-
+    double max_dis_diff_;
+    int is_none_purple_count_ = 0;
     Target target_;
     std::chrono::steady_clock::time_point last_time_;
     TargetConfig target_config_;
+
     double orientationToYaw(const Eigen::Quaterniond& q, double from) noexcept {
         double roll, pitch, yaw;
         Eigen::Vector3d euler = utils::quatToEuler(q, utils::EulerOrder::ZYX, false);

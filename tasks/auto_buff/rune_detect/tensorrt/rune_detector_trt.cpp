@@ -54,13 +54,13 @@ RuneDetectorTrt::RuneDetectorTrt(
     trt_net_ = std::make_unique<ml_net::TensorRTNet>();
     ml_net::TensorRTNet::Params trt_params;
     trt_params.model_path = model_path_;
-    trt_params.input_h= rune_infer_->getInputH();
-    trt_params.input_w =rune_infer_->getInputW();
+    trt_params.input_h = rune_infer_->getInputH();
+    trt_params.input_w = rune_infer_->getInputW();
     trt_net_->init(trt_params);
     auto input_output_dims = trt_net_->getInputOutputDims();
     input_dims_ = std::get<0>(input_output_dims);
     output_dims_ = std::get<1>(input_output_dims);
-   
+
     AdaptiveResourcePool<Infer>::Params pool_params;
     pool_params.resource_initializer = [=]() {
         std::vector<std::unique_ptr<Infer>> infers;

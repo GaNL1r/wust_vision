@@ -335,8 +335,8 @@ public:
         // send_data.yaw_diff = cmd.yaw_diff;
         send_data.v_pitch = cmd.v_pitch;
         send_data.v_yaw = cmd.v_yaw;
-        send_data.target_yaw = cmd.target_yaw;
-        send_data.target_pitch = cmd.target_pitch;
+        // send_data.target_yaw = cmd.target_yaw;
+        // send_data.target_pitch = cmd.target_pitch;
         send_data.enable_pitch_diff = cmd.enable_pitch_diff;
         send_data.enable_yaw_diff = cmd.enable_yaw_diff;
 
@@ -411,8 +411,8 @@ public:
     std::unique_ptr<auto_aim::AutoAim> auto_aim_;
     std::unique_ptr<auto_buff::AutoBuff> auto_buff_;
     std::unique_ptr<wust_vl_video::Camera> camera_;
-    std::shared_ptr<SerialDriver> serial_;
     std::unique_ptr<Timer> timer_;
+    std::shared_ptr<SerialDriver> serial_;
     std::shared_ptr<auto_aim::AutoAimShared> auto_aim_shared_;
     std::shared_ptr<auto_buff::AutoBuffShared> auto_buff_shared_;
     std::shared_ptr<MotionBuffer> motion_buffer_;

@@ -65,44 +65,67 @@ Target::Target(
     timestamp_ = a.timestamp;
     is_inited = true;
 }
-void Target::predict(std::chrono::steady_clock::time_point t, Eigen::Vector3d self_v) {
+void Target::predict(
+    std::chrono::steady_clock::time_point t,
+    Eigen::Vector3d self_v,
+    bool use_lin_pre
+) {
     double dt = time_utils::durationSec(last_t_, t);
-    predict(dt, self_v);
+
+    predict(dt, self_v, use_lin_pre);
+
     last_t_ = t;
 }
-void Target::predict(double dt, Eigen::Vector3d self_v) {
-    if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
-        esekf_ypd_.setPredictFunc(ypdv2armor_motion_model::Predict {
-            dt,
-            ypdv2armor_motion_model::MotionModel::CONSTANT_ROTATION,
-            self_v.x(),
-            self_v.y(),
-            self_v.z() });
+void Target::predict(double dt, Eigen::Vector3d self_v, bool use_lin_pre) {
+    if (use_lin_pre) {
+        double r = target_state_[8];
+        double l = target_state_[9];
+        double h = target_state_[10];
+        auto pos = position();
+        auto vel = velocity();
+        pos += vel * dt;
+        double yaw = target_state_[6];
+        double v_yaw = target_state_[7];
+        yaw += v_yaw * dt;
+        target_state_ = Eigen::VectorXd::Zero(ypdv2armor_motion_model::X_N);
+        target_state_ << pos.x(), vel.x(), pos.y(), vel.y(), pos.z(), vel.z(), yaw, v_yaw, r, l, h;
+        esekf_ypd_.setState(target_state_);
     } else {
-        esekf_ypd_.setPredictFunc(ypdv2armor_motion_model::Predict {
-            dt,
-            ypdv2armor_motion_model::MotionModel::CONSTANT_VEL_ROT,
-            self_v.x(),
-            self_v.y(),
-            self_v.z() });
-    }
-    auto yu_qv2 = [dt, this]() {
-        Eigen::Matrix<double, ypdv2armor_motion_model::X_N, ypdv2armor_motion_model::X_N> q;
-        double v1, v2;
         if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
-            v1 = target_config_.qxyz_output; // 前哨站加速度方差
-            v2 = target_config_.qyaw_output; // 前哨站角加速度方差
+            esekf_ypd_.setPredictFunc(ypdv2armor_motion_model::Predict {
+                dt,
+                ypdv2armor_motion_model::MotionModel::CONSTANT_ROTATION,
+                self_v.x(),
+                self_v.y(),
+                self_v.z() });
         } else {
-            v1 = target_config_.qxyz_common; // 加速度方差
-            v2 = target_config_.qyaw_common; // 角加速度方差
+            esekf_ypd_.setPredictFunc(ypdv2armor_motion_model::Predict {
+                dt,
+                ypdv2armor_motion_model::MotionModel::CONSTANT_VEL_ROT,
+                self_v.x(),
+                self_v.y(),
+                self_v.z() });
         }
-        double t = dt;
-        double q_x_x = pow(t, 4) / 4 * v1, q_x_vx = pow(t, 3) / 2 * v1, q_vx_vx = pow(t, 2) * v1;
-        double q_y_y = pow(t, 4) / 4 * v1, q_y_vy = pow(t, 3) / 2 * v1, q_vy_vy = pow(t, 2) * v1;
-        double q_z_z = pow(t, 4) / 4 * v1, q_z_vz = pow(t, 3) / 2 * v1, q_vz_vz = pow(t, 2) * v1;
-        double q_yaw_yaw = pow(t, 4) / 4 * v2, q_yaw_vyaw = pow(t, 3) / 2 * v2,
-               q_vyaw_vyaw = pow(t, 2) * v2;
-        // clang-format off
+        auto yu_qv2 = [dt, this]() {
+            Eigen::Matrix<double, ypdv2armor_motion_model::X_N, ypdv2armor_motion_model::X_N> q;
+            double v1, v2;
+            if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
+                v1 = target_config_.qxyz_output; // 前哨站加速度方差
+                v2 = target_config_.qyaw_output; // 前哨站角加速度方差
+            } else {
+                v1 = target_config_.qxyz_common; // 加速度方差
+                v2 = target_config_.qyaw_common; // 角加速度方差
+            }
+            double t = dt;
+            double q_x_x = pow(t, 4) / 4 * v1, q_x_vx = pow(t, 3) / 2 * v1,
+                   q_vx_vx = pow(t, 2) * v1;
+            double q_y_y = pow(t, 4) / 4 * v1, q_y_vy = pow(t, 3) / 2 * v1,
+                   q_vy_vy = pow(t, 2) * v1;
+            double q_z_z = pow(t, 4) / 4 * v1, q_z_vz = pow(t, 3) / 2 * v1,
+                   q_vz_vz = pow(t, 2) * v1;
+            double q_yaw_yaw = pow(t, 4) / 4 * v2, q_yaw_vyaw = pow(t, 3) / 2 * v2,
+                   q_vyaw_vyaw = pow(t, 2) * v2;
+            // clang-format off
         //      xc      v_xc    yc      v_yc    zc      v_zc    yaw         v_yaw       r       l   h
         q <<    q_x_x,  q_x_vx, 0,      0,      0,      0,      0,          0,          0,      0,  0,
                 q_x_vx, q_vx_vx,0,      0,      0,      0,      0,          0,          0,      0,  0,
@@ -115,13 +138,14 @@ void Target::predict(double dt, Eigen::Vector3d self_v) {
                 0,      0,      0,      0,      0,      0,      0,          0,          0,      0,  0,
                 0,      0,      0,      0,      0,      0,      0,          0,          0,      0,  0,
                 0,      0,      0,      0,      0,      0,      0,          0,          0,      0,  0;
-        // clang-format on
-        return q;
-    };
+            // clang-format on
+            return q;
+        };
 
-    esekf_ypd_.setUpdateQ(yu_qv2);
+        esekf_ypd_.setUpdateQ(yu_qv2);
 
-    target_state_ = esekf_ypd_.predict();
+        target_state_ = esekf_ypd_.predict();
+    }
 }
 std::vector<Eigen::Vector4d> Target::getArmorPosAndYaw() const {
     std::vector<Eigen::Vector4d> _armor_xyza_list;
@@ -194,7 +218,11 @@ void Target::update(const armor::Armor& armor) {
             min_angle_error = angle_error;
         }
     }
-
+    if (std::abs(angles::normalize_angle(orientationToYaw(armor.target_ori) - xyza_list[id][3]))
+        > 45.0 * M_PI / 180.0)
+    {
+        return;
+    }
     if (id != 0)
         jumped = true;
 

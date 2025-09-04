@@ -162,7 +162,7 @@ struct AutoAim::Impl {
                 R_gimbal2odom = Eigen::AngleAxisd(att.yaw, Eigen::Vector3d::UnitZ())
                     * Eigen::AngleAxisd(-att.pitch, Eigen::Vector3d::UnitY())
                     * Eigen::AngleAxisd(att.roll, Eigen::Vector3d::UnitX());
-               // R_gimbal2odom = att.q.toRotationMatrix();
+                // R_gimbal2odom = att.q.toRotationMatrix();
             };
             auto delay = std::chrono::microseconds(
                 static_cast<int64_t>(std::round(shared_->communication_delay_μs))
@@ -265,8 +265,8 @@ struct AutoAim::Impl {
                 gimbal_cmd.fire_advice = only_check_fire.fire_advice;
                 gimbal_cmd.enable_pitch_diff = only_check_fire.enable_pitch_diff;
                 gimbal_cmd.enable_yaw_diff = only_check_fire.enable_yaw_diff;
-                gimbal_cmd.target_yaw=only_check_fire.target_yaw;
-                gimbal_cmd.target_pitch=only_check_fire.target_pitch;
+                gimbal_cmd.target_yaw = only_check_fire.target_yaw;
+                gimbal_cmd.target_pitch = only_check_fire.target_pitch;
             } else {
                 auto only_check_fire = shooter_->shoot(
                     tmp_cmd,
@@ -278,8 +278,8 @@ struct AutoAim::Impl {
                 gimbal_cmd.fire_advice = only_check_fire.fire_advice;
                 gimbal_cmd.enable_pitch_diff = only_check_fire.enable_pitch_diff;
                 gimbal_cmd.enable_yaw_diff = only_check_fire.enable_yaw_diff;
-                gimbal_cmd.target_yaw=only_check_fire.target_yaw;
-                gimbal_cmd.target_pitch=only_check_fire.target_pitch;
+                gimbal_cmd.target_yaw = only_check_fire.target_yaw;
+                gimbal_cmd.target_pitch = only_check_fire.target_pitch;
             }
 
         } else {
@@ -307,6 +307,10 @@ struct AutoAim::Impl {
             printStats();
             armor::Armors armors;
             self->heartbeat();
+            if (time_utils::durationSec(tracker_manager_->last_time_, time_utils::now()) > 3.0) {
+                tracker_manager_->tracker_v3_->target_.is_tracking = false;
+                tracker_manager_->tracker_v3_->tracker_state == TrackerV3::LOST;
+            }
             if (!armor_queue_->try_dequeue(armors)) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 continue;

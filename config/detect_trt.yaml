@@ -1,6 +1,6 @@
 armor_detect:
   armor:
-    max_angle: 30
+    max_angle: 40
     max_large_center_distance: 8
     max_small_center_distance: 3.5
     min_large_center_distance: 3.5
@@ -11,7 +11,7 @@ armor_detect:
     model_path: /home/hy/wust_vision/model/mlp.onnx
     threshold: 0.5
   light:
-    binary_thres: 105
+    binary_thres: 85
     expand_ratio_h: 1.2
     expand_ratio_w: 1.2
     max_angle: 45

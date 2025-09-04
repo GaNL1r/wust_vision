@@ -223,7 +223,7 @@ struct AutoBuff::Impl {
                 R_gimbal2odom = Eigen::AngleAxisd(att.yaw, Eigen::Vector3d::UnitZ())
                     * Eigen::AngleAxisd(-att.pitch, Eigen::Vector3d::UnitY())
                     * Eigen::AngleAxisd(att.roll, Eigen::Vector3d::UnitX());
-               // R_gimbal2odom = att.q.toRotationMatrix();
+                // R_gimbal2odom = att.q.toRotationMatrix();
             };
             auto delay = std::chrono::microseconds(
                 static_cast<int64_t>(std::round(shared_->communication_delay_μs))

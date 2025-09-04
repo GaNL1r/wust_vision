@@ -52,7 +52,7 @@ struct Shooter::Impl {
                 checkHit(maybe_hit, current_yaw, current_pitch, bullet_speed, use_off_fire);
             gimbal_cmd.enable_yaw_diff = std::get<1>(check);
             gimbal_cmd.enable_pitch_diff = std::get<2>(check);
-            gimbal_cmd.target_yaw =std::get<3>(check);
+            gimbal_cmd.target_yaw = std::get<3>(check);
             gimbal_cmd.target_pitch = std::get<4>(check);
             if (std::get<0>(check)) {
                 fire = true;
@@ -65,11 +65,11 @@ struct Shooter::Impl {
         );
         gimbal_cmd.yaw = angles::normalize_angle((cmd.yaw + offs[1]) * M_PI / 180.0) * 180.0 / M_PI;
         gimbal_cmd.pitch = cmd.pitch + offs[0];
-        
+
         gimbal_cmd.fire_advice = fire;
         return gimbal_cmd;
     }
-    std::tuple<bool, double, double,double,double> checkHit(
+    std::tuple<bool, double, double, double, double> checkHit(
         Eigen::Vector4d maybe_hit,
         const double current_yaw,
         const double current_pitch,
@@ -97,8 +97,8 @@ struct Shooter::Impl {
             return { false,
                      shooting_range_yaw / M_PI * 180.0,
                      shooting_range_pitch / M_PI * 180.0,
-                    target_yaw / M_PI * 180.0,
-                target_pitch / M_PI * 180.0 };
+                     target_yaw / M_PI * 180.0,
+                     target_pitch / M_PI * 180.0 };
 
         if (use_off_fire) {
             auto offs =
@@ -111,16 +111,16 @@ struct Shooter::Impl {
             std::abs(angles::shortest_angular_distance(current_pitch, target_pitch));
         if (yaw_diff < shooting_range_yaw && pitch_diff < shooting_range_pitch) {
             return { true,
-                     std::abs(shooting_range_yaw ) / M_PI * 180.0,
-                     std::abs(shooting_range_pitch ) / M_PI * 180.0 ,
-                    target_yaw / M_PI * 180.0,
-                target_pitch / M_PI * 180.0 };
+                     std::abs(shooting_range_yaw) / M_PI * 180.0,
+                     std::abs(shooting_range_pitch) / M_PI * 180.0,
+                     target_yaw / M_PI * 180.0,
+                     target_pitch / M_PI * 180.0 };
         }
         return { false,
-                 std::abs(shooting_range_yaw ) / M_PI * 180.0,
-                 std::abs(shooting_range_pitch ) / M_PI * 180.0,
-                target_yaw / M_PI * 180.0,
-                target_pitch / M_PI * 180.0  };
+                 std::abs(shooting_range_yaw) / M_PI * 180.0,
+                 std::abs(shooting_range_pitch) / M_PI * 180.0,
+                 target_yaw / M_PI * 180.0,
+                 target_pitch / M_PI * 180.0 };
     }
 
     GimbalCmd returnDefaultCmd() {

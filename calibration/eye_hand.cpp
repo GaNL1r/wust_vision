@@ -37,7 +37,12 @@ Eigen::Quaterniond read_q(const std::string& q_path) {
     q_file >> w >> x >> y >> z;
     return { w, x, y, z };
 }
-
+Eigen::Vector3d read_ypr(const std::string& q_path) {
+    std::ifstream q_file(q_path);
+    double yaw, pitch, rool;
+    q_file >> yaw >> pitch >> rool;
+    return { yaw, pitch, rool };
+}
 void load(
     const std::string& input_folder,
     const std::string& config_path,
@@ -66,15 +71,19 @@ void load(
         auto img_path = fmt::format("{}/{}.jpg", input_folder, i);
         auto q_path = fmt::format("{}/{}.txt", input_folder, i);
         auto img = cv::imread(img_path);
-        Eigen::Quaterniond q = read_q(q_path);
+        auto ypr = read_ypr(q_path);
         if (img.empty())
             break;
 
         // 计算云台的欧拉角
-        Eigen::Matrix3d R_imubody2imuabs = q.toRotationMatrix();
-        Eigen::Matrix3d R_gimbal2world =
-            R_gimbal2imubody.transpose() * R_imubody2imuabs * R_gimbal2imubody;
-        Eigen::Vector3d ypr = utils::matrixToEuler(R_gimbal2world, 2, 1, 0) * 57.3; // degree
+        Eigen::Matrix3d R_camera2gimbal_;
+        R_camera2gimbal_ << 0, 0, 1, -1, 0, 0, 0, -1, 0;
+        Eigen::Matrix3d R_gimbal2w = (Eigen::AngleAxisd(ypr[0], Eigen::Vector3d::UnitZ())
+                                      * Eigen::AngleAxisd(-ypr[1], Eigen::Vector3d::UnitY())
+                                      * Eigen::AngleAxisd(ypr[2], Eigen::Vector3d::UnitX()))
+                                         .matrix();
+        Eigen::Matrix3d R_gimbal2world = R_camera2gimbal_ * R_gimbal2w;
+        //Eigen::Vector3d ypr = utils::matrixToEuler(R_gimbal2world, 2, 1, 0) * 57.3; // degree
 
         // 在图片上显示云台的欧拉角，用来检验R_gimbal2imubody是否正确
         auto drawing = img.clone();

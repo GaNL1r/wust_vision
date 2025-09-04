@@ -257,7 +257,7 @@ std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
                 return;
             }
             try {
-                ok = extractNetImage(src_img, armor); // 可能崩溃的函数
+                ok = extractNetImage(src_img, armor);
             } catch (const cv::Exception& e) {
                 std::cerr << "[detectNet] OpenCV exception in extractNetImage: " << e.what()
                           << std::endl;
@@ -293,7 +293,18 @@ std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
                     corner_corrector_->correctCorners(armor);
                 }
             }
-
+            if (!armor.is_ok) {
+                auto ordered = armor.sortCorners(armor.pts);
+                armor::Light l1;
+                l1.length = cv::norm(ordered[1] - ordered[0]);
+                l1.center = (ordered[0] + ordered[1]) / 2.0;
+                armor::Light l2;
+                l2.length = cv::norm(ordered[2] - ordered[3]);
+                l2.center = (ordered[2] + ordered[3]) / 2.0;
+                if (!isArmor(l1, l2)) {
+                    return;
+                }
+            }
             // 存入结果
             {
                 std::lock_guard<std::mutex> lock(armors_mutex);

@@ -69,7 +69,7 @@ public:
         double gimbal2camera_z_ = config_["tf"]["gimbal2camera_z"].as<double>(0.0);
         t_gimbal_to_camera_ = Eigen::Vector3d(gimbal2camera_x_, gimbal2camera_y_, gimbal2camera_z_);
 
-        R_camera2gimbal_ << 0, 0, 1, -1, 0, 0, 0, -1, 0;
+        //R_camera2gimbal_ << 0, 0, 1, -1, 0, 0, 0, -1, 0;
         YAML::Node camera_config = YAML::LoadFile(CAMERA_CONFIG);
         camera_ = std::make_unique<wust_vl_video::Camera>();
         camera_->init(camera_config);
@@ -339,8 +339,8 @@ public:
         // send_data.yaw_diff = cmd.yaw_diff;
         send_data.v_pitch = cmd.v_pitch;
         send_data.v_yaw = cmd.v_yaw;
-        send_data.target_yaw = cmd.target_yaw;
-        send_data.target_pitch = cmd.target_pitch;
+        // send_data.target_yaw = cmd.target_yaw;
+        // send_data.target_pitch = cmd.target_pitch;
         send_data.enable_pitch_diff = cmd.enable_pitch_diff;
         send_data.enable_yaw_diff = cmd.enable_yaw_diff;
 

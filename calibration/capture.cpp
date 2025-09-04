@@ -35,7 +35,12 @@ void write_q(const std::string q_path, const Eigen::Quaterniond& q) {
     q_file << fmt::format("{} {} {} {}", xyzw[3], xyzw[0], xyzw[1], xyzw[2]);
     q_file.close();
 }
-
+void write_ypr(const std::string q_path, double yaw, double pitch, double roll) {
+    std::ofstream q_file(q_path);
+    // 输出顺序为wxyz
+    q_file << fmt::format("{} {} {}", yaw, pitch, roll);
+    q_file.close();
+}
 void capture_loop(const std::string& config_path, const std::string& output_folder) {
     int count = 0;
     while (true) {
@@ -45,22 +50,20 @@ void capture_loop(const std::string& config_path, const std::string& output_fold
             continue;
         }
         auto past_att = motion_buffer.get_interpolated(image_frame.timestamp);
-        Eigen::Quaterniond q ;
+        double yaw = past_att->yaw;
+        double pitch = past_att->pitch;
+        double roll = past_att->roll;
 
         // 在图像上显示欧拉角，用来判断imuabs系的xyz正方向，同时判断imu是否存在零漂
         auto img_with_ypr = image_frame.src_img.clone();
-        Eigen::Vector3d zyx = utils::quatToEuler(q, 2, 1, 0) * 57.3; // degree
-        draw_text(img_with_ypr, fmt::format("Z {:.2f}", zyx[0]), { 40, 40 }, { 0, 0, 255 });
-        draw_text(img_with_ypr, fmt::format("Y {:.2f}", zyx[1]), { 40, 80 }, { 0, 0, 255 });
-        draw_text(img_with_ypr, fmt::format("X {:.2f}", zyx[2]), { 40, 120 }, { 0, 0, 255 });
+
+        draw_text(img_with_ypr, fmt::format("yaw {:.2f}", yaw), { 40, 40 }, { 0, 0, 255 });
+        draw_text(img_with_ypr, fmt::format("pitch{:.2f}", pitch), { 40, 80 }, { 0, 0, 255 });
+        draw_text(img_with_ypr, fmt::format("rool {:.2f}", roll), { 40, 120 }, { 0, 0, 255 });
 
         std::vector<cv::Point2f> centers_2d;
-        // auto success = cv::findChessboardCorners(
-        //     image_frame.src_img,
-        //     cv::Size(11, 8),
-        //     centers_2d
-        // );
-        auto success = cv::findCirclesGrid(image_frame.src_img, cv::Size(11, 8), centers_2d);
+        auto success = cv::findChessboardCorners(image_frame.src_img, cv::Size(11, 8), centers_2d);
+        //auto success = cv::findCirclesGrid(image_frame.src_img, cv::Size(11, 8), centers_2d);
         cv::drawChessboardCorners(
             img_with_ypr,
             cv::Size(11, 8),
@@ -82,7 +85,7 @@ void capture_loop(const std::string& config_path, const std::string& output_fold
         auto img_path = fmt::format("{}/{}.jpg", output_folder, count);
         auto q_path = fmt::format("{}/{}.txt", output_folder, count);
         cv::imwrite(img_path, image_frame.src_img);
-        write_q(q_path, q);
+        write_ypr(q_path, yaw, pitch, roll);
         std::cout << count << "Saved in" << output_folder << std::endl;
     }
 
@@ -108,7 +111,7 @@ void serialCallback(const uint8_t* data, std::size_t len) {
         auto now = std::chrono::steady_clock::now();
         auto q = utils::eulerToQuat(euler, 2, 1, 0);
 
-     //   motion_buffer.push(q, v_x, v_y, v_z, now);
+        motion_buffer.push(yaw, pitch, roll, v_x, v_y, v_z, now);
 
     } catch (const std::exception& e) {
         std::cerr << "serialCallback exception: " << e.what() << std::endl;

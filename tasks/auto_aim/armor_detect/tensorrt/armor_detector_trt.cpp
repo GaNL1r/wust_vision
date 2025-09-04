@@ -68,13 +68,13 @@ ArmorDetectTrt::ArmorDetectTrt(
     trt_net_ = std::make_unique<ml_net::TensorRTNet>();
     ml_net::TensorRTNet::Params trt_params;
     trt_params.model_path = onnx_path;
-    trt_params.input_h =armor_infer_->getInputH();
+    trt_params.input_h = armor_infer_->getInputH();
     trt_params.input_w = armor_infer_->getInputW();
     trt_net_->init(trt_params);
     auto input_output_dims = trt_net_->getInputOutputDims();
     input_dims_ = std::get<0>(input_output_dims);
     output_dims_ = std::get<1>(input_output_dims);
-    
+
     AdaptiveResourcePool<Infer>::Params pool_params;
     pool_params.resource_initializer = [=]() {
         std::vector<std::unique_ptr<Infer>> infers;
@@ -186,7 +186,6 @@ ArmorDetectTrt::ArmorDetectTrt(
         double free_ratio = static_cast<double>(free_mem) / total_mem;
         return free_ratio < params_.min_free_mem_ratio && active_count > 1;
     };
-
 
     pool_params.logger = [](const std::string& msg) {
         WUST_INFO("ArmorDetectTrt:infer pool") << msg;

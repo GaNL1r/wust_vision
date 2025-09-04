@@ -87,11 +87,15 @@ std::vector<armor::Armor> ArmorPoseEstimator::extractArmorPoses(
         msg.distance_to_image_center =
             pnp_solver_->calculateDistanceToCenter(obj.center, camera_intrinsic);
         msg.is_ok = true;
+        if (obj.color == armor::ArmorColor::NONE || obj.color == armor::ArmorColor::PURPLE) {
+            msg.is_none_purple = true;
+        } else {
+            msg.is_none_purple = false;
+        }
         return msg;
     };
 
     for (auto const& a: armors) {
-
         std::vector<cv::Mat> rvecs, tvecs;
         std::string type =
             (a.number == armor::ArmorNumber::NO1 || a.number == armor::ArmorNumber::BASE) ? "large"
