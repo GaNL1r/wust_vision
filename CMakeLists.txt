@@ -119,7 +119,7 @@ target_link_libraries(eye_hand
 
 
 
-add_subdirectory(ros2)
+
 find_package(ament_cmake QUIET)
 find_package(rclcpp QUIET)
 find_package(std_msgs QUIET)
@@ -133,7 +133,7 @@ endif()
 
 if(ROS2_FOUND)
   message(STATUS "ROS2 environment found, compiling ROS2-related code.")
-  
+  add_subdirectory(ros2)
   add_executable(test_ros2 test/test_ros2.cpp)
   target_link_libraries(test_ros2
     ${OpenCV_LIBS}
@@ -142,8 +142,8 @@ if(ROS2_FOUND)
     ${HikSDK_LIB}
     fmt::fmt
     toros2
-)
-    add_executable(sentry src/sentry.cpp)
+    )
+add_executable(sentry src/sentry.cpp)
 target_include_directories(sentry PRIVATE ${WUST_VL_INCLUDE_DIRS} ${HikSDK_INCLUDE_DIR})
 target_link_libraries(sentry
     $<TARGET_OBJECTS:auto_aim>
