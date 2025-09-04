@@ -12,6 +12,91 @@ void onMouse(int event, int x, int y, int, void*) {
         WUST_INFO("Manual R") << "Clicked Point: (" << x << ", " << y << ")";
     }
 }
+static std::vector<cv::Point3f> R_BOX_POINTS = {
+    { 0, 0.05, -0.05 },
+    { 0, -0.05, -0.05 },
+    { 0, -0.05, 0.05 },
+    { 0, 0.05, 0.05 },
+};
+bool projectRTargetToImage(
+    const Eigen::Matrix4d& TRodom,
+    const Eigen::Matrix4d& T_camera_to_odom,
+    std::vector<cv::Point2f>& manual_r_box,
+    const cv::Mat& camera_intrinsic,
+    const cv::Mat& camera_distortion
+) {
+    if (camera_intrinsic.empty() || camera_distortion.empty()) {
+        //WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
+        return false;
+    }
+
+    // 计算TRc: 目标相对于相机
+    Eigen::Matrix4d TRc = T_camera_to_odom.inverse() * TRodom;
+
+    // 从TRc提取旋转和平移
+    Eigen::Matrix3d R_eigen = TRc.block<3, 3>(0, 0);
+    Eigen::Vector3d t_eigen = TRc.block<3, 1>(0, 3);
+
+    cv::Mat rvec, tvec;
+    cv::Mat R_cv;
+    cv::eigen2cv(R_eigen, R_cv);
+    cv::Rodrigues(R_cv, rvec); // 将旋转矩阵转为旋转向量
+    cv::eigen2cv(t_eigen, tvec);
+
+    // R_BOX_POINTS：目标3D点，cv::Point3f格式的vector
+    cv::projectPoints(R_BOX_POINTS, rvec, tvec, camera_intrinsic, camera_distortion, manual_r_box);
+
+    return true;
+}
+bool calcRTarget(
+    const std::vector<cv::Point2f>& manual_r_box,
+    Eigen::Matrix4d& TRodom,
+    const Eigen::Matrix4d& T_camera_to_odom,
+    const cv::Mat& camera_intrinsic,
+    const cv::Mat& camera_distortion
+) {
+    if (camera_intrinsic.empty() || camera_distortion.empty()) {
+        //WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
+        return false;
+    }
+
+    // OpenCV solvePnP
+    cv::Mat rvec, tvec;
+    bool res = cv::solvePnP(
+        R_BOX_POINTS,
+        manual_r_box,
+        camera_intrinsic,
+        camera_distortion,
+        rvec,
+        tvec,
+        false,
+        cv::SOLVEPNP_IPPE
+    );
+
+    if (!res || !cv::checkRange(rvec) || !cv::checkRange(tvec)) {
+        return false;
+    }
+
+    // Rodrigues -> rotation matrix
+    cv::Mat R_cv;
+    cv::Rodrigues(rvec, R_cv);
+
+    // 转为 Eigen
+    Eigen::Matrix3d R_eigen;
+    Eigen::Vector3d t_eigen;
+    cv::cv2eigen(R_cv, R_eigen);
+    cv::cv2eigen(tvec, t_eigen);
+
+    // 构造 Target 相对于 Camera 的齐次变换矩阵
+    Eigen::Matrix4d TRc = Eigen::Matrix4d::Identity();
+    TRc.block<3, 3>(0, 0) = R_eigen;
+    TRc.block<3, 1>(0, 3) = t_eigen;
+
+    // 计算 Target 相对于 Odom 的变换
+    TRodom = T_camera_to_odom * TRc;
+
+    return true;
+}
 struct AutoBuff::Impl {
     ~Impl() {
         run_flag_ = false;
@@ -138,6 +223,7 @@ struct AutoBuff::Impl {
                 R_gimbal2odom = Eigen::AngleAxisd(att.yaw, Eigen::Vector3d::UnitZ())
                     * Eigen::AngleAxisd(-att.pitch, Eigen::Vector3d::UnitY())
                     * Eigen::AngleAxisd(att.roll, Eigen::Vector3d::UnitX());
+               // R_gimbal2odom = att.q.toRotationMatrix();
             };
             auto delay = std::chrono::microseconds(
                 static_cast<int64_t>(std::round(shared_->communication_delay_μs))
@@ -170,7 +256,7 @@ struct AutoBuff::Impl {
             };
 
             if (use_manual_r_ && manual_r_init_) {
-                mono_measure_tool::projectRTargetToImage(
+                projectRTargetToImage(
                     T_r_,
                     T_camera_to_odom,
                     manual_r_box_,
@@ -289,9 +375,9 @@ struct AutoBuff::Impl {
         if (shared_->motion_buffer) {
             auto last_att = shared_->motion_buffer->get_last();
             if (last_att) {
-                result.rpy[0] = last_att->roll;
-                result.rpy[1] = last_att->pitch;
-                result.rpy[2] = last_att->yaw;
+                // result.rpy[0] = last_att->roll;
+                // result.rpy[1] = last_att->pitch;
+                // result.rpy[2] = last_att->yaw;
             }
         }
         result.bullet_speed = shared_->bullet_speed;
@@ -416,7 +502,7 @@ struct AutoBuff::Impl {
             { x + half_size, y + half_size }, // 右下 → 对应点2
             { x + half_size, y - half_size } // 右上 → 对应点3
         } };
-        mono_measure_tool::calcRTarget(
+        calcRTarget(
             manual_r_box_,
             T_r_,
             T_camera_to_odom_,
@@ -491,7 +577,7 @@ struct AutoBuff::Impl {
             }
         }
 
-        mono_measure_tool::calcRTarget(
+        calcRTarget(
             manual_r_box_,
             T_r_,
             T_camera_to_odom_,

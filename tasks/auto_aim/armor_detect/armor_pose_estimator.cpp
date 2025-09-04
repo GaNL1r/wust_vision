@@ -91,8 +91,6 @@ std::vector<armor::Armor> ArmorPoseEstimator::extractArmorPoses(
     };
 
     for (auto const& a: armors) {
-        if (!a.is_ok)
-            continue;
 
         std::vector<cv::Mat> rvecs, tvecs;
         std::string type =
@@ -178,18 +176,42 @@ void ArmorPoseEstimator::sortPnPResult(
     {
         return;
     }
+    if (armor.is_ok) {
+        double l_ang = std::atan2(armor.lights[0].axis.y, armor.lights[0].axis.x) * 180.0 / M_PI;
+        double r_ang = std::atan2(armor.lights[1].axis.y, armor.lights[1].axis.x) * 180.0 / M_PI;
+        double boardTilt = (l_ang + r_ang) * 0.5 + 90.0;
+        if (armor.number == armor::ArmorNumber::OUTPOST)
+            boardTilt = -boardTilt;
 
-    double l_ang = std::atan2(armor.lights[0].axis.y, armor.lights[0].axis.x) * 180.0 / M_PI;
-    double r_ang = std::atan2(armor.lights[1].axis.y, armor.lights[1].axis.x) * 180.0 / M_PI;
-    double boardTilt = (l_ang + r_ang) * 0.5 + 90.0;
-    if (armor.number == armor::ArmorNumber::OUTPOST)
-        boardTilt = -boardTilt;
+        // 根据倾斜方向选解：左倾时选 yaw<0 解，右倾时选 yaw>0 解
+        bool leftTilt = boardTilt > 0;
+        double yaw0 = c[0].rpy(2), yaw1 = c[1].rpy(2);
+        if ((leftTilt && yaw0 > 0 && yaw1 < 0) || (!leftTilt && yaw0 < 0 && yaw1 > 0)) {
+            std::swap(rvecs[0], rvecs[1]);
+            std::swap(tvecs[0], tvecs[1]);
+        }
+    } else {
+        auto corners = armor.sortCorners(armor.pts);
 
-    // 根据倾斜方向选解：左倾时选 yaw<0 解，右倾时选 yaw>0 解
-    bool leftTilt = boardTilt > 0;
-    double yaw0 = c[0].rpy(2), yaw1 = c[1].rpy(2);
-    if ((leftTilt && yaw0 > 0 && yaw1 < 0) || (!leftTilt && yaw0 < 0 && yaw1 > 0)) {
-        std::swap(rvecs[0], rvecs[1]);
-        std::swap(tvecs[0], tvecs[1]);
+        // 左右边方向向量
+        cv::Point2f leftVec = corners[1] - corners[0]; // 左上 - 左下
+        cv::Point2f rightVec = corners[2] - corners[3]; // 右上 - 右下
+
+        // 边方向角度
+        double l_ang = std::atan2(leftVec.y, leftVec.x) * 180.0 / M_PI;
+        double r_ang = std::atan2(rightVec.y, rightVec.x) * 180.0 / M_PI;
+
+        // 平均角度 + 90°
+        double boardTilt = (l_ang + r_ang) * 0.5 + 90.0;
+        if (armor.number == armor::ArmorNumber::OUTPOST)
+            boardTilt = -boardTilt;
+
+        // 根据倾斜方向选解：左倾时选 yaw<0，右倾时选 yaw>0
+        bool leftTilt = boardTilt > 0;
+        double yaw0 = c[0].rpy(2), yaw1 = c[1].rpy(2);
+        if ((leftTilt && yaw0 > 0 && yaw1 < 0) || (!leftTilt && yaw0 < 0 && yaw1 > 0)) {
+            std::swap(rvecs[0], rvecs[1]);
+            std::swap(tvecs[0], tvecs[1]);
+        }
     }
 }

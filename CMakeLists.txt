@@ -4,7 +4,7 @@ project(wust_vision LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_BUILD_TYPE "Release")
+set(CMAKE_BUILD_TYPE "Debug")
 message(STATUS "--------------------CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}--------------------")
 add_compile_options(-O3 -w)
 option(BUILD_WITH_TRT      "Enable TensorRT backend"   ON)
@@ -13,8 +13,8 @@ option(BUILD_WITH_NCNN     "Enable NCNN backend"       ON)
 option(BUILD_WITH_ORT      "Enable ORT backend"        ON)
 include_directories(${PROJECT_SOURCE_DIR})
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
-set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};/usr/local/opencv4.11.0")
-find_package(OpenCV 4.11 REQUIRED)
+
+find_package(OpenCV      REQUIRED)
 find_package(Python3     REQUIRED COMPONENTS Interpreter Development)
 find_package(Eigen3      REQUIRED)
 find_package(fmt         REQUIRED)
@@ -30,7 +30,7 @@ endif()
 
 if(BUILD_WITH_TRT)
     find_package(CUDAToolkit REQUIRED)
-    set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};/home/hy/TensorRT-8.5.2.2")
+    set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};/home/hy/TensorRT-10.6.0.26")
     find_package(TensorRT REQUIRED)
     set(CMAKE_CUDA_COMPILER /usr/local/cuda/bin/nvcc)
     set(CMAKE_CUDA_ARCHITECTURES 86)
@@ -60,7 +60,7 @@ add_subdirectory(tasks/auto_buff)
 add_subdirectory(tasks)
 
 
-add_executable(standard src/auto_aim.cpp)
+add_executable(standard src/standard.cpp)
 
 target_include_directories(standard PRIVATE ${WUST_VL_INCLUDE_DIRS} ${HikSDK_INCLUDE_DIR})
 target_link_libraries(standard
@@ -79,15 +79,44 @@ target_link_libraries(standard
     fmt::fmt
 )
 
-# add_executable(fire test/check_fire.cpp)
-# target_include_directories(fire PRIVATE ${WUST_VL_INCLUDE_DIRS} ${HikSDK_INCLUDE_DIR})
-# target_link_libraries(fire
-#     ${WUST_VL_LIBS}
-#     ${OpenCV_LIBS}
-#     ${HikSDK_LIB}
-#     yaml-cpp
-#     X11
-# )
+
+add_executable(calcapture calibration/capture.cpp)
+
+target_include_directories(calcapture PRIVATE ${WUST_VL_INCLUDE_DIRS} ${HikSDK_INCLUDE_DIR})
+target_link_libraries(calcapture
+    ${OpenCV_LIBS}
+    ${CERES_LIBRARIES}
+    ${WUST_VL_LIBS}
+    yaml-cpp
+    TBB::tbb
+    ${HikSDK_LIB}
+    fmt::fmt
+)
+add_executable(calcamera calibration/calcamera.cpp)
+
+target_include_directories(calcamera PRIVATE ${WUST_VL_INCLUDE_DIRS} ${HikSDK_INCLUDE_DIR})
+target_link_libraries(calcamera
+    ${OpenCV_LIBS}
+    ${CERES_LIBRARIES}
+    ${WUST_VL_LIBS}
+    yaml-cpp
+    TBB::tbb
+    ${HikSDK_LIB}
+    fmt::fmt
+)
+add_executable(eye_hand calibration/eye_hand.cpp)
+
+target_include_directories(eye_hand PRIVATE ${WUST_VL_INCLUDE_DIRS} ${HikSDK_INCLUDE_DIR})
+target_link_libraries(eye_hand
+    ${OpenCV_LIBS}
+    ${CERES_LIBRARIES}
+    ${WUST_VL_LIBS}
+    yaml-cpp
+    TBB::tbb
+    ${HikSDK_LIB}
+    fmt::fmt
+)
+
 
 
 add_subdirectory(ros2)

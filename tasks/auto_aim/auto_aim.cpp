@@ -2,7 +2,6 @@
 #include "tasks/auto_aim/armor_control/aimer.hpp"
 #include "tasks/auto_aim/armor_control/planner.hpp"
 #include "tasks/auto_aim/armor_control/shooter.hpp"
-#include "tasks/mono_measure_tool.hpp"
 #include "tasks/utils.hpp"
 #include "wust_vl/common/concurrency/queues.hpp"
 namespace auto_aim {
@@ -163,6 +162,7 @@ struct AutoAim::Impl {
                 R_gimbal2odom = Eigen::AngleAxisd(att.yaw, Eigen::Vector3d::UnitZ())
                     * Eigen::AngleAxisd(-att.pitch, Eigen::Vector3d::UnitY())
                     * Eigen::AngleAxisd(att.roll, Eigen::Vector3d::UnitX());
+               // R_gimbal2odom = att.q.toRotationMatrix();
             };
             auto delay = std::chrono::microseconds(
                 static_cast<int64_t>(std::round(shared_->communication_delay_μs))
@@ -185,15 +185,6 @@ struct AutoAim::Impl {
             camera_info_.first,
             camera_info_.second
         );
-
-        mono_measure_tool::processDetectedArmors(
-            sorted_objs,
-            armors,
-            T_camera_to_odom,
-            camera_info_.first,
-            camera_info_.second
-        );
-        armors.R_gimbal2odom = R_gimbal2odom;
         armors.v = v;
         armors.id = frame.id;
         for (auto& armor: armors.armors) {
@@ -253,9 +244,7 @@ struct AutoAim::Impl {
                 aimer_->aim(target, now, shared_->bullet_speed, auto_aim_fsm_cl_.fsm_state_);
             aim_target = tmp_cmd.aim_target;
             auto last_att = shared_->motion_buffer->get_last();
-            gimbal_cmd =
-                shooter_
-                    ->shoot(tmp_cmd, last_att->yaw, last_att->pitch, shared_->bullet_speed, true);
+            gimbal_cmd = shooter_->shoot(tmp_cmd, 0, 0, shared_->bullet_speed, true);
 
             gimbal_cmd.raw_yaw = gimbal_cmd.yaw;
             gimbal_cmd.raw_pitch = gimbal_cmd.pitch;
@@ -276,17 +265,21 @@ struct AutoAim::Impl {
                 gimbal_cmd.fire_advice = only_check_fire.fire_advice;
                 gimbal_cmd.enable_pitch_diff = only_check_fire.enable_pitch_diff;
                 gimbal_cmd.enable_yaw_diff = only_check_fire.enable_yaw_diff;
+                gimbal_cmd.target_yaw=only_check_fire.target_yaw;
+                gimbal_cmd.target_pitch=only_check_fire.target_pitch;
             } else {
                 auto only_check_fire = shooter_->shoot(
                     tmp_cmd,
-                    last_att->yaw,
-                    last_att->pitch,
+                    gimbal_cmd.yaw * M_PI / 180.0,
+                    gimbal_cmd.pitch * M_PI / 180.0,
                     shared_->bullet_speed,
                     true
                 );
                 gimbal_cmd.fire_advice = only_check_fire.fire_advice;
                 gimbal_cmd.enable_pitch_diff = only_check_fire.enable_pitch_diff;
                 gimbal_cmd.enable_yaw_diff = only_check_fire.enable_yaw_diff;
+                gimbal_cmd.target_yaw=only_check_fire.target_yaw;
+                gimbal_cmd.target_pitch=only_check_fire.target_pitch;
             }
 
         } else {
@@ -312,14 +305,13 @@ struct AutoAim::Impl {
             if (!self->waitPoint())
                 break;
             printStats();
-            armor::Armors armors_;
-
-            if (!armor_queue_->try_dequeue(armors_)) {
+            armor::Armors armors;
+            self->heartbeat();
+            if (!armor_queue_->try_dequeue(armors)) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 continue;
             }
-            self->heartbeat();
-            armorsCallback(armors_);
+            armorsCallback(armors);
             tracker_finish_count_++;
         }
     }

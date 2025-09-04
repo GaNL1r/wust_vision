@@ -8,6 +8,7 @@ struct TargetConfig {
     double qyaw_common = 400;
     double qxyz_output = 10;
     double qyaw_output = 0.1;
+    double yp_r = 4e-3;
 };
 class Target {
 public:

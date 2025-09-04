@@ -3,7 +3,6 @@
 #include "tasks/auto_aim/armor_tracker/tracker.hpp"
 #include "tasks/auto_aim/type.hpp"
 #include "tasks/auto_buff/type.hpp"
-#include "tasks/mono_measure_tool.hpp"
 #include "tasks/packet_typedef.hpp"
 struct DebugArmor {
     imgframe src_img;

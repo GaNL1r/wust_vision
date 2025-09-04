@@ -58,13 +58,6 @@ ArmorDetectTrt::ArmorDetectTrt(
         params.nms_threshold,
         params.top_k
     );
-    trt_net_ = std::make_unique<ml_net::TensorRTNet>();
-    ml_net::TensorRTNet::Params trt_params;
-    trt_params.model_path = onnx_path;
-    trt_net_->init(trt_params);
-    auto input_output_dims = trt_net_->getInputOutputDims();
-    input_dims_ = std::get<0>(input_output_dims);
-    output_dims_ = std::get<1>(input_output_dims);
     strides_ = { 8, 16, 32 };
     armor_infer_->generate_grids_and_stride(
         armor_infer_->getInputW(),
@@ -72,6 +65,16 @@ ArmorDetectTrt::ArmorDetectTrt(
         strides_,
         grid_strides_
     );
+    trt_net_ = std::make_unique<ml_net::TensorRTNet>();
+    ml_net::TensorRTNet::Params trt_params;
+    trt_params.model_path = onnx_path;
+    trt_params.input_h =armor_infer_->getInputH();
+    trt_params.input_w = armor_infer_->getInputW();
+    trt_net_->init(trt_params);
+    auto input_output_dims = trt_net_->getInputOutputDims();
+    input_dims_ = std::get<0>(input_output_dims);
+    output_dims_ = std::get<1>(input_output_dims);
+    
     AdaptiveResourcePool<Infer>::Params pool_params;
     pool_params.resource_initializer = [=]() {
         std::vector<std::unique_ptr<Infer>> infers;
@@ -82,7 +85,7 @@ ArmorDetectTrt::ArmorDetectTrt(
             // 初始化 CUDA 推理
             if (params_.use_cuda_pre || params_.use_cuda_post) {
                 infer->cuda_infer = std::make_unique<armor_cuda_infer::CudaInfer>();
-                size_t max_input_img = 4096 * 2160 * 3;
+                size_t max_input_img = 1440 * 1080 * 3;
                 size_t num_grid_strides = 0;
                 auto* device_grid_strides = armor_cuda_infer::init_grid_strides_on_gpu(
                     armor_infer_->getInputW(),
@@ -138,7 +141,7 @@ ArmorDetectTrt::ArmorDetectTrt(
         infer->context = std::unique_ptr<nvinfer1::IExecutionContext>(ctx);
         if (params_.use_cuda_pre || params_.use_cuda_post) {
             infer->cuda_infer = std::make_unique<armor_cuda_infer::CudaInfer>();
-            size_t max_input_img = 4096 * 2160 * 3;
+            size_t max_input_img = 1440 * 1080 * 3;
             size_t num_grid_strides = 0;
             auto* device_grid_strides = armor_cuda_infer::init_grid_strides_on_gpu(
                 armor_infer_->getInputW(),
@@ -184,7 +187,7 @@ ArmorDetectTrt::ArmorDetectTrt(
         return free_ratio < params_.min_free_mem_ratio && active_count > 1;
     };
 
-    //pool_params.thread_pool = thread_pool_;
+
     pool_params.logger = [](const std::string& msg) {
         WUST_INFO("ArmorDetectTrt:infer pool") << msg;
     };
@@ -313,6 +316,7 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
             } else if (detect_color == 1 && obj.color == armor::ArmorColor::RED) {
                 continue;
             }
+            armors.push_back(obj);
         }
         if (this->infer_callback_) {
             this->infer_callback_(armors, frame);

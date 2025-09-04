@@ -107,7 +107,7 @@ quatToEuler(const Eigen::Quaterniond& q, int axis0, int axis1, int axis2, bool e
 
 inline Eigen::Quaterniond
 eulerToQuat(const Eigen::Vector3d& euler, int axis0, int axis1, int axis2, bool extrinsic = true) {
-    double rx = euler[0], ry = euler[1], rz = euler[2];
+    double rz = euler[0], ry = euler[1], rx = euler[2];
     Eigen::Quaterniond qx(Eigen::AngleAxisd(rx, Eigen::Vector3d::UnitX()));
     Eigen::Quaterniond qy(Eigen::AngleAxisd(ry, Eigen::Vector3d::UnitY()));
     Eigen::Quaterniond qz(Eigen::AngleAxisd(rz, Eigen::Vector3d::UnitZ()));
@@ -306,14 +306,6 @@ inline cv::Point2f computeCenter(const std::vector<cv::Point2f>& points) {
 inline bool isStateValid(const Eigen::VectorXd& state) {
     return state.allFinite(); // 所有元素都不是 NaN 或 Inf
 }
-inline double clamp_pm_pi(auto&& angle) {
-    while (angle >= M_PI)
-        angle -= M_PI;
-    while (angle <= -M_PI)
-        angle += M_PI;
-
-    return angle;
-}
 inline double ratio(const auto& point) {
     return atan2(point.y, point.x);
 }
@@ -334,23 +326,6 @@ inline Eigen::Matrix4d computeCameraToOdomTransform(
     Eigen::Matrix4d T_camera_to_odom = T_gimbal_to_odom * T_camera_to_gimbal;
 
     return T_camera_to_odom;
-}
-inline Eigen::Matrix3d getRGimbalToOdom(
-    const Eigen::Matrix4d& T_camera_to_odom,
-    const Eigen::Matrix3d& R_camera2gimbal,
-    const Eigen::Vector3d& t_gimbal_to_camera
-) {
-    Eigen::Matrix3d R_camera_to_gimbal = R_camera2gimbal;
-    Eigen::Vector3d t_camera_to_gimbal = -R_camera_to_gimbal * t_gimbal_to_camera;
-
-    Eigen::Matrix4d T_camera_to_gimbal = Eigen::Matrix4d::Identity();
-    T_camera_to_gimbal.block<3, 3>(0, 0) = R_camera_to_gimbal;
-    T_camera_to_gimbal.block<3, 1>(0, 3) = t_camera_to_gimbal;
-
-    Eigen::Matrix4d T_gimbal_to_camera = T_camera_to_gimbal.inverse();
-    Eigen::Matrix4d T_gimbal_to_odom = T_camera_to_odom * T_gimbal_to_camera;
-    Eigen::Matrix3d R_gimbal2odom = T_gimbal_to_odom.block<3, 3>(0, 0);
-    return R_gimbal2odom;
 }
 inline void addVelFromAccDt(Eigen::Vector3d& vel, const Eigen::Vector3d& acc, double dt) {
     vel.x() += acc.x() * dt;

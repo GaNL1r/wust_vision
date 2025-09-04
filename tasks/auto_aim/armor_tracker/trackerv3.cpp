@@ -20,15 +20,16 @@ Target TrackerV3::track(const armor::Armors& armors_msg) {
     armors = armors_msg;
     std::erase_if(armors.armors, [this](const armor::Armor& a) {
         double center_yaw = std::atan2(target_.position().y(), target_.position().x());
-        double pos_diff = std::abs(((a.target_pos).norm() - (target_.position()).norm()));
-        double z_diff = std::abs(a.target_pos.z() - target_.position().z());
+        // double pos_diff = std::abs(((a.target_pos).norm() - (target_.position()).norm()));
+        // double z_diff = std::abs(a.target_pos.z() - target_.position().z());
         bool state_check =
             target_.is_inited && (tracker_state != LOST && tracker_state != DETECTING);
         bool pose_check =
             std::abs(
                 angles::normalize_angle(orientationToYaw(a.target_ori, center_yaw) - center_yaw)
-            )
-            > (max_yaw_diff_deg_ * M_PI / 180.0);
+            ) > (max_yaw_diff_deg_ * M_PI / 180.0)
+            || !a.is_ok;
+
         return state_check && pose_check;
     });
 
@@ -116,7 +117,6 @@ bool TrackerV3::updateTarget(const armor::Armors& armors) {
         return false;
     }
     int found_count = 0;
-    double min_x = 1e10;
     target_.predict(armors.timestamp, armors.v);
     for (const auto& armor: armors.armors) {
         if (!armor::isSameTarget(armor.number, target_.tracked_id_))

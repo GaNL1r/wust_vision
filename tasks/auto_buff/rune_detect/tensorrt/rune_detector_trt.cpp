@@ -37,13 +37,6 @@ RuneDetectorTrt::RuneDetectorTrt(
     model_path_(model_path) {
     int device_id = params_.device_id;
     cudaSetDevice(device_id);
-    trt_net_ = std::make_unique<ml_net::TensorRTNet>();
-    ml_net::TensorRTNet::Params trt_params;
-    trt_params.model_path = model_path_;
-    trt_net_->init(trt_params);
-    auto input_output_dims = trt_net_->getInputOutputDims();
-    input_dims_ = std::get<0>(input_output_dims);
-    output_dims_ = std::get<1>(input_output_dims);
     auto model = rune_infer::modeFromString(model_type);
     rune_infer_ = std::make_unique<rune_infer::RuneInfer>(
         model,
@@ -58,6 +51,16 @@ RuneDetectorTrt::RuneDetectorTrt(
         strides_,
         grid_strides_
     );
+    trt_net_ = std::make_unique<ml_net::TensorRTNet>();
+    ml_net::TensorRTNet::Params trt_params;
+    trt_params.model_path = model_path_;
+    trt_params.input_h= rune_infer_->getInputH();
+    trt_params.input_w =rune_infer_->getInputW();
+    trt_net_->init(trt_params);
+    auto input_output_dims = trt_net_->getInputOutputDims();
+    input_dims_ = std::get<0>(input_output_dims);
+    output_dims_ = std::get<1>(input_output_dims);
+   
     AdaptiveResourcePool<Infer>::Params pool_params;
     pool_params.resource_initializer = [=]() {
         std::vector<std::unique_ptr<Infer>> infers;

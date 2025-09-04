@@ -4,47 +4,6 @@
 #include <nlohmann/json.hpp>
 #include <sys/mman.h>
 #include <wust_vl/common/utils/timer.hpp>
-armor::Armors visualizeTargetProjection(Target armor_target) {
-    armor::Armors armor_data;
-    armor_data.frame_id = "gimbal_odom";
-    armor_data.timestamp = armor_target.timestamp_;
-    double debug_dt = 0.01;
-
-    if (armor_target.is_tracking) {
-        Eigen::Vector3d pos = armor_target.position();
-        Eigen::Vector3d vel = armor_target.velocity();
-        utils::addPosFromVelDt(pos, vel, debug_dt);
-        if (pos.norm() > 0.5) {
-            armor_data.armors.clear();
-            size_t a_n = armor_target.armor_num_;
-            armor_data.armors.reserve(a_n);
-            auto now = time_utils::now();
-            double dt0 = time_utils::durationSec(armor_target.timestamp_, now);
-            std::chrono::steady_clock::time_point future =
-                now + std::chrono::microseconds(int(dt0 * 1e6));
-            armor_target.predict(future);
-            std::vector<Eigen::Vector4d> armors_posandyaw = armor_target.getArmorPosAndYaw();
-            for (size_t i = 0; i < a_n; ++i) {
-                Eigen::Vector3d pos = Eigen::Vector3d { armors_posandyaw[i][0],
-                                                        armors_posandyaw[i][1],
-                                                        armors_posandyaw[i][2] };
-                Eigen::Vector3d euler;
-                euler.x() = M_PI / 2;
-                euler.y() =
-                    armor_target.tracked_id_ == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
-                euler.z() = armors_posandyaw[i][3];
-                Eigen::Quaterniond ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
-                armor_data.armors.emplace_back(armor::Armor { .type = armor_target.type_,
-                                                              .pos = pos,
-                                                              .ori = ori,
-                                                              .is_ok = true,
-                                                              .distance_to_image_center = 0.0f });
-            }
-        }
-    }
-
-    return armor_data;
-}
 
 void drawDebugArmorContent(
     cv::Mat& debug_img,
@@ -117,22 +76,55 @@ void drawDebugArmorContent(
 
     // =================== 目标绘制 ===================
     std::vector<cv::Point2f> all_corners;
+
+    auto visualizeTargetProjection = [&](Target armor_target) -> armor::Armors {
+        armor::Armors armor_data;
+        armor_data.frame_id = "gimbal_odom";
+        armor_data.timestamp = armor_target.timestamp_;
+        double debug_dt = 0.01;
+
+        if (armor_target.is_tracking) {
+            Eigen::Vector3d pos = armor_target.position();
+            Eigen::Vector3d vel = armor_target.velocity();
+            utils::addPosFromVelDt(pos, vel, debug_dt);
+            if (pos.norm() > 0.5) {
+                armor_data.armors.clear();
+                size_t a_n = armor_target.armor_num_;
+                armor_data.armors.reserve(a_n);
+                auto now = time_utils::now();
+                double dt0 = time_utils::durationSec(armor_target.timestamp_, now);
+                std::chrono::steady_clock::time_point future =
+                    now + std::chrono::microseconds(int(dt0 * 1e6));
+                armor_target.predict(future);
+                std::vector<Eigen::Vector4d> armors_posandyaw = armor_target.getArmorPosAndYaw();
+                for (size_t i = 0; i < a_n; ++i) {
+                    Eigen::Vector3d pos = { armors_posandyaw[i][0],
+                                            armors_posandyaw[i][1],
+                                            armors_posandyaw[i][2] };
+                    Eigen::Vector3d euler;
+                    euler.z() = M_PI / 2.0;
+                    euler.y() = (armor_target.tracked_id_ == armor::ArmorNumber::OUTPOST) ? -0.2618
+                                                                                          : 0.2618;
+                    euler.x() = armors_posandyaw[i][3];
+                    Eigen::Quaterniond ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
+                    armor_data.armors.emplace_back(armor::Armor { .type = armor_target.type_,
+                                                                  .pos = pos,
+                                                                  .ori = ori,
+                                                                  .is_ok = true,
+                                                                  .distance_to_image_center = 0.0f }
+                    );
+                }
+            }
+        }
+        return armor_data;
+    };
     auto armor_data = visualizeTargetProjection(dbg.target);
     utils::transformArmorData(armor_data, dbg.T_camera_to_odom.inverse());
-    Target_info target_info;
-    if (!mono_measure_tool::reprojectArmorsCorners(
-            armor_data,
-            target_info,
-            camera_info.first,
-            camera_info.second
-        ))
-        return;
-
-    for (size_t i = 0; i < target_info.pts.size(); ++i) {
-        const auto& pts = target_info.pts[i];
-        const auto& pos = target_info.pos[i];
-        const auto& ori = target_info.ori[i];
-        const auto& is_ok = target_info.is_ok[i];
+    for (size_t i = 0; i < armor_data.armors.size(); ++i) {
+        const auto& pts = armor_data.armors[i].toPtsDebug(camera_info.first, camera_info.second);
+        const auto& pos = armor_data.armors[i].pos;
+        const auto& ori = armor_data.armors[i].ori;
+        const auto& is_ok = armor_data.armors[i].is_ok;
 
         cv::Scalar color;
         if (dbg.detect_color) {

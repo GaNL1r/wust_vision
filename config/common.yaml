@@ -12,10 +12,12 @@ tf:
   gimbal2camera_z: 0.0
 control:
   control_rate: 200
-  communication_delay_us: 1100
+  communication_delay_us: 00
+  pitch_avg_windows: 20
+  yaw_avg_windows: 20
   device_name: /dev/ttyACM_RMc
   use_nav: false
-  use_serial: true
+  use_serial: false
 logger:
   log_level: INFO
   log_path: /home/hy/wust_log

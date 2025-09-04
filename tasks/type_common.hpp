@@ -62,6 +62,7 @@ inline AttackMode toAttackMode(int value) {
             return AttackMode::UNKNOWN;
     }
 }
+
 class MotionBuffer {
 public:
     struct MotionStamped {
@@ -318,6 +319,8 @@ struct GimbalCmd {
     float yaw = 0;
     float yaw_diff = 0;
     float pitch_diff = 0;
+    float target_yaw = 0;
+    float target_pitch = 0;
     float v_yaw = 0;
     float v_pitch = 0;
     float distance = -1;

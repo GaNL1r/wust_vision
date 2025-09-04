@@ -26,6 +26,7 @@ TrackerManager::TrackerManager(
     target_config.qyaw_common = config_["armor_tracker"]["qyaw_common"].as<double>();
     target_config.qxyz_output = config_["armor_tracker"]["qxyz_output"].as<double>();
     target_config.qyaw_output = config_["armor_tracker"]["qyaw_output"].as<double>();
+    target_config.yp_r = config_["armor_tracker"]["yp_r"].as<double>();
     tracker_v3_ = std::make_unique<TrackerV3>(
         tracking_thres,
         lost_time_thres,

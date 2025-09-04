@@ -24,6 +24,7 @@ public:
     int lost_count_ = 0;
     double lost_dt_;
     double max_yaw_diff_deg_;
+
     Target target_;
     std::chrono::steady_clock::time_point last_time_;
     TargetConfig target_config_;

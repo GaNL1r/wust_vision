@@ -19,13 +19,14 @@ armor_tracker:
   qyaw_common: 400.0
   qxyz_output: 10.0
   qyaw_output: 0.1
+  yp_r: 4e-3
 
 auto_aim_fsm:
   thres_up_1: 3.5
   thres_down_1: 2.0
   thres_up_2: 16.5
   thres_down_2: 15.0
-
+  transfer_thresh: 20.0
 planner:
   max_yaw_acc: 40
   Q_yaw: [9e6, 0]

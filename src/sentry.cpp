@@ -157,7 +157,10 @@ public:
             });
         }
         ros2_ = std::make_unique<Ros2>(std::bind(&vision::TwistCb, this, std::placeholders::_1));
-
+        double yaw_avg_windows = config_["control"]["yaw_avg_windows"].as<double>(0.0);
+        double pitch_avg_windows = config_["control"]["pitch_avg_windows"].as<double>(0.0);
+        yaw_avg_ = std::make_unique<Averager<double>>(yaw_avg_windows);
+        pitch_avg_ = std::make_unique<Averager<double>>(pitch_avg_windows);
         timer_ = std::make_unique<Timer>();
         detect_color_ = config_["detect_color"].as<int>(0);
         debug_mode_ = config_["debug_mode"].as<bool>(false);
@@ -189,17 +192,11 @@ public:
             double v_y = aim_data.v_y;
             double v_z = aim_data.v_z;
 
+            // Eigen::Vector3d euler(yaw, -pitch, roll);
+            // auto q = utils::eulerToQuat(euler, 2, 1, 0);
             auto now = std::chrono::steady_clock::now();
             if (motion_buffer_) {
-                motion_buffer_->push(
-                    yaw + gimbal2camera_yaw_,
-                    pitch + gimbal2camera_pitch_,
-                    roll + gimbal2camera_roll_,
-                    v_x,
-                    v_y,
-                    v_z,
-                    now
-                );
+                motion_buffer_->push(yaw, pitch, roll, v_x, v_y, v_z, now);
             }
 
             writeSerialLogToJson(aim_data);
@@ -279,8 +276,6 @@ public:
         }
     }
     void timerCallback(double dt_ms) {
-        static Averager<double> yaw_avg(5);
-        static Averager<double> pitch_avg(5);
         static double last_yaw = 0.0;
         static double last_pitch = 0.0;
 
@@ -325,8 +320,8 @@ public:
             yaw_delta = max_delta_yaw;
         if (yaw_delta < -max_delta_yaw)
             yaw_delta = -max_delta_yaw;
-        yaw_avg.add(last_yaw + yaw_delta);
-        pitch_avg.add(last_pitch + pitch_delta);
+        yaw_avg_->add(last_yaw + yaw_delta);
+        pitch_avg_->add(last_pitch + pitch_delta);
         last_pitch = last_pitch + pitch_delta;
         last_yaw = last_yaw + yaw_delta;
         SendRobotCmdData send_data;
@@ -335,15 +330,17 @@ public:
 
         send_data.detect_color = detect_color_;
         send_data.distance = cmd.distance;
-        send_data.fire = cmd.fire_advice;
-        double avg_pitch = pitch_avg.average();
-        double avg_yaw = yaw_avg.average();
+        //send_data.fire = cmd.fire_advice;
+        double avg_pitch = pitch_avg_->average();
+        double avg_yaw = yaw_avg_->average();
         send_data.pitch = avg_pitch;
         send_data.yaw = avg_yaw;
-        send_data.pitch_diff = cmd.pitch_diff;
-        send_data.yaw_diff = cmd.yaw_diff;
+        // send_data.pitch_diff = cmd.pitch_diff;
+        // send_data.yaw_diff = cmd.yaw_diff;
         send_data.v_pitch = cmd.v_pitch;
         send_data.v_yaw = cmd.v_yaw;
+        send_data.target_yaw = cmd.target_yaw;
+        send_data.target_pitch = cmd.target_pitch;
         send_data.enable_pitch_diff = cmd.enable_pitch_diff;
         send_data.enable_yaw_diff = cmd.enable_yaw_diff;
 
@@ -412,8 +409,9 @@ public:
                 auto last_att = motion_buffer_->get_last();
                 std::pair<double, double> gimbal_py;
                 if (last_att) {
-                    gimbal_py.first = last_att->pitch;
-                    gimbal_py.second = last_att->yaw;
+                    // auto euler = utils::quatToEuler(last_att->q, 2, 1, 0);
+                    // gimbal_py.first = euler.x();
+                    // gimbal_py.second = -euler.y();
                 }
                 debuglog(dbg_armor, dbg_rune, last_cmd_, gimbal_py);
                 config_binder_->reload(COMMON_CONFIG);
@@ -448,7 +446,8 @@ public:
     double gimbal2camera_roll_;
     double gimbal2camera_pitch_;
     double gimbal2camera_yaw_;
-
+    std::unique_ptr<Averager<double>> yaw_avg_;
+    std::unique_ptr<Averager<double>> pitch_avg_;
     std::pair<cv::Mat, cv::Mat> camera_info_;
     int attack_mode_;
     int max_infer_running_;

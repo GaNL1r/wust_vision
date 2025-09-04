@@ -23,10 +23,10 @@ Target::Target(
         Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, ypdv2armor_motion_model::Z_N> r;
         auto delta_angle = angles::normalize_angle(z[3] - z[0]);
         // clang-format off
-        r <<4e-3, 0, 0, 0,
-                0, 4e-3 , 0, 0,
+        r <<target_config_.yp_r, 0, 0, 0,
+                0, target_config_.yp_r , 0, 0,
                 0, 0, log(std::abs(z[2]) + 1) / 200 + 9e-2, 0,
-                0, 0, 0, log(std::abs(delta_angle) + 1) + 1;//相机系下yaw正对误差大
+                0, 0, 0, log(std::abs(delta_angle) + 1) + 1;
         // clang-format on
         return r;
     };
@@ -187,7 +187,7 @@ void Target::update(const armor::Armor& armor) {
         Eigen::Vector3d ypd = utils::xyz2ypd(xyza.head(3));
         auto angle_error =
             std::abs(angles::normalize_angle(orientationToYaw(armor.target_ori) - xyza[3]))
-            + std::abs(angles::normalize_angle(orientationToYaw(armor.target_ori) - ypd[0]));
+            + std::abs(angles::normalize_angle(utils::xyz2ypd(armor.target_pos)[0] - ypd[0]));
 
         if (std::abs(angle_error) < std::abs(min_angle_error)) {
             id = xyza_i_list[i].second;

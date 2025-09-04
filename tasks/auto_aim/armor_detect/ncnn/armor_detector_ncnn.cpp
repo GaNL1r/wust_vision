@@ -179,6 +179,7 @@ bool ArmorDetectNCNN::processCallback(const CommonFrame& frame) {
             } else if (detect_color == 1 && obj.color == armor::ArmorColor::RED) {
                 continue;
             }
+            armors.push_back(obj);
         }
         if (this->infer_callback_) {
             this->infer_callback_(armors, frame);

@@ -9,10 +9,6 @@ constexpr double SMALL_ARMOR_HEIGHT = 50.0 / 1000.0; // 55
 constexpr double LARGE_ARMOR_WIDTH = 225.0 / 1000.0;
 constexpr double LARGE_ARMOR_HEIGHT = 50.0 / 1000.0; // 55
 
-constexpr double SMALL_ARMOR_WIDTH_NET = 135.0 / 1000.0; // 135
-constexpr double SMALL_ARMOR_HEIGHT_NET = 55.0 / 1000.0; // 55
-constexpr double LARGE_ARMOR_WIDTH_NET = 225.0 / 1000.0;
-constexpr double LARGE_ARMOR_HEIGHT_NET = 55.0 / 1000.0; // 55
 constexpr double FIFTTEN_DEGREE_RAD = 15 * CV_PI / 180;
 namespace armor {
 struct Light: public cv::RotatedRect {
@@ -238,14 +234,58 @@ struct ArmorObject {
             return { pts[0], pts[1], pts[2], pts[3] };
         }
     }
+    std::array<cv::Point2f, 4> sortCorners(const std::vector<cv::Point2f>& pts) const {
+        std::array<cv::Point2f, 4> ordered;
+
+        // 先按 x 坐标分成左右两组
+        std::vector<cv::Point2f> left, right;
+        std::vector<cv::Point2f> sorted = pts;
+
+        std::sort(sorted.begin(), sorted.end(), [](const cv::Point2f& a, const cv::Point2f& b) {
+            return a.x < b.x;
+        });
+
+        left.push_back(sorted[0]);
+        left.push_back(sorted[1]);
+        right.push_back(sorted[2]);
+        right.push_back(sorted[3]);
+
+        // 左边两个点，按 y 分为上/下
+        std::sort(left.begin(), left.end(), [](const cv::Point2f& a, const cv::Point2f& b) {
+            return a.y < b.y;
+        });
+        ordered[1] = left[0]; // 左上
+        ordered[0] = left[1]; // 左下
+
+        // 右边两个点，按 y 分为上/下
+        std::sort(right.begin(), right.end(), [](const cv::Point2f& a, const cv::Point2f& b) {
+            return a.y < b.y;
+        });
+        ordered[2] = right[0]; // 右上
+        ordered[3] = right[1]; // 右下
+
+        return ordered; // 顺序: 左下, 左上, 右上, 右下
+    }
 
     // Landmarks start from bottom left in clockwise order
     std::vector<cv::Point2f> landmarks() const {
         if constexpr (N_LANDMARKS == 4) {
-            return { lights[0].bottom, lights[0].top, lights[1].top, lights[1].bottom };
+            if (is_ok) {
+                return { lights[0].bottom, lights[0].top, lights[1].top, lights[1].bottom };
+            } else {
+                auto ordered = sortCorners(pts);
+                return { ordered[0], ordered[1], ordered[2], ordered[3] };
+            }
+
         } else {
-            return { lights[0].bottom, lights[0].center, lights[0].top,
-                     lights[1].top,    lights[1].center, lights[1].bottom };
+            if (is_ok) {
+                return { lights[0].bottom, lights[0].center, lights[0].top,
+                         lights[1].top,    lights[1].center, lights[1].bottom };
+            } else {
+                auto ordered = sortCorners(pts);
+                return { ordered[0], (ordered[0] + ordered[1]) / 2.0, ordered[1],
+                         ordered[2], (ordered[2] + ordered[3]) / 2.0, ordered[3] };
+            }
         }
     }
     ArmorObject(const Light& l1, const Light& l2) {
@@ -295,7 +335,6 @@ constexpr const char* K_ARMOR_NAMES[] = { "sentry", "1", "2", "3", "4", "5", "ou
 struct Armor {
     ArmorNumber number;
     std::string type;
-
     Eigen::Vector3d pos;
     Eigen::Quaterniond ori;
     Eigen::Vector3d target_pos;
@@ -305,13 +344,69 @@ struct Armor {
     std::chrono::steady_clock::time_point timestamp;
     bool is_ok = false;
     bool is_none_purple = false;
+
+    std::vector<cv::Point2f>
+    toPtsDebug(const cv::Mat& camera_intrinsic, const cv::Mat& camera_distortion) {
+        std::vector<cv::Point2f> image_points;
+        const std::vector<cv::Point3f>* model_points;
+        static std::vector<cv::Point3f> SMALL_ARMOR_3D_POINTS_BLOCK = {
+            { 0, 0.025, -0.066 }, // 左上前
+            { 0, -0.025, -0.066 }, // 左下前
+            { 0, -0.025, 0.066 }, // 右下前
+            { 0, 0.025, 0.066 }, // 右上前
+            { 0.015, 0.025, -0.066 }, // 左上后
+            { 0.015, -0.025, -0.066 }, // 左下后
+            { 0.015, -0.025, 0.066 }, // 右下后
+            { 0.015, 0.025, 0.066 }, // 右上后
+        };
+
+        static std::vector<cv::Point3f> BIG_ARMOR_3D_POINTS_BLOCK = {
+            { 0, 0.025, -0.1125 },     { 0, -0.025, -0.1125 },    { 0, -0.025, 0.1125 },
+            { 0, 0.025, 0.1125 },      { 0.015, 0.025, -0.1125 }, { 0.015, -0.025, -0.1125 },
+            { 0.015, -0.025, 0.1125 }, { 0.015, 0.025, 0.1125 },
+        };
+
+        if (type == "large") {
+            model_points = &BIG_ARMOR_3D_POINTS_BLOCK;
+        } else if (type == "small") {
+            model_points = &SMALL_ARMOR_3D_POINTS_BLOCK;
+        }
+        Eigen::Matrix3d tf_rot = target_ori.toRotationMatrix();
+        cv::Mat rot_mat =
+            (cv::Mat_<double>(3, 3) << tf_rot(0, 0),
+             tf_rot(0, 1),
+             tf_rot(0, 2),
+             tf_rot(1, 0),
+             tf_rot(1, 1),
+             tf_rot(1, 2),
+             tf_rot(2, 0),
+             tf_rot(2, 1),
+             tf_rot(2, 2));
+
+        // 旋转矩阵 -> 旋转向量
+        cv::Mat rvec;
+        cv::Rodrigues(rot_mat, rvec);
+
+        // 平移向量
+        cv::Mat tvec = (cv::Mat_<double>(3, 1) << target_pos.x(), target_pos.y(), target_pos.z());
+
+        // 反投影
+        cv::projectPoints(
+            *model_points,
+            rvec,
+            tvec,
+            camera_intrinsic,
+            camera_distortion,
+            image_points
+        );
+        return image_points;
+    }
 };
 struct Armors {
     std::vector<Armor> armors;
     std::chrono::steady_clock::time_point timestamp;
     std::string frame_id;
     int id;
-    Eigen::Matrix3d R_gimbal2odom;
     Eigen::Vector3d v;
 };
 
@@ -346,6 +441,7 @@ public:
         thres_down_1 = config["auto_aim_fsm"]["thres_down_1"].as<double>(0.5);
         thres_up_2 = config["auto_aim_fsm"]["thres_up_2"].as<double>(6.0);
         thres_down_2 = config["auto_aim_fsm"]["thres_down_2"].as<double>(5.0);
+        transfer_thresh_ = config["auto_aim_fsm"]["transfer_thresh"].as<int>(5.0);
     }
     AutoAimFsmController(
         double up1 = 1.0,
