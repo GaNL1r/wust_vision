@@ -86,7 +86,7 @@ std::vector<armor::Armor> ArmorPoseEstimator::extractArmorPoses(
         utils::transformArmorData(msg, T_camera_to_odom);
         msg.distance_to_image_center =
             pnp_solver_->calculateDistanceToCenter(obj.center, camera_intrinsic);
-        msg.is_ok = true;
+        msg.is_ok = obj.is_ok;
         if (obj.color == armor::ArmorColor::NONE || obj.color == armor::ArmorColor::PURPLE) {
             msg.is_none_purple = true;
         } else {

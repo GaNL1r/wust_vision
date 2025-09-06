@@ -129,6 +129,7 @@ bool TrackerV3::updateTarget(const armor::Armors& armors) {
     }
     if (found_count == 0)
         return false;
+    found_count = 0;
     for (auto& armor: armors.armors) {
         if (!armor::isSameTarget(armor.number, target_.tracked_id_))
             continue;
@@ -140,8 +141,11 @@ bool TrackerV3::updateTarget(const armor::Armors& armors) {
         if (is_none_purple_count_ > 100) {
             continue;
         }
-        target_.update(armor);
+        if (target_.update(armor)) {
+            found_count++;
+        }
     }
-
+    if (found_count == 0)
+        return false;
     return true;
 }

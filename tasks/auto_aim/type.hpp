@@ -14,9 +14,11 @@ constexpr double FIFTTEN_DEGREE_RAD = 15 * CV_PI / 180;
 namespace armor {
 struct Light: public cv::RotatedRect {
     Light() = default;
+
     explicit Light(const std::vector<cv::Point>& contour):
         cv::RotatedRect(cv::minAreaRect(contour)) {
-        center = std::accumulate(
+        // 直接更新父类的 center
+        this->center = std::accumulate(
             contour.begin(),
             contour.end(),
             cv::Point2f(0, 0),
@@ -27,29 +29,35 @@ struct Light: public cv::RotatedRect {
 
         cv::Point2f p[4];
         this->points(p);
+
         std::sort(p, p + 4, [](const cv::Point2f& a, const cv::Point2f& b) { return a.y < b.y; });
+
         top = (p[0] + p[1]) / 2;
         bottom = (p[2] + p[3]) / 2;
 
         length = cv::norm(top - bottom);
         width = cv::norm(p[0] - p[1]);
 
-        axis = top - bottom;
-        axis = axis / cv::norm(axis);
+        axis = (top - bottom) / cv::norm(top - bottom);
 
-        // Calculate the tilt angle
-        // The angle is the angle between the light bar and the horizontal line
-        tilt_angle = std::atan2(std::abs(top.x - bottom.x), std::abs(top.y - bottom.y));
-        tilt_angle = tilt_angle / CV_PI * 180;
+        tilt_angle =
+            std::atan2(std::abs(top.x - bottom.x), std::abs(top.y - bottom.y)) / CV_PI * 180.0f;
     }
 
-    cv::Point2f top, bottom, center;
-    int color;
+    void addOffset(const cv::Point2f& offset) {
+        this->center += offset;
+        top += offset;
+        bottom += offset;
+    }
+
+    cv::Point2f top, bottom;
+    int color = 0;
     cv::Point2f axis;
-    double length;
-    double width;
-    float tilt_angle;
+    double length = 0;
+    double width = 0;
+    float tilt_angle = 0;
 };
+
 struct LightParams {
     // width / height
     double min_ratio;
@@ -192,7 +200,6 @@ struct ArmorObject {
     ArmorNumber number;
     float prob;
     std::vector<cv::Point2f> pts;
-    std::vector<cv::Point2f> pts_binary;
     cv::Rect box;
 
     cv::Mat number_img;
@@ -230,7 +237,7 @@ struct ArmorObject {
     }
     std::vector<cv::Point2f> toPts() const {
         if (is_ok) {
-            return { pts_binary[0], pts_binary[1], pts_binary[2], pts_binary[3] };
+            return { lights[0].top, lights[0].bottom, lights[1].bottom, lights[1].top };
         } else {
             return { pts[0], pts[1], pts[2], pts[3] };
         }
@@ -291,7 +298,6 @@ struct ArmorObject {
     }
     ArmorObject(const Light& l1, const Light& l2) {
         pts.resize(4);
-        pts_binary.resize(4);
         if (l1.center.x < l2.center.x) {
             lights.push_back(l1);
             lights.push_back(l2);
@@ -299,10 +305,6 @@ struct ArmorObject {
             pts[1] = l1.bottom;
             pts[2] = l2.bottom;
             pts[3] = l2.top;
-            pts_binary[0] = l1.top;
-            pts_binary[1] = l1.bottom;
-            pts_binary[2] = l2.bottom;
-            pts_binary[3] = l2.top;
         } else {
             lights.push_back(l2);
             lights.push_back(l1);
@@ -310,10 +312,6 @@ struct ArmorObject {
             pts[1] = l2.bottom;
             pts[2] = l1.bottom;
             pts[3] = l1.top;
-            pts_binary[0] = l2.top;
-            pts_binary[1] = l2.bottom;
-            pts_binary[2] = l1.bottom;
-            pts_binary[3] = l1.top;
         }
         is_ok = true;
     }

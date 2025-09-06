@@ -25,8 +25,8 @@ Target::Target(
         // clang-format off
         r <<target_config_.yp_r, 0, 0, 0,
                 0, target_config_.yp_r , 0, 0,
-                0, 0, log(std::abs(z[2]) + 1) / 200 + 9e-2, 0,
-                0, 0, 0, log(std::abs(delta_angle) + 1) + 1;
+                0, 0, log(std::abs(delta_angle) + 1) + 1, 0,
+                0, 0, 0,log(std::abs(z[2]) + 1) / 200 + 9e-2;
         // clang-format on
         return r;
     };
@@ -126,18 +126,18 @@ void Target::predict(double dt, Eigen::Vector3d self_v, bool use_lin_pre) {
             double q_yaw_yaw = pow(t, 4) / 4 * v2, q_yaw_vyaw = pow(t, 3) / 2 * v2,
                    q_vyaw_vyaw = pow(t, 2) * v2;
             // clang-format off
-        //      xc      v_xc    yc      v_yc    zc      v_zc    yaw         v_yaw       r       l   h
-        q <<    q_x_x,  q_x_vx, 0,      0,      0,      0,      0,          0,          0,      0,  0,
-                q_x_vx, q_vx_vx,0,      0,      0,      0,      0,          0,          0,      0,  0,
-                0,      0,      q_y_y,  q_y_vy, 0,      0,      0,          0,          0,      0,  0,
-                0,      0,      q_y_vy, q_vy_vy,0,      0,      0,          0,          0,      0,  0,
-                0,      0,      0,      0,      q_z_z,  q_z_vz, 0,          0,          0,      0,  0,
-                0,      0,      0,      0,      q_z_vz, q_vz_vz,0,          0,          0,      0,  0,
-                0,      0,      0,      0,      0,      0,      q_yaw_yaw,  q_yaw_vyaw, 0,      0,  0,
-                0,      0,      0,      0,      0,      0,      q_yaw_vyaw, q_vyaw_vyaw,0,      0,  0,
-                0,      0,      0,      0,      0,      0,      0,          0,          0,      0,  0,
-                0,      0,      0,      0,      0,      0,      0,          0,          0,      0,  0,
-                0,      0,      0,      0,      0,      0,      0,          0,          0,      0,  0;
+            //      xc      v_xc    yc      v_yc    zc      v_zc    yaw         v_yaw       r       l   h
+            q <<    q_x_x,  q_x_vx, 0,      0,      0,      0,      0,          0,          0,      0,  0,
+                    q_x_vx, q_vx_vx,0,      0,      0,      0,      0,          0,          0,      0,  0,
+                    0,      0,      q_y_y,  q_y_vy, 0,      0,      0,          0,          0,      0,  0,
+                    0,      0,      q_y_vy, q_vy_vy,0,      0,      0,          0,          0,      0,  0,
+                    0,      0,      0,      0,      q_z_z,  q_z_vz, 0,          0,          0,      0,  0,
+                    0,      0,      0,      0,      q_z_vz, q_vz_vz,0,          0,          0,      0,  0,
+                    0,      0,      0,      0,      0,      0,      q_yaw_yaw,  q_yaw_vyaw, 0,      0,  0,
+                    0,      0,      0,      0,      0,      0,      q_yaw_vyaw, q_vyaw_vyaw,0,      0,  0,
+                    0,      0,      0,      0,      0,      0,      0,          0,          0,      0,  0,
+                    0,      0,      0,      0,      0,      0,      0,          0,          0,      0,  0,
+                    0,      0,      0,      0,      0,      0,      0,          0,          0,      0,  0;
             // clang-format on
             return q;
         };
@@ -184,7 +184,7 @@ Eigen::Vector3d Target::h_armor_vxyz(const Eigen::VectorXd& x, int id) const {
     return v_center + v_rot;
 }
 
-void Target::update(const armor::Armor& armor) {
+bool Target::update(const armor::Armor& armor) {
     timestamp_ = armor.timestamp;
     int id;
     auto min_angle_error = 1e10;
@@ -212,16 +212,30 @@ void Target::update(const armor::Armor& armor) {
         auto angle_error =
             std::abs(angles::normalize_angle(orientationToYaw(armor.target_ori) - xyza[3]))
             + std::abs(angles::normalize_angle(utils::xyz2ypd(armor.target_pos)[0] - ypd[0]));
-
+        +std::abs(angles::normalize_angle(utils::xyz2ypd(armor.target_pos)[1] - ypd[1]));
         if (std::abs(angle_error) < std::abs(min_angle_error)) {
             id = xyza_i_list[i].second;
             min_angle_error = angle_error;
         }
     }
-    if (std::abs(angles::normalize_angle(orientationToYaw(armor.target_ori) - xyza_list[id][3]))
-        > 45.0 * M_PI / 180.0)
-    {
-        return;
+
+    auto p = armor.target_pos;
+    double measured_yaw = orientationToYaw(armor.target_ori);
+
+    double ypd_y = std::atan2(p.y(), p.x());
+    ypd_y = this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
+    this->last_ypd_y = ypd_y;
+    double ypd_p = std::atan2(p.z(), std::sqrt(p.x() * p.x() + p.y() * p.y()));
+    double ypd_d = std::sqrt(p.x() * p.x() + p.y() * p.y() + p.z() * p.z());
+    measurement_ = Eigen::Vector4d(ypd_y, ypd_p, ypd_d, measured_yaw);
+
+    auto tmp_esekf = esekf_ypd_;
+    tmp_esekf.setMeasureFunc(ypdv2armor_motion_model::Measure { id, armor_num_ });
+    tmp_esekf.update(measurement_);
+    auto tmp_state = tmp_esekf.predict();
+    if (diverged(tmp_state)) {
+        WUST_WARN("target") << "This update make diverged skip!!";
+        return false;
     }
     if (id != 0)
         jumped = true;
@@ -239,15 +253,7 @@ void Target::update(const armor::Armor& armor) {
     update_count_++;
 
     esekf_ypd_.setMeasureFunc(ypdv2armor_motion_model::Measure { id, armor_num_ });
-    auto p = armor.target_pos;
-    double measured_yaw = orientationToYaw(armor.target_ori);
-
-    double ypd_y = std::atan2(p.y(), p.x());
-    ypd_y = this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
-    this->last_ypd_y = ypd_y;
-    double ypd_p = std::atan2(p.z(), std::sqrt(p.x() * p.x() + p.y() * p.y()));
-    double ypd_d = std::sqrt(p.x() * p.x() + p.y() * p.y() + p.z() * p.z());
-    measurement_ = Eigen::Vector4d(ypd_y, ypd_p, ypd_d, measured_yaw);
 
     esekf_ypd_.update(measurement_);
+    return true;
 }

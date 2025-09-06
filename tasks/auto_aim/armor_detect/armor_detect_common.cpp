@@ -124,11 +124,11 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, armor::ArmorObject& 
 }
 
 bool ArmorDetectCommon::refineLightsFromArmorPts(armor::ArmorObject& armor) const {
-    cv::Point2f armor_center = (armor.pts[0] + armor.pts[1] + armor.pts[2] + armor.pts[3]) * 0.25;
+    armor.center = (armor.pts[0] + armor.pts[1] + armor.pts[2] + armor.pts[3]) * 0.25;
 
     std::vector<std::pair<int, double>> light_distances;
     for (int i = 0; i < static_cast<int>(armor.lights.size()); ++i) {
-        double dist = cv::norm(armor.lights[i].center - armor_center);
+        double dist = cv::norm(armor.lights[i].center - armor.center);
         light_distances.emplace_back(i, dist);
     }
 
@@ -146,6 +146,11 @@ bool ArmorDetectCommon::refineLightsFromArmorPts(armor::ArmorObject& armor) cons
         } else {
             armor.lights[0] = l2;
             armor.lights[1] = l1;
+        }
+        for (auto& light: armor.lights) {
+            const cv::Point2f offset { static_cast<float>(armor.new_x),
+                                       static_cast<float>(armor.new_y) };
+            light.addOffset(offset);
         }
         return true;
     } else {
@@ -238,7 +243,8 @@ std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
     if (src_img.empty()) {
         return armors;
     }
-
+    cv::Mat gray;
+    cv::cvtColor(src_img, gray, cv::COLOR_RGB2GRAY);
     std::for_each(std::execution::par, objs_result.begin(), objs_result.end(), [&](auto& armor_in) {
         armor::ArmorObject armor = armor_in;
         // 颜色过滤
@@ -290,7 +296,8 @@ std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
             findLights(armor.whole_rgb_img, armor.whole_binary_img, armor);
             if (refineLightsFromArmorPts(armor)) {
                 if (isArmor(armor.lights[0], armor.lights[1])) {
-                    corner_corrector_->correctCorners(armor);
+                    armor.is_ok = true;
+                    corner_corrector_->correctCorners(armor, gray);
                 }
             }
             if (!armor.is_ok) {

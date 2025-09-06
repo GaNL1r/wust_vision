@@ -64,7 +64,6 @@ public:
         }
 #endif
 
-        // opencv一般不受宏限制，放最后统一判断
         if (backend == "opencv") {
             return std::make_unique<ArmorDetectorOpencvWrapper>(config);
         }

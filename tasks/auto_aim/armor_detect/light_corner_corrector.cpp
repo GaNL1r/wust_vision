@@ -21,99 +21,27 @@
 #include <iostream>
 #include <numeric>
 #include <ostream>
-void LightCornerCorrector::correctCorners(armor::ArmorObject& armor) noexcept {
-    constexpr int PASS_OPTIMIZE_WIDTH = 3;
-    if (armor.lights.empty() || armor.whole_gray_img.empty())
-        return;
-
-    const cv::Point2f offset { static_cast<float>(armor.new_x), static_cast<float>(armor.new_y) };
-
-    auto translate = [&](cv::Point2f& p) { p += offset; };
-
-    for (auto& light: armor.lights) {
-        if (light.width <= PASS_OPTIMIZE_WIDTH) {
-            translate(light.top);
-            translate(light.center);
-            translate(light.bottom);
-            continue;
-        }
-
-        SymmetryAxis axis = findSymmetryAxis(armor.whole_gray_img, light);
-        light.center = axis.centroid;
-        light.axis = axis.direction;
-
-        if (auto t = findCorner(armor.whole_gray_img, light, axis, "top"); t.x > 0)
-            light.top = t;
-        if (auto b = findCorner(armor.whole_gray_img, light, axis, "bottom"); b.x > 0)
-            light.bottom = b;
-
-        translate(light.top);
-        translate(light.center);
-        translate(light.bottom);
-    }
-
-    armor.pts_binary = { armor.lights[0].top,
-                         armor.lights[0].bottom,
-                         armor.lights[1].bottom,
-                         armor.lights[1].top };
-    armor.is_ok =
-        std::all_of(armor.pts_binary.begin(), armor.pts_binary.end(), [](const cv::Point2f& p) {
-            return p.x >= 0 && p.y >= 0;
-        });
-
-    if (armor.is_ok) {
-        armor.center = (armor.lights[0].center + armor.lights[1].center) * 0.5f;
-    } else {
-        armor.center = std::accumulate(
-                           armor.pts.begin(),
-                           armor.pts.end(),
-                           cv::Point2f { 0, 0 },
-                           [](const cv::Point2f& a, const cv::Point2f& b) { return a + b; }
-                       )
-            * 0.25f;
-    }
-}
-
-void LightCornerCorrector::correctCorners_nonmatch(
+void LightCornerCorrector::correctCorners(
     armor::ArmorObject& armor,
     const cv::Mat& gray_img
 ) noexcept {
-    // If the width of the light is too small, the correction is not performed
     constexpr int PASS_OPTIMIZE_WIDTH = 3;
-    if (armor.lights.empty())
+    if (armor.lights.empty() || gray_img.empty())
         return;
-    if (gray_img.empty()) {
-        return;
-    }
 
-    if (armor.lights[0].width > PASS_OPTIMIZE_WIDTH) {
-        // Find the symmetry axis of the light
-        SymmetryAxis left_axis = findSymmetryAxis(gray_img, armor.lights[0]);
-        armor.lights[0].center = left_axis.centroid;
-        armor.lights[0].axis = left_axis.direction;
-        // Find the corner of the light
-        if (cv::Point2f t = findCorner(gray_img, armor.lights[0], left_axis, "top"); t.x > 0) {
-            armor.lights[0].top = t;
+    for (auto& light: armor.lights) {
+        if (light.width <= PASS_OPTIMIZE_WIDTH) {
+            continue;
         }
-        if (cv::Point2f b = findCorner(gray_img, armor.lights[0], left_axis, "bottom"); b.x > 0) {
-            armor.lights[0].bottom = b;
-        }
-    }
+        SymmetryAxis axis = findSymmetryAxis(gray_img, light);
+        light.center = axis.centroid;
+        light.axis = axis.direction;
 
-    if (armor.lights[1].width > PASS_OPTIMIZE_WIDTH) {
-        // Find the symmetry axis of the light
-        SymmetryAxis right_axis = findSymmetryAxis(gray_img, armor.lights[1]);
-        armor.lights[1].center = right_axis.centroid;
-        armor.lights[1].axis = right_axis.direction;
-        // Find the corner of the light
-        if (cv::Point2f t = findCorner(gray_img, armor.lights[1], right_axis, "top"); t.x > 0) {
-            armor.lights[1].top = t;
-        }
-        if (cv::Point2f b = findCorner(gray_img, armor.lights[1], right_axis, "bottom"); b.x > 0) {
-            armor.lights[1].bottom = b;
-        }
+        if (auto t = findCorner(gray_img, light, axis, "top"); t.x > 0)
+            light.top = t;
+        if (auto b = findCorner(gray_img, light, axis, "bottom"); b.x > 0)
+            light.bottom = b;
     }
-    armor.is_ok = true;
 }
 
 SymmetryAxis

@@ -1,0 +1,56 @@
+# config/pid.yaml
+# 单位说明（本配置假定角度单位为：度；控制输出单位为：Nm（力矩））：
+#  - setpoint / measurement: 度 (°)
+#  - 控制输出 (torque): 牛·米 (Nm)
+#  - derivative_tau: 秒 (s)
+
+# --- PID 增益 ---
+kp:
+  0.05 # 比例增益 Kp
+  # 含义：控制量与误差的线性比例关系（Nm/deg）
+  # 建议范围：0.01 ~ 2（视系统带宽和刚性）
+  # 调参：先把 Ki,Kd=0，只调 Kp。逐步增加 Kp，直到出现轻微振荡，再回退 20-50%。
+
+ki:
+  0.01 # 积分增益 Ki
+  # 含义：累积误差的系数，库内实现为 integrator += Ki * error * dt，因此 integrator 的单位已是输出（Nm）
+  # 建议范围：0 ~ 1（通常比 Kp 小，针对慢速稳态误差）
+  # 调参：Kp 稳定后慢慢加 Ki，观察稳态误差。若出现积分饱和或慢振荡，减小 Ki 或增加 anti_windup_gain。
+
+kd:
+  0.01 # 微分增益 Kd
+  # 含义：与误差变化率相关的阻尼项（用于减少超调）
+  # 建议范围：0 ~ 0.1（通常比 Kp 小得多）
+  # 调参：在出现超调时增加 Kd；若测量噪声明显，考虑降低 Kd 或增大 derivative_tau。
+
+# --- 输出限制 ---
+out_min: -10.0 # 控制输出最小值（Nm）
+out_max:
+  10.0 # 控制输出最大值（Nm）
+  # 含义：执行器允许的物理输出范围。务必设置为执行器能承受的真实限制。
+
+# --- 积分与抗饱和 ---
+integrator_limit:
+  5.0
+  # 积分项的硬上限（单位同输出，Nm）
+  # 含义：限制内部 integrator（库实现中是 Ki * ∫error dt）的绝对值，避免 windup
+  # 建议：取 out_max 的 0.3~1.0 倍（初始可设 0.5×out_max）
+
+anti_windup_gain:
+  0.0001
+  # 反向回算增益 Kw（无量纲）
+  # 含义：当输出被限幅时，用 (u_sat - u_unsat) 回算修正 integrator 的速度
+  # 建议：0（关闭）~1；若出现饱和后恢复慢，增大此项；若恢复过急导致震荡，减小。
+
+# --- 微分滤波 ---
+derivative_tau:
+  0.01
+  # 微分低通滤波时间常数 τ（秒）
+  # 含义：微分项使用一阶低通滤波器平滑导数：alpha = τ/(τ+dt)
+  # 建议范围：0.001 ~ 0.02（采样率 1kHz 时），噪声大则可增至 0.05 或更高
+
+derivative_on_measurement:
+  true
+  # 布尔：是否对 measurement 求导（true）而不是对 error 求导（false）
+  # 含义：true 可避免 setpoint 突变引起的 derivative kick（常用）
+  # 建议：如果频繁改变 setpoint 或 setpoint 有阶跃，设 true；若 measurement 噪声非常大，仍用 true + 增大 derivative_tau

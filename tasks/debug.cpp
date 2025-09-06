@@ -805,10 +805,10 @@ void writeTargetLogToJson(const Target& target) {
                       { "y", target.velocity().y() },
                       { "z", target.velocity().z() } };
 
-    // j["acceleration"] = { { "x", target.acceleration().x() },
-    //                       { "y", target.acceleration_.y() },
-    //                       { "z", target.acceleration_.z() } };
-
+    j["r"] = target.r();
+    j["l"] = target.l();
+    j["h"] = target.h();
+    j["yaw"] = target.yaw();
     j["v_yaw"] = target.v_yaw();
 
     std::ofstream file("/dev/shm/target_log.json");

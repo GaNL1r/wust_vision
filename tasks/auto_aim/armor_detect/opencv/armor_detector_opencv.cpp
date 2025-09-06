@@ -59,9 +59,13 @@ ArmorDetectOpenCV::detect(const cv::Mat& input, int detect_color) noexcept {
     if (input.empty())
         return {};
     std::vector<armor::Light> lights_;
+    cv::Mat bayer_img;
+    //cv::cvtColor(input, bayer_img, cv::COLOR_)
     cv::Mat binary_img, gray_img;
     //auto t1 = time_utils::now();
     std::tie(binary_img, gray_img) = preprocessImage(input);
+    cv::imshow("bin", binary_img);
+    cv::waitKey(1);
     //auto t2 = time_utils::now();
     lights_ = findLights(input, binary_img);
     std::vector<armor::ArmorObject> armors = matchLights(lights_, detect_color);
@@ -86,7 +90,7 @@ ArmorDetectOpenCV::detect(const cv::Mat& input, int detect_color) noexcept {
                     return;
 
                 if (corner_corrector_) {
-                    corner_corrector_->correctCorners_nonmatch(armor, gray_img);
+                    corner_corrector_->correctCorners(armor, gray_img);
                 }
 
                 {
@@ -103,24 +107,47 @@ ArmorDetectOpenCV::detect(const cv::Mat& input, int detect_color) noexcept {
     return valid_armors;
 }
 
-std::tuple<cv::Mat, cv::Mat> ArmorDetectOpenCV::preprocessImage(const cv::Mat& rgb_img) noexcept {
+std::tuple<cv::Mat, cv::Mat> ArmorDetectOpenCV::preprocessImage(const cv::Mat& img) noexcept {
     cv::Mat gray_img;
-    cv::cvtColor(rgb_img, gray_img, cv::COLOR_RGB2GRAY);
-
     cv::Mat binary_img;
+
+    if (img.empty()) {
+        return { binary_img, gray_img }; // 空图直接返回空
+    }
+
+    if (img.channels() == 3) {
+        // 彩色图，RGB -> 灰度
+        cv::cvtColor(img, gray_img, cv::COLOR_RGB2GRAY);
+    } else if (img.channels() == 1) {
+        // 单通道图，假设是 BayerRG
+        cv::cvtColor(img, gray_img, cv::COLOR_BayerRG2GRAY);
+    } else {
+        // 非法通道数，直接返回空
+        return { binary_img, gray_img };
+    }
+
+    // 二值化
     cv::threshold(gray_img, binary_img, binary_thres_, 255, cv::THRESH_BINARY);
 
     return { binary_img, gray_img };
 }
 
 std::vector<armor::Light>
-ArmorDetectOpenCV::findLights(const cv::Mat& rgb_img, const cv::Mat& binary_img) noexcept {
+ArmorDetectOpenCV::findLights(const cv::Mat& img, const cv::Mat& binary_img) noexcept {
     using std::vector;
     vector<vector<cv::Point>> contours;
     vector<cv::Vec4i> hierarchy;
     cv::findContours(binary_img, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
 
     vector<armor::Light> lights;
+    cv::Mat color_img;
+    if (img.channels() == 3) {
+        color_img = img;
+    } else if (img.channels() == 1) {
+        cv::cvtColor(img, color_img, cv::COLOR_BayerRG2BGR);
+    } else {
+        return {};
+    }
 
     for (const auto& contour: contours) {
         if (contour.size() < 6)
@@ -129,17 +156,21 @@ ArmorDetectOpenCV::findLights(const cv::Mat& rgb_img, const cv::Mat& binary_img)
         auto light = armor::Light(contour);
 
         if (isLight(light)) {
+            // 统计 R/B 通道
             int sum_r = 0, sum_b = 0;
             for (const auto& point: contour) {
-                const cv::Vec3b* row_ptr = rgb_img.ptr<cv::Vec3b>(point.y);
+                const cv::Vec3b* row_ptr = color_img.ptr<cv::Vec3b>(point.y);
                 const cv::Vec3b& pixel = row_ptr[point.x];
                 sum_r += pixel[0];
                 sum_b += pixel[2];
             }
+
+            // 判断颜色
             if (std::abs(sum_r - sum_b) / static_cast<int>(contour.size())
                 > light_params_.color_diff_thresh) {
-                light.color = sum_r > sum_b ? 0 : 1;
+                light.color = sum_r > sum_b ? 0 : 1; // 0=红, 1=蓝
             }
+
             lights.emplace_back(light);
         }
     }
@@ -180,7 +211,6 @@ ArmorDetectOpenCV::matchLights(const std::vector<armor::Light>& lights, int dete
 
             auto type = isArmor(*light_1, *light_2);
             if (type != armor::ArmorType::INVALID) {
-                // auto armor = Armor(*light_1, *light_2);
                 armor::ArmorObject armor(*light_1, *light_2);
                 armor.type = type;
                 if (detect_color == 0) {
@@ -189,7 +219,6 @@ ArmorDetectOpenCV::matchLights(const std::vector<armor::Light>& lights, int dete
                     armor.color = armor::ArmorColor::BLUE;
                 }
 
-                // armor.type = type;
                 armors.emplace_back(armor);
             }
         }
@@ -325,10 +354,6 @@ void ArmorDetectOpenCV::topts(armor::ArmorObject& armor) {
     armor.pts[1] = armor.lights[0].bottom;
     armor.pts[2] = armor.lights[1].bottom;
     armor.pts[3] = armor.lights[1].top;
-    armor.pts_binary[0] = armor.lights[0].top;
-    armor.pts_binary[1] = armor.lights[0].bottom;
-    armor.pts_binary[2] = armor.lights[1].bottom;
-    armor.pts_binary[3] = armor.lights[1].top;
 }
 void ArmorDetectOpenCV::pushInput(CommonFrame& frame) {
     frame.id = current_id_++;

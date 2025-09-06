@@ -15,9 +15,9 @@ armor_tracker:
   lost_time_thres: 1.0
   tracking_thres: 10
   max_yaw_diff_deg: 80.0
-  max_dis_diff: 0.9
+  max_dis_diff: 1.0
   qxyz_common: 100.0
-  qyaw_common: 100.0
+  qyaw_common: 300.0
   qxyz_output: 10.0
   qyaw_output: 0.1
   yp_r: 4e-3
@@ -27,12 +27,12 @@ auto_aim_fsm:
   thres_down_1: 2.0
   thres_up_2: 16.5
   thres_down_2: 15.0
-  transfer_thresh: 20.0
+  transfer_thresh: 20
 
 planner:
-  max_yaw_acc: 70
+  max_yaw_acc: 50
   Q_yaw: [9e6, 0]
-  R_yaw: [1]
+  R_yaw: [1.5]
 
   max_pitch_acc: 100
   Q_pitch: [9e6, 0]

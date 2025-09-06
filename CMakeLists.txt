@@ -118,6 +118,18 @@ target_link_libraries(eye_hand
 )
 
 
+add_executable(control test/control.cpp)
+
+target_include_directories(control PRIVATE ${WUST_VL_INCLUDE_DIRS} ${HikSDK_INCLUDE_DIR})
+target_link_libraries(control
+    ${OpenCV_LIBS}
+    ${CERES_LIBRARIES}
+    ${WUST_VL_LIBS}
+    yaml-cpp
+    TBB::tbb
+    ${HikSDK_LIB}
+    fmt::fmt
+)
 
 
 find_package(ament_cmake QUIET)
