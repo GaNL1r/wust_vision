@@ -138,14 +138,25 @@ find_package(std_msgs QUIET)
 find_package(geometry_msgs QUIET)
 find_package(rosidl_typesupport_cpp QUIET)
 
-set(ROS2_FOUND FALSE)
-if(ament_cmake_FOUND AND rclcpp_FOUND AND std_msgs_FOUND AND rosidl_typesupport_cpp_FOUND AND geometry_msgs_FOUND)
-  set(ROS2_FOUND TRUE)
+set(ROS2_CORE_FOUND FALSE)
+set(ROS2_FULL_FOUND FALSE)
+
+if(ament_cmake_FOUND AND rclcpp_FOUND)
+  set(ROS2_CORE_FOUND TRUE)
 endif()
 
-if(ROS2_FOUND)
-  message(STATUS "ROS2 environment found, compiling ROS2-related code.")
+if(ament_cmake_FOUND AND rclcpp_FOUND AND std_msgs_FOUND AND geometry_msgs_FOUND AND rosidl_typesupport_cpp_FOUND)
+  set(ROS2_FULL_FOUND TRUE)
+endif()
+
+if(ROS2_CORE_FOUND)
+  message(STATUS "ROS2 core environment found, adding ros2 subdirectory.")
   add_subdirectory(ros2)
+endif()
+
+if(ROS2_FULL_FOUND)
+  message(STATUS "ROS2 full environment found, compiling test_ros2 and sentry.")
+
   add_executable(test_ros2 test/test_ros2.cpp)
   target_link_libraries(test_ros2
     ${OpenCV_LIBS}
@@ -154,10 +165,12 @@ if(ROS2_FOUND)
     ${HikSDK_LIB}
     fmt::fmt
     toros2
-    )
-add_executable(sentry src/sentry.cpp)
-target_include_directories(sentry PRIVATE ${WUST_VL_INCLUDE_DIRS} ${HikSDK_INCLUDE_DIR})
-target_link_libraries(sentry
+  )
+  ament_target_dependencies(test_ros2 rclcpp std_msgs geometry_msgs)
+
+  add_executable(sentry src/sentry.cpp)
+  target_include_directories(sentry PRIVATE ${WUST_VL_INCLUDE_DIRS} ${HikSDK_INCLUDE_DIR} ${geometry_msgs_INCLUDE_DIR})
+  target_link_libraries(sentry
     $<TARGET_OBJECTS:auto_aim>
     ${WUST_AUTO_AIM_LIBS}
     $<TARGET_OBJECTS:auto_buff>
@@ -172,13 +185,11 @@ target_link_libraries(sentry
     ${HikSDK_LIB}
     fmt::fmt
     toros2
-)
-  ament_target_dependencies(test_ros2  rclcpp std_msgs geometry_msgs)
-
-  install(TARGETS
-    test_ros2
-    RUNTIME DESTINATION lib/${PROJECT_NAME}
   )
+    ament_target_dependencies(sentry  rclcpp std_msgs geometry_msgs)
+
+
 else()
-  message(WARNING "ROS2 not found, skipping ROS2 specific code.")
+  message(WARNING "ROS2 dependencies incomplete, skipping ...")
 endif()
+

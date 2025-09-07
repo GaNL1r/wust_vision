@@ -1,18 +1,20 @@
 #include "ros2.hpp"
 
-Ros2::Ros2(std::function<void(const geometry_msgs::msg::Twist::SharedPtr)> twist_cb) {
-    rclcpp::init(0, nullptr);
-
-    publish2nav_ = std::make_shared<Ros2PubNode>();
-
-    subscribe2nav_ = std::make_shared<Ros2SubNode>(twist_cb);
-
-    publish_spin_thread_ = std::make_unique<std::thread>([this]() { publish2nav_->start(); });
-
-    subscribe_spin_thread_ = std::make_unique<std::thread>([this]() { subscribe2nav_->start(); });
+Ros2Node::Ros2Node(const std::string& node_name) : Node(node_name) {
+    
+    RCLCPP_INFO(this->get_logger(), "Your env must has been export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp");
 }
-Ros2::~Ros2() {
-    rclcpp::shutdown();
-    publish_spin_thread_->join();
-    subscribe_spin_thread_->join();
+
+Ros2Node::~Ros2Node() {
+    if (spin_thread_ && spin_thread_->joinable()) {
+        rclcpp::shutdown();
+        spin_thread_->join();
+    }
+}
+
+void Ros2Node::start() {
+    spin_thread_ = std::make_unique<std::thread>([this]() {
+        RCLCPP_INFO(this->get_logger(), "Node [%s] starting to spin...", this->get_name());
+        rclcpp::spin(this->shared_from_this());
+    });
 }
