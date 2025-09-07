@@ -2,8 +2,10 @@
 #include "common/utils/logger.hpp"
 #include "common/utils/signal.hpp"
 #include "wust_vl/algorithm/control/pid.hpp"
+#include "wust_vl/algorithm/control/smc.hpp"
 #include "wust_vl/common/drivers/serial_driver.hpp"
 
+#include <Eigen/Dense>
 #include <atomic>
 #include <chrono>
 #include <cmath>
@@ -18,249 +20,187 @@ using json = nlohmann::json;
 
 struct ReceiveAimINFO {
     float position; // 角度 (度)
-    float speed; // 转速 (rpm)
-    float torque; // 扭矩 (Nm)
+    float speed;    // 转速 (deg/s)
+    float torque;   // 扭矩 (Nm)
 } __attribute__((packed));
 
 struct SendAimINFO {
-    float torque; // 扭矩 (Nm)
+    float torque;   // 扭矩 (Nm)
 } __attribute__((packed));
 
 inline float normalize_angle_deg(float angle) {
-    while (angle >= 180.0f)
-        angle -= 360.0f;
-    while (angle < -180.0f)
-        angle += 360.0f;
+    while (angle >= 180.0f) angle -= 360.0f;
+    while (angle < -180.0f) angle += 360.0f;
     return angle;
 }
-inline float shortest_angular_distance(float from, float to) {
-    return normalize_angle_deg(to - from);
-}
 
-/**
- * AimController
- *  - 对外最小接口： setTargetDeg(float) 仅用于设置目标角度（度）
- *  - start()/stop() 启停控制线程（构造后需 start()）
- */
 class AimController {
 public:
     AimController(
         const std::string& serial_port,
-        const std::string& config_path = "config/pid.yaml",
+        const std::string& config_path = "config/smc.yaml",
         int send_hz = 1000
-    ):
-        serial_(),
+    ) : serial_(),
         config_binder_(config_path),
         send_hz_(send_hz),
-        config_path_(config_path),
         send_interval_(std::chrono::microseconds(1000000 / send_hz)),
         running_(false),
-        target_deg_(0.0f) {
-        // default PID params (会由 config 覆盖)
-        Kp_ = 0.05f;
-        Ki_ = 0.01f;
-        Kd_ = 0.005f;
-        out_min_ = -10.0f;
-        out_max_ = 10.0f;
-        integrator_limit_ = 100.0f;
-        deriv_tau_ = 0.01f;
-        anti_windup_gain_ = 1.0f;
-        derivative_on_measurement_ = false;
+        target_deg_(0.0f),
+        target_speed_(0.0f)
+    {
+        // 默认 SMC 参数
+        B_ = Eigen::MatrixXd::Identity(1,1);
+        Lambda_ = Eigen::MatrixXd::Identity(1,1) * 2.0;
+        K_ = Eigen::MatrixXd::Identity(1,1) * 5.0;
+        phi_ = 0.5;
 
-        // bind config keys
-        config_binder_.bind({ "kp" }, &Kp_);
-        config_binder_.bind({ "ki" }, &Ki_);
-        config_binder_.bind({ "kd" }, &Kd_);
-        config_binder_.bind({ "out_min" }, &out_min_);
-        config_binder_.bind({ "out_max" }, &out_max_);
-        config_binder_.bind({ "integrator_limit" }, &integrator_limit_);
-        config_binder_.bind({ "derivative_tau" }, &deriv_tau_);
-        config_binder_.bind({ "anti_windup_gain" }, &anti_windup_gain_);
-        config_binder_.bind({ "derivative_on_measurement" }, &derivative_on_measurement_);
+        // 配置热更新绑定
+        config_binder_.bind({"lambda"}, &Lambda_(0,0));
+        config_binder_.bind({"k"}, &K_(0,0));
+        config_binder_.bind({"phi"}, &phi_);
 
-        // init serial
-        SerialDriver::SerialPortConfig cfg { 115200,
-                                             8,
-                                             boost::asio::serial_port_base::parity::none,
-                                             boost::asio::serial_port_base::stop_bits::one,
-                                             boost::asio::serial_port_base::flow_control::none };
+        smc_ = std::make_unique<wust_vl_algorithm::SMC_MIMO>(1, B_, Lambda_, K_, phi_);
+
+        SerialDriver::SerialPortConfig cfg{115200, 8,
+            boost::asio::serial_port_base::parity::none,
+            boost::asio::serial_port_base::stop_bits::one,
+            boost::asio::serial_port_base::flow_control::none};
         serial_.init_port(serial_port, cfg);
-        serial_.set_error_callback([&](const boost::system::error_code& ec) {
-            WUST_ERROR("serial") << "serial error: " << ec.message();
+        serial_.set_error_callback([&](const boost::system::error_code& ec) { WUST_ERROR("serial") << "serial error: " << ec.message(); });
+        serial_.set_receive_callback([this](const uint8_t* data, std::size_t len){
+            this->onSerialData(data,len);
         });
-        // receive callback -> member lambda capturing this
-        serial_.set_receive_callback([this](const uint8_t* data, std::size_t len) {
-            this->onSerialData(data, len);
-        });
-
-        // create pid (no fixed dt)
-        pid_ = std::make_unique<wust_vl_algorithm::PID<float>>(Kp_, Ki_, Kd_, -1.0f);
-        applyPidConfig();
-
-        // start serial (not start loop)
         serial_.start();
     }
 
     ~AimController() {
         stop();
-        // ensure we send zero torque on destruction
-        SendAimINFO send { 0.0f };
-        serial_.write(toVector(send));
+        SendAimINFO zero{0.0f};
+        serial_.write(toVector(zero));
         serial_.stop();
     }
 
-    // 禁止拷贝
-    AimController(const AimController&) = delete;
-    AimController& operator=(const AimController&) = delete;
-
-    // 启动控制线程
     void start() {
-        if (running_)
-            return;
+        if(running_) return;
         running_ = true;
-        worker_thread_ = std::thread([this] { this->loopThread(); });
+        worker_thread_ = std::thread([this]{ this->loopThread(); });
     }
 
-    // 停止控制线程（阻塞直到退出）
     void stop() {
-        WUST_INFO("aim_ctrl") << "stop";
-        if (!running_)
-            return;
+        if(!running_) return;
         running_ = false;
-        if (worker_thread_.joinable())
-            worker_thread_.join();
+        if(worker_thread_.joinable()) worker_thread_.join();
     }
 
-    // 对外唯一控制接口：设置目标角度（度）
-    void setTargetDeg(float deg) {
-        target_deg_.store(deg, std::memory_order_relaxed);
+    void setTarget(float deg, float speed=0.0f) {
+        target_deg_.store(deg,std::memory_order_relaxed);
+        target_speed_.store(speed,std::memory_order_relaxed);
     }
 
-    // 可选：获取最近一次测量值（线程安全副本）
     ReceiveAimINFO getLatestMeasurement() const {
         std::lock_guard<std::mutex> lk(data_mutex_);
         return latest_data_;
     }
 
 private:
-    // 串口接收回调（把数据转换并保存到 latest_data_）
-    void onSerialData(const uint8_t* data, std::size_t len) {
+    void onSerialData(const uint8_t* data,std::size_t len){
         try {
-            std::vector<uint8_t> buf(data, data + len);
+            std::vector<uint8_t> buf(data,data+len);
             ReceiveAimINFO aim_data = fromVector<ReceiveAimINFO>(buf);
             {
                 std::lock_guard<std::mutex> lk(data_mutex_);
                 latest_data_ = aim_data;
-                has_feedback_ = true;
             }
-        } catch (const std::exception& e) {
-            WUST_ERROR("aim_ctrl") << "serialCallback exception: " << e.what();
-        } catch (...) {
-            WUST_ERROR("aim_ctrl") << "serialCallback unknown exception";
-        }
+        } catch(...) {}
     }
 
-    // 将当前配置应用到 PID 实例
-    void applyPidConfig() {
-        if (!pid_)
-            return;
-        pid_->setGains(Kp_, Ki_, Kd_);
-        pid_->setOutputLimits(out_min_, out_max_);
-        pid_->setIntegratorLimit(integrator_limit_);
-        pid_->setDerivativeFilterTau(deriv_tau_);
-        pid_->setAntiWindupGain(anti_windup_gain_);
-        pid_->setDerivativeOnMeasurement(derivative_on_measurement_);
-    }
-
-    // 主循环线程
     void loopThread() {
-        auto last_loop = std::chrono::steady_clock::now();
-        auto last_print = last_loop;
-        while (running_) {
-            auto loop_start = std::chrono::steady_clock::now();
-            float dt = std::chrono::duration<float>(loop_start - last_loop).count();
-            last_loop = loop_start;
-            if (!(dt > 0.0f))
-                dt = std::numeric_limits<float>::epsilon() * 100.0f;
+    auto last_loop = std::chrono::steady_clock::now();
+    auto last_print = last_loop;
 
-            // 读取最新反馈（线程安全）
-            ReceiveAimINFO cur;
-            {
-                std::lock_guard<std::mutex> lk(data_mutex_);
-                cur = latest_data_;
-            }
+    while (running_) {
+        auto loop_start = std::chrono::steady_clock::now();
+        float dt = std::chrono::duration<float>(loop_start - last_loop).count();
+        last_loop = loop_start;
+        if (dt <= 0) dt = 0.001f;
 
-            // 读取目标（原子）
-            float target = target_deg_.load(std::memory_order_relaxed);
+        ReceiveAimINFO cur;
+        {
+            std::lock_guard<std::mutex> lk(data_mutex_);
+            cur = latest_data_;
+        }
 
-            // 误差（考虑环绕）
-            float error = cur.position - target;
+        float target = target_deg_.load(std::memory_order_relaxed);
+        float target_speed = target_speed_.load(std::memory_order_relaxed);
 
-            // PID 更新（参数会在每秒重载后应用）
-            float torque = pid_->update(target, cur.position, dt);
-            torque = std::clamp(torque, out_min_, out_max_);
+        // 角度误差与速度误差
+        float pos_err = normalize_angle_deg(cur.position - target);
+        float vel_err = cur.speed - target_speed;
 
-            // 发送
-            SendAimINFO send { torque };
-            serial_.write(toVector(send));
+        // 状态向量
+        Eigen::VectorXd x(1), x_dot(1), x_ref(1), x_dot_ref(1);
+        x << cur.position;
+        x_dot << cur.speed;
+        x_ref << target;
+        x_dot_ref << target_speed;
 
-            // 每秒重载配置并打印状态
-            auto now = std::chrono::steady_clock::now();
-            if (now - last_print >= std::chrono::seconds(1)) {
-                // reload config and apply (hot reload)
-                config_binder_.reload(config_path_);
-                applyPidConfig();
+        // 热更新参数
+        config_binder_.reload("config/smc.yaml");
 
-                // 日志：打印目标/当前/输出/积分/微分
-                float integrator = pid_->getIntegrator();
-                float deriv = pid_->getDerivative();
-                WUST_INFO("aim_ctrl") << "[Control] target=" << target << "°, cur=" << cur.position
-                                      << "°, err=" << error << " => torque=" << torque << " Nm"
-                                      << "  integr=" << integrator << " derr=" << deriv;
-                last_print = now;
-            }
+        // 计算滑模面 s
+        Eigen::VectorXd s = x_dot - x_dot_ref + Lambda_ * (x - x_ref);
 
-            // wait until next interval (sleep_until)
-            std::this_thread::sleep_until(loop_start + send_interval_);
-        } // end while
+        // SMC 控制律
+        Eigen::VectorXd torque_vec = smc_->computeControl(x, x_ref, x_dot);
+        float torque = torque_vec(0);
 
-        // stopped: send zero torque as safety
-        SendAimINFO zero { 0.0f };
-        serial_.write(toVector(zero));
+        // 发送控制量
+        SendAimINFO send{ torque };
+        serial_.write(toVector(send));
+
+        // 每秒打印日志
+        auto now = std::chrono::steady_clock::now();
+        if (now - last_print >= std::chrono::seconds(1)) {
+            WUST_INFO("aim_ctrl") 
+                << "[SMC Log] target=" << target << "°, cur=" << cur.position
+                << "°, pos_err=" << pos_err 
+                << "°, speed_err=" << vel_err 
+                << " deg/s, torque=" << torque 
+                << " Nm, s=" << s(0);
+            last_print = now;
+        }
+
+        std::this_thread::sleep_until(loop_start + send_interval_);
     }
+
+    // 停止时发送零扭矩
+    SendAimINFO zero{0.0f};
+    serial_.write(toVector(zero));
+}
+
 
 private:
     SerialDriver serial_;
-
     mutable std::mutex data_mutex_;
-    ReceiveAimINFO latest_data_ { 0, 0, 0 };
-    bool has_feedback_ { false };
-
+    ReceiveAimINFO latest_data_{0,0,0};
     wust_vl_utils::ConfigBinder config_binder_;
 
     int send_hz_;
     std::chrono::microseconds send_interval_;
-
-    std::unique_ptr<wust_vl_algorithm::PID<float>> pid_;
-
-    // PID params (backed by config binder)
-    float Kp_, Ki_, Kd_;
-    float out_min_, out_max_;
-    float integrator_limit_;
-    float deriv_tau_;
-    float anti_windup_gain_;
-    bool derivative_on_measurement_;
-
     std::atomic<bool> running_;
     std::thread worker_thread_;
 
     std::atomic<float> target_deg_;
-    std::string config_path_;
+    std::atomic<float> target_speed_;
 
-}; // class AimController
+    // SMC
+    Eigen::MatrixXd B_, Lambda_, K_;
+    double phi_;
+    std::unique_ptr<wust_vl_algorithm::SMC_MIMO> smc_;
+};
 int main() {
     const std::string serial_port = "/dev/ttyACM_RMc";
-    AimController controller(serial_port, "config/pid.yaml", 3000);
+    AimController controller(serial_port, "config/smc.yaml", 3000);
 
     // 启动控制线程
     controller.start();
@@ -302,7 +242,7 @@ int main() {
             }
             try {
                 float deg = std::stof(line);
-                controller.setTargetDeg(deg);
+                controller.setTarget(deg,0.0);
                 std::cout << "set target = " << deg << " deg\n";
             } catch (...) {
                 std::cout << "invalid input\n";
