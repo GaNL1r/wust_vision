@@ -17,7 +17,6 @@ struct Light: public cv::RotatedRect {
 
     explicit Light(const std::vector<cv::Point>& contour):
         cv::RotatedRect(cv::minAreaRect(contour)) {
-        // 直接更新父类的 center
         this->center = std::accumulate(
             contour.begin(),
             contour.end(),

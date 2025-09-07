@@ -25,7 +25,10 @@
 #include "yaml-cpp/yaml.h"
 class TrackerManager {
 public:
-    explicit TrackerManager(const YAML::Node& config, std::shared_ptr<ConfigBinder> config_binder);
+    explicit TrackerManager(
+        const YAML::Node& config,
+        std::shared_ptr<wust_vl_utils::ConfigBinder> config_binder
+    );
     Target update(const armor::Armors& armors, AutoAimFsmController& auto_aim_fsm_cl);
     Target updateTracker(const armor::Armors& armors);
     std::unique_ptr<TrackerV3> tracker_v3_;
@@ -33,6 +36,6 @@ public:
     std::vector<std::unique_ptr<OneTracker>> one_trackers_;
 
     std::chrono::steady_clock::time_point last_time_;
-    std::shared_ptr<ConfigBinder> config_binder_;
+    std::shared_ptr<wust_vl_utils::ConfigBinder> config_binder_;
     AutoAimFsm auto_aim_fsm_ = AutoAimFsm::AIM_WHOLE_CAR_ARMOR;
 };

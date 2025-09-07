@@ -236,7 +236,7 @@ private:
     ReceiveAimINFO latest_data_ { 0, 0, 0 };
     bool has_feedback_ { false };
 
-    ConfigBinder config_binder_;
+    wust_vl_utils::ConfigBinder config_binder_;
 
     int send_hz_;
     std::chrono::microseconds send_interval_;
@@ -267,7 +267,7 @@ int main() {
 
     // 注册信号优雅退出（可选）
     SignalHandler sig;
-    std::atomic<bool> stop{false};
+    std::atomic<bool> stop { false };
     sig.start([&] {
         stop.store(true);
         controller.stop();
@@ -295,7 +295,8 @@ int main() {
                 // 读到 EOF 或错误
                 break;
             }
-            if (line.empty()) continue;
+            if (line.empty())
+                continue;
             if (line == "q" || line == "quit" || line == "exit") {
                 break;
             }

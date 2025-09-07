@@ -312,12 +312,10 @@ inline double ratio(const auto& point) {
 inline Eigen::Matrix4d computeCameraToOdomTransform(
     const Eigen::Matrix3d& R_gimbal2odom,
     const Eigen::Matrix3d& R_camera_to_gimbal,
-    const Eigen::Vector3d& t_gimbal_to_camera
+    const Eigen::Vector3d& t_camera_to_gimbal
 ) {
     Eigen::Matrix4d T_gimbal_to_odom = Eigen::Matrix4d::Identity();
     T_gimbal_to_odom.block<3, 3>(0, 0) = R_gimbal2odom;
-
-    Eigen::Vector3d t_camera_to_gimbal = -R_camera_to_gimbal * t_gimbal_to_camera;
 
     Eigen::Matrix4d T_camera_to_gimbal = Eigen::Matrix4d::Identity();
     T_camera_to_gimbal.block<3, 3>(0, 0) = R_camera_to_gimbal;
@@ -327,6 +325,7 @@ inline Eigen::Matrix4d computeCameraToOdomTransform(
 
     return T_camera_to_odom;
 }
+
 inline void addVelFromAccDt(Eigen::Vector3d& vel, const Eigen::Vector3d& acc, double dt) {
     vel.x() += acc.x() * dt;
     vel.y() += acc.y() * dt;

@@ -16,7 +16,7 @@
 #include "tasks/utils.hpp"
 TrackerManager::TrackerManager(
     const YAML::Node& config_,
-    std::shared_ptr<ConfigBinder> config_binder
+    std::shared_ptr<wust_vl_utils::ConfigBinder> config_binder
 ) {
     double tracking_thres = config_["armor_tracker"]["tracking_thres"].as<int>(5);
     double lost_time_thres = config_["armor_tracker"]["lost_time_thres"].as<double>();
@@ -28,6 +28,12 @@ TrackerManager::TrackerManager(
     target_config.qxyz_output = config_["armor_tracker"]["qxyz_output"].as<double>();
     target_config.qyaw_output = config_["armor_tracker"]["qyaw_output"].as<double>();
     target_config.yp_r = config_["armor_tracker"]["yp_r"].as<double>();
+    target_config.dis_r_front = config_["armor_tracker"]["dis_r_front"].as<double>();
+    target_config.dis_r_side = config_["armor_tracker"]["dis_r_side"].as<double>();
+    target_config.dis2_r_ratio = config_["armor_tracker"]["dis2_r_ratio"].as<double>();
+    target_config.yaw_r_base_front = config_["armor_tracker"]["yaw_r_base_front"].as<double>();
+    target_config.yaw_r_base_side = config_["armor_tracker"]["yaw_r_base_side"].as<double>();
+    target_config.yaw_r_log_ratio = config_["armor_tracker"]["yaw_r_log_ratio"].as<double>();
     tracker_v3_ = std::make_unique<TrackerV3>(
         tracking_thres,
         lost_time_thres,

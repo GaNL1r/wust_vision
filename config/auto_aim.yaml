@@ -17,10 +17,16 @@ armor_tracker:
   max_yaw_diff_deg: 80.0
   max_dis_diff: 1.0
   qxyz_common: 100.0
-  qyaw_common: 300.0
+  qyaw_common: 50.0
   qxyz_output: 10.0
   qyaw_output: 0.1
   yp_r: 4e-3
+  dis_r_front: 0.5
+  dis_r_side: 1.5
+  dis2_r_ratio: 0.005
+  yaw_r_base_front: 0.09
+  yaw_r_base_side: 0.06
+  yaw_r_log_ratio: 0.005
 
 auto_aim_fsm:
   thres_up_1: 3.5
@@ -52,7 +58,7 @@ shooter:
       h_max: 1.4
       h_min: -1
       pitch_off: -0.0
-      yaw_off: -0.0
+      yaw_off: -1.0
     - d_max: 10
       d_min: 9
       h_max: 0.4

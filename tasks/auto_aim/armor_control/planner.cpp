@@ -15,6 +15,7 @@ Plan Planner::plan(
     Target target,
     double bullet_speed,
     const AutoAimFsm& auto_aim_fsm,
+    double self_v_yaw,
     double cal_dt,
     int cal_horizon
 ) {
@@ -38,8 +39,9 @@ Plan Planner::plan(
     // auto bullet_traj = tools::Trajectory(bullet_speed, min_dist, xyz.z());
     double dt0 = time_utils::durationSec(target.timestamp_, now);
     double fly_time = aimer_->getFlyingTime(xyz, bullet_speed);
+    double dt_total = dt0 + fly_time + aimer_->getPredelay();
     std::chrono::steady_clock::time_point future =
-        now + std::chrono::microseconds(int((dt0 + fly_time + aimer_->getPredelay()) * 1e6));
+        now + std::chrono::microseconds(int((dt_total)*1e6));
 
     target.predict(future);
     bool aim_first = false;
@@ -54,9 +56,18 @@ Plan Planner::plan(
     Trajectory traj;
 
     try {
-        yaw0 = aim(target, bullet_speed, aim_center, aim_first)(0);
-        traj =
-            get_trajectory(target, yaw0, bullet_speed, aim_center, aim_first, cal_dt, cal_horizon);
+        yaw0 = aim(target, bullet_speed, aim_center, aim_first, self_v_yaw, dt_total)(0);
+        traj = get_trajectory(
+            target,
+            yaw0,
+            bullet_speed,
+            aim_center,
+            aim_first,
+            self_v_yaw,
+            dt_total,
+            cal_dt,
+            cal_horizon
+        );
     } catch (const std::exception& e) {
         return { false };
     }
@@ -146,8 +157,14 @@ void Planner::setup_pitch_solver(const YAML::Node& config) {
     pitch_solver_->settings->max_iter = 10;
 }
 
-Eigen::Matrix<double, 2, 1>
-Planner::aim(const Target& target, double bullet_speed, bool aim_center, bool aim_first) {
+Eigen::Matrix<double, 2, 1> Planner::aim(
+    const Target& target,
+    double bullet_speed,
+    bool aim_center,
+    bool aim_first,
+    double self_v_yaw,
+    double dt
+) {
     static int lock_id = -1;
     AimTarget aim_target;
     Eigen::Vector3d xyz;
@@ -236,10 +253,11 @@ Planner::aim(const Target& target, double bullet_speed, bool aim_center, bool ai
     cmd.timestamp = std::chrono::steady_clock::now();
     cmd.distance = aim_target.distance();
     if (aim_center) {
-        control_yaw = std::atan2(aim_target.host_pos.y(), aim_target.host_pos.x());
+        control_yaw =
+            std::atan2(aim_target.host_pos.y(), aim_target.host_pos.x()) - self_v_yaw * dt;
         v_yaw = aim_target.calHostVYaw();
     } else {
-        control_yaw = aim_target.calYaw();
+        control_yaw = aim_target.calYaw() - self_v_yaw * dt;
         v_yaw = aim_target.calVYaw();
     }
     control_pitch = aim_target.shoot_pitch;
@@ -260,6 +278,8 @@ Trajectory Planner::get_trajectory(
     double bullet_speed,
     bool aim_center,
     bool aim_first,
+    double self_v_yaw,
+    double dt,
     double cal_dt,
     int cal_horizon
 ) {
@@ -267,14 +287,14 @@ Trajectory Planner::get_trajectory(
     Eigen::Matrix<double, 4, Eigen::Dynamic> cal_traj(4, cal_horizon);
 
     target.predict(-cal_dt * (cal_horizon / 2.0 + 1));
-    auto yaw_pitch_last = aim(target, bullet_speed, aim_center, aim_first);
+    auto yaw_pitch_last = aim(target, bullet_speed, aim_center, aim_first, self_v_yaw, dt);
 
     target.predict(cal_dt);
-    auto yaw_pitch = aim(target, bullet_speed, aim_center, aim_first);
+    auto yaw_pitch = aim(target, bullet_speed, aim_center, aim_first, self_v_yaw, dt);
 
     for (int i = 0; i < cal_horizon; i++) {
         target.predict(cal_dt);
-        auto yaw_pitch_next = aim(target, bullet_speed, aim_center, aim_first);
+        auto yaw_pitch_next = aim(target, bullet_speed, aim_center, aim_first, self_v_yaw, dt);
 
         // 角度速度计算，处理 wrap-around
         double yaw_diff = yaw_pitch_next(0) - yaw_pitch_last(0);

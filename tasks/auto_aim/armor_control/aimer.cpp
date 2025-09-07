@@ -14,7 +14,8 @@ struct Aimer::Impl {
     aim(const Target& target,
         std::chrono::steady_clock::time_point time,
         const double bullet_speed,
-        const AutoAimFsm& auto_aim_fsm) {
+        const AutoAimFsm& auto_aim_fsm,
+        const double self_v_yaw) {
         auto aim_target = aimTarget(target, time, bullet_speed, auto_aim_fsm);
         double control_yaw = 0.0, control_pitch = 0.0;
         double v_yaw = 0.0, v_pitch = 0.0;
@@ -28,7 +29,8 @@ struct Aimer::Impl {
         cmd.timestamp = std::chrono::steady_clock::now();
         cmd.distance = aim_target.distance();
         if (auto_aim_fsm == AutoAimFsm::AIM_WHOLE_CAR_CENTER && aim_target.have_host) {
-            control_yaw = std::atan2(aim_target.host_pos.y(), aim_target.host_pos.x());
+            control_yaw = std::atan2(aim_target.host_pos.y(), aim_target.host_pos.x())
+                - self_v_yaw * aim_target.dt;
             v_yaw = aim_target.calHostVYaw();
         } else {
             control_yaw = aim_target.calYaw();
@@ -187,6 +189,7 @@ struct Aimer::Impl {
             prev_fly_time = iter_fly_time;
         }
         AimTarget aim_target;
+        aim_target.dt = prev_fly_time;
         aim_target.idx = idx;
         aim_target.have_host = true;
         aim_target.host_pos = tmp_target.position();
@@ -321,9 +324,10 @@ GimbalCmd Aimer::aim(
     const Target& target,
     std::chrono::steady_clock::time_point time,
     const double bullet_speed,
-    const AutoAimFsm& auto_aim_fsm
+    const AutoAimFsm& auto_aim_fsm,
+    const double self_v_yaw
 ) {
-    return _impl->aim(target, time, bullet_speed, auto_aim_fsm);
+    return _impl->aim(target, time, bullet_speed, auto_aim_fsm, self_v_yaw);
 }
 std::pair<double, double> Aimer::getCommingLeaving() {
     return { _impl->comming_angle_, _impl->leaving_angle_ };

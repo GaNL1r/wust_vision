@@ -105,19 +105,21 @@ struct AutoBuff::Impl {
         }
         if (processing_thread_) {
             processing_thread_->stop();
-            ThreadManager::instance().unregisterThread(processing_thread_->getName());
+            wust_vl_concurrency::ThreadManager::instance().unregisterThread(
+                processing_thread_->getName()
+            );
         }
     }
     bool init(
         const YAML::Node& config,
         int& use_detect_ncnn_count,
         const Eigen::Matrix3d& R_camera2gimbal,
-        const Eigen::Vector3d& t_gimbal_to_camera,
+        const Eigen::Vector3d& t_camera2gimbal,
         const std::pair<cv::Mat, cv::Mat>& camera_info
     ) {
         config_ = config;
         R_camera2gimbal_ = R_camera2gimbal;
-        t_gimbal_to_camera_ = t_gimbal_to_camera;
+        t_camera2gimbal_ = t_camera2gimbal;
         camera_info_ = camera_info;
 
         std::string rune_detect_backend = config_["rune_detect_backend"].as<std::string>("");
@@ -191,11 +193,13 @@ struct AutoBuff::Impl {
         return true;
     }
     void start() {
-        processing_thread_ = MonitoredThread::create(
+        processing_thread_ = wust_vl_concurrency::MonitoredThread::create(
             "AutoBuffProcessingThread",
-            [this](std::shared_ptr<MonitoredThread> self) { this->processingLoop(self); }
+            [this](std::shared_ptr<wust_vl_concurrency::MonitoredThread> self) {
+                this->processingLoop(self);
+            }
         );
-        ThreadManager::instance().registerThread(processing_thread_);
+        wust_vl_concurrency::ThreadManager::instance().registerThread(processing_thread_);
         run_flag_ = true;
     }
     void pushInput(CommonFrame& frame) {
@@ -235,11 +239,8 @@ struct AutoBuff::Impl {
                 apply_motion(*last_att);
             }
         }
-        Eigen::Matrix4d T_camera_to_odom = utils::computeCameraToOdomTransform(
-            R_gimbal2odom,
-            R_camera2gimbal_,
-            t_gimbal_to_camera_
-        );
+        Eigen::Matrix4d T_camera_to_odom =
+            utils::computeCameraToOdomTransform(R_gimbal2odom, R_camera2gimbal_, t_camera2gimbal_);
         cv::Mat debug_img;
         if (debug_mode_)
             debug_img = frame.src_img.clone();
@@ -403,7 +404,7 @@ struct AutoBuff::Impl {
         timer_cout_++;
         return gimbal_cmd;
     }
-    void processingLoop(std::shared_ptr<MonitoredThread> self) {
+    void processingLoop(std::shared_ptr<wust_vl_concurrency::MonitoredThread> self) {
         while (!self->isAlive()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
@@ -458,7 +459,7 @@ struct AutoBuff::Impl {
     std::unique_ptr<RuneSolver> rune_solver_;
     std::string logger_ = "auto_buff";
     std::unique_ptr<OrderedQueue<rune::Rune>> rune_queue_;
-    std::shared_ptr<MonitoredThread> processing_thread_;
+    std::shared_ptr<wust_vl_concurrency::MonitoredThread> processing_thread_;
     bool run_flag_ = false;
     int detect_finish_count_ = 0;
     int img_recv_count_ = 0;
@@ -472,7 +473,7 @@ struct AutoBuff::Impl {
     std::mutex dbg_mutex_;
     std::unique_ptr<Averager<double>> latency_averager_;
     Eigen::Matrix3d R_camera2gimbal_;
-    Eigen::Vector3d t_gimbal_to_camera_;
+    Eigen::Vector3d t_camera2gimbal_;
     std::pair<cv::Mat, cv::Mat> camera_info_;
     YAML::Node config_;
     int rune_binary_thresh_ = 0;
@@ -599,11 +600,11 @@ bool AutoBuff::init(
     const YAML::Node& config,
     int& use_detect_ncnn_count,
     const Eigen::Matrix3d& R_camera2gimbal,
-    const Eigen::Vector3d& t_gimbal_to_camera,
+    const Eigen::Vector3d& t_camera2gimbal,
     const std::pair<cv::Mat, cv::Mat>& camera_info
 ) {
     return _impl
-        ->init(config, use_detect_ncnn_count, R_camera2gimbal, t_gimbal_to_camera, camera_info);
+        ->init(config, use_detect_ncnn_count, R_camera2gimbal, t_camera2gimbal, camera_info);
 }
 void AutoBuff::start() {
     _impl->start();
@@ -624,7 +625,8 @@ void AutoBuff::setShared(std::shared_ptr<AutoBuffShared> shared) {
     _impl->setShared(shared);
 }
 bool AutoBuff::isActive() {
-    if (_impl->processing_thread_->getStatus() == MonitoredThread::Status::Running) {
+    if (_impl->processing_thread_->getStatus()
+        == wust_vl_concurrency::MonitoredThread::Status::Running) {
         return true;
     } else {
         return false;

@@ -194,6 +194,8 @@ struct AimTarget {
     bool is_big_armor = false;
     bool is_old = false;
 
+    double dt = 0.0;
+
     Eigen::Quaterniond ori;
     std::vector<Eigen::Vector4d> armor_posandyaw;
     void predictSelf(double dt_sec) {
@@ -209,8 +211,8 @@ struct AimTarget {
 
         pos = host_pos + R * rel_pos + host_vel * dt_sec;
     }
-    double calYaw() const {
-        return angles::normalize_angle(std::atan2(pos.y(), pos.x()));
+    double calYaw(double self_v_yaw = 0) const {
+        return angles::normalize_angle(std::atan2(pos.y(), pos.x()) - self_v_yaw * dt);
     }
 
     double calRawPitch() const {

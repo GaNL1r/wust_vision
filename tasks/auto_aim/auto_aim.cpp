@@ -13,20 +13,22 @@ struct AutoAim::Impl {
         }
         if (processing_thread_) {
             processing_thread_->stop();
-            ThreadManager::instance().unregisterThread(processing_thread_->getName());
+            wust_vl_concurrency::ThreadManager::instance().unregisterThread(
+                processing_thread_->getName()
+            );
         }
     }
     bool init(
         const YAML::Node& config,
         int& use_detect_ncnn_count,
         const Eigen::Matrix3d& R_camera2gimbal,
-        const Eigen::Vector3d& t_gimbal_to_camera,
+        const Eigen::Vector3d& t_camera2gimbal,
         const std::pair<cv::Mat, cv::Mat>& camera_info,
-        std::shared_ptr<ConfigBinder> config_binder
+        std::shared_ptr<wust_vl_utils::ConfigBinder> config_binder
     ) {
         config_ = config;
         R_camera2gimbal_ = R_camera2gimbal;
-        t_gimbal_to_camera_ = t_gimbal_to_camera;
+        t_camera2gimbal_ = t_camera2gimbal;
         camera_info_ = camera_info;
         config_binder_ = config_binder;
 
@@ -117,12 +119,14 @@ struct AutoAim::Impl {
         return true;
     }
     void start() {
-        processing_thread_ = MonitoredThread::create(
+        processing_thread_ = wust_vl_concurrency::MonitoredThread::create(
             "AutoAimProcessingThread",
-            [this](std::shared_ptr<MonitoredThread> self) { this->processingLoop(self); }
+            [this](std::shared_ptr<wust_vl_concurrency::MonitoredThread> self) {
+                this->processingLoop(self);
+            }
         );
 
-        ThreadManager::instance().registerThread(processing_thread_);
+        wust_vl_concurrency::ThreadManager::instance().registerThread(processing_thread_);
         run_flag_ = true;
     }
     void pushInput(CommonFrame& frame) {
@@ -174,11 +178,8 @@ struct AutoAim::Impl {
                 apply_motion(*last_att);
             }
         }
-        Eigen::Matrix4d T_camera_to_odom = utils::computeCameraToOdomTransform(
-            R_gimbal2odom,
-            R_camera2gimbal_,
-            t_gimbal_to_camera_
-        );
+        Eigen::Matrix4d T_camera_to_odom =
+            utils::computeCameraToOdomTransform(R_gimbal2odom, R_camera2gimbal_, t_camera2gimbal_);
         armors.armors = armor_pose_estimator_->extractArmorPoses(
             sorted_objs,
             T_camera_to_odom,
@@ -297,7 +298,7 @@ struct AutoAim::Impl {
         timer_cout_++;
         return gimbal_cmd;
     }
-    void processingLoop(std::shared_ptr<MonitoredThread> self) {
+    void processingLoop(std::shared_ptr<wust_vl_concurrency::MonitoredThread> self) {
         while (!self->isAlive()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
@@ -356,7 +357,7 @@ struct AutoAim::Impl {
     std::unique_ptr<ArmorPoseEstimator> armor_pose_estimator_;
     std::string logger_ = "auto_aim";
     std::unique_ptr<OrderedQueue<armor::Armors>> armor_queue_;
-    std::shared_ptr<MonitoredThread> processing_thread_;
+    std::shared_ptr<wust_vl_concurrency::MonitoredThread> processing_thread_;
     std::unique_ptr<Timer> timer_;
     std::shared_ptr<Aimer> aimer_;
     std::shared_ptr<Shooter> shooter_;
@@ -378,10 +379,10 @@ struct AutoAim::Impl {
     std::mutex dbg_mutex_;
     std::unique_ptr<Averager<double>> latency_averager_;
     Eigen::Matrix3d R_camera2gimbal_;
-    Eigen::Vector3d t_gimbal_to_camera_;
+    Eigen::Vector3d t_camera2gimbal_;
     std::pair<cv::Mat, cv::Mat> camera_info_;
     YAML::Node config_;
-    std::shared_ptr<ConfigBinder> config_binder_;
+    std::shared_ptr<wust_vl_utils::ConfigBinder> config_binder_;
     std::shared_ptr<AutoAimShared> shared_;
     void setShared(std::shared_ptr<AutoAimShared> shared) {
         shared_ = shared;
@@ -395,15 +396,15 @@ bool AutoAim::init(
     const YAML::Node& config,
     int& use_detect_ncnn_count,
     const Eigen::Matrix3d& R_camera2gimbal,
-    const Eigen::Vector3d& t_gimbal_to_camera,
+    const Eigen::Vector3d& t_camera2gimbal,
     const std::pair<cv::Mat, cv::Mat>& camera_info,
-    std::shared_ptr<ConfigBinder> config_binder
+    std::shared_ptr<wust_vl_utils::ConfigBinder> config_binder
 ) {
     return _impl->init(
         config,
         use_detect_ncnn_count,
         R_camera2gimbal,
-        t_gimbal_to_camera,
+        t_camera2gimbal,
         camera_info,
         config_binder
     );
@@ -427,7 +428,8 @@ GimbalCmd AutoAim::solve(double dt_ms) {
     return _impl->solve(dt_ms);
 }
 bool AutoAim::isActive() {
-    if (_impl->processing_thread_->getStatus() == MonitoredThread::Status::Running) {
+    if (_impl->processing_thread_->getStatus()
+        == wust_vl_concurrency::MonitoredThread::Status::Running) {
         return true;
     } else {
         return false;

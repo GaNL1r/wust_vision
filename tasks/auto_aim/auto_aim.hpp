@@ -14,7 +14,7 @@ struct AutoAimShared {
     double bullet_speed;
     double controller_delay;
     Eigen::Matrix3d R_camera2gimbal;
-    Eigen::Vector3d t_gimbal_to_camera;
+    Eigen::Vector3d t_camera2gimbal;
     double communication_delay_μs;
     AutoAimShared(std::shared_ptr<MotionBuffer> mb) {
         motion_buffer = mb;
@@ -28,9 +28,9 @@ public:
         const YAML::Node& config,
         int& use_detect_ncnn_count,
         const Eigen::Matrix3d& R_camera2gimbal,
-        const Eigen::Vector3d& t_gimbal_to_camera,
+        const Eigen::Vector3d& t_camera2gimbal,
         const std::pair<cv::Mat, cv::Mat>& camera_info,
-        std::shared_ptr<ConfigBinder> config_binder
+        std::shared_ptr<wust_vl_utils::ConfigBinder> config_binder
     );
     void start();
     void pushInput(CommonFrame& frame);

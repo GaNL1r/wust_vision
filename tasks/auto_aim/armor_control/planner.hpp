@@ -44,6 +44,7 @@ public:
         Target target,
         double bullet_speed,
         const AutoAimFsm& auto_aim_fsm,
+        double self_v_yaw = 0.0,
         double cal_dt = CAL_DT,
         int cal_horizon = CAL_HORIZON
     );
@@ -61,13 +62,20 @@ private:
     void setup_yaw_solver(const YAML::Node& config);
     void setup_pitch_solver(const YAML::Node& config);
     Eigen::Matrix<double, 2, 1>
-    aim(const Target& target, double bullet_speed, bool aim_center, bool aim_first);
+    aim(const Target& target,
+        double bullet_speed,
+        bool aim_center,
+        bool aim_first,
+        double self_v_yaw,
+        double dt);
     Trajectory get_trajectory(
         Target& target,
         double yaw0,
         double bullet_speed,
         bool aim_center,
         bool aim_first,
+        double self_v_yaw,
+        double dt,
         double cal_dt = CAL_DT,
         int cal_horizon = CAL_HORIZON
     );

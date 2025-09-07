@@ -14,7 +14,8 @@ public:
         const double current_yaw,
         const double current_pitch,
         const double bullet_speed,
-        bool use_off_fire
+        bool use_off_fire,
+        double gun_yaw_speed = 0.0
     );
     GimbalCmd shoot(const GimbalCmd& cmd, const double bullet_speed);
 

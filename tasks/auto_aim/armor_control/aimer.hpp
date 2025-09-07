@@ -13,6 +13,7 @@ public:
         std::chrono::steady_clock::time_point time,
         const double bullet_speed,
         const AutoAimFsm& auto_aim_fsm
+
     );
     AimTarget aimTargetNoPre(const Target& target, const double bullet_speed, bool aim_first);
     double getFlyingTime(const Eigen::Vector3d& target_position, const double bullet_speed);
@@ -24,7 +25,8 @@ public:
     aim(const Target& target,
         std::chrono::steady_clock::time_point time,
         const double bullet_speed,
-        const AutoAimFsm& auto_aim_fsm);
+        const AutoAimFsm& auto_aim_fsm,
+        const double self_v_yaw = 0.0);
     std::pair<double, double> getCommingLeaving();
     double getPredelay();
 

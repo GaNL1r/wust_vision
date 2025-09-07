@@ -30,7 +30,8 @@ struct Shooter::Impl {
         const double current_yaw,
         const double current_pitch,
         const double bullet_speed,
-        bool use_off_fire
+        bool use_off_fire,
+        double gun_yaw_speed
     ) {
         GimbalCmd gimbal_cmd = cmd;
         if (!cmd.appera) {
@@ -48,8 +49,14 @@ struct Shooter::Impl {
         }
         bool fire = false;
         for (auto maybe_hit: maybe_hit_list) {
-            auto check =
-                checkHit(maybe_hit, current_yaw, current_pitch, bullet_speed, use_off_fire);
+            auto check = checkHit(
+                maybe_hit,
+                current_yaw,
+                current_pitch,
+                bullet_speed,
+                use_off_fire,
+                gun_yaw_speed
+            );
             gimbal_cmd.enable_yaw_diff = std::get<1>(check);
             gimbal_cmd.enable_pitch_diff = std::get<2>(check);
             gimbal_cmd.target_yaw = std::get<3>(check);
@@ -74,14 +81,17 @@ struct Shooter::Impl {
         const double current_yaw,
         const double current_pitch,
         const double bullet_speed,
-        bool use_off_fire
+        bool use_off_fire,
+        double gun_yaw_speed = 0.0
     ) {
         Eigen::Vector3d target_pos = maybe_hit.head<3>();
         double dx = target_pos.x();
         double dy = target_pos.y();
         double dz = target_pos.z();
-        double shooting_range_yaw = std::abs(atan2(shooting_range_w_ / 2, target_pos.norm()));
-        double shooting_range_pitch = std::abs(atan2(shooting_range_h_ / 2, target_pos.norm()));
+
+        double distance = target_pos.norm();
+        double shooting_range_yaw = std::abs(atan2(shooting_range_w_ / 2, distance));
+        double shooting_range_pitch = std::abs(atan2(shooting_range_h_ / 2, distance));
         double yaw_factor = 1.0 * std::cos(maybe_hit[3]);
         double pitch_factor = 1.0;
 
@@ -89,10 +99,11 @@ struct Shooter::Impl {
         shooting_range_pitch *= pitch_factor;
         shooting_range_yaw = std::max(shooting_range_yaw, 0.5 * M_PI / 180);
         shooting_range_pitch = std::max(shooting_range_pitch, 0.5 * M_PI / 180);
+
         double target_yaw = angles::normalize_angle(std::atan2(dy, dx));
         double tmp_pitch = std::atan2(dz, std::sqrt(dx * dx + dy * dy));
-
         double target_pitch = tmp_pitch;
+
         if (!trajectory_compensator_->compensate(target_pos, target_pitch, bullet_speed))
             return { false,
                      shooting_range_yaw / M_PI * 180.0,
@@ -106,9 +117,14 @@ struct Shooter::Impl {
             target_yaw += offs[1] * M_PI / 180.0;
             target_pitch += offs[0] * M_PI / 180.0;
         }
+
+        double t_f = distance / bullet_speed;
+        target_yaw -= gun_yaw_speed * t_f;
+
         double yaw_diff = std::abs(angles::shortest_angular_distance(current_yaw, target_yaw));
         double pitch_diff =
             std::abs(angles::shortest_angular_distance(current_pitch, target_pitch));
+
         if (yaw_diff < shooting_range_yaw && pitch_diff < shooting_range_pitch) {
             return { true,
                      std::abs(shooting_range_yaw) / M_PI * 180.0,
@@ -116,6 +132,7 @@ struct Shooter::Impl {
                      target_yaw / M_PI * 180.0,
                      target_pitch / M_PI * 180.0 };
         }
+
         return { false,
                  std::abs(shooting_range_yaw) / M_PI * 180.0,
                  std::abs(shooting_range_pitch) / M_PI * 180.0,
@@ -149,11 +166,12 @@ GimbalCmd Shooter::shoot(
     const double current_yaw,
     const double current_pitch,
     const double bullet_speed,
-    bool use_off_fire
+    bool use_off_fire,
+    double gun_yaw_speed
 ) {
-    return _impl->shoot(cmd, current_yaw, current_pitch, bullet_speed, use_off_fire);
+    return _impl->shoot(cmd, current_yaw, current_pitch, bullet_speed, use_off_fire, gun_yaw_speed);
 }
 
 GimbalCmd Shooter::shoot(const GimbalCmd& cmd, const double bullet_speed) {
-    return _impl->shoot(cmd, 0, 0, bullet_speed, false);
+    return _impl->shoot(cmd, 0, 0, bullet_speed, false, 0.0);
 }

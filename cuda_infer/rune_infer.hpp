@@ -52,7 +52,7 @@ GPUGridAndStride* init_grid_strides_on_gpu(
     const std::vector<int>& strides,
     size_t& device_grid_count
 );
-enum class PreprocessMode { SharedMemory, TextureMemory, GlobalMemory };
+
 class CudaInfer {
 public:
     CudaInfer();
@@ -119,10 +119,6 @@ private:
     // 禁用拷贝
     CudaInfer(const CudaInfer&) = delete;
     CudaInfer& operator=(const CudaInfer&) = delete;
-    PreprocessMode preprocess_mode_ = PreprocessMode::SharedMemory;
-    // 设备缓冲
-    cudaTextureObject_t texInput_ = 0; // CudaInfer 类成员变量
-    float4* d_input_float4_ = nullptr; // 输入图像GPU浮点数组指针
     unsigned char* d_input_bgr_ = nullptr; // 原始 BGR
     float* d_nchw_ = nullptr; // letterbox 后的 NCHW
     GPURuneObject* d_objs_ = nullptr; // decode & sort 输出

@@ -265,7 +265,6 @@ void CudaInfer::init(
     grid_count_ = grid_count;
     CUDA_CHECK(cudaMalloc(&d_input_bgr_, buf_image_bytes_));
     CUDA_CHECK(cudaMalloc(&d_nchw_, INPUT_W * INPUT_H * 3 * sizeof(float)));
-    CUDA_CHECK(cudaMalloc(&d_input_float4_, buf_image_bytes_ * sizeof(float4)));
     CUDA_CHECK(cudaMalloc(&d_objs_, buf_max_N_ * sizeof(GPURuneObject)));
     CUDA_CHECK(cudaMalloc(&d_tf_, 9 * sizeof(float)));
 }
@@ -273,8 +272,7 @@ void CudaInfer::init(
 void CudaInfer::release() {
     if (d_grid_strides_)
         cudaFree(d_grid_strides_), d_grid_strides_ = nullptr;
-    if (d_input_float4_)
-        cudaFree(d_input_float4_), d_input_float4_ = nullptr;
+
     if (d_input_bgr_)
         cudaFree(d_input_bgr_), d_input_bgr_ = nullptr;
     if (d_nchw_)
@@ -315,62 +313,17 @@ float* CudaInfer::preprocess(
     dim3 threads(TILE_W, TILE_H);
     dim3 blocks((INPUT_W + TILE_W - 1) / TILE_W, (INPUT_H + TILE_H - 1) / TILE_H);
 
-    switch (preprocess_mode_) {
-        case PreprocessMode::SharedMemory:
-            letterbox_kernel_shared<<<blocks, threads, 0, stream>>>(
-                d_input_bgr_,
-                img_w,
-                img_h,
-                d_nchw_,
-                INPUT_W,
-                INPUT_H,
-                scale,
-                pad_t,
-                pad_l
-            );
-            break;
-
-        case PreprocessMode::TextureMemory: {
-            // 先将 uchar3 BGR 转 float4
-            dim3 cvt_blocks((img_w + TILE_W - 1) / TILE_W, (img_h + TILE_H - 1) / TILE_H);
-            convertBGRUcharToFloat4Kernel<<<cvt_blocks, threads, 0, stream>>>(
-                d_input_bgr_,
-                d_input_float4_,
-                img_w,
-                img_h
-            );
-
-            // 创建纹理对象
-            cudaTextureObject_t texture = createTextureObject(d_input_float4_, img_w, img_h);
-
-            letterbox_kernel_texture<<<blocks, threads, 0, stream>>>(
-                d_nchw_,
-                INPUT_W,
-                INPUT_H,
-                scale,
-                pad_t,
-                pad_l,
-                texture
-            );
-
-            cudaDestroyTextureObject(texture);
-            break;
-        }
-
-        case PreprocessMode::GlobalMemory:
-            letterbox_kernel_uchar_textureless<<<blocks, threads, 0, stream>>>(
-                d_input_bgr_,
-                d_nchw_,
-                img_w,
-                img_h,
-                INPUT_W,
-                INPUT_H,
-                scale,
-                pad_t,
-                pad_l
-            );
-            break;
-    }
+    letterbox_kernel_shared<<<blocks, threads, 0, stream>>>(
+        d_input_bgr_,
+        img_w,
+        img_h,
+        d_nchw_,
+        INPUT_W,
+        INPUT_H,
+        scale,
+        pad_t,
+        pad_l
+    );
 
     CUDA_CHECK(cudaGetLastError());
     return d_nchw_;

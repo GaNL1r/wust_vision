@@ -908,10 +908,15 @@ void debuglog(
                 min_armor.target_pos.y(),
                 min_armor.target_pos.z()
             );
+            auto orientationToYaw = [](const Eigen::Quaterniond& q) noexcept -> double {
+                Eigen::Vector3d euler = utils::quatToEuler(q, utils::EulerOrder::ZYX, false);
+                double yaw = euler[0];
+                yaw = last_armor_yaw_ + angles::shortest_angular_distance(last_armor_yaw_, yaw);
+                last_armor_yaw_ = yaw;
+                return yaw;
+            };
 
-            armor_yaw =
-                last_armor_yaw_ + angles::shortest_angular_distance(last_armor_yaw_, min_armor.yaw);
-            last_armor_yaw_ = armor_yaw;
+            armor_yaw = orientationToYaw(min_armor.target_ori);
 
             ypd_y = std::atan2(min_armor.target_pos.y(), min_armor.target_pos.x());
             ypd_y = last_ypd_y_ + angles::shortest_angular_distance(last_ypd_y_, ypd_y);

@@ -53,7 +53,43 @@ ArmorDetectOpenCV::ArmorDetectOpenCV(
     number_classifier_ =
         std::make_unique<NumberClassifier>(classify_model_path, classify_label_path);
 }
+void hance(
+    armor::ArmorObject& armor,
+    const cv::Mat& src,
+    int win_width = 400,
+    int win_height = 400
+) {
+    cv::namedWindow("roi", cv::WINDOW_NORMAL);
+    cv::resizeWindow("roi", win_width, win_height);
 
+    for (auto& light: armor.lights) {
+        cv::Rect light_box = light.boundingRect();
+
+        // 扩展 ROI
+        constexpr float SCALE = 0.07f;
+        float expand_w = light_box.width * SCALE;
+        float expand_h = light_box.height * SCALE;
+
+        int x1 = std::max(0, static_cast<int>(light_box.x - expand_w));
+        int y1 = std::max(0, static_cast<int>(light_box.y - expand_h));
+        int x2 = std::min(src.cols, static_cast<int>(light_box.x + light_box.width + expand_w));
+        int y2 = std::min(src.rows, static_cast<int>(light_box.y + light_box.height + expand_h));
+
+        cv::Rect roi_rect(x1, y1, x2 - x1, y2 - y1);
+        if (roi_rect.width <= 0 || roi_rect.height <= 0)
+            continue;
+
+        cv::Mat roi = src(roi_rect);
+        if (src.channels() == 3) {
+            cv::cvtColor(roi, roi, cv::COLOR_BGR2GRAY);
+        } else {
+            cv::cvtColor(roi, roi, cv::COLOR_BayerRG2GRAY);
+        }
+
+        cv::imshow("roi", roi);
+        cv::waitKey(1);
+    }
+}
 std::vector<armor::ArmorObject>
 ArmorDetectOpenCV::detect(const cv::Mat& input, int detect_color) noexcept {
     if (input.empty())
@@ -92,7 +128,7 @@ ArmorDetectOpenCV::detect(const cv::Mat& input, int detect_color) noexcept {
                 if (corner_corrector_) {
                     corner_corrector_->correctCorners(armor, gray_img);
                 }
-
+                hance(armor, input);
                 {
                     std::lock_guard<std::mutex> lock(valid_mutex);
                     valid_armors.push_back(armor);

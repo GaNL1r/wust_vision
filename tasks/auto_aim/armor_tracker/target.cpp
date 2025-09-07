@@ -1,4 +1,5 @@
 #include "target.hpp"
+#include "wust_vl/common/utils/math.hpp"
 #include <wust_vl/common/utils/timer.hpp>
 Target::Target() {
     target_state_ = Eigen::VectorXd::Zero(ypdv2armor_motion_model::X_N);
@@ -11,7 +12,8 @@ Target::Target(
     Eigen::DiagonalMatrix<double, ypdv2armor_motion_model::X_N> p0
 ):
     target_config_(target_config),
-    armor_num_(armor_num) {
+    armor_num_(armor_num),
+    radius_pre_(radius) {
     target_state_ = Eigen::VectorXd::Zero(ypdv2armor_motion_model::X_N);
     auto yfv2 = ypdv2armor_motion_model::Predict(0.005);
     auto yhv2 = ypdv2armor_motion_model::Measure(0, 4);
@@ -19,14 +21,27 @@ Target::Target(
         Eigen::Matrix<double, ypdv2armor_motion_model::X_N, ypdv2armor_motion_model::X_N> q;
         return q;
     };
-    auto yu_rv2 = [this](const Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>& z) {
+
+    auto yu_rv2 = [target_config](const Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>& z) {
         Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, ypdv2armor_motion_model::Z_N> r;
-        auto delta_angle = angles::normalize_angle(z[3] - z[0]);
+        double delta_angle = angles::normalize_angle(z[3] - z[0]);
+        double abs_delta = std::abs(delta_angle);
+
+        // sin插值函数，小值慢、大值快
+        auto sinInterp = [](double x, double x0, double x1, double y0, double y1) -> double {
+            double t = (x - x0) / (x1 - x0);
+            if (t < 0)
+                t = 0;
+            if (t > 1)
+                t = 1;
+            double s = std::sin(t * M_PI / 2.0);
+            return y0 + s * (y1 - y0);
+        };
         // clang-format off
-        r <<target_config_.yp_r, 0, 0, 0,
-                0, target_config_.yp_r , 0, 0,
-                0, 0, log(std::abs(delta_angle) + 1) + 1, 0,
-                0, 0, 0,log(std::abs(z[2]) + 1) / 200 + 9e-2;
+        r <<target_config.yp_r, 0, 0, 0,
+                0, target_config.yp_r , 0, 0,
+                0, 0, sinInterp(abs_delta, 0.0, M_PI/2.0, target_config.dis_r_front, target_config.dis_r_side)+z[2]*z[2]*target_config.dis2_r_ratio, 0,
+                0, 0, 0,log(std::abs(z[2]) + 1) *target_config.yaw_r_log_ratio + sinInterp(M_PI/2.0-abs_delta, 0.0, M_PI/2.0, target_config.yaw_r_base_side, target_config.yaw_r_base_front);
         // clang-format on
         return r;
     };
@@ -145,6 +160,10 @@ void Target::predict(double dt, Eigen::Vector3d self_v, bool use_lin_pre) {
         esekf_ypd_.setUpdateQ(yu_qv2);
 
         target_state_ = esekf_ypd_.predict();
+    }
+    if (!jumped) {
+        target_state_[8] = radius_pre_;
+        esekf_ypd_.setState(target_state_);
     }
 }
 std::vector<Eigen::Vector4d> Target::getArmorPosAndYaw() const {

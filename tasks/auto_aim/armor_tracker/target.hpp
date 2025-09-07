@@ -9,6 +9,12 @@ struct TargetConfig {
     double qxyz_output = 10;
     double qyaw_output = 0.1;
     double yp_r = 4e-3;
+    double dis_r_front = 0.05;
+    double dis_r_side = 0.07;
+    double dis2_r_ratio = 0.01;
+    double yaw_r_base_front = 0.09;
+    double yaw_r_base_side = 0.09;
+    double yaw_r_log_ratio = 0.005;
 };
 class Target {
 public:
@@ -25,6 +31,7 @@ public:
     std::string type_;
     Eigen::VectorXd measurement_ = Eigen::VectorXd::Zero(4);
     Eigen::VectorXd target_state_ = Eigen::VectorXd::Zero(ypdv2armor_motion_model::X_N);
+    double radius_pre_;
     double last_yaw_ = 0;
     double last_ypd_y = 0;
     int armor_num_ = 4;

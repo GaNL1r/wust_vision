@@ -4,20 +4,17 @@ attack_mode: 0
 debug_mode: true
 
 tf:
-  gimbal2camera_pitch: 0
-  gimbal2camera_roll: 0
-  gimbal2camera_x: 0.07
-  gimbal2camera_y: 0.00
-  gimbal2camera_yaw: -0.0
-  gimbal2camera_z: 0.0
+  R_camera2gimbal: [0.0, 0.0, 1.0, -1.0, -0.0, 0.0, 0.0, -1.0, 0.0]
+  t_camera2gimbal:
+    [0.065434347168653831, 0.10641232476052895, 0.0436106400231024]
 control:
-  control_rate: 200
+  control_rate: 500
   communication_delay_us: 1100
   pitch_avg_windows: 20
   yaw_avg_windows: 20
   device_name: /dev/ttyACM_RMc
   use_nav: false
-  use_serial: false
+  use_serial: true
 logger:
   log_level: INFO
   log_path: /home/hy/wust_log

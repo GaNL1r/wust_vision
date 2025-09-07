@@ -10,6 +10,7 @@
 #define CAMERA_CONFIG "config/camera.yaml"
 #define AUTO_AIM_CONFIG "config/auto_aim.yaml"
 #define AUTO_BUFF_CONFIG "config/auto_buff.yaml"
+
 namespace backward {
 backward::SignalHandling sh;
 }
@@ -46,7 +47,7 @@ public:
     }
     bool init() {
         config_ = YAML::LoadFile(COMMON_CONFIG);
-        config_binder_ = std::make_shared<ConfigBinder>(COMMON_CONFIG);
+        config_binder_ = std::make_shared<wust_vl_utils::ConfigBinder>(COMMON_CONFIG);
         std::string log_level_ = config_["logger"]["log_level"].as<std::string>("INFO");
         std::string log_path_ = config_["logger"]["log_path"].as<std::string>("wust_log");
         bool use_logcli = config_["logger"]["use_logcli"].as<bool>();
@@ -56,18 +57,20 @@ public:
         bindConfig(config_binder_, { "max_infer_running" }, &max_infer_running_);
         // bindConfig(config_binder_, {    "attack_mode"   }, &attack_mode_);
         attack_mode_ = config_["attack_mode"].as<int>();
-        double gimbal2camera_roll = config_["tf"]["gimbal2camera_roll"].as<double>(0.0);
-        double gimbal2camera_pitch = config_["tf"]["gimbal2camera_pitch"].as<double>(0.0);
-        double gimbal2camera_yaw = config_["tf"]["gimbal2camera_yaw"].as<double>(0.0);
-        gimbal2camera_yaw_ = gimbal2camera_yaw * M_PI / 180.0;
-        gimbal2camera_pitch_ = gimbal2camera_pitch * M_PI / 180.0;
-        gimbal2camera_roll_ = gimbal2camera_roll * M_PI / 180.0;
-        double gimbal2camera_x_ = config_["tf"]["gimbal2camera_x"].as<double>(0.0);
-        double gimbal2camera_y_ = config_["tf"]["gimbal2camera_y"].as<double>(0.0);
-        double gimbal2camera_z_ = config_["tf"]["gimbal2camera_z"].as<double>(0.0);
-        t_gimbal_to_camera_ = Eigen::Vector3d(gimbal2camera_x_, gimbal2camera_y_, gimbal2camera_z_);
+        auto t_vec = config_["tf"]["t_camera2gimbal"].as<std::vector<double>>();
+        if (t_vec.size() != 3) {
+            throw std::runtime_error("YAML tf.t_camera2gimbal must have 3 elements");
+        }
+        t_camera2gimbal_ = Eigen::Vector3d(t_vec[0], t_vec[1], t_vec[2]);
 
-        R_camera2gimbal_ << 0, 0, 1, -1, 0, 0, 0, -1, 0;
+        // R_camera2gimbal
+        auto R_vec = config_["tf"]["R_camera2gimbal"].as<std::vector<double>>();
+        if (R_vec.size() != 9) {
+            throw std::runtime_error("YAML tf.R_camera2gimbal must have 9 elements");
+        }
+        R_camera2gimbal_ =
+            Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(R_vec.data());
+
         YAML::Node camera_config = YAML::LoadFile(CAMERA_CONFIG);
         camera_ = std::make_unique<wust_vl_video::Camera>();
         camera_->init(camera_config);
@@ -92,13 +95,13 @@ public:
         camera_info_ = camera_info;
 
         YAML::Node auto_aim_config = YAML::LoadFile(AUTO_AIM_CONFIG);
-        auto_aim_config_binder_ = std::make_shared<ConfigBinder>(AUTO_AIM_CONFIG);
+        auto_aim_config_binder_ = std::make_shared<wust_vl_utils::ConfigBinder>(AUTO_AIM_CONFIG);
         auto_aim_ = std::make_unique<auto_aim::AutoAim>();
         auto_aim_->init(
             auto_aim_config,
             use_ncnn_count_,
             R_camera2gimbal_,
-            t_gimbal_to_camera_,
+            t_camera2gimbal_,
             camera_info,
             auto_aim_config_binder_
         );
@@ -108,7 +111,7 @@ public:
             auto_buff_config,
             use_ncnn_count_,
             R_camera2gimbal_,
-            t_gimbal_to_camera_,
+            t_camera2gimbal_,
             camera_info
         );
         thread_pool_ = std::make_unique<ThreadPool>(std::thread::hardware_concurrency());
@@ -117,13 +120,13 @@ public:
         auto_aim_shared_->bullet_speed = config_["shoot"]["bullet_speed"].as<double>(20.0);
         auto_aim_shared_->controller_delay = config_["shoot"]["controller_delay"].as<double>(0.0);
         auto_aim_shared_->R_camera2gimbal = R_camera2gimbal_;
-        auto_aim_shared_->t_gimbal_to_camera = t_gimbal_to_camera_;
+        auto_aim_shared_->t_camera2gimbal = t_camera2gimbal_;
         auto_aim_->setShared(auto_aim_shared_);
         auto_buff_shared_ = std::make_shared<auto_buff::AutoBuffShared>(motion_buffer_);
         auto_buff_shared_->bullet_speed = config_["shoot"]["bullet_speed"].as<double>(20.0);
         auto_buff_shared_->controller_delay = config_["shoot"]["controller_delay"].as<double>(0.0);
         auto_buff_shared_->R_camera2gimbal = R_camera2gimbal_;
-        auto_buff_shared_->t_gimbal_to_camera = t_gimbal_to_camera_;
+        auto_buff_shared_->t_camera2gimbal = t_camera2gimbal_;
         auto_buff_->setShared(auto_buff_shared_);
 
         std::string device_name = config_["control"]["device_name"].as<std::string>();
@@ -154,6 +157,7 @@ public:
                 WUST_ERROR("serial") << "serial error: " << ec.message();
             });
         }
+
         double yaw_avg_windows = config_["control"]["yaw_avg_windows"].as<double>(0.0);
         double pitch_avg_windows = config_["control"]["pitch_avg_windows"].as<double>(0.0);
         yaw_avg_ = std::make_unique<Averager<double>>(yaw_avg_windows);
@@ -188,6 +192,7 @@ public:
             double v_x = aim_data.v_x;
             double v_y = aim_data.v_y;
             double v_z = aim_data.v_z;
+
             // Eigen::Vector3d euler(yaw, -pitch, roll);
             // auto q = utils::eulerToQuat(euler, 2, 1, 0);
             auto now = std::chrono::steady_clock::now();
@@ -390,9 +395,8 @@ public:
                 auto last_att = motion_buffer_->get_last();
                 std::pair<double, double> gimbal_py;
                 if (last_att) {
-                    // auto euler = utils::quatToEuler(last_att->q, 2, 1, 0);
-                    // gimbal_py.first = euler.x();
-                    // gimbal_py.second = -euler.y();
+                    gimbal_py.first = last_att->pitch;
+                    gimbal_py.second = last_att->yaw;
                 }
                 debuglog(dbg_armor, dbg_rune, last_cmd_, gimbal_py);
                 config_binder_->reload(COMMON_CONFIG);
@@ -411,21 +415,18 @@ public:
     std::unique_ptr<auto_aim::AutoAim> auto_aim_;
     std::unique_ptr<auto_buff::AutoBuff> auto_buff_;
     std::unique_ptr<wust_vl_video::Camera> camera_;
-    std::unique_ptr<Timer> timer_;
     std::shared_ptr<SerialDriver> serial_;
+    std::unique_ptr<Timer> timer_;
     std::shared_ptr<auto_aim::AutoAimShared> auto_aim_shared_;
     std::shared_ptr<auto_buff::AutoBuffShared> auto_buff_shared_;
     std::shared_ptr<MotionBuffer> motion_buffer_;
-    std::shared_ptr<ConfigBinder> config_binder_;
-    std::shared_ptr<ConfigBinder> auto_aim_config_binder_;
+    std::shared_ptr<wust_vl_utils::ConfigBinder> config_binder_;
+    std::shared_ptr<wust_vl_utils::ConfigBinder> auto_aim_config_binder_;
     YAML::Node config_;
     Eigen::Matrix3d R_camera2gimbal_;
-    Eigen::Vector3d t_gimbal_to_camera_;
+    Eigen::Vector3d t_camera2gimbal_;
     double communication_delay_μs_;
     GimbalCmd last_cmd_;
-    double gimbal2camera_roll_;
-    double gimbal2camera_pitch_;
-    double gimbal2camera_yaw_;
     std::unique_ptr<Averager<double>> yaw_avg_;
     std::unique_ptr<Averager<double>> pitch_avg_;
     std::pair<cv::Mat, cv::Mat> camera_info_;
@@ -455,12 +456,12 @@ int main(int argc, char** argv) {
         int exit_code = 0;
 
         while (!sig.shouldExit() && !exit_flag) {
-            ThreadManager::instance().printStatus();
-            auto all_status = ThreadManager::instance().getAllThreadStatuses();
+            wust_vl_concurrency::ThreadManager::instance().printStatus();
+            auto all_status = wust_vl_concurrency::ThreadManager::instance().getAllThreadStatuses();
             v.checkStateMatchMode();
 
             for (auto& status: all_status) {
-                if (status.second == MonitoredThread::Status::Hung) {
+                if (status.second == wust_vl_concurrency::MonitoredThread::Status::Hung) {
                     std::cerr << status.first << " is Hunging! Exiting program..." << std::endl;
                     exit_flag = true;
                     exit_code = -1;

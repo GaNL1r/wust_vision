@@ -12,7 +12,7 @@ struct AutoBuffShared {
     double controller_delay;
     bool is_rune_big;
     Eigen::Matrix3d R_camera2gimbal;
-    Eigen::Vector3d t_gimbal_to_camera;
+    Eigen::Vector3d t_camera2gimbal;
     double communication_delay_μs;
     AutoBuffShared(std::shared_ptr<MotionBuffer> mb) {
         motion_buffer = mb;
@@ -26,7 +26,7 @@ public:
         const YAML::Node& config,
         int& use_detect_ncnn_count,
         const Eigen::Matrix3d& R_camera2gimbal,
-        const Eigen::Vector3d& t_gimbal_to_camera,
+        const Eigen::Vector3d& t_camera2gimbal,
         const std::pair<cv::Mat, cv::Mat>& camera_info
     );
     void start();
