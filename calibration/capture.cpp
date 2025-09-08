@@ -10,7 +10,7 @@
 #include <wust_vl/common/drivers/serial_driver.hpp>
 #include <wust_vl/video/camera.hpp>
 
-MotionBuffer motion_buffer;
+MotionBufferGeneric<Motion, 1024> motion_buffer;
 wust_vl_video::Camera camera;
 void draw_text(
     cv::Mat& img,
@@ -50,9 +50,9 @@ void capture_loop(const std::string& config_path, const std::string& output_fold
             continue;
         }
         auto past_att = motion_buffer.get_interpolated(image_frame.timestamp);
-        double yaw = past_att->yaw;
-        double pitch = past_att->pitch;
-        double roll = past_att->roll;
+        double yaw = past_att->data.yaw;
+        double pitch = past_att->data.pitch;
+        double roll = past_att->data.roll;
 
         // 在图像上显示欧拉角，用来判断imuabs系的xyz正方向，同时判断imu是否存在零漂
         auto img_with_ypr = image_frame.src_img.clone();
@@ -103,6 +103,9 @@ void serialCallback(const uint8_t* data, std::size_t len) {
         double roll = (aim_data.roll) * M_PI / 180.0;
         double pitch = (aim_data.pitch) * M_PI / 180.0;
         double yaw = (aim_data.yaw) * M_PI / 180.0;
+        double v_roll = aim_data.roll_vel * M_PI / 180.0;
+        double v_pitch = aim_data.pitch_vel * M_PI / 180.0;
+        double v_yaw = aim_data.yaw_vel * M_PI / 180.0;
         double v_x = aim_data.v_x;
         double v_y = aim_data.v_y;
         double v_z = aim_data.v_z;
@@ -111,7 +114,8 @@ void serialCallback(const uint8_t* data, std::size_t len) {
         auto now = std::chrono::steady_clock::now();
         auto q = utils::eulerToQuat(euler, 2, 1, 0);
 
-        motion_buffer.push(yaw, pitch, roll, v_x, v_y, v_z, now);
+        Motion motion { yaw, pitch, roll, v_yaw, v_pitch, v_roll, v_x, v_y, v_z };
+        motion_buffer.push(motion, now);
 
     } catch (const std::exception& e) {
         std::cerr << "serialCallback exception: " << e.what() << std::endl;

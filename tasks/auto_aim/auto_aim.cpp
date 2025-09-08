@@ -161,11 +161,11 @@ struct AutoAim::Impl {
         Eigen::Vector3d v = Eigen::Vector3d::Zero();
         Eigen::Matrix3d R_gimbal2odom = Eigen::Matrix3d::Identity();
         if (shared_->motion_buffer) {
-            auto apply_motion = [&](const MotionBuffer::MotionStamped& att) {
-                v = Eigen::Vector3d(att.vx, att.vy, att.vz);
-                R_gimbal2odom = Eigen::AngleAxisd(att.yaw, Eigen::Vector3d::UnitZ())
-                    * Eigen::AngleAxisd(-att.pitch, Eigen::Vector3d::UnitY())
-                    * Eigen::AngleAxisd(att.roll, Eigen::Vector3d::UnitX());
+            auto apply_motion = [&](const auto& att) {
+                v = Eigen::Vector3d(att.data.vx, att.data.vy, att.data.vz);
+                R_gimbal2odom = Eigen::AngleAxisd(att.data.yaw, Eigen::Vector3d::UnitZ())
+                    * Eigen::AngleAxisd(-att.data.pitch, Eigen::Vector3d::UnitY())
+                    * Eigen::AngleAxisd(att.data.roll, Eigen::Vector3d::UnitX());
                 // R_gimbal2odom = att.q.toRotationMatrix();
             };
             auto delay = std::chrono::microseconds(
@@ -245,7 +245,8 @@ struct AutoAim::Impl {
                 aimer_->aim(target, now, shared_->bullet_speed, auto_aim_fsm_cl_.fsm_state_);
             aim_target = tmp_cmd.aim_target;
             auto last_att = shared_->motion_buffer->get_last();
-            gimbal_cmd = shooter_->shoot(tmp_cmd, 0, 0, shared_->bullet_speed, true);
+            gimbal_cmd =
+                shooter_->shoot(tmp_cmd, 0, 0, shared_->bullet_speed, true, last_att->data.vyaw);
 
             gimbal_cmd.raw_yaw = gimbal_cmd.yaw;
             gimbal_cmd.raw_pitch = gimbal_cmd.pitch;
@@ -261,7 +262,8 @@ struct AutoAim::Impl {
                     gimbal_cmd.yaw * M_PI / 180.0,
                     gimbal_cmd.pitch * M_PI / 180.0,
                     shared_->bullet_speed,
-                    true
+                    true,
+                    last_att->data.vyaw
                 );
                 gimbal_cmd.fire_advice = only_check_fire.fire_advice;
                 gimbal_cmd.enable_pitch_diff = only_check_fire.enable_pitch_diff;
@@ -274,7 +276,8 @@ struct AutoAim::Impl {
                     gimbal_cmd.yaw * M_PI / 180.0,
                     gimbal_cmd.pitch * M_PI / 180.0,
                     shared_->bullet_speed,
-                    true
+                    true,
+                    last_att->data.vyaw
                 );
                 gimbal_cmd.fire_advice = only_check_fire.fire_advice;
                 gimbal_cmd.enable_pitch_diff = only_check_fire.enable_pitch_diff;

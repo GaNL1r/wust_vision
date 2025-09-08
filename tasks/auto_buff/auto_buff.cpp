@@ -222,11 +222,11 @@ struct AutoBuff::Impl {
         Eigen::Vector3d v = Eigen::Vector3d::Zero();
         Eigen::Matrix3d R_gimbal2odom = Eigen::Matrix3d::Identity();
         if (shared_->motion_buffer) {
-            auto apply_motion = [&](const MotionBuffer::MotionStamped& att) {
-                v = Eigen::Vector3d(att.vx, att.vy, att.vz);
-                R_gimbal2odom = Eigen::AngleAxisd(att.yaw, Eigen::Vector3d::UnitZ())
-                    * Eigen::AngleAxisd(-att.pitch, Eigen::Vector3d::UnitY())
-                    * Eigen::AngleAxisd(att.roll, Eigen::Vector3d::UnitX());
+            auto apply_motion = [&](const auto& att) {
+                v = Eigen::Vector3d(att.data.vx, att.data.vy, att.data.vz);
+                R_gimbal2odom = Eigen::AngleAxisd(att.data.yaw, Eigen::Vector3d::UnitZ())
+                    * Eigen::AngleAxisd(-att.data.pitch, Eigen::Vector3d::UnitY())
+                    * Eigen::AngleAxisd(att.data.roll, Eigen::Vector3d::UnitX());
                 // R_gimbal2odom = att.q.toRotationMatrix();
             };
             auto delay = std::chrono::microseconds(

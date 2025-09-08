@@ -63,6 +63,7 @@ struct Shooter::Impl {
             gimbal_cmd.target_pitch = std::get<4>(check);
             if (std::get<0>(check)) {
                 fire = true;
+                break;
             }
         }
 

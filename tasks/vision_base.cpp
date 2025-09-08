@@ -105,7 +105,7 @@ bool VisionBase::init() {
     auto_buff_
         ->init(auto_buff_config, use_ncnn_count_, R_camera2gimbal_, t_camera2gimbal_, camera_info);
     thread_pool_ = std::make_unique<ThreadPool>(std::thread::hardware_concurrency());
-    motion_buffer_ = std::make_shared<MotionBuffer>();
+    motion_buffer_ = std::make_shared<MotionBufferGeneric<Motion, 1024>>();
     auto_aim_shared_ = std::make_shared<auto_aim::AutoAimShared>(motion_buffer_);
     auto_aim_shared_->bullet_speed = config_["shoot"]["bullet_speed"].as<double>(20.0);
     auto_aim_shared_->controller_delay = config_["shoot"]["controller_delay"].as<double>(0.0);
@@ -173,6 +173,9 @@ void VisionBase::serialCallback(const uint8_t* data, std::size_t len) {
         double roll = -(aim_data.roll) * M_PI / 180.0;
         double pitch = (aim_data.pitch) * M_PI / 180.0;
         double yaw = (aim_data.yaw) * M_PI / 180.0;
+        double v_roll = aim_data.roll_vel * M_PI / 180.0;
+        double v_pitch = aim_data.pitch_vel * M_PI / 180.0;
+        double v_yaw = aim_data.yaw_vel * M_PI / 180.0;
         double v_x = aim_data.v_x;
         double v_y = aim_data.v_y;
         double v_z = aim_data.v_z;
@@ -181,8 +184,10 @@ void VisionBase::serialCallback(const uint8_t* data, std::size_t len) {
         // auto q = utils::eulerToQuat(euler, 2, 1, 0);
         auto now = std::chrono::steady_clock::now();
         if (motion_buffer_) {
-            motion_buffer_->push(yaw, pitch, roll, v_x, v_y, v_z, now);
+            Motion motion { yaw, pitch, roll, v_yaw, v_pitch, v_roll, v_x, v_y, v_z };
+            motion_buffer_->push(motion, now);
         }
+        
 
         writeSerialLogToJson(aim_data);
 
@@ -314,8 +319,8 @@ void VisionBase::timerCallback(double dt_ms) {
     send_data.appear = cmd.appera;
 
     send_data.detect_color = detect_color_;
-    send_data.distance = cmd.distance;
-    //send_data.fire = cmd.fire_advice;
+    // send_data.distance = cmd.distance;
+    // send_data.fire = cmd.fire_advice;
     double avg_pitch = pitch_avg_->average();
     double avg_yaw = yaw_avg_->average();
     send_data.pitch = avg_pitch;
@@ -324,8 +329,8 @@ void VisionBase::timerCallback(double dt_ms) {
     // send_data.yaw_diff = cmd.yaw_diff;
     send_data.v_pitch = cmd.v_pitch;
     send_data.v_yaw = cmd.v_yaw;
-    // send_data.target_yaw = cmd.target_yaw;
-    // send_data.target_pitch = cmd.target_pitch;
+    send_data.target_yaw = cmd.target_yaw;
+    send_data.target_pitch = cmd.target_pitch;
     send_data.enable_pitch_diff = cmd.enable_pitch_diff;
     send_data.enable_yaw_diff = cmd.enable_yaw_diff;
 
@@ -378,8 +383,8 @@ void VisionBase::debugThread() {
             auto last_att = motion_buffer_->get_last();
             std::pair<double, double> gimbal_py;
             if (last_att) {
-                gimbal_py.first = last_att->pitch;
-                gimbal_py.second = last_att->yaw;
+                gimbal_py.first = last_att->data.pitch;
+                gimbal_py.second = last_att->data.yaw;
             }
             debuglog(dbg_armor, dbg_rune, last_cmd_, gimbal_py);
             config_binder_->reload(common_config_);

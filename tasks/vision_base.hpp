@@ -74,7 +74,7 @@ public:
     std::unique_ptr<Timer> timer_;
     std::shared_ptr<auto_aim::AutoAimShared> auto_aim_shared_;
     std::shared_ptr<auto_buff::AutoBuffShared> auto_buff_shared_;
-    std::shared_ptr<MotionBuffer> motion_buffer_;
+    std::shared_ptr<MotionBufferGeneric<Motion, 1024>> motion_buffer_;
     std::shared_ptr<wust_vl_utils::ConfigBinder> config_binder_;
     std::shared_ptr<wust_vl_utils::ConfigBinder> auto_aim_config_binder_;
     std::thread debug_thread_;

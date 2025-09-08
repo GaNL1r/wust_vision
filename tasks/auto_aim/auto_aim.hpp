@@ -10,13 +10,13 @@
 #include "yaml-cpp/yaml.h"
 namespace auto_aim {
 struct AutoAimShared {
-    std::shared_ptr<MotionBuffer> motion_buffer;
+    std::shared_ptr<MotionBufferGeneric<Motion, 1024>> motion_buffer;
     double bullet_speed;
     double controller_delay;
     Eigen::Matrix3d R_camera2gimbal;
     Eigen::Vector3d t_camera2gimbal;
     double communication_delay_μs;
-    AutoAimShared(std::shared_ptr<MotionBuffer> mb) {
+    AutoAimShared(std::shared_ptr<MotionBufferGeneric<Motion, 1024>> mb) {
         motion_buffer = mb;
     }
 };
