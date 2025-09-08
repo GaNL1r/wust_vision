@@ -4,10 +4,7 @@
 #define CAMERA_CONFIG "config/camera.yaml"
 #define AUTO_AIM_CONFIG "config/auto_aim.yaml"
 #define AUTO_BUFF_CONFIG "config/auto_buff.yaml"
-
-namespace backward {
-backward::SignalHandling sh;
-}
+ENABLE_BACKWARD()
 class vision: public VisionBase {
 public:
     vision(): VisionBase(COMMON_CONFIG, CAMERA_CONFIG, AUTO_AIM_CONFIG, AUTO_BUFF_CONFIG) {}

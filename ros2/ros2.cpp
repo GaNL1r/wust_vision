@@ -1,8 +1,10 @@
 #include "ros2.hpp"
 
-Ros2Node::Ros2Node(const std::string& node_name) : Node(node_name) {
-    
-    RCLCPP_INFO(this->get_logger(), "Your env must has been export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp");
+Ros2Node::Ros2Node(const std::string& node_name): Node(node_name) {
+    RCLCPP_INFO(
+        this->get_logger(),
+        "Your env must has been export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp"
+    );
 }
 
 Ros2Node::~Ros2Node() {
