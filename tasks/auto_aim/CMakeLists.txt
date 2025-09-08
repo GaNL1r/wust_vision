@@ -1,17 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 project(auto_aim LANGUAGES CXX )
 
-
-find_package(OpenCV  REQUIRED)
-find_package(Eigen3      REQUIRED)
-find_package(fmt         REQUIRED)
-find_package(yaml-cpp    REQUIRED)
-find_package(G2O         REQUIRED)
-find_package(OpenGL      REQUIRED)
-
-
-set(BUILD_DEFINITIONS "Release")
-
 if(BUILD_WITH_OPENVINO)
   list(APPEND BUILD_DEFINITIONS USE_OPENVINO)
   list(APPEND BUILD_LIBS openvino::runtime openvino::frontend::onnx)
@@ -29,7 +18,7 @@ if(BUILD_WITH_ORT)
   list(APPEND BUILD_LIBS ${Ort_LIB})
 endif()
 add_subdirectory(armor_control/tinympc)
-list(APPEND BUILD_LIBS tinympcstatic)
+list(APPEND BUILD_LIBS tinympcstatic TBB::tbb)
 # ================== 创建目标库 ==================
 add_library(auto_aim OBJECT)
 

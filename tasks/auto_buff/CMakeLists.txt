@@ -2,10 +2,6 @@ cmake_minimum_required(VERSION 3.14)
 project(auto_buff LANGUAGES CXX)
 
 
-find_package(OpenCV      REQUIRED)
-find_package(Eigen3      REQUIRED)
-find_package(fmt         REQUIRED)
-find_package(yaml-cpp    REQUIRED)
 
 set(BUILD_DEFINITIONS "")
 
