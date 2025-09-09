@@ -14,7 +14,7 @@ control:
   yaw_avg_windows: 20
   device_name: /dev/ttyACM_RMc
   use_nav: false
-  use_serial: false
+  use_serial: true
 logger:
   log_level: INFO
   log_path: /home/hy/wust_log

@@ -42,7 +42,6 @@ if(BUILD_WITH_TRT)
     set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
     add_subdirectory(${CMAKE_SOURCE_DIR}/cuda_infer ${CMAKE_BINARY_DIR}/cuda_infer_build)
-    include_directories("cuda_infer")
 endif()
 
 if(BUILD_WITH_NCNN)
@@ -88,8 +87,6 @@ target_link_libraries(standard
     $<TARGET_OBJECTS:auto_buff>
     ${WUST_AUTO_BUFF_LIBS}
     tasks_common
-    ${CERES_LIBRARIES}
-    ${G2O_LIBRARIES} g2o_solver_dense
 )
 
 add_executable(calcapture calibration/capture.cpp)
@@ -101,14 +98,12 @@ target_link_libraries(calcamera project_min_deps)
 add_executable(eye_hand calibration/eye_hand.cpp)
 target_link_libraries(eye_hand project_min_deps)
 
-add_executable(control test/control.cpp)
-target_link_libraries(control project_min_deps)
 
 # ------------------- ROS2 -------------------
 find_package(ament_cmake QUIET)
 find_package(rclcpp QUIET)
 find_package(geometry_msgs QUIET)
-
+find_package(std_msgs QUIET)
 set(ROS2_CORE_FOUND FALSE)
 set(ROS2_FULL_FOUND FALSE)
 
@@ -143,12 +138,12 @@ if(ROS2_FULL_FOUND)
     $<TARGET_OBJECTS:auto_buff>
     ${WUST_AUTO_BUFF_LIBS}
     tasks_common
-    ${CERES_LIBRARIES}
-    ${G2O_LIBRARIES} g2o_solver_dense
     toros2
   )
   ament_target_dependencies(sentry rclcpp std_msgs geometry_msgs)
-
+  add_executable(control test/control.cpp)
+  target_link_libraries(control project_min_deps toros2)
+  ament_target_dependencies(control rclcpp std_msgs)
 else()
   message(WARNING "ROS2 dependencies incomplete, skipping ...")
 endif()

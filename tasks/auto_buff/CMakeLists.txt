@@ -4,7 +4,7 @@ project(auto_buff LANGUAGES CXX)
 
 
 set(BUILD_DEFINITIONS "")
-
+list(APPEND BUILD_LIBS ${CERES_LIBRARIES})
 if(BUILD_WITH_OPENVINO)
   list(APPEND BUILD_DEFINITIONS USE_OPENVINO)
   list(APPEND BUILD_LIBS openvino::runtime openvino::frontend::onnx)

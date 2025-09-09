@@ -1,7 +1,7 @@
 
 
 #include "vision_base.hpp"
-
+#include "KalmanHyLib/kf.hpp"
 VisionBase::VisionBase(
     std::string common_config,
     std::string camera_config,
@@ -160,6 +160,7 @@ bool VisionBase::init() {
     return true;
 }
 void VisionBase::serialCallback(const uint8_t* data, std::size_t len) {
+    static Averager<double> vyaw_avg(100);
     try {
         std::vector<uint8_t> buf(data, data + len);
         ReceiveAimINFO aim_data = fromVector<ReceiveAimINFO>(buf);
@@ -176,18 +177,16 @@ void VisionBase::serialCallback(const uint8_t* data, std::size_t len) {
         double v_roll = aim_data.roll_vel * M_PI / 180.0;
         double v_pitch = aim_data.pitch_vel * M_PI / 180.0;
         double v_yaw = aim_data.yaw_vel * M_PI / 180.0;
+        vyaw_avg.add(v_yaw);
         double v_x = aim_data.v_x;
         double v_y = aim_data.v_y;
         double v_z = aim_data.v_z;
 
-        // Eigen::Vector3d euler(yaw, -pitch, roll);
-        // auto q = utils::eulerToQuat(euler, 2, 1, 0);
         auto now = std::chrono::steady_clock::now();
         if (motion_buffer_) {
-            Motion motion { yaw, pitch, roll, v_yaw, v_pitch, v_roll, v_x, v_y, v_z };
+            Motion motion { yaw, pitch, roll, vyaw_avg.average(), v_pitch, v_roll, v_x, v_y, v_z };
             motion_buffer_->push(motion, now);
         }
-        
 
         writeSerialLogToJson(aim_data);
 
@@ -384,7 +383,7 @@ void VisionBase::debugThread() {
             std::pair<double, double> gimbal_py;
             if (last_att) {
                 gimbal_py.first = last_att->data.pitch;
-                gimbal_py.second = last_att->data.yaw;
+                gimbal_py.second = last_att->data.vyaw;
             }
             debuglog(dbg_armor, dbg_rune, last_cmd_, gimbal_py);
             config_binder_->reload(common_config_);

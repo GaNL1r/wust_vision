@@ -103,9 +103,9 @@ void serialCallback(const uint8_t* data, std::size_t len) {
         double roll = (aim_data.roll) * M_PI / 180.0;
         double pitch = (aim_data.pitch) * M_PI / 180.0;
         double yaw = (aim_data.yaw) * M_PI / 180.0;
-        double v_roll = aim_data.roll_vel * M_PI / 180.0;
-        double v_pitch = aim_data.pitch_vel * M_PI / 180.0;
-        double v_yaw = aim_data.yaw_vel * M_PI / 180.0;
+        double v_roll = 0.0;
+        double v_pitch = 0.0;
+        double v_yaw = 0.0;
         double v_x = aim_data.v_x;
         double v_y = aim_data.v_y;
         double v_z = aim_data.v_z;

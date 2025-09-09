@@ -18,7 +18,7 @@ if(BUILD_WITH_ORT)
   list(APPEND BUILD_LIBS ${Ort_LIB})
 endif()
 add_subdirectory(armor_control/tinympc)
-list(APPEND BUILD_LIBS tinympcstatic TBB::tbb)
+list(APPEND BUILD_LIBS tinympcstatic TBB::tbb ${G2O_LIBRARIES} g2o_solver_dense ${CERES_LIBRARIES})
 # ================== 创建目标库 ==================
 add_library(auto_aim OBJECT)
 
