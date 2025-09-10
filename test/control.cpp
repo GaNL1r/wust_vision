@@ -22,8 +22,8 @@
 
 struct ReceiveAimINFO {
     float position; // 角度 (度)
-    float speed;    // 转速 (deg/s)
-    float torque;   // 扭矩 (Nm)
+    float speed; // 转速 (deg/s)
+    float torque; // 扭矩 (Nm)
 } __attribute__((packed));
 
 struct SendAimINFO {
@@ -31,25 +31,28 @@ struct SendAimINFO {
 } __attribute__((packed));
 
 inline float normalize_angle_deg(float angle) {
-    while (angle >= 180.0f) angle -= 360.0f;
-    while (angle < -180.0f) angle += 360.0f;
+    while (angle >= 180.0f)
+        angle -= 360.0f;
+    while (angle < -180.0f)
+        angle += 360.0f;
     return angle;
 }
 
 class AimController {
 public:
-    AimController(const std::string& serial_port,
-                  const std::string& config_path = "config/smc.yaml",
-                  int send_hz = 1000)
-        : serial_(),
-          config_binder_(config_path),
-          send_hz_(send_hz),
-          send_interval_(std::chrono::microseconds(1000000 / send_hz)),
-          running_(false),
-          target_deg_(0.0f),
-          target_speed_(0.0f),
-          isinited(false)
-    {
+    AimController(
+        const std::string& serial_port,
+        const std::string& config_path = "config/smc.yaml",
+        int send_hz = 1000
+    ):
+        serial_(),
+        config_binder_(config_path),
+        send_hz_(send_hz),
+        send_interval_(std::chrono::microseconds(1000000 / send_hz)),
+        running_(false),
+        target_deg_(0.0f),
+        target_speed_(0.0f),
+        isinited(false) {
         // 初始化 SMC 矩阵与边界
         int dim = 1;
         B_ = Eigen::MatrixXd::Identity(dim, dim);
@@ -58,22 +61,19 @@ public:
         phi_vec_ = Eigen::VectorXd::Constant(dim, 0.5);
 
         // 配置热绑定
-        config_binder_.bind({ "lambda" }, &Lambda_(0,0));
-        config_binder_.bind({ "k" }, &K_(0,0));
+        config_binder_.bind({ "lambda" }, &Lambda_(0, 0));
+        config_binder_.bind({ "k" }, &K_(0, 0));
         config_binder_.bind({ "phi" }, &phi_vec_(0));
-        config_binder_.bind({"alpha"},&alpha_);
+        config_binder_.bind({ "alpha" }, &alpha_);
 
-        smc_ = std::make_unique<wust_vl_algorithm::SMC_MIMO>(
-            dim, B_, Lambda_, K_, phi_vec_, 0.05
-        );
+        smc_ = std::make_unique<wust_vl_algorithm::SMC_MIMO>(dim, B_, Lambda_, K_, phi_vec_, 0.05);
 
         // 串口初始化
-        SerialDriver::SerialPortConfig cfg {
-            115200, 8,
-            boost::asio::serial_port_base::parity::none,
-            boost::asio::serial_port_base::stop_bits::one,
-            boost::asio::serial_port_base::flow_control::none
-        };
+        SerialDriver::SerialPortConfig cfg { 115200,
+                                             8,
+                                             boost::asio::serial_port_base::parity::none,
+                                             boost::asio::serial_port_base::stop_bits::one,
+                                             boost::asio::serial_port_base::flow_control::none };
         serial_.init_port(serial_port, cfg);
         serial_.set_error_callback([&](const boost::system::error_code& ec) {
             WUST_ERROR("serial") << "serial error: " << ec.message();
@@ -97,19 +97,21 @@ public:
 
     ~AimController() {
         stop();
-        SendAimINFO zero{ 0.0f };
+        SendAimINFO zero { 0.0f };
         serial_.write(toVector(zero));
         serial_.stop();
     }
 
     void start() {
-        if (running_) return;
+        if (running_)
+            return;
         running_ = true;
         worker_thread_ = std::thread([this] { this->loopThread(); });
     }
 
     void stop() {
-        if (!running_) return;
+        if (!running_)
+            return;
         running_ = false;
         if (worker_thread_.joinable())
             worker_thread_.join();
@@ -138,7 +140,8 @@ private:
             ReceiveAimINFO aim_data = fromVector<ReceiveAimINFO>(buf);
             std::lock_guard<std::mutex> lk(data_mutex_);
             latest_data_ = aim_data;
-        } catch (...) {}
+        } catch (...) {
+        }
     }
 
     void loopThread() {
@@ -149,7 +152,8 @@ private:
             auto loop_start = std::chrono::steady_clock::now();
             float dt = std::chrono::duration<float>(loop_start - last_loop).count();
             last_loop = loop_start;
-            if (dt <= 0) dt = 0.001f;
+            if (dt <= 0)
+                dt = 0.001f;
 
             ReceiveAimINFO cur;
             {
@@ -174,29 +178,34 @@ private:
             float torque = torque_vec(0);
 
             if (isinited) {
-                SendAimINFO send{ torque };
+                SendAimINFO send { torque };
                 serial_.write(toVector(send));
             }
 
             // ROS2 发布
             std_msgs::msg::Float32 msg;
-            msg.data = cur.position; ros_node_->publish("aim/position", msg);
-            msg.data = cur.speed; ros_node_->publish("aim/speed", msg);
-            msg.data = target; ros_node_->publish("aim/target", msg);
-            msg.data = target_speed; ros_node_->publish("aim/target_speed", msg);
-            msg.data = torque; ros_node_->publish("aim/torque", msg);
-            msg.data = s(0); ros_node_->publish("aim/s", msg);
-            msg.data = cur.position - target; ros_node_->publish("aim/error", msg);
+            msg.data = cur.position;
+            ros_node_->publish("aim/position", msg);
+            msg.data = cur.speed;
+            ros_node_->publish("aim/speed", msg);
+            msg.data = target;
+            ros_node_->publish("aim/target", msg);
+            msg.data = target_speed;
+            ros_node_->publish("aim/target_speed", msg);
+            msg.data = torque;
+            ros_node_->publish("aim/torque", msg);
+            msg.data = s(0);
+            ros_node_->publish("aim/s", msg);
+            msg.data = cur.position - target;
+            ros_node_->publish("aim/error", msg);
 
             // 日志
             auto now = std::chrono::steady_clock::now();
             if (now - last_print >= std::chrono::seconds(1)) {
-                WUST_INFO("aim_ctrl") << "[SMC Log] target=" << target
-                                      << "°, cur=" << cur.position
-                                      << "°, pos_err=" << normalize_angle_deg(cur.position-target)
-                                      << "°, vel_err=" << (cur.speed-target_speed)
-                                      << " deg/s, torque=" << torque
-                                      << " Nm, s=" << s(0);
+                WUST_INFO("aim_ctrl") << "[SMC Log] target=" << target << "°, cur=" << cur.position
+                                      << "°, pos_err=" << normalize_angle_deg(cur.position - target)
+                                      << "°, vel_err=" << (cur.speed - target_speed)
+                                      << " deg/s, torque=" << torque << " Nm, s=" << s(0);
                 last_print = now;
             }
 
@@ -204,14 +213,14 @@ private:
         }
 
         // 停止时发送零扭矩
-        SendAimINFO zero{ 0.0f };
+        SendAimINFO zero { 0.0f };
         serial_.write(toVector(zero));
     }
 
 private:
     SerialDriver serial_;
     mutable std::mutex data_mutex_;
-    ReceiveAimINFO latest_data_{0,0,0};
+    ReceiveAimINFO latest_data_ { 0, 0, 0 };
     wust_vl_utils::ConfigBinder config_binder_;
 
     int send_hz_;
@@ -225,7 +234,7 @@ private:
 
     // SMC 参数
     Eigen::MatrixXd B_, Lambda_, K_;
-    double alpha_ ;
+    double alpha_;
     Eigen::VectorXd phi_vec_;
     std::unique_ptr<wust_vl_algorithm::SMC_MIMO> smc_;
 
@@ -241,8 +250,11 @@ int main(int argc, char** argv) {
     controller.start();
 
     SignalHandler sig;
-    std::atomic<bool> stop{false};
-    sig.start([&]{ stop.store(true); controller.stop(); });
+    std::atomic<bool> stop { false };
+    sig.start([&] {
+        stop.store(true);
+        controller.stop();
+    });
 
     const std::string win_name = "Aim Target Control";
     cv::namedWindow(win_name, cv::WINDOW_AUTOSIZE);
@@ -259,15 +271,23 @@ int main(int argc, char** argv) {
         target_deg = static_cast<float>(slider_val) - 180.0f;
         controller.setTarget(target_deg, 0.0f);
 
-        cv::Mat frame(100, 1000, CV_8UC3, cv::Scalar(50,50,50));
+        cv::Mat frame(100, 1000, CV_8UC3, cv::Scalar(50, 50, 50));
         std::string text = "CurPos: " + std::to_string(cur_pos)
-                         + " deg, Target: " + std::to_string(target_deg) + " deg";
-        cv::putText(frame, text, cv::Point(10,60),
-                    cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0,255,0), 2);
+            + " deg, Target: " + std::to_string(target_deg) + " deg";
+        cv::putText(
+            frame,
+            text,
+            cv::Point(10, 60),
+            cv::FONT_HERSHEY_SIMPLEX,
+            0.8,
+            cv::Scalar(0, 255, 0),
+            2
+        );
         cv::imshow(win_name, frame);
 
         int key = cv::waitKey(50);
-        if (key == 27) break;
+        if (key == 27)
+            break;
     }
 
     controller.stop();

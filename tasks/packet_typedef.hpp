@@ -27,7 +27,6 @@ const uint8_t SOF_SEND = 0x5A;
 // Receive
 // const uint8_t ID_DEBUG = 0x01;
 const uint8_t ID_IMU = 0x01;
-const uint8_t ID_AIM_INFO = 0X02;
 
 // Send
 const uint8_t ID_ROBOT_CMD = 0x01;
@@ -38,7 +37,8 @@ struct HeaderFrame {
     uint8_t id; // 数据段id
     uint8_t crc; // 数据帧头的 CRC8 校验
 } __attribute__((packed));
-
+const uint8_t ID_AIM_INFO = 0X02;
+const uint8_t ID_REFEREE_INFO = 0X03;
 struct ReceiveAimINFO {
     uint8_t cmd_ID; //命令码
     uint32_t time_stamp; //时间戳
@@ -60,6 +60,23 @@ struct ReceiveAimINFO {
 
     uint8_t manual_reset_count;
     uint8_t detect_color; // 0 red 1 blue
+
+} __attribute__((packed));
+struct ReceiveReferee //rmul2024
+{
+    uint8_t cmd_ID; //命令码
+    uint32_t time_stamp;
+    int game_time; //gamestate 到4 从0开始，其他状态发-1
+    uint8_t my_team;
+    int max_health;
+    int cur_health;
+    int cur_bullet;
+    int r1_health;
+    int r3_health;
+    int r7_health;
+    int b1_health;
+    int b3_health;
+    int b7_health;
 
 } __attribute__((packed));
 // IMU 数据包
@@ -98,6 +115,7 @@ struct SendRobotCmdData {
     float v_pitch;
     uint8_t detect_color; // 0 red 1 blue
 } __attribute__((packed));
+
 // struct SendRobotCmdData {
 //     uint8_t cmd_ID; //命令码
 //     uint32_t time_stamp;

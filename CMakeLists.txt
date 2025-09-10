@@ -104,6 +104,7 @@ find_package(ament_cmake QUIET)
 find_package(rclcpp QUIET)
 find_package(geometry_msgs QUIET)
 find_package(std_msgs QUIET)
+find_package(wust_interfaces QUIET)
 set(ROS2_CORE_FOUND FALSE)
 set(ROS2_FULL_FOUND FALSE)
 
@@ -111,7 +112,7 @@ if(ament_cmake_FOUND AND rclcpp_FOUND)
   set(ROS2_CORE_FOUND TRUE)
 endif()
 
-if(ament_cmake_FOUND AND rclcpp_FOUND  AND geometry_msgs_FOUND )
+if(ament_cmake_FOUND AND rclcpp_FOUND  AND geometry_msgs_FOUND AND wust_interfaces_FOUND)
   set(ROS2_FULL_FOUND TRUE)
 endif()
 
@@ -140,7 +141,7 @@ if(ROS2_FULL_FOUND)
     tasks_common
     toros2
   )
-  ament_target_dependencies(sentry rclcpp std_msgs geometry_msgs)
+  ament_target_dependencies(sentry rclcpp std_msgs geometry_msgs wust_interfaces)
   add_executable(control test/control.cpp)
   target_link_libraries(control project_min_deps toros2)
   ament_target_dependencies(control rclcpp std_msgs)
