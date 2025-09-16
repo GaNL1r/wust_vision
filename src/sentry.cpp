@@ -34,6 +34,9 @@ public:
         if (use_sim_) {
             sim_thread_ = std::thread(std::bind(&vision::simThread, this));
         }
+        serial_->set_receive_callback(
+            std::bind(&vision::serialCallback, this, std::placeholders::_1, std::placeholders::_2)
+        );
         return true;
     }
     void start() {

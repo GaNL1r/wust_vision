@@ -100,8 +100,8 @@ ArmorDetectOpenCV::detect(const cv::Mat& input, int detect_color) noexcept {
     cv::Mat binary_img, gray_img;
     //auto t1 = time_utils::now();
     std::tie(binary_img, gray_img) = preprocessImage(input);
-    cv::imshow("bin", binary_img);
-    cv::waitKey(1);
+    // cv::imshow("bin", binary_img);
+    // cv::waitKey(1);
     //auto t2 = time_utils::now();
     lights_ = findLights(input, binary_img);
     std::vector<armor::ArmorObject> armors = matchLights(lights_, detect_color);
@@ -128,7 +128,7 @@ ArmorDetectOpenCV::detect(const cv::Mat& input, int detect_color) noexcept {
                 if (corner_corrector_) {
                     corner_corrector_->correctCorners(armor, gray_img);
                 }
-                hance(armor, input);
+                //hance(armor, input);
                 {
                     std::lock_guard<std::mutex> lock(valid_mutex);
                     valid_armors.push_back(armor);

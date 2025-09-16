@@ -1,8 +1,9 @@
 #pragma once
+#include "KalmanHyLib/gtsam.hpp"
+#include "tasks/auto_aim/armor_tracker/motion_models/factorypd.hpp"
 #include "tasks/auto_aim/armor_tracker/motion_models/motion_modelypdv2.hpp"
 #include "tasks/auto_aim/type.hpp"
 #include "tasks/utils.hpp"
-
 struct TargetConfig {
     double qxyz_common = 100;
     double qyaw_common = 400;
@@ -29,8 +30,10 @@ public:
     );
     armor::ArmorNumber tracked_id_;
     std::string type_;
-    Eigen::VectorXd measurement_ = Eigen::VectorXd::Zero(4);
-    Eigen::VectorXd target_state_ = Eigen::VectorXd::Zero(ypdv2armor_motion_model::X_N);
+    Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1> measurement_ =
+        Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>::Zero();
+    Eigen::Matrix<double, ypdv2armor_motion_model::X_N, 1> target_state_ =
+        Eigen::Matrix<double, ypdv2armor_motion_model::X_N, 1>::Zero();
     double radius_pre_;
     double last_yaw_ = 0;
     double last_ypd_y = 0;
@@ -49,6 +52,8 @@ public:
     Eigen::Vector3d h_armor_xyz(const Eigen::VectorXd& x, int id) const;
     Eigen::Vector3d h_armor_vxyz(const Eigen::VectorXd& x, int id) const;
     ypdv2armor_motion_model::RobotStateESEKF esekf_ypd_;
+    ypdv2armor_motion_model::RobotStateFACTOR fg_estimator_;
+    size_t step_ { 0 };
     TargetConfig target_config_;
     void predict(
         std::chrono::steady_clock::time_point t,
@@ -58,7 +63,11 @@ public:
     void
     predict(double dt, Eigen::Vector3d self_v = Eigen::Vector3d::Zero(), bool use_lin_pre = true);
     bool update(const armor::Armor& armor);
-
+    Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, ypdv2armor_motion_model::Z_N>
+    computeMeasurementCovariance(const Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>& z
+    ) const;
+    Eigen::Matrix<double, ypdv2armor_motion_model::X_N, ypdv2armor_motion_model::X_N>
+    computeProcessNoise(double dt) const;
     double orientationToYaw(const Eigen::Quaterniond& q) noexcept {
         double roll, pitch, yaw;
         Eigen::Vector3d euler = utils::quatToEuler(q, utils::EulerOrder::ZYX, false);

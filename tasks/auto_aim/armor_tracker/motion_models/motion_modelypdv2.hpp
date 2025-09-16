@@ -16,6 +16,7 @@
 // ceres
 #include <ceres/ceres.h>
 // project
+#include "KalmanHyLib/gtsam.hpp"
 #include "KalmanHyLib/kalman_hybird_lib.hpp"
 namespace ypdv2armor_motion_model {
 
@@ -44,13 +45,10 @@ struct Predict {
         vrz(vrz) {}
 
     template<typename T>
-    void operator()(const T x0[X_N], T x1[X_N]) {
+    void operator()(const T x0[X_N], T x1[X_N]) const {
         for (int i = 0; i < X_N; i++) {
             x1[i] = x0[i];
         }
-        x1[0] -= T(vrx) * T(dt);
-        x1[2] -= T(vry) * T(dt);
-        x1[4] -= T(vrz) * T(dt);
 
         // v_xyz
         if (model == MotionModel::CONSTANT_VEL_ROT || model == MotionModel::CONSTANT_VELOCITY) {
@@ -64,6 +62,10 @@ struct Predict {
             x1[3] *= T(0.);
             x1[5] *= T(0.);
         }
+
+        x1[0] -= T(vrx) * T(dt);
+        x1[2] -= T(vry) * T(dt);
+        x1[4] -= T(vrz) * T(dt);
 
         // v_yaw
         if (model == MotionModel::CONSTANT_VEL_ROT || model == MotionModel::CONSTANT_ROTATION) {
@@ -89,7 +91,7 @@ struct Measure {
     Measure() = default;
     explicit Measure(int id, int armor_num): id(id), armor_num(armor_num) {}
     template<typename T>
-    void operator()(const T x[Z_N], T z[Z_N]) {
+    void operator()(const T x[Z_N], T z[Z_N]) const {
         // Compute armor position
         T angle = normalize_angle_t(x[6] + id * 2 * M_PI / armor_num);
         auto use_l_h = (armor_num == 4) && (id == 1 || id == 3);
@@ -113,5 +115,6 @@ struct Measure {
 
 using RobotStateEKF = kalman_hybird_lib::ExtendedKalmanFilter<X_N, Z_N, Predict, Measure>;
 using RobotStateESEKF = kalman_hybird_lib::ErrorStateEKF<X_N, Z_N, Predict, Measure>;
+using RobotStateFACTOR = gtsam_motion_generic::FactorGraphEstimator<X_N, Z_N, Predict, Measure>;
 
 } // namespace ypdv2armor_motion_model

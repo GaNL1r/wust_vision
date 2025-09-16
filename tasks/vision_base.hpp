@@ -29,6 +29,7 @@ public:
         std::string auto_aim_config,
         std::string auto_buff_config
     );
+    ~VisionBase();
     /**
      * @brief 显式停止运行并释放资源
      */
@@ -116,44 +117,50 @@ concept VisionLike = requires(T v) {
 
 template<VisionLike T>
 inline int runVisionMain() {
-    std::set_terminate([]() {
-        std::cerr << "Uncaught exception, terminating program.\n";
-        std::abort();
-    });
+    // std::set_terminate([]() {
+    //     std::cerr << "Uncaught exception, terminating program.\n";
+    //     std::abort();
+    // });
 
     try {
-        T v;
-        v.init();
-        v.start();
-
-        SignalHandler sig;
-        sig.start([&] { v.stop(); });
-
-        bool exit_flag = false;
         int exit_code = 0;
 
-        while (!sig.shouldExit() && !exit_flag) {
-            wust_vl_concurrency::ThreadManager::instance().printStatus();
-            auto all_status = wust_vl_concurrency::ThreadManager::instance().getAllThreadStatuses();
-            v.checkStateMatchMode();
+        {
+            T v;
+            v.init();
+            v.start();
 
-            for (auto& status: all_status) {
-                if (status.second == wust_vl_concurrency::MonitoredThread::Status::Hung) {
-                    std::cerr << status.first << " is Hunging! Exiting program..." << std::endl;
-                    exit_flag = true;
-                    exit_code = -1;
-                    break;
+            SignalHandler sig;
+            sig.start([&] {});
+
+            bool exit_flag = false;
+
+            while (!sig.shouldExit() && !exit_flag) {
+                wust_vl_concurrency::ThreadManager::instance().printStatus();
+                auto all_status =
+                    wust_vl_concurrency::ThreadManager::instance().getAllThreadStatuses();
+                v.checkStateMatchMode();
+
+                for (auto& status: all_status) {
+                    if (status.second == wust_vl_concurrency::MonitoredThread::Status::Hung) {
+                        std::cerr << status.first << " is Hunging! Exiting program..." << std::endl;
+                        exit_flag = true;
+                        exit_code = -1;
+                        break;
+                    }
                 }
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            auto stop_future = std::async(std::launch::async, [&v]() { v.stop(); });
+            if (stop_future.wait_for(std::chrono::seconds(5)) == std::future_status::timeout) {
+                std::cerr << "v.stop() timed out, forcing exit!" << std::endl;
+                std::exit(1);
+            }
+            std::cout << "v.stop() finished, v will be destructed now." << std::endl;
+            v.stop();
         }
 
-        auto stop_future = std::async(std::launch::async, [&v]() { v.stop(); });
-        if (stop_future.wait_for(std::chrono::seconds(5)) == std::future_status::timeout) {
-            std::cerr << "v.stop() timed out, forcing exit!" << std::endl;
-            std::exit(1);
-        }
-
+        std::cout << "Exiting program..." << std::endl;
         return exit_code;
 
     } catch (const std::exception& e) {

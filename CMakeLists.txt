@@ -7,7 +7,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_BUILD_TYPE "Release")
 message(STATUS "--------------------CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}--------------------")
 
-add_compile_options(-O3 -w)
+add_compile_options(-w)
 
 option(BUILD_WITH_TRT      "Enable TensorRT backend"   ON)
 option(BUILD_WITH_OPENVINO "Enable OpenVINO backend"   ON)
@@ -26,7 +26,7 @@ find_package(G2O         REQUIRED)
 find_package(Ceres       REQUIRED)
 find_package(HikSDK      REQUIRED)
 find_package(TBB         REQUIRED)
-
+find_package(GTSAM       REQUIRED)  
 if(BUILD_WITH_OPENVINO)
     find_package(OpenVINO REQUIRED COMPONENTS Runtime ONNX)
 endif()
@@ -87,6 +87,7 @@ target_link_libraries(standard
     $<TARGET_OBJECTS:auto_buff>
     ${WUST_AUTO_BUFF_LIBS}
     tasks_common
+    gtsam
 )
 
 add_executable(calcapture calibration/capture.cpp)
@@ -140,6 +141,7 @@ if(ROS2_FULL_FOUND)
     ${WUST_AUTO_BUFF_LIBS}
     tasks_common
     toros2
+    gtsam
   )
   ament_target_dependencies(sentry rclcpp std_msgs geometry_msgs wust_interfaces)
   add_executable(control test/control.cpp)

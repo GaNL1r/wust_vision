@@ -1,4 +1,4 @@
-rune_detect_backend: tensorrt
+rune_detect_backend: openvino
 
 rune_solver:
   auto_type_determined: true

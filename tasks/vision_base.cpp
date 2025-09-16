@@ -1,7 +1,6 @@
 
 
 #include "vision_base.hpp"
-#include "KalmanHyLib/kf.hpp"
 VisionBase::VisionBase(
     std::string common_config,
     std::string camera_config,
@@ -12,6 +11,9 @@ VisionBase::VisionBase(
     camera_config_(camera_config),
     auto_aim_config_(auto_aim_config),
     auto_buff_config_(auto_buff_config) {}
+VisionBase::~VisionBase() {
+    // stop();
+}
 void VisionBase::stop() {
     run_flag_ = false;
     if (camera_) {
@@ -22,18 +24,35 @@ void VisionBase::stop() {
         auto_aim_.reset();
     }
     WUST_INFO("stop") << "auto_aim stop";
-
+    if (auto_buff_) {
+        auto_buff_.reset();
+    }
+    WUST_INFO("stop") << "auto_buff stop";
     if (timer_) {
         timer_.reset();
     }
     WUST_INFO("stop") << "timer stop";
     if (serial_) {
+        serial_->stop();
         serial_.reset();
+    }
+    if (motion_buffer_) {
+        motion_buffer_.reset();
+    }
+    if (auto_aim_shared_) {
+        auto_aim_shared_.reset();
+    }
+    if (auto_buff_shared_) {
+        auto_buff_shared_.reset();
     }
     WUST_INFO("stop") << "serial stop";
     if (debug_thread_.joinable()) {
         debug_thread_.join();
     }
+    if (thread_pool_) {
+        thread_pool_.reset();
+    }
+
 #ifdef USE_NCNN
     if (use_ncnn_count_ > 0) {
         ncnn::destroy_gpu_instance();
@@ -121,6 +140,8 @@ bool VisionBase::init() {
 
     std::string device_name = config_["control"]["device_name"].as<std::string>();
     bindConfig(config_binder_, { "control", "communication_delay_us" }, &communication_delay_μs_);
+
+    serial_ = std::make_shared<SerialDriver>();
     bool use_serial = config_["control"]["use_serial"].as<bool>();
     if (use_serial) {
         SerialDriver::SerialPortConfig cfg { /*baud*/ 115200,
@@ -128,7 +149,6 @@ bool VisionBase::init() {
                                              boost::asio::serial_port_base::parity::none,
                                              boost::asio::serial_port_base::stop_bits::one,
                                              boost::asio::serial_port_base::flow_control::none };
-        serial_ = std::make_shared<SerialDriver>();
         serial_->init_port(device_name, cfg);
         serial_->set_receive_callback(std::bind(
             &VisionBase::serialCallback,
@@ -161,6 +181,9 @@ bool VisionBase::init() {
 }
 void VisionBase::serialCallback(const uint8_t* data, std::size_t len) {
     static Averager<double> vyaw_avg(100);
+    if (len != sizeof(ReceiveAimINFO)) {
+        return;
+    }
     try {
         std::vector<uint8_t> buf(data, data + len);
         ReceiveAimINFO aim_data = fromVector<ReceiveAimINFO>(buf);
@@ -170,7 +193,7 @@ void VisionBase::serialCallback(const uint8_t* data, std::size_t len) {
         {
             return;
         }
-
+        detect_color_ = aim_data.detect_color;
         double roll = -(aim_data.roll) * M_PI / 180.0;
         double pitch = (aim_data.pitch) * M_PI / 180.0;
         double yaw = (aim_data.yaw) * M_PI / 180.0;
@@ -178,13 +201,14 @@ void VisionBase::serialCallback(const uint8_t* data, std::size_t len) {
         double v_pitch = aim_data.pitch_vel * M_PI / 180.0;
         double v_yaw = aim_data.yaw_vel * M_PI / 180.0;
         vyaw_avg.add(v_yaw);
-        double v_x = aim_data.v_x;
-        double v_y = aim_data.v_y;
-        double v_z = aim_data.v_z;
+
+        double v_x = 0.0;
+        double v_y = 0.0;
+        double v_z = 0.0;
 
         auto now = std::chrono::steady_clock::now();
         if (motion_buffer_) {
-            Motion motion { yaw, pitch, roll, vyaw_avg.average(), v_pitch, v_roll, v_x, v_y, v_z };
+            Motion motion { yaw, pitch, roll, 0.0, v_pitch, v_roll, v_x, v_y, v_z };
             motion_buffer_->push(motion, now);
         }
 
@@ -196,7 +220,6 @@ void VisionBase::serialCallback(const uint8_t* data, std::size_t len) {
         std::cerr << "serialCallback unknown exception" << std::endl;
     }
 }
-
 void VisionBase::frameCallback(wust_vl_video::ImageFrame& frame) {
     if (!run_flag_ || infer_running_count_ >= max_infer_running_) {
         return;
@@ -315,7 +338,11 @@ void VisionBase::timerCallback(double dt_ms) {
     last_yaw = last_yaw + yaw_delta;
     SendRobotCmdData send_data;
     send_data.cmd_ID = ID_ROBOT_CMD;
-    send_data.appear = cmd.appera;
+    if (cmd.distance > 0.5) {
+        send_data.appear = cmd.appera;
+    } else {
+        send_data.appear = false;
+    }
 
     send_data.detect_color = detect_color_;
     // send_data.distance = cmd.distance;
