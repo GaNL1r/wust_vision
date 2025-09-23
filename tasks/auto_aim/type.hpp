@@ -141,7 +141,7 @@ inline int formArmorNumber(ArmorNumber number) {
 }
 inline int retypetotracker(ArmorNumber a) {
     static const std::unordered_map<ArmorNumber, int> map = {
-        { ArmorNumber::SENTRY, 1 },  { ArmorNumber::NO1, 2 },  { ArmorNumber::NO2, 3 },
+        { ArmorNumber::SENTRY, 4 },  { ArmorNumber::NO1, 2 },  { ArmorNumber::NO2, 3 },
         { ArmorNumber::NO3, 4 },     { ArmorNumber::NO4, 5 },  { ArmorNumber::NO5, 9 },
         { ArmorNumber::OUTPOST, 6 }, { ArmorNumber::BASE, 7 }, { ArmorNumber::UNKNOWN, -1 }
     };
@@ -240,6 +240,13 @@ struct ArmorObject {
         } else {
             return { pts[0], pts[1], pts[2], pts[3] };
         }
+    }
+    bool checkOkptsRight(double max_error) const {
+        double error = 0.0;
+        for(int i = 0; i < 4; i++) {
+            error += cv::norm(pts[i] - toPts()[i]);
+        }
+        return error < max_error;
     }
     std::array<cv::Point2f, 4> sortCorners(const std::vector<cv::Point2f>& pts) const {
         std::array<cv::Point2f, 4> ordered;

@@ -169,7 +169,7 @@ bool VisionBase::init() {
     timer_ = std::make_unique<Timer>();
     detect_color_ = config_["detect_color"].as<int>(0);
     debug_mode_ = config_["debug_mode"].as<bool>(false);
-
+    auto_exposure_cfg_.loadFromYaml(config_["auto_exposure"]);
     if (auto_aim_) {
         auto_aim_->setDebug(debug_mode_);
     }
@@ -220,10 +220,47 @@ void VisionBase::serialCallback(const uint8_t* data, std::size_t len) {
         std::cerr << "serialCallback unknown exception" << std::endl;
     }
 }
+double computeBrightness(const cv::Mat& frame) {
+    cv::Mat gray;
+    cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+    return cv::mean(gray)[0]; // 返回灰度均值
+}
+void VisionBase::autoExposureControl(const cv::Mat& frame) {
+    if (!auto_exposure_cfg_.enable) {
+        return;
+    }
+    static auto last_update = std::chrono::steady_clock::now();
+
+    auto now = std::chrono::steady_clock::now();
+    double elapsed_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(now - last_update).count();
+
+    if (elapsed_ms >= auto_exposure_cfg_.control_interval_ms) {
+        double brightness = computeBrightness(frame);
+        double diff = brightness - auto_exposure_cfg_.target_brightness; // 目标亮度
+        const double exposure_min = auto_exposure_cfg_.exposure_min;
+        const double exposure_max = auto_exposure_cfg_.exposure_max;
+        double exposure_time = camera_->getHikExposureTime();
+        if (fabs(diff) > auto_exposure_cfg_.tolerance && exposure_time > 0.0) {
+            exposure_time -= diff * auto_exposure_cfg_.step_gain; // 快速降低曝光
+        } else {
+            exposure_time -= auto_exposure_cfg_.decay_step;
+        }
+        if (exposure_time < exposure_min)
+            exposure_time = exposure_min;
+        if (exposure_time > exposure_max)
+            exposure_time = exposure_max;
+        camera_->setHikExposureTime(exposure_time);
+        last_update = now;
+    }
+}
 void VisionBase::frameCallback(wust_vl_video::ImageFrame& frame) {
     if (!run_flag_ || infer_running_count_ >= max_infer_running_) {
         return;
     }
+    // auto node = YAML::LoadFile("config/tmp.yaml");
+    // double exposure_time = node["exposure_time"].as<double>(0.0);
+    // camera_->setHikExposureTime(exposure_time);
     CommonFrame common_frame;
     common_frame.timestamp = frame.timestamp;
     if (frame.src_img.empty()) {
@@ -232,6 +269,7 @@ void VisionBase::frameCallback(wust_vl_video::ImageFrame& frame) {
     common_frame.detect_color = detect_color_;
     common_frame.src_img = std::move(frame.src_img);
     infer_running_count_++;
+    autoExposureControl(common_frame.src_img);
 
     thread_pool_->enqueue([this, frame = std::move(common_frame)]() mutable {
         if (frame.src_img.data == nullptr) {

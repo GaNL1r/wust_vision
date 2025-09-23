@@ -25,6 +25,7 @@ struct ArmorDetectCommonParams {
     float expand_ratio_w = 1.1f;
     float expand_ratio_h = 1.1f;
     int binary_thres = 85;
+    double max_pts_error = 20.0;
 };
 
 class ArmorDetectCommon {

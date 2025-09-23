@@ -27,6 +27,7 @@ public:
     double max_yaw_diff_deg_;
     double max_dis_diff_;
     int is_none_purple_count_ = 0;
+    int found_count_ = 0;
     Target target_;
     std::chrono::steady_clock::time_point last_time_;
     TargetConfig target_config_;

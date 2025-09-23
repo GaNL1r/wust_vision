@@ -67,6 +67,7 @@ public:
      * @brief debug主循环,默认30fps,负责绘制/写入可视化图像，写入绘图log数据与参数绑定器重加载
      */
     void debugThread();
+    void autoExposureControl(const cv::Mat& frame);
     std::unique_ptr<ThreadPool> thread_pool_;
     std::unique_ptr<auto_aim::AutoAim> auto_aim_;
     std::unique_ptr<auto_buff::AutoBuff> auto_buff_;
@@ -98,6 +99,43 @@ public:
     std::string camera_config_;
     std::string auto_aim_config_;
     std::string auto_buff_config_;
+    struct AutoExposureCfg {
+        bool enable = false;
+        double target_brightness = 20.0;
+        double tolerance = 5.0;
+        double step_gain = 10.0;
+        double decay_step = 1.0;
+        double exposure_min = 100.0;
+        double exposure_max = 2500.0;
+        double control_interval_ms = 300;
+
+        // 成员函数：从 YAML 加载配置
+        bool loadFromYaml(const YAML::Node& root) {
+            try {
+                if (root["enable"])
+                    enable = root["enable"].as<bool>();
+                if (root["target_brightness"])
+                    target_brightness = root["target_brightness"].as<double>();
+                if (root["tolerance"])
+                    tolerance = root["tolerance"].as<double>();
+                if (root["step_gain"])
+                    step_gain = root["step_gain"].as<double>();
+                if (root["decay_step"])
+                    decay_step = root["decay_step"].as<double>();
+                if (root["exposure_min"])
+                    exposure_min = root["exposure_min"].as<double>();
+                if (root["exposure_max"])
+                    exposure_max = root["exposure_max"].as<double>();
+                if (root["control_interval_ms"])
+                    control_interval_ms = root["control_interval_ms"].as<double>();
+
+                return true;
+            } catch (const YAML::Exception& e) {
+                std::cerr << "加载 YAML 配置失败: " << e.what() << std::endl;
+                return false;
+            }
+        }
+    } auto_exposure_cfg_;
 };
 template<typename T>
 concept VisionLike = requires(T v) {

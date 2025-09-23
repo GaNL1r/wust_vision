@@ -341,19 +341,31 @@ struct AutoAim::Impl {
 
         auto elapsed = duration_cast<duration<double>>(now - last_stat_time_steady_);
         if (elapsed.count() >= 1.0) {
+            double found_ratio = 0.0;
+            if (img_recv_count_ > 0) {
+                found_ratio = static_cast<double>(tracker_manager_->tracker_v3_->found_count_)
+                    / static_cast<double>(img_recv_count_);
+            }
+
             WUST_INFO(logger_) << "Rec: " << img_recv_count_ << ", Det: " << detect_finish_count_
                                << ", Fin: " << tracker_finish_count_ << ", Tc: " << timer_cout_
                                << ", Lat: " << auto_aim_debug_.latency_ms << "ms"
-                               << ", Fire: " << fire_count_;
+                               << ", Fire: " << fire_count_
+                               << ", Found: " << tracker_manager_->tracker_v3_->found_count_
+                               << ", Found_ratio: " << found_ratio;
 
+            //camera_->setHikExposureTime(exposure_time);
             img_recv_count_ = 0;
             detect_finish_count_ = 0;
             fire_count_ = 0;
             tracker_finish_count_ = 0;
             timer_cout_ = 0;
+            tracker_manager_->tracker_v3_->found_count_ = 0;
+
             last_stat_time_steady_ = now;
         }
     }
+
     std::mutex callback_mutex_;
     std::unique_ptr<ArmorDetectorBase> armor_detector_;
     std::unique_ptr<TrackerManager> tracker_manager_;
@@ -372,7 +384,7 @@ struct AutoAim::Impl {
     int detect_finish_count_ = 0;
     int img_recv_count_ = 0;
     int tracker_finish_count_ = 0;
-    int fire_count_;
+    int fire_count_ = 0;
     int timer_cout_ = 0;
     std::chrono::steady_clock::time_point last_stat_time_steady_ = std::chrono::steady_clock::now();
     Target armor_solver_target_;

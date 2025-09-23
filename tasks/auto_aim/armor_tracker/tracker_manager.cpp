@@ -34,6 +34,7 @@ TrackerManager::TrackerManager(
     target_config.yaw_r_base_front = config_["armor_tracker"]["yaw_r_base_front"].as<double>();
     target_config.yaw_r_base_side = config_["armor_tracker"]["yaw_r_base_side"].as<double>();
     target_config.yaw_r_log_ratio = config_["armor_tracker"]["yaw_r_log_ratio"].as<double>();
+    target_config.esekf_iter_num = config_["armor_tracker"]["esekf_iter_num"].as<int>(2);
     tracker_v3_ = std::make_unique<TrackerV3>(
         tracking_thres,
         lost_time_thres,

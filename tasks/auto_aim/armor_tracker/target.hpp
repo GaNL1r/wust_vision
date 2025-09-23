@@ -4,7 +4,9 @@
 #include "tasks/auto_aim/armor_tracker/motion_models/motion_modelypdv2.hpp"
 #include "tasks/auto_aim/type.hpp"
 #include "tasks/utils.hpp"
+#include <wust_vl/common/utils/timer.hpp>
 struct TargetConfig {
+    int esekf_iter_num = 2;
     double qxyz_common = 100;
     double qyaw_common = 400;
     double qxyz_output = 10;
@@ -34,6 +36,7 @@ public:
         Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>::Zero();
     Eigen::Matrix<double, ypdv2armor_motion_model::X_N, 1> target_state_ =
         Eigen::Matrix<double, ypdv2armor_motion_model::X_N, 1>::Zero();
+
     double radius_pre_;
     double last_yaw_ = 0;
     double last_ypd_y = 0;
@@ -48,9 +51,7 @@ public:
     bool is_temp_lost_ = false;
     std::chrono::steady_clock::time_point last_t_;
     std::chrono::steady_clock::time_point timestamp_;
-    std::vector<Eigen::Vector4d> getArmorPosAndYaw() const;
-    Eigen::Vector3d h_armor_xyz(const Eigen::VectorXd& x, int id) const;
-    Eigen::Vector3d h_armor_vxyz(const Eigen::VectorXd& x, int id) const;
+    double dt_;
     ypdv2armor_motion_model::RobotStateESEKF esekf_ypd_;
     ypdv2armor_motion_model::RobotStateFACTOR fg_estimator_;
     size_t step_ { 0 };
@@ -58,10 +59,10 @@ public:
     void predict(
         std::chrono::steady_clock::time_point t,
         Eigen::Vector3d self_v = Eigen::Vector3d::Zero(),
-        bool use_lin_pre = true
+        bool use_lin_pre = false
     );
     void
-    predict(double dt, Eigen::Vector3d self_v = Eigen::Vector3d::Zero(), bool use_lin_pre = true);
+    predict(double dt, Eigen::Vector3d self_v = Eigen::Vector3d::Zero(), bool use_lin_pre = false);
     bool update(const armor::Armor& armor);
     Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, ypdv2armor_motion_model::Z_N>
     computeMeasurementCovariance(const Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>& z
@@ -128,7 +129,8 @@ public:
     }
 
     inline bool checkTargetAppear() {
-        return is_tracking;
+        bool appear = is_tracking && time_utils::durationSec(timestamp_, time_utils::now()) < 0.5;
+        return appear;
     }
     bool diverged() const {
         return diverged(target_state_);
@@ -140,15 +142,52 @@ public:
         auto v_yaw_ok = std::abs(target_state[7]) < 30.0;
         Eigen::Vector3d vel = velocity();
         auto v_xyz_ok = std::abs(vel.norm()) < 10.0;
+        auto pos_ok = position().norm() < 10.0 && position().norm() > 0.5;
         bool output_ok = true;
         if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
             if (std::abs(target_state[7]) > 2.0) {
                 output_ok = false;
             }
         }
-        if (r_ok && l_ok && v_xyz_ok && v_yaw_ok && output_ok)
+        if (r_ok && l_ok && v_xyz_ok && v_yaw_ok && output_ok && pos_ok)
             return false;
 
         return true;
+    }
+    std::vector<Eigen::Vector4d> getArmorPosAndYaw() const {
+        std::vector<Eigen::Vector4d> _armor_xyza_list;
+
+        for (int i = 0; i < armor_num_; i++) {
+            auto angle = angles::normalize_angle(target_state_[6] + i * 2 * CV_PI / armor_num_);
+            Eigen::Vector3d xyz = h_armor_xyz(target_state_, i);
+            _armor_xyza_list.push_back({ xyz[0], xyz[1], xyz[2], angle });
+        }
+        return _armor_xyza_list;
+    }
+    Eigen::Vector3d h_armor_xyz(const Eigen::VectorXd& x, int id) const {
+        auto angle = angles::normalize_angle(x[6] + id * 2 * CV_PI / armor_num_);
+        auto use_l_h = (armor_num_ == 4) && (id == 1 || id == 3);
+
+        auto r = (use_l_h) ? x[8] + x[9] : x[8];
+        auto armor_x = x[0] - r * std::cos(angle);
+        auto armor_y = x[2] - r * std::sin(angle);
+        auto armor_z = (use_l_h) ? x[4] + x[10] : x[4];
+
+        return { armor_x, armor_y, armor_z };
+    }
+    Eigen::Vector3d h_armor_vxyz(const Eigen::VectorXd& x, int id) const {
+        Eigen::Vector3d v_center(x[1], x[3], x[5]);
+
+        auto angle = angles::normalize_angle(x[6] + id * 2 * CV_PI / armor_num_);
+        auto use_l_h = (armor_num_ == 4) && (id == 1 || id == 3);
+
+        auto r = (use_l_h) ? x[8] + x[9] : x[8];
+
+        Eigen::Vector3d p(-r * std::cos(angle), -r * std::sin(angle), (use_l_h ? x[10] : 0.0));
+
+        Eigen::Vector3d omega(0.0, 0.0, x[7]);
+
+        Eigen::Vector3d v_rot = omega.cross(p);
+        return v_center + v_rot;
     }
 };

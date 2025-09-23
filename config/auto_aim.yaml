@@ -1,6 +1,6 @@
 armor_detect_backend: tensorrt
 max_detect_armors: 11
-use_ba: true
+use_ba: false
 
 armor_optimize:
   max_iter_R: 300
@@ -24,9 +24,10 @@ armor_tracker:
   dis_r_front: 0.5
   dis_r_side: 1.5
   dis2_r_ratio: 0.005
-  yaw_r_base_front: 0.09
+  yaw_r_base_front: 0.08
   yaw_r_base_side: 0.06
   yaw_r_log_ratio: 0.005
+  esekf_iter_num: 10
 
 auto_aim_fsm:
   thres_up_1: 3.5

@@ -91,6 +91,9 @@ Target TrackerV3::track(const armor::Armors& armors_msg) {
     } else {
         target_.is_temp_lost_ = false;
     }
+    if (found) {
+        found_count_++;
+    }
 
     return target_;
 }

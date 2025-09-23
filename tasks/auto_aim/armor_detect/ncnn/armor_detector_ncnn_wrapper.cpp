@@ -38,12 +38,14 @@ ArmorDetectorNCNNWrapper::ArmorDetectorNCNNWrapper(
                                 << "model_path_bin: " << model_path_param;
     int binary_thres;
     float expand_ratio_w, expand_ratio_h;
+    double max_pts_error;
     armor::LightParams l_params;
     armor::ArmorParams a_params;
     if (use_armor_detect_common) {
         binary_thres = config["armor_detect"]["light"]["binary_thres"].as<int>(85);
         expand_ratio_w = config["armor_detect"]["light"]["expand_ratio_w"].as<float>(1.1);
         expand_ratio_h = config["armor_detect"]["light"]["expand_ratio_h"].as<float>(1.1);
+        max_pts_error = config["armor_detect"]["light"]["max_pts_error"].as<double>(20.0);
         l_params = { .min_ratio = config["armor_detect"]["light"]["min_ratio"].as<double>(0.1),
                      .max_ratio = config["armor_detect"]["light"]["max_ratio"].as<double>(3.0),
                      .max_angle = config["armor_detect"]["light"]["max_angle"].as<double>(40) };
@@ -67,7 +69,8 @@ ArmorDetectorNCNNWrapper::ArmorDetectorNCNNWrapper(
         .expand_ratio_h = expand_ratio_h,
         .expand_ratio_w = expand_ratio_w,
         .armor_params = a_params,
-        .light_params = l_params
+        .light_params = l_params,
+        .max_pts_error = max_pts_error
     };
 
     detector_ = std::make_unique<ArmorDetectNCNN>(
