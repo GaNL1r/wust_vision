@@ -29,8 +29,7 @@ static ncnn::Mat letterbox_to_ncnn(
     Eigen::Matrix3f& transform_matrix,
     int out_w,
     int out_h,
-    bool use_norm = true,
-    bool use_imagenet = true
+    bool use_norm = true
 ) {
     const int img_w = img.cols;
     const int img_h = img.rows;
@@ -71,27 +70,11 @@ static ncnn::Mat letterbox_to_ncnn(
         114.f
     );
     if (use_norm) {
-        // 两种常用策略：
-        // A) 仅 scale 到 [0,1] -> mean = {0,0,0}, norm = {1/255,1/255,1/255}
-        // B) ImageNet (x/255 - mean)/std:
-        //    mean_vals = mean * 255, norm_vals = 1/(std * 255)
         std::array<float, 3> mean_vals;
         std::array<float, 3> norm_vals;
 
-        if (use_imagenet) {
-            // 注意：这里顺序为 RGB（因为 from_pixels_resize 用的是 PIXEL_BGR2RGB）
-            const std::array<float, 3> mean = { 0.485f, 0.456f, 0.406f }; // R,G,B
-            const std::array<float, 3> stdv = { 0.229f, 0.224f, 0.225f }; // R,G,B
-
-            for (int c = 0; c < 3; ++c) {
-                mean_vals[c] = mean[c] * 255.0f; // mean * 255
-                norm_vals[c] = 1.0f / (stdv[c] * 255.0f); // 1 / (std * 255)
-            }
-        } else {
-            // 只做 /255 -> [0,1]
-            mean_vals = { 0.f, 0.f, 0.f };
-            norm_vals = { 1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f };
-        }
+        mean_vals = { 0.f, 0.f, 0.f };
+        norm_vals = { 1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f };
 
         // 执行归一化（会把数据转为 float 并按通道处理）
         padded.substract_mean_normalize(mean_vals.data(), norm_vals.data());

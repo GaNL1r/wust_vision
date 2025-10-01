@@ -186,17 +186,22 @@ void RuneDetectorOnnxRuntime::setCallback(CallbackType callback) {
 bool RuneDetectorOnnxRuntime::processCallback(const CommonFrame& frame) {
     Eigen::Matrix3f transform_matrix;
 
-    std::vector<float> input_tensor_values(rune_infer_->getInputW() * rune_infer_->getInputH() * 3);
-    letterbox_into_CHW_float_rgb(
+    cv::Mat resized_img = rune_infer_->letterbox(
         frame.src_img,
-        input_tensor_values.data(),
         transform_matrix,
         rune_infer_->getInputW(),
-        rune_infer_->getInputH(),
-        rune_infer_->getUseNorm()
+        rune_infer_->getInputH()
+    );
+    float scale = rune_infer_->getUseNorm() ? 1.0f / 255.0f : 1.0f;
+    cv::Mat blob = cv::dnn::blobFromImage(
+        resized_img,
+        scale,
+        cv::Size(rune_infer_->getInputW(), rune_infer_->getInputH()),
+        cv::Scalar(0, 0, 0),
+        true
     );
 
-    auto output_data = onnxruntime_net_->infer(input_tensor_values);
+    auto output_data = onnxruntime_net_->infer(blob.ptr<float>(), blob.total());
 
     auto output_shape = onnxruntime_net_->getOutputShape();
     int rows = static_cast<int>(output_shape[1]);

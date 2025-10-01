@@ -349,169 +349,169 @@ void drawDebugRuneContent(
     const auto& manual_r_box = dbg.manual_r_box;
     const auto& debug_text = dbg.debug_text;
 
-    for (const auto& obj: objs) {
-        if (obj.type == rune::RuneType::INACTIVATED) {
-            const auto pts = obj.pts.toVector2f();
-            if (pts.size() < 3)
-                break;
+    // for (const auto& obj: objs) {
+    //     if (obj.type == rune::RuneType::INACTIVATED) {
+    //         const auto pts = obj.pts.toVector2f();
+    //         if (pts.size() < 3)
+    //             break;
 
-            int sharpest_idx = 0;
-            const cv::Point2f& tip = pts[sharpest_idx];
-            cv::Point2f aim_point =
-                std::accumulate(pts.begin(), pts.end(), cv::Point2f(0, 0)) - tip;
-            aim_point *= (1.f / (pts.size() - 1));
+    //         int sharpest_idx = 0;
+    //         const cv::Point2f& tip = pts[sharpest_idx];
+    //         cv::Point2f aim_point =
+    //             std::accumulate(pts.begin(), pts.end(), cv::Point2f(0, 0)) - tip;
+    //         aim_point *= (1.f / (pts.size() - 1));
 
-            cv::Point2f vec_to_aim = normalize(aim_point - tip);
-            float base_angle = std::atan2(vec_to_aim.y, vec_to_aim.x);
-            float angle_rad = base_angle - predict_angle;
-            std::vector<cv::Point2f> pts_exclude_tip;
-            for (size_t i = 0; i < pts.size(); ++i) {
-                if (i != sharpest_idx)
-                    pts_exclude_tip.push_back(pts[i]);
-            }
-            float area = std::fabs(cv::contourArea(pts_exclude_tip));
+    //         cv::Point2f vec_to_aim = normalize(aim_point - tip);
+    //         float base_angle = std::atan2(vec_to_aim.y, vec_to_aim.x);
+    //         float angle_rad = base_angle - predict_angle;
+    //         std::vector<cv::Point2f> pts_exclude_tip;
+    //         for (size_t i = 0; i < pts.size(); ++i) {
+    //             if (i != sharpest_idx)
+    //                 pts_exclude_tip.push_back(pts[i]);
+    //         }
+    //         float area = std::fabs(cv::contourArea(pts_exclude_tip));
 
-            float radius = std::sqrt(area / static_cast<float>(CV_PI));
+    //         float radius = std::sqrt(area / static_cast<float>(CV_PI));
 
-            float length = cv::norm(aim_point - tip);
-            cv::Point2f end_point_line =
-                tip + cv::Point2f(std::cos(angle_rad), std::sin(angle_rad)) * (length - radius);
-            cv::Point2f end_point_circle =
-                tip + cv::Point2f(std::cos(angle_rad), std::sin(angle_rad)) * length;
+    //         float length = cv::norm(aim_point - tip);
+    //         cv::Point2f end_point_line =
+    //             tip + cv::Point2f(std::cos(angle_rad), std::sin(angle_rad)) * (length - radius);
+    //         cv::Point2f end_point_circle =
+    //             tip + cv::Point2f(std::cos(angle_rad), std::sin(angle_rad)) * length;
 
-            cv::line(debug_img, tip, end_point_line, cv::Scalar(255, 255, 255), 2);
+    //         cv::line(debug_img, tip, end_point_line, cv::Scalar(255, 255, 255), 2);
 
-            cv::circle(
-                debug_img,
-                end_point_circle,
-                static_cast<int>(radius),
-                cv::Scalar(255, 255, 255),
-                5
-            );
-            cv::circle(debug_img, end_point_circle, 5, cv::Scalar(255, 255, 255), -1);
+    //         cv::circle(
+    //             debug_img,
+    //             end_point_circle,
+    //             static_cast<int>(radius),
+    //             cv::Scalar(255, 255, 255),
+    //             5
+    //         );
+    //         cv::circle(debug_img, end_point_circle, 5, cv::Scalar(255, 255, 255), -1);
 
-            break;
-        }
-    }
+    //         break;
+    //     }
+    // }
 
-    for (int i = 0; i < manual_r_box.size(); i++) {
-        cv::line(debug_img, manual_r_box[i], manual_r_box[(i + 1) % 4], cv::Scalar(48, 48, 255), 1);
-    }
+    // for (int i = 0; i < manual_r_box.size(); i++) {
+    //     cv::line(debug_img, manual_r_box[i], manual_r_box[(i + 1) % 4], cv::Scalar(48, 48, 255), 1);
+    // }
 
-    for (const auto& obj: objs) {
-        auto pts = obj.pts.toVector2f();
-        cv::Point2f aim_point =
-            std::accumulate(pts.begin() + 1, pts.end(), cv::Point2f(0, 0)) / 4.0f;
+    // for (const auto& obj: objs) {
+    //     auto pts = obj.pts.toVector2f();
+    //     cv::Point2f aim_point =
+    //         std::accumulate(pts.begin() + 1, pts.end(), cv::Point2f(0, 0)) / 4.0f;
 
-        cv::Scalar line_color = obj.type == rune::RuneType::INACTIVATED ? cv::Scalar(50, 255, 50)
-                                                                        : cv::Scalar(255, 50, 255);
+    //     cv::Scalar line_color = obj.type == rune::RuneType::INACTIVATED ? cv::Scalar(50, 255, 50)
+    //                                                                     : cv::Scalar(255, 50, 255);
 
-        cv::putText(
-            debug_img,
-            fmt::format("{:.2f}", obj.prob),
-            cv::Point2i(pts[1]),
-            cv::FONT_HERSHEY_SIMPLEX,
-            0.8,
-            line_color,
-            2
-        );
-        cv::polylines(debug_img, obj.pts.toVector2i(), true, line_color, 2);
-        cv::circle(debug_img, aim_point, 5, line_color, -1);
+    //     cv::putText(
+    //         debug_img,
+    //         fmt::format("{:.2f}", obj.prob),
+    //         cv::Point2i(pts[1]),
+    //         cv::FONT_HERSHEY_SIMPLEX,
+    //         0.8,
+    //         line_color,
+    //         2
+    //     );
+    //     cv::polylines(debug_img, obj.pts.toVector2i(), true, line_color, 2);
+    //     cv::circle(debug_img, aim_point, 5, line_color, -1);
 
-        std::string rune_type = obj.type == rune::RuneType::INACTIVATED ? "_HIT" : "_OK";
-        std::string rune_color = enemyColorToString(obj.color);
-        cv::putText(
-            debug_img,
-            rune_color + rune_type,
-            cv::Point2i(pts[2]),
-            cv::FONT_HERSHEY_SIMPLEX,
-            0.8,
-            line_color,
-            2
-        );
-        for (int i = 0; i < pts.size(); i++) {
-            std::string str = std::to_string(i);
-            cv::putText(
-                debug_img,
-                str,
-                pts[i],
-                cv::FONT_HERSHEY_SIMPLEX,
-                0.8,
-                cv::Scalar(0, 50, 255),
-                2
-            );
-        }
-    }
+    //     std::string rune_type = obj.type == rune::RuneType::INACTIVATED ? "_HIT" : "_OK";
+    //     std::string rune_color = enemyColorToString(obj.color);
+    //     cv::putText(
+    //         debug_img,
+    //         rune_color + rune_type,
+    //         cv::Point2i(pts[2]),
+    //         cv::FONT_HERSHEY_SIMPLEX,
+    //         0.8,
+    //         line_color,
+    //         2
+    //     );
+    //     for (int i = 0; i < pts.size(); i++) {
+    //         std::string str = std::to_string(i);
+    //         cv::putText(
+    //             debug_img,
+    //             str,
+    //             pts[i],
+    //             cv::FONT_HERSHEY_SIMPLEX,
+    //             0.8,
+    //             cv::Scalar(0, 50, 255),
+    //             2
+    //         );
+    //     }
+    // }
 
-    std::string latency_str = fmt::format("Latency: {:.2f}ms", dbg.latency_ms);
-    cv::putText(
-        debug_img,
-        latency_str,
-        cv::Point2i(10, 30),
-        cv::FONT_HERSHEY_SIMPLEX,
-        0.8,
-        cv::Scalar(255, 255, 255),
-        2
-    );
+    // std::string latency_str = fmt::format("Latency: {:.2f}ms", dbg.latency_ms);
+    // cv::putText(
+    //     debug_img,
+    //     latency_str,
+    //     cv::Point2i(10, 30),
+    //     cv::FONT_HERSHEY_SIMPLEX,
+    //     0.8,
+    //     cv::Scalar(255, 255, 255),
+    //     2
+    // );
 
-    cv::circle(
-        debug_img,
-        cv::Point2i(debug_img.cols / 2, debug_img.rows / 2),
-        5,
-        cv::Scalar(255, 255, 255),
-        2
-    );
+    // cv::circle(
+    //     debug_img,
+    //     cv::Point2i(debug_img.cols / 2, debug_img.rows / 2),
+    //     5,
+    //     cv::Scalar(255, 255, 255),
+    //     2
+    // );
 
-    int baseline = 0;
-    std::string fire_str = gimbal_cmd.fire_advice ? "Fire!" : "";
-    cv::Size fire_size = cv::getTextSize(fire_str, cv::FONT_HERSHEY_SIMPLEX, 1.2, 2, &baseline);
-    int fire_x = 1440 / 2 - fire_size.width - 10;
-    int fire_y = 200;
+    // int baseline = 0;
+    // std::string fire_str = gimbal_cmd.fire_advice ? "Fire!" : "";
+    // cv::Size fire_size = cv::getTextSize(fire_str, cv::FONT_HERSHEY_SIMPLEX, 1.2, 2, &baseline);
+    // int fire_x = 1440 / 2 - fire_size.width - 10;
+    // int fire_y = 200;
 
-    cv::putText(
-        debug_img,
-        fire_str,
-        { fire_x, fire_y },
-        cv::FONT_HERSHEY_SIMPLEX,
-        2.85,
-        cv::Scalar(0, 0, 255),
-        2
-    );
+    // cv::putText(
+    //     debug_img,
+    //     fire_str,
+    //     { fire_x, fire_y },
+    //     cv::FONT_HERSHEY_SIMPLEX,
+    //     2.85,
+    //     cv::Scalar(0, 0, 255),
+    //     2
+    // );
 
-    std::string gimbal_str = fmt::format(
-        "Pitch: {:.2f}, Yaw: {:.2f}, Pitch_diff: {:.2f}, Yaw_diff: {:.2f}",
-        gimbal_cmd.pitch,
-        gimbal_cmd.yaw,
-        gimbal_cmd.pitch_diff,
-        gimbal_cmd.yaw_diff
-    );
-    cv::putText(
-        debug_img,
-        gimbal_str,
-        { 10, debug_img.rows - 30 },
-        cv::FONT_HERSHEY_SIMPLEX,
-        0.8,
-        cv::Scalar(255, 255, 0),
-        2
-    );
+    // std::string gimbal_str = fmt::format(
+    //     "Pitch: {:.2f}, Yaw: {:.2f}, Pitch_diff: {:.2f}, Yaw_diff: {:.2f}",
+    //     gimbal_cmd.pitch,
+    //     gimbal_cmd.yaw,
+    //     gimbal_cmd.pitch_diff,
+    //     gimbal_cmd.yaw_diff
+    // );
+    // cv::putText(
+    //     debug_img,
+    //     gimbal_str,
+    //     { 10, debug_img.rows - 30 },
+    //     cv::FONT_HERSHEY_SIMPLEX,
+    //     0.8,
+    //     cv::Scalar(255, 255, 0),
+    //     2
+    // );
 
-    int baseline_ = 0;
-    cv::Size text_size = cv::getTextSize(debug_text, cv::FONT_HERSHEY_SIMPLEX, 1.0, 2, &baseline_);
+    // int baseline_ = 0;
+    // cv::Size text_size = cv::getTextSize(debug_text, cv::FONT_HERSHEY_SIMPLEX, 1.0, 2, &baseline_);
 
-    int margin_x = 10;
-    int margin_y = 30;
-    int pos_x = debug_img.cols - text_size.width - margin_x;
-    int pos_y = margin_y + text_size.height;
+    // int margin_x = 10;
+    // int margin_y = 30;
+    // int pos_x = debug_img.cols - text_size.width - margin_x;
+    // int pos_y = margin_y + text_size.height;
 
-    cv::putText(
-        debug_img,
-        debug_text,
-        { pos_x, pos_y },
-        cv::FONT_HERSHEY_SIMPLEX,
-        1.0,
-        cv::Scalar(0, 0, 255),
-        2
-    );
+    // cv::putText(
+    //     debug_img,
+    //     debug_text,
+    //     { pos_x, pos_y },
+    //     cv::FONT_HERSHEY_SIMPLEX,
+    //     1.0,
+    //     cv::Scalar(0, 0, 255),
+    //     2
+    // );
 }
 void drawDebugOverlayWrite(
     const DebugArmor& dbg,

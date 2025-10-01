@@ -243,7 +243,7 @@ struct ArmorObject {
     }
     bool checkOkptsRight(double max_error) const {
         double error = 0.0;
-        for(int i = 0; i < 4; i++) {
+        for (int i = 0; i < 4; i++) {
             error += cv::norm(pts[i] - toPts()[i]);
         }
         return error < max_error;

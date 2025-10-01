@@ -31,8 +31,8 @@ rune_detector:
   detect_r_tag: true
   use_manual_r: true
   min_lightness: 80
-  model: /home/hy/wust_vision/model/yolox_rune_3.6m.onnx
+  model: /home/hy/rune_dl/runs/pose/train4/weights/best.onnx
   nms_threshold: 0.3
   top_k: 128
-  model_type: tup
+  model_type: v11
   provider: CUDA

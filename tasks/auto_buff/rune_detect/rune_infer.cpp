@@ -1,11 +1,9 @@
 #include "rune_infer.hpp"
 namespace rune_infer {
-static constexpr int TUP_INPUT_W = 480;
-static constexpr int TUP_INPUT_H = 480;
-static constexpr int TUP_NUM_CLASSES = 2;
-static constexpr int TUP_NUM_COLORS = 2;
-static constexpr int TUP_NUM_POINTS = 5;
-static constexpr int TUP_NUM_POINTS_2 = 2 * TUP_NUM_POINTS;
+static constexpr int V11_INPUT_W = 416;
+static constexpr int V11_INPUT_H = 416;
+static constexpr int V11_NUM_CLASSES = 1;
+static constexpr int V11_NUM_POINTS = 6;
 static constexpr float MERGE_CONF_ERROR = 0.15f;
 static constexpr float MERGE_MIN_IOU = 0.9f;
 RuneInfer::RuneInfer(Mode mode, float conf_threshold, float nms_threshold, int top_k):
@@ -13,14 +11,14 @@ RuneInfer::RuneInfer(Mode mode, float conf_threshold, float nms_threshold, int t
     conf_threshold_(conf_threshold),
     nms_threshold_(nms_threshold),
     top_k_(top_k) {
-    if (mode_ == Mode::TUP) {
-        input_h_ = TUP_INPUT_H;
-        input_w_ = TUP_INPUT_W;
-        use_norm_ = false;
+    if (mode_ == Mode::V11) {
+        input_h_ = V11_INPUT_H;
+        input_w_ = V11_INPUT_W;
+        use_norm_ = true;
     } else {
-        input_h_ = TUP_INPUT_H;
-        input_w_ = TUP_INPUT_W;
-        use_norm_ = false;
+        input_h_ = V11_INPUT_H;
+        input_w_ = V11_INPUT_W;
+        use_norm_ = true;
     }
 }
 
@@ -67,10 +65,10 @@ cv::Mat RuneInfer::letterbox(
     float half_h = pad_h * 1.0f / 2.0f;
     float half_w = pad_w * 1.0f / 2.0f;
 
-    int top = static_cast<int>(round(half_h - 0.1f));
-    int bottom = static_cast<int>(round(half_h + 0.1f));
-    int left = static_cast<int>(round(half_w - 0.1f));
-    int right = static_cast<int>(round(half_w + 0.1f));
+    int top = static_cast<int>(round(half_h));
+    int bottom = static_cast<int>(round(half_h));
+    int left = static_cast<int>(round(half_w));
+    int right = static_cast<int>(round(half_w));
 
     transform_matrix << 1.0f / scale, 0, -half_w / scale, 0, 1.0f / scale, -half_h / scale, 0, 0, 1;
 
@@ -177,104 +175,214 @@ void RuneInfer::nmsMergeSortedBboxes(
         }
     }
 }
+// std::vector<rune::RuneObject> RuneInfer::postProcessTup(
+//     const cv::Mat& output_buffer,
+//     const Eigen::Matrix<float, 3, 3>& transform_matrix,
+//     std::vector<GridAndStride> grid_strides
+// ) const {
+//     std::vector<rune::RuneObject> output_objs;
+//     const int num_anchors = grid_strides.size();
+
+//     for (int anchor_idx = 0; anchor_idx < num_anchors; anchor_idx++) {
+//         float confidence = output_buffer.at<float>(anchor_idx, TUP_NUM_POINTS_2);
+//         if (confidence < conf_threshold_) {
+//             continue;
+//         }
+
+//         const int grid0 = grid_strides[anchor_idx].grid0;
+//         const int grid1 = grid_strides[anchor_idx].grid1;
+//         const int stride = grid_strides[anchor_idx].stride;
+
+//         double color_score, class_score;
+//         cv::Point color_id, class_id;
+//         cv::Mat color_scores =
+//             output_buffer.row(anchor_idx)
+//                 .colRange(TUP_NUM_POINTS_2 + 1, TUP_NUM_POINTS_2 + 1 + TUP_NUM_COLORS);
+//         cv::Mat num_scores = output_buffer.row(anchor_idx)
+//                                  .colRange(
+//                                      TUP_NUM_POINTS_2 + 1 + TUP_NUM_COLORS,
+//                                      TUP_NUM_POINTS_2 + 1 + TUP_NUM_COLORS + TUP_NUM_CLASSES
+//                                  );
+//         // Argmax
+//         cv::minMaxLoc(color_scores, NULL, &color_score, NULL, &color_id);
+//         cv::minMaxLoc(num_scores, NULL, &class_score, NULL, &class_id);
+
+//         float x_1 = (output_buffer.at<float>(anchor_idx, 0) + grid0) * stride;
+//         float y_1 = (output_buffer.at<float>(anchor_idx, 1) + grid1) * stride;
+//         float x_2 = (output_buffer.at<float>(anchor_idx, 2) + grid0) * stride;
+//         float y_2 = (output_buffer.at<float>(anchor_idx, 3) + grid1) * stride;
+//         float x_3 = (output_buffer.at<float>(anchor_idx, 4) + grid0) * stride;
+//         float y_3 = (output_buffer.at<float>(anchor_idx, 5) + grid1) * stride;
+//         float x_4 = (output_buffer.at<float>(anchor_idx, 6) + grid0) * stride;
+//         float y_4 = (output_buffer.at<float>(anchor_idx, 7) + grid1) * stride;
+//         float x_5 = (output_buffer.at<float>(anchor_idx, 8) + grid0) * stride;
+//         float y_5 = (output_buffer.at<float>(anchor_idx, 9) + grid1) * stride;
+
+//         Eigen::Matrix<float, 3, 5> apex_norm;
+//         Eigen::Matrix<float, 3, 5> apex_dst;
+
+//         /* clang-format off */
+//         /* *INDENT-OFF* */
+//         apex_norm << x_1, x_2, x_3, x_4, x_5,
+//                     y_1, y_2, y_3, y_4, y_5,
+//                     1,   1,   1,   1,   1;
+//         /* *INDENT-ON* */
+//         /* clang-format on */
+
+//         apex_dst = transform_matrix * apex_norm;
+
+//         rune::RuneObject obj;
+
+//         obj.pts.r_center = cv::Point2f(apex_dst(0, 0), apex_dst(1, 0));
+//         obj.pts.bottom_left = cv::Point2f(apex_dst(0, 1), apex_dst(1, 1));
+//         obj.pts.top_left = cv::Point2f(apex_dst(0, 2), apex_dst(1, 2));
+//         obj.pts.top_right = cv::Point2f(apex_dst(0, 3), apex_dst(1, 3));
+//         obj.pts.bottom_right = cv::Point2f(apex_dst(0, 4), apex_dst(1, 4));
+
+//         auto rect = cv::boundingRect(obj.pts.toVector2f());
+
+//         obj.box = rect;
+//         obj.color = DNN_COLOR_TO_ENEMY_COLOR[color_id.x];
+//         obj.type = static_cast<rune::RuneType>(class_id.x);
+//         obj.prob = confidence;
+
+//         output_objs.push_back(std::move(obj));
+//     }
+//     std::sort(
+//         output_objs.begin(),
+//         output_objs.end(),
+//         [](const rune::RuneObject& a, const rune::RuneObject& b) { return a.prob > b.prob; }
+//     );
+//     if (output_objs.size() > static_cast<size_t>(top_k_)) {
+//         output_objs.resize(top_k_);
+//     }
+//     std::vector<int> indices;
+//     std::vector<rune::RuneObject> objs_result;
+//     nmsMergeSortedBboxes(output_objs, indices, nms_threshold_);
+
+//     for (size_t i = 0; i < indices.size(); i++) {
+//         objs_result.push_back(std::move(output_objs[indices[i]]));
+
+//         if (objs_result[i].pts.children.size() > 0) {
+//             const float N = static_cast<float>(objs_result[i].pts.children.size() + 1);
+//             rune::FeaturePoints pts_final = std::accumulate(
+//                 objs_result[i].pts.children.begin(),
+//                 objs_result[i].pts.children.end(),
+//                 objs_result[i].pts
+//             );
+//             objs_result[i].pts = pts_final / N;
+//         }
+//     }
+//     return objs_result;
+// }
 std::vector<rune::RuneObject> RuneInfer::postProcess(
     const cv::Mat& output_buffer,
     const Eigen::Matrix<float, 3, 3>& transform_matrix,
     std::vector<GridAndStride> grid_strides
 ) const {
+    switch (mode_) {
+        case Mode::V11:
+            return postProcessV11(output_buffer, transform_matrix, grid_strides);
+        // case Mode::TUP:
+        //     return postProcessTup(output_buffer, transform_matrix, grid_strides);
+        default:
+            return {};
+    }
+}
+std::vector<rune::RuneObject> RuneInfer::postProcessV11(
+    const cv::Mat& output_buffer,
+    const Eigen::Matrix<float, 3, 3>& transform_matrix,
+    const std::vector<GridAndStride>& grid_strides
+) const {
     std::vector<rune::RuneObject> output_objs;
-    const int num_anchors = grid_strides.size();
 
-    for (int anchor_idx = 0; anchor_idx < num_anchors; anchor_idx++) {
-        float confidence = output_buffer.at<float>(anchor_idx, TUP_NUM_POINTS_2);
-        if (confidence < conf_threshold_) {
+    const int num_channels = output_buffer.rows; // 17
+    const int num_preds = output_buffer.cols; // 3549
+
+    const int box_offset = 0;
+    const int conf_offset = 4;
+    const int kpt_offset = 5;
+    const int num_kpts = V11_NUM_POINTS;
+    const int kpt_step = 2;
+
+    for (int i = 0; i < num_preds; ++i) {
+        float score = output_buffer.at<float>(conf_offset, i);
+
+        if (score < conf_threshold_)
             continue;
+        rune::RuneObject obj;
+        float x_center = (output_buffer.at<float>(0, i));
+        float y_center = (output_buffer.at<float>(1, i));
+        float w = output_buffer.at<float>(2, i);
+        float h = output_buffer.at<float>(3, i);
+
+        float x0 = x_center - w * 0.5f;
+        float y0 = y_center - h * 0.5f;
+        float x1 = x_center + w * 0.5f;
+        float y1 = y_center + h * 0.5f;
+        Eigen::Matrix<float, 3, 4> box_corners;
+        box_corners << x0, x1, x1, x0, y0, y0, y1, y1, 1.0, 1.0, 1.0, 1.0;
+
+        // 3. 应用 transform_matrix
+        Eigen::Matrix<float, 3, 4> box_dst = transform_matrix * box_corners;
+
+        // 4. 转换成 OpenCV 点
+        std::vector<cv::Point2f> box_points(4);
+        for (int k = 0; k < 4; ++k) {
+            box_points[k] = cv::Point2f(box_dst(0, k), box_dst(1, k));
         }
 
-        const int grid0 = grid_strides[anchor_idx].grid0;
-        const int grid1 = grid_strides[anchor_idx].grid1;
-        const int stride = grid_strides[anchor_idx].stride;
+        // 5. 如果需要 OpenCV Rect，可以取外接矩形
+        cv::Rect rect = cv::boundingRect(box_points);
 
-        double color_score, class_score;
-        cv::Point color_id, class_id;
-        cv::Mat color_scores =
-            output_buffer.row(anchor_idx)
-                .colRange(TUP_NUM_POINTS_2 + 1, TUP_NUM_POINTS_2 + 1 + TUP_NUM_COLORS);
-        cv::Mat num_scores = output_buffer.row(anchor_idx)
-                                 .colRange(
-                                     TUP_NUM_POINTS_2 + 1 + TUP_NUM_COLORS,
-                                     TUP_NUM_POINTS_2 + 1 + TUP_NUM_COLORS + TUP_NUM_CLASSES
-                                 );
-        // Argmax
-        cv::minMaxLoc(color_scores, NULL, &color_score, NULL, &color_id);
-        cv::minMaxLoc(num_scores, NULL, &class_score, NULL, &class_id);
-
-        float x_1 = (output_buffer.at<float>(anchor_idx, 0) + grid0) * stride;
-        float y_1 = (output_buffer.at<float>(anchor_idx, 1) + grid1) * stride;
-        float x_2 = (output_buffer.at<float>(anchor_idx, 2) + grid0) * stride;
-        float y_2 = (output_buffer.at<float>(anchor_idx, 3) + grid1) * stride;
-        float x_3 = (output_buffer.at<float>(anchor_idx, 4) + grid0) * stride;
-        float y_3 = (output_buffer.at<float>(anchor_idx, 5) + grid1) * stride;
-        float x_4 = (output_buffer.at<float>(anchor_idx, 6) + grid0) * stride;
-        float y_4 = (output_buffer.at<float>(anchor_idx, 7) + grid1) * stride;
-        float x_5 = (output_buffer.at<float>(anchor_idx, 8) + grid0) * stride;
-        float y_5 = (output_buffer.at<float>(anchor_idx, 9) + grid1) * stride;
-
-        Eigen::Matrix<float, 3, 5> apex_norm;
-        Eigen::Matrix<float, 3, 5> apex_dst;
-
-        /* clang-format off */
-        /* *INDENT-OFF* */
-        apex_norm << x_1, x_2, x_3, x_4, x_5,
-                    y_1, y_2, y_3, y_4, y_5,
-                    1,   1,   1,   1,   1;
-        /* *INDENT-ON* */
-        /* clang-format on */
-
-        apex_dst = transform_matrix * apex_norm;
-
-        rune::RuneObject obj;
-
-        obj.pts.r_center = cv::Point2f(apex_dst(0, 0), apex_dst(1, 0));
-        obj.pts.bottom_left = cv::Point2f(apex_dst(0, 1), apex_dst(1, 1));
-        obj.pts.top_left = cv::Point2f(apex_dst(0, 2), apex_dst(1, 2));
-        obj.pts.top_right = cv::Point2f(apex_dst(0, 3), apex_dst(1, 3));
-        obj.pts.bottom_right = cv::Point2f(apex_dst(0, 4), apex_dst(1, 4));
-
-        auto rect = cv::boundingRect(obj.pts.toVector2f());
-
+        // 保存到 obj
         obj.box = rect;
-        obj.color = DNN_COLOR_TO_ENEMY_COLOR[color_id.x];
-        obj.type = static_cast<rune::RuneType>(class_id.x);
-        obj.prob = confidence;
+        obj.prob = score;
+        const int grid0 = grid_strides[i].grid0;
+        const int grid1 = grid_strides[i].grid1;
+        const int stride = grid_strides[i].stride;
 
+        Eigen::Matrix<float, 3, num_kpts> apex_norm;
+        bool valid = false;
+        for (int k = 0; k < num_kpts; ++k) {
+            float kx = output_buffer.at<float>(kpt_offset + k * kpt_step + 0, i);
+            float ky = output_buffer.at<float>(kpt_offset + k * kpt_step + 1, i);
+
+            kx = std::max(0.0f, kx);
+            ky = std::max(0.0f, ky);
+
+            apex_norm(0, k) = kx;
+            apex_norm(1, k) = ky;
+            apex_norm(2, k) = 1.0;
+        }
+
+        Eigen::Matrix<float, 3, num_kpts> apex_dst = transform_matrix * apex_norm;
+        obj.pts.r_tag = cv::Point2f(apex_dst(0, 0), apex_dst(1, 0));
+        obj.pts.fan_center = cv::Point2f(apex_dst(0, 1), apex_dst(1, 1));
+        obj.pts.fan_top = cv::Point2f(apex_dst(0, 2), apex_dst(1, 2));
+        obj.pts.fan_right = cv::Point2f(apex_dst(0, 3), apex_dst(1, 3));
+        obj.pts.fan_bottom = cv::Point2f(apex_dst(0, 4), apex_dst(1, 4));
+        obj.pts.fan_left = cv::Point2f(apex_dst(0, 5), apex_dst(1, 5));
+        obj.type = rune::RuneType::INACTIVATED;
         output_objs.push_back(std::move(obj));
     }
+
     std::sort(
         output_objs.begin(),
         output_objs.end(),
         [](const rune::RuneObject& a, const rune::RuneObject& b) { return a.prob > b.prob; }
     );
-    if (output_objs.size() > static_cast<size_t>(top_k_)) {
+
+    if (output_objs.size() > static_cast<size_t>(top_k_))
         output_objs.resize(top_k_);
-    }
+
     std::vector<int> indices;
     std::vector<rune::RuneObject> objs_result;
     nmsMergeSortedBboxes(output_objs, indices, nms_threshold_);
 
-    for (size_t i = 0; i < indices.size(); i++) {
-        objs_result.push_back(std::move(output_objs[indices[i]]));
+    for (int idx: indices)
+        objs_result.push_back(std::move(output_objs[idx]));
 
-        if (objs_result[i].pts.children.size() > 0) {
-            const float N = static_cast<float>(objs_result[i].pts.children.size() + 1);
-            rune::FeaturePoints pts_final = std::accumulate(
-                objs_result[i].pts.children.begin(),
-                objs_result[i].pts.children.end(),
-                objs_result[i].pts
-            );
-            objs_result[i].pts = pts_final / N;
-        }
-    }
     return objs_result;
 }
 

@@ -78,7 +78,7 @@ Target TrackerV3::track(const armor::Armors& armors_msg) {
         WUST_WARN("tracker") << "Target diverged!";
     }
     if (tracker_state != LOST && target_.esekf_ypd_.isRecentlyInconsistent()) {
-        // tracker_state = LOST;
+        tracker_state = LOST;
         WUST_WARN("tracker") << "Bad Converge Found!";
     }
     if (tracker_state == LOST || tracker_state == DETECTING) {

@@ -11,18 +11,20 @@
 namespace rune_infer {
 inline std::unordered_map<int, EnemyColor> DNN_COLOR_TO_ENEMY_COLOR = { { 0, EnemyColor::BLUE },
                                                                         { 1, EnemyColor::RED } };
-enum class Mode { TUP };
+enum class Mode { V11, V11BOX };
 inline Mode modeFromString(const std::string& mode) {
-    if (mode == "tup" || mode == "TUP")
-        return Mode::TUP;
+    if (mode == "v11" || mode == "V11")
+        return Mode::V11;
+    else if (mode == "v11box" || mode == "V11BOX")
+        return Mode::V11BOX;
     else
-        return Mode::TUP;
+        return Mode::V11;
 }
 
 class RuneInfer {
 public:
     RuneInfer(
-        Mode mode = Mode::TUP,
+        Mode mode = Mode::V11,
         float conf_threshold = 0.25f,
         float nms_threshold = 0.45f,
         int top_k = 100
@@ -86,6 +88,11 @@ public:
         const cv::Mat& output_buffer,
         const Eigen::Matrix<float, 3, 3>& transform_matrix,
         std::vector<GridAndStride> grid_strides
+    ) const;
+    std::vector<rune::RuneObject> postProcessV11(
+        const cv::Mat& output_buffer,
+        const Eigen::Matrix<float, 3, 3>& transform_matrix,
+        const std::vector<GridAndStride>& grid_strides
     ) const;
 
 private:

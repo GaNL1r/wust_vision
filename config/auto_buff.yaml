@@ -1,20 +1,20 @@
-rune_detect_backend: openvino
+rune_detect_backend: tensorrt
 
 rune_solver:
   auto_type_determined: true
   compensator_type: resistance
   ekf:
     iteration_num: 1
-    q_ypdyaw:
-      - 2e-4
-      - 1e-4
-      - 1e-4
-      - 1e-4
-    r_ypdyaw:
-      - 1
-      - 1
-      - 0.0005
-      - 5
+    q_xyzyaw:
+      - 4e-4
+      - 4e-4
+      - 4e-4
+      - 4e-4
+    r_xyzyaw:
+      - 4e-2
+      - 4e-2
+      - 4e-2
+      - 4e-2
   gravity: 9.8
   lost_time_thres: 0.5
   predict_offset: 0.1

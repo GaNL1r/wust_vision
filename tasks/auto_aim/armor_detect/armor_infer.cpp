@@ -12,6 +12,10 @@ static const int TUP_INPUT_W = 416;
 static const int TUP_INPUT_H = 416;
 static constexpr int TUP_NUM_CLASSES = 8;
 static constexpr int TUP_NUM_COLORS = 4;
+static const int SPV8_INPUT_W = 416;
+static const int SPV8_INPUT_H = 416;
+static const int SPV8_NUM_CLASSES = 8;
+static const int SPV8_NUM_COLORS = 2;
 static constexpr float MERGE_CONF_ERROR = 0.15f;
 static constexpr float MERGE_MIN_IOU = 0.9f;
 
@@ -24,9 +28,13 @@ ArmorInfer::ArmorInfer(Mode mode, float conf_threshold, float nms_threshold, int
         input_w_ = TUP_INPUT_W;
         input_h_ = TUP_INPUT_H;
         use_norm_ = false;
-    } else {
+    } else if (mode_ == Mode::RP) {
         input_w_ = RP_INPUT_W;
         input_h_ = RP_INPUT_H;
+        use_norm_ = true;
+    } else if (mode_ == Mode::SPV8) {
+        input_w_ = SPV8_INPUT_W;
+        input_h_ = SPV8_INPUT_H;
         use_norm_ = true;
     }
 }
@@ -289,7 +297,64 @@ std::vector<armor::ArmorObject> ArmorInfer::postProcessRP(
 
     return topKAndNms(output_objs, top_k_, nms_threshold_);
 }
+std::vector<armor::ArmorObject> ArmorInfer::postProcessSPV8(
+    const cv::Mat& output_buffer,
+    const Eigen::Matrix<float, 3, 3>& transform_matrix,
+    const std::vector<GridAndStride>& grid_strides
+) const {
+    std::vector<armor::ArmorObject> output_objs;
 
+    for (int r = 0; r < output_buffer.rows; r++) {
+        // bbox xywh 或四个角点
+        auto xywh = output_buffer.row(r).colRange(0, 4);
+
+        // 类别 scores
+        auto scores = output_buffer.row(r).colRange(4, 4 + SPV8_NUM_COLORS);
+
+        // 关键点 4*2
+        auto key_points = output_buffer.row(r).colRange(4 + SPV8_NUM_COLORS, 12 + SPV8_NUM_COLORS);
+
+        double max_score;
+        cv::Point max_idx;
+        cv::minMaxLoc(scores, nullptr, &max_score, nullptr, &max_idx);
+        if (max_score < conf_threshold_)
+            continue;
+
+        // bbox 左上角 + 宽高
+        float cx = xywh.at<float>(0);
+        float cy = xywh.at<float>(1);
+        float w = xywh.at<float>(2);
+        float h = xywh.at<float>(3);
+
+        float x1 = key_points.at<float>(0, 0 * 2 + 0);
+        float y1 = key_points.at<float>(0, 0 * 2 + 1);
+        float x2 = key_points.at<float>(0, 1 * 2 + 0);
+        float y2 = key_points.at<float>(0, 1 * 2 + 1);
+        float x3 = key_points.at<float>(0, 2 * 2 + 0);
+        float y3 = key_points.at<float>(0, 2 * 2 + 1);
+        float x4 = key_points.at<float>(0, 3 * 2 + 0);
+        float y4 = key_points.at<float>(0, 3 * 2 + 1);
+
+        Eigen::Matrix<float, 3, 4> pts_norm;
+        pts_norm << x1, x2, x3, x4, y1, y2, y3, y4, 1, 1, 1, 1;
+
+        Eigen::Matrix<float, 3, 4> pts_trans = transform_matrix * pts_norm;
+
+        armor::ArmorObject obj;
+        obj.pts.resize(4);
+        for (int i = 0; i < 4; i++) {
+            obj.pts[i] = cv::Point2f(pts_trans(0, i), pts_trans(1, i));
+        }
+        obj.box = cv::boundingRect(obj.pts);
+        obj.color = armor::ArmorColor::RED;
+        obj.number = static_cast<armor::ArmorNumber>(max_idx.x);
+        obj.prob = max_score;
+
+        output_objs.emplace_back(std::move(obj));
+    }
+
+    return topKAndNms(output_objs, top_k_, nms_threshold_);
+}
 std::vector<armor::ArmorObject> ArmorInfer::postProcess(
     const cv::Mat& output_buffer,
     const Eigen::Matrix<float, 3, 3>& transform_matrix,
@@ -297,6 +362,8 @@ std::vector<armor::ArmorObject> ArmorInfer::postProcess(
 ) const {
     if (mode_ == Mode::TUP) {
         return postProcessTUP(output_buffer, transform_matrix, grid_strides);
+    } else if (mode_ == Mode::SPV8) {
+        return postProcessSPV8(output_buffer, transform_matrix, grid_strides);
     } else {
         return postProcessRP(output_buffer, transform_matrix, grid_strides);
     }

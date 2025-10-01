@@ -1,6 +1,6 @@
 max_infer_running: 6
-detect_color: 0
-attack_mode: 0
+detect_color: 1
+attack_mode: 1
 debug_mode: true
 
 tf:
@@ -33,6 +33,5 @@ auto_exposure:
   exposure_min: 100.0
   exposure_max: 2500.0
   control_interval_ms: 300
-
 
 use_sim: true

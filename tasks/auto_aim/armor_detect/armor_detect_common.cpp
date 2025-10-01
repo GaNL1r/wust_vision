@@ -300,11 +300,10 @@ std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
                     corner_corrector_->correctCorners(armor, gray);
                 }
             }
-            if(armor.is_ok)
-            {
-                armor.is_ok=armor.checkOkptsRight(params_.max_pts_error);
+            if (armor.is_ok) {
+                armor.is_ok = armor.checkOkptsRight(params_.max_pts_error);
             }
-            
+
             if (!armor.is_ok) {
                 auto ordered = armor.sortCorners(armor.pts);
                 armor::Light l1;
@@ -317,7 +316,7 @@ std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
                     return;
                 }
             }
-            
+
             // 存入结果
             {
                 std::lock_guard<std::mutex> lock(armors_mutex);

@@ -1,102 +1,10 @@
 #include "auto_buff.hpp"
-#include "rune_solver.hpp"
 #include "tasks/auto_buff/rune_detect/detect_factory.hpp"
 #include "tasks/auto_buff/rune_detect/rune_detector_base.hpp"
+#include "tasks/auto_buff/rune_detect/rune_detector_cv.hpp"
 #include "tasks/utils.hpp"
 namespace auto_buff {
-std::vector<cv::Point2f> clicked_points_;
-void onMouse(int event, int x, int y, int, void*) {
-    if (event == cv::EVENT_LBUTTONDOWN) {
-        clicked_points_.clear();
-        clicked_points_.emplace_back(x, y);
-        WUST_INFO("Manual R") << "Clicked Point: (" << x << ", " << y << ")";
-    }
-}
-static std::vector<cv::Point3f> R_BOX_POINTS = {
-    { 0, 0.05, -0.05 },
-    { 0, -0.05, -0.05 },
-    { 0, -0.05, 0.05 },
-    { 0, 0.05, 0.05 },
-};
-bool projectRTargetToImage(
-    const Eigen::Matrix4d& TRodom,
-    const Eigen::Matrix4d& T_camera_to_odom,
-    std::vector<cv::Point2f>& manual_r_box,
-    const cv::Mat& camera_intrinsic,
-    const cv::Mat& camera_distortion
-) {
-    if (camera_intrinsic.empty() || camera_distortion.empty()) {
-        //WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
-        return false;
-    }
 
-    // 计算TRc: 目标相对于相机
-    Eigen::Matrix4d TRc = T_camera_to_odom.inverse() * TRodom;
-
-    // 从TRc提取旋转和平移
-    Eigen::Matrix3d R_eigen = TRc.block<3, 3>(0, 0);
-    Eigen::Vector3d t_eigen = TRc.block<3, 1>(0, 3);
-
-    cv::Mat rvec, tvec;
-    cv::Mat R_cv;
-    cv::eigen2cv(R_eigen, R_cv);
-    cv::Rodrigues(R_cv, rvec); // 将旋转矩阵转为旋转向量
-    cv::eigen2cv(t_eigen, tvec);
-
-    // R_BOX_POINTS：目标3D点，cv::Point3f格式的vector
-    cv::projectPoints(R_BOX_POINTS, rvec, tvec, camera_intrinsic, camera_distortion, manual_r_box);
-
-    return true;
-}
-bool calcRTarget(
-    const std::vector<cv::Point2f>& manual_r_box,
-    Eigen::Matrix4d& TRodom,
-    const Eigen::Matrix4d& T_camera_to_odom,
-    const cv::Mat& camera_intrinsic,
-    const cv::Mat& camera_distortion
-) {
-    if (camera_intrinsic.empty() || camera_distortion.empty()) {
-        //WUST_ERROR(mono_logger) << "Camera parameters not initialized.";
-        return false;
-    }
-
-    // OpenCV solvePnP
-    cv::Mat rvec, tvec;
-    bool res = cv::solvePnP(
-        R_BOX_POINTS,
-        manual_r_box,
-        camera_intrinsic,
-        camera_distortion,
-        rvec,
-        tvec,
-        false,
-        cv::SOLVEPNP_IPPE
-    );
-
-    if (!res || !cv::checkRange(rvec) || !cv::checkRange(tvec)) {
-        return false;
-    }
-
-    // Rodrigues -> rotation matrix
-    cv::Mat R_cv;
-    cv::Rodrigues(rvec, R_cv);
-
-    // 转为 Eigen
-    Eigen::Matrix3d R_eigen;
-    Eigen::Vector3d t_eigen;
-    cv::cv2eigen(R_cv, R_eigen);
-    cv::cv2eigen(tvec, t_eigen);
-
-    // 构造 Target 相对于 Camera 的齐次变换矩阵
-    Eigen::Matrix4d TRc = Eigen::Matrix4d::Identity();
-    TRc.block<3, 3>(0, 0) = R_eigen;
-    TRc.block<3, 1>(0, 3) = t_eigen;
-
-    // 计算 Target 相对于 Odom 的变换
-    TRodom = T_camera_to_odom * TRc;
-
-    return true;
-}
 struct AutoBuff::Impl {
     ~Impl() {
         run_flag_ = false;
@@ -134,9 +42,7 @@ struct AutoBuff::Impl {
 #endif
 #ifdef USE_NCNN
             if (backend == "ncnn") {
-                // auto common_info = gobal::stringanything.get_value<CommonInfo>("common_info");
                 use_detect_ncnn_count++;
-                //gobal::stringanything.set_value<CommonInfo>("common_info", common_info);
                 return true;
             }
 
@@ -186,8 +92,8 @@ struct AutoBuff::Impl {
         detect_r_tag_ = rune_detect_config_["rune_detector"]["detect_r_tag"].as<bool>();
         use_manual_r_ = rune_detect_config_["rune_detector"]["use_manual_r"].as<bool>();
         rune_binary_thresh_ = rune_detect_config_["rune_detector"]["min_lightness"].as<int>();
-        rune_solver_ = std::make_unique<RuneSolver>(config_, camera_info_);
-        rune_solver_->setStateCallback(std::bind(&AutoBuff::Impl::runeSloverStateCallback, this));
+        // rune_solver_ = std::make_unique<RuneSolver>(config_, camera_info_);
+        // rune_solver_->setStateCallback(std::bind(&AutoBuff::Impl::runeSloverStateCallback, this));
         rune_queue_ = std::make_unique<OrderedQueue<rune::Rune>>(10, 500);
         latency_averager_ = std::make_unique<Averager<double>>(100);
         return true;
@@ -204,15 +110,29 @@ struct AutoBuff::Impl {
     }
     void pushInput(CommonFrame& frame) {
         img_recv_count_++;
-        if (use_manual_r_) {
-            cv::Point2f center(frame.src_img.cols / 2.0, frame.src_img.rows / 2.0);
-            calculationManualR(center);
-        }
         if (rune_detector_) {
             rune_detector_->pushInput(frame);
         }
     }
-    void RuneDetectCallback(std::vector<rune::RuneObject>& objs, const CommonFrame& frame) {
+
+    void RuneDetectCallback(const std::vector<rune::RuneObject>& objs, const CommonFrame& frame) {
+        auto it = std::max_element(
+            objs.begin(),
+            objs.end(),
+            [](const rune::RuneObject& a, const rune::RuneObject& b) { return a.prob < b.prob; }
+        );
+        rune::RuneFan fan { .is_valid = false };
+        cv::Mat debug_img;
+        if (debug_mode_)
+            debug_img = frame.src_img.clone();
+        if (it != objs.end()) {
+            const rune::RuneObject& best_obj = *it;
+            cv::Point2f r_tag_roi =
+                best_obj.pts.r_tag - cv::Point2f(best_obj.box.x, best_obj.box.y);
+            cv::Mat roi = frame.src_img(best_obj.box);
+            fan = rune_cv_.detect(roi, r_tag_roi,debug_img,debug_mode_);
+            fan.base = cv::Point2f(best_obj.box.x, best_obj.box.y);
+        }
         std::lock_guard<std::mutex> lock(callback_mutex_);
         static bool last_rune_big = false;
         rune::Rune rune_target { .frame_id = "camera_optical_frame",
@@ -227,7 +147,6 @@ struct AutoBuff::Impl {
                 R_gimbal2odom = Eigen::AngleAxisd(att.data.yaw, Eigen::Vector3d::UnitZ())
                     * Eigen::AngleAxisd(-att.data.pitch, Eigen::Vector3d::UnitY())
                     * Eigen::AngleAxisd(att.data.roll, Eigen::Vector3d::UnitX());
-                // R_gimbal2odom = att.q.toRotationMatrix();
             };
             auto delay = std::chrono::microseconds(
                 static_cast<int64_t>(std::round(shared_->communication_delay_μs))
@@ -241,92 +160,44 @@ struct AutoBuff::Impl {
         }
         Eigen::Matrix4d T_camera_to_odom =
             utils::computeCameraToOdomTransform(R_gimbal2odom, R_camera2gimbal_, t_camera2gimbal_);
-        cv::Mat debug_img;
-        if (debug_mode_)
-            debug_img = frame.src_img.clone();
-
-        if (!objs.empty()) {
-            std::sort(objs.begin(), objs.end(), [](auto& a, auto& b) { return a.prob > b.prob; });
-
-            cv::Point2f r_tag;
-            cv::Mat binary_roi(1, 1, CV_8UC3, cv::Scalar(0));
-
-            auto detectRTagAt = [&](const cv::Point2f& center, bool manual) {
-                return rune_detector_
-                    ->detectRTag(frame.src_img, rune_binary_thresh_, center, manual);
-            };
-
-            if (use_manual_r_ && manual_r_init_) {
-                projectRTargetToImage(
-                    T_r_,
-                    T_camera_to_odom,
-                    manual_r_box_,
-                    camera_info_.first,
-                    camera_info_.second
-                );
-
-                manual_r_center_ = utils::computeCenter(manual_r_box_);
-                r_tag = manual_r_center_;
-                if (detect_r_tag_ && !frame.src_img.empty())
-                    std::tie(r_tag, binary_roi) = detectRTagAt(manual_r_center_, true);
-            } else if (detect_r_tag_ && !frame.src_img.empty()) {
-                std::tie(r_tag, binary_roi) = detectRTagAt(objs.front().pts.r_center, false);
-            } else {
-                r_tag = std::accumulate(
-                    objs.begin(),
-                    objs.end(),
-                    cv::Point2f(0, 0),
-                    [n = float(objs.size())](cv::Point2f p, auto& o) {
-                        return p + o.pts.r_center / n;
-                    }
-                );
-            }
-
-            for (auto& o: objs)
-                o.pts.r_center = r_tag;
-
-            if (debug_mode_ && !debug_img.empty()) {
-                cv::Rect roi(debug_img.cols - binary_roi.cols, 0, binary_roi.cols, binary_roi.rows);
-                binary_roi.copyTo(debug_img(roi));
-                cv::rectangle(debug_img, roi, cv::Scalar(150, 150, 150), 2);
-            }
-
-            auto target_it = std::find_if(
-                objs.begin(),
-                objs.end(),
-                [c = EnemyColor(frame.detect_color)](auto& o) {
-                    return o.type == rune::RuneType::INACTIVATED && o.color == c;
-                }
+        
+        
+        if (fan.is_valid) {
+            cv::Mat rvec, tvec;
+            bool success = cv::solvePnP(
+                fan.getObjs(), // 3D 模型点
+                fan.landmarks(), // 对应的2D像素点
+                camera_info_.first, // 相机内参
+                camera_info_.second, // 畸变系数
+                rvec,
+                tvec, // 输出：旋转向量和平移向量
+                false, // 是否使用初始 rvec,tvec
+                cv::SOLVEPNP_ITERATIVE
             );
+            if (success) {
+                Eigen::Vector3d t;
+                Eigen::Quaterniond q;
+                utils::pnpToEigen(rvec, tvec, t, q);
+                auto pos_odom = utils::transformPosition(t, T_camera_to_odom);
+                auto q_odom = utils::transformOrientation(q, T_camera_to_odom);
+                auto euler_odom = utils::quatToEuler(q_odom, utils::EulerOrder::ZYX);
+                fan.drawPoints(debug_img);
+                std::cout << std::fixed << std::setprecision(3) // 固定小数位数
+                          << std::setw(12) << "t: " << std::setw(10) << t.x() << std::setw(10)
+                          << t.y() << std::setw(10) << t.z()
 
-            if (target_it != objs.end()) {
-                rune_target.is_lost = false;
-                auto& p = target_it->pts;
-                rune_target.pts[0].x = p.r_center.x;
-                rune_target.pts[0].y = p.r_center.y;
-                rune_target.pts[1].x = p.bottom_left.x;
-                rune_target.pts[1].y = p.bottom_left.y;
-                rune_target.pts[2].x = p.top_left.x;
-                rune_target.pts[2].y = p.top_left.y;
-                rune_target.pts[3].x = p.top_right.x;
-                rune_target.pts[3].y = p.top_right.y;
-                rune_target.pts[4].x = p.bottom_right.x;
-                rune_target.pts[4].y = p.bottom_right.y;
+                          << " | pos_odom: " << std::setw(10) << pos_odom.x() << std::setw(10)
+                          << pos_odom.y() << std::setw(10) << pos_odom.z()
+
+                          << " | yaw: " << std::setw(8) << euler_odom[0] * 180.0 / M_PI
+                          << " pitch: " << std::setw(8) << euler_odom[1] * 180.0 / M_PI
+                          << " roll: " << std::setw(8) << euler_odom[2] * 180.0 / M_PI << std::endl;
             }
         }
-        if (shared_) {
-            if (shared_->is_rune_big) {
-                rune_target.is_big_rune = true;
-            } else {
-                rune_target.is_big_rune = false;
-            }
-        } else {
-            rune_target.is_big_rune = false;
-        }
-
-        rune_target.id = frame.id;
+    
 
         rune_target.T_camera_to_odom = T_camera_to_odom;
+        rune_target.is_big_rune = false;
         rune_queue_->enqueue(rune_target);
         T_camera_to_odom_ = T_camera_to_odom;
         if (debug_mode_) {
@@ -342,16 +213,16 @@ struct AutoBuff::Impl {
             WUST_WARN(logger_) << "Received out-of-order rune data, discarded.";
             return;
         }
-        last_rune_target_time_ = rune_target.timestamp;
-        if (rune_solver_->pnp_solver_ == nullptr) {
-            return;
-        }
+        // last_rune_target_time_ = rune_target.timestamp;
+        // if (rune_solver_->pnp_solver_ == nullptr) {
+        //     return;
+        // }
         double observed_angle = 0;
-        if (rune_solver_->tracker_state == RuneSolver::LOST) {
-            observed_angle = rune_solver_->init(rune_target, rune_target.T_camera_to_odom);
-        } else {
-            observed_angle = rune_solver_->update(rune_target, rune_target.T_camera_to_odom);
-        }
+        // if (rune_solver_->tracker_state == RuneSolver::LOST) {
+        //     observed_angle = rune_solver_->init(rune_target, rune_target.T_camera_to_odom);
+        // } else {
+        //     observed_angle = rune_solver_->update(rune_target, rune_target.T_camera_to_odom);
+        // }
         auto now = std::chrono::steady_clock::now();
         auto latency_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
                               std::chrono::steady_clock::now() - rune_target.timestamp
@@ -362,37 +233,10 @@ struct AutoBuff::Impl {
         auto_buff_debug_.latency_ms = latency_averager_->average();
         if (debug_mode_) {
             std::lock_guard<std::mutex> lock(dbg_mutex_);
-            auto_buff_debug_.debug_text = rune_solver_->curve_fitter_->getDebugText();
-            auto_buff_debug_.manual_r_box = manual_r_box_;
-            auto_buff_debug_.predict_angle =
-                rune_solver_->last_pre_angle - rune_solver_->last_observed_angle_;
-            auto_buff_debug_.obs_angle = rune_solver_->last_observed_angle_;
-            auto_buff_debug_.pre_angle = rune_solver_->last_pre_angle;
-            auto_buff_debug_.fitter_v = rune_solver_->curve_fitter_->getFittingParam()[0];
         }
-    }
-    RuneSolver::StateResult runeSloverStateCallback() {
-        auto result = RuneSolver::StateResult();
-        if (shared_->motion_buffer) {
-            auto last_att = shared_->motion_buffer->get_last();
-            if (last_att) {
-                // result.rpy[0] = last_att->roll;
-                // result.rpy[1] = last_att->pitch;
-                // result.rpy[2] = last_att->yaw;
-            }
-        }
-        result.bullet_speed = shared_->bullet_speed;
-        result.controller_delay = shared_->controller_delay;
-
-        return result;
     }
     GimbalCmd solve() {
         GimbalCmd gimbal_cmd;
-        try {
-            gimbal_cmd = rune_solver_->solve();
-        } catch (const std::exception& e) {
-            gimbal_cmd = rune_solver_->returnDefaultCmd();
-        }
 
         if (gimbal_cmd.fire_advice) {
             fire_count_++;
@@ -456,7 +300,7 @@ struct AutoBuff::Impl {
 
     std::mutex callback_mutex_;
     std::unique_ptr<RuneDetectorBase> rune_detector_;
-    std::unique_ptr<RuneSolver> rune_solver_;
+    RuneDetectorCV rune_cv_;
     std::string logger_ = "auto_buff";
     std::unique_ptr<OrderedQueue<rune::Rune>> rune_queue_;
     std::shared_ptr<wust_vl_concurrency::MonitoredThread> processing_thread_;
@@ -490,106 +334,6 @@ struct AutoBuff::Impl {
     std::shared_ptr<AutoBuffShared> shared_;
     void setShared(std::shared_ptr<AutoBuffShared> shared) {
         shared_ = shared;
-    }
-    void calculationManualR(const cv::Point2f center) {
-        manual_r_runing_ = true;
-        const int half_size = 5;
-        float x = center.x;
-        float y = center.y;
-        manual_r_center_ = { x, y };
-        manual_r_box_ = { {
-            { x - half_size, y - half_size }, // 左上 → 对应点0
-            { x - half_size, y + half_size }, // 左下 → 对应点1
-            { x + half_size, y + half_size }, // 右下 → 对应点2
-            { x + half_size, y - half_size } // 右上 → 对应点3
-        } };
-        calcRTarget(
-            manual_r_box_,
-            T_r_,
-            T_camera_to_odom_,
-            camera_info_.first,
-            camera_info_.second
-        );
-
-        manual_r_runing_ = false;
-    }
-    void calculationManualR(const cv::Mat& src_img) {
-        manual_r_runing_ = true;
-        clicked_points_.clear();
-        cv::Mat img_show = src_img.clone();
-        cv::cvtColor(img_show, img_show, cv::COLOR_BGR2RGB);
-        cv::namedWindow("Manual R Box", cv::WINDOW_NORMAL);
-        cv::resizeWindow("Manual R Box", 1280, 960);
-        cv::setMouseCallback("Manual R Box", onMouse, nullptr);
-        const int half_size = 5;
-        while (true) {
-            cv::Mat temp = img_show.clone();
-            if (!clicked_points_.empty()) {
-                manual_r_center_ = clicked_points_.front();
-                float x = std::clamp(
-                    manual_r_center_.x,
-                    float(half_size),
-                    float(src_img.cols - half_size - 1)
-                );
-                float y = std::clamp(
-                    manual_r_center_.y,
-                    float(half_size),
-                    float(src_img.rows - half_size - 1)
-                );
-                manual_r_center_ = { x, y };
-                manual_r_box_ = { {
-                    { x - half_size, y - half_size }, // 左上 → 对应点0
-                    { x - half_size, y + half_size }, // 左下 → 对应点1
-                    { x + half_size, y + half_size }, // 右下 → 对应点2
-                    { x + half_size, y - half_size } // 右上 → 对应点3
-                } };
-                cv::circle(temp, manual_r_center_, 3, cv::Scalar(0, 255, 0), -1);
-                for (int i = 0; i < 4; ++i)
-                    cv::line(
-                        temp,
-                        manual_r_box_[i],
-                        manual_r_box_[(i + 1) % 4],
-                        cv::Scalar(255, 0, 0),
-                        1
-                    );
-            }
-            cv::imshow("Manual R Box", temp);
-            int key = cv::waitKey(30);
-            if (key == 27) { // ESC 退出，不提交
-                WUST_INFO("Manual R") << "Manual box canceled.";
-                manual_r_init_ = false;
-                break;
-            }
-            if (key == 13 || key == 10) { // 回车提交
-                if (!clicked_points_.empty()) {
-                    manual_r_init_ = true;
-                    WUST_INFO("Manual R") << "Manual center: (" << manual_r_center_.x << ", "
-                                          << manual_r_center_.y << ")";
-                    WUST_INFO("Manual R") << "Manual R Box Points Saved.";
-                } else {
-                    WUST_ERROR("Manual R") << "No point to submit.";
-                    manual_r_init_ = false;
-                }
-                break;
-            }
-            if (key == 'b' || key == 8) {
-                clicked_points_.clear();
-                WUST_INFO("Manual R") << "Manual point cleared.";
-            }
-        }
-
-        calcRTarget(
-            manual_r_box_,
-            T_r_,
-            T_camera_to_odom_,
-            camera_info_.first,
-            camera_info_.second
-        );
-
-        cv::destroyWindow("Manual R Box");
-        cv::destroyWindow("Manual R Box");
-        cv::destroyWindow("Manual R Box");
-        manual_r_runing_ = false;
     }
 };
 AutoBuff::AutoBuff(): _impl(std::make_unique<Impl>()) {}

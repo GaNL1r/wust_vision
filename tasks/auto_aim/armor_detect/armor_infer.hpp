@@ -6,12 +6,14 @@
 #include "tasks/type_common.hpp"
 namespace armor_infer {
 
-enum class Mode { TUP, RP };
+enum class Mode { TUP, RP, SPV8 };
 inline Mode modeFromString(const std::string& mode) {
     if (mode == "tup" || mode == "TUP")
         return Mode::TUP;
     else if (mode == "rp" || mode == "RP")
         return Mode::RP;
+    else if (mode == "spv8" || mode == "SPV8")
+        return Mode::SPV8;
     else
         return Mode::TUP;
 }
@@ -79,6 +81,11 @@ private:
     ) const;
 
     std::vector<armor::ArmorObject> postProcessRP(
+        const cv::Mat& output_buffer,
+        const Eigen::Matrix<float, 3, 3>& transform_matrix,
+        const std::vector<GridAndStride>& grid_strides
+    ) const;
+    std::vector<armor::ArmorObject> postProcessSPV8(
         const cv::Mat& output_buffer,
         const Eigen::Matrix<float, 3, 3>& transform_matrix,
         const std::vector<GridAndStride>& grid_strides

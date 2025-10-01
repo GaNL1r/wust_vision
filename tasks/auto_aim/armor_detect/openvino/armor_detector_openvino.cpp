@@ -64,7 +64,7 @@ void ArmorDetectOpenVino::init() {
             .preprocess()
             .convert_element_type(ov::element::f32)
             .convert_color(ov::preprocess::ColorFormat::RGB)
-            .scale({ scale, scale, scale });
+            .scale({ scale });
 
         // 告诉引擎：模型内部期望的布局是 NCHW
         ppp.input().model().set_layout("NCHW");
@@ -138,9 +138,6 @@ bool ArmorDetectOpenVino::processCallback(const CommonFrame& frame) {
     auto input_info = openvino_net_->getInputInfo();
     auto input_tensor = ov::Tensor(input_info.first, input_info.second, resized_img.data);
     auto output = openvino_net_->infer(input_tensor);
-    // std::cout << "time: " << time_utils::durationMs(t1, t2) << " " << time_utils::durationMs(t2, t3)
-    //           << " " << time_utils::durationMs(t3, t4) << " " << time_utils::durationMs(t4, t5)
-    //           << std::endl;
 
     // Process output data
     auto output_shape = output.get_shape();

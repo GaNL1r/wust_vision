@@ -155,10 +155,10 @@ concept VisionLike = requires(T v) {
 
 template<VisionLike T>
 inline int runVisionMain() {
-    // std::set_terminate([]() {
-    //     std::cerr << "Uncaught exception, terminating program.\n";
-    //     std::abort();
-    // });
+    std::set_terminate([]() {
+        std::cerr << "Uncaught exception, terminating program.\n";
+        std::abort();
+    });
 
     try {
         int exit_code = 0;

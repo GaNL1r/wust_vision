@@ -38,7 +38,7 @@ target_include_directories(auto_buff PRIVATE
 target_sources(auto_buff PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/auto_buff.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/rune_detect/rune_infer.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/rune_solver.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/rune_detect/rune_detector_cv.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/curve_fitter.cpp
 )
 

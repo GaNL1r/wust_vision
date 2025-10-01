@@ -260,7 +260,7 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
             armor_infer_->getInputW(),
             armor_infer_->getInputH()
         );
-        float scale = armor_infer_->getUseNorm() ? 255.0f : 1.0f;
+        float scale = armor_infer_->getUseNorm() ? 1.0f / 255.0f : 1.0f;
         cv::Mat blob = cv::dnn::blobFromImage(
             resized_img,
             scale,

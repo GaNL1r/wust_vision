@@ -70,7 +70,7 @@ RuneDetectorTrt::RuneDetectorTrt(
             infer->context = std::unique_ptr<nvinfer1::IExecutionContext>(ctx);
             if (params_.use_cuda_pre || params_.use_cuda_post) {
                 infer->cuda_infer = std::make_unique<rune_cuda_infer::CudaInfer>();
-                size_t max_input_img = 4096 * 2160 * 3;
+                size_t max_input_img = 1440 * 1080 * 3;
                 size_t num_grid_strides = 0;
                 rune_cuda_infer::GPUGridAndStride* device_grid_strides =
                     rune_cuda_infer::init_grid_strides_on_gpu(
@@ -127,7 +127,7 @@ RuneDetectorTrt::RuneDetectorTrt(
         infer->context = std::unique_ptr<nvinfer1::IExecutionContext>(ctx);
         if (params_.use_cuda_pre || params_.use_cuda_post) {
             infer->cuda_infer = std::make_unique<rune_cuda_infer::CudaInfer>();
-            size_t max_input_img = 4096 * 2160 * 3;
+            size_t max_input_img = 1440 * 1080 * 3;
             size_t num_grid_strides = 0;
             rune_cuda_infer::GPUGridAndStride* device_grid_strides =
                 rune_cuda_infer::init_grid_strides_on_gpu(
@@ -205,11 +205,11 @@ static void buildCpuResult(
 
         // 填充 FeaturePoints
         rune::FeaturePoints pts;
-        pts.r_center = cv::Point2f(gobj.x[0], gobj.y[0]);
-        pts.bottom_left = cv::Point2f(gobj.x[1], gobj.y[1]);
-        pts.top_left = cv::Point2f(gobj.x[2], gobj.y[2]);
-        pts.top_right = cv::Point2f(gobj.x[3], gobj.y[3]);
-        pts.bottom_right = cv::Point2f(gobj.x[4], gobj.y[4]);
+        // pts.r_center = cv::Point2f(gobj.x[0], gobj.y[0]);
+        // pts.bottom_left = cv::Point2f(gobj.x[1], gobj.y[1]);
+        // pts.top_left = cv::Point2f(gobj.x[2], gobj.y[2]);
+        // pts.top_right = cv::Point2f(gobj.x[3], gobj.y[3]);
+        // pts.bottom_right = cv::Point2f(gobj.x[4], gobj.y[4]);
 
         robj.pts = pts;
         robj.box = cv::boundingRect(pts.toVector2f());
@@ -239,7 +239,7 @@ bool RuneDetectorTrt::processCallback(const CommonFrame& frame, Infer* infer) {
             rune_infer_->getInputW(),
             rune_infer_->getInputH()
         );
-        float scale = rune_infer_->getUseNorm() ? 255.0f : 1.0f;
+        float scale = rune_infer_->getUseNorm() ? 1.0f / 255.0f : 1.0f;
         cv::Mat blob = cv::dnn::blobFromImage(
             resized_img,
             scale,

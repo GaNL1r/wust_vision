@@ -36,7 +36,7 @@ rune_detector:
   detect_r_tag: false
   use_manual_r: true
   min_lightness: 80
-  model: /home/hy/wust_vision/model/yolox_rune_3.6m.onnx
+  model: /home/hy/rune_dl/runs/pose/train4/weights/best.onnx
   device_id: 0
   nms_threshold: 0.3
   top_k: 128
@@ -45,4 +45,4 @@ rune_detector:
   use_cuda_pre: false
   use_cuda_post: false
   log_time: false
-  model_type: tup
+  model_type: v11

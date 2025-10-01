@@ -213,33 +213,54 @@ inline Eigen::MatrixXd cvToEigen(const cv::Mat& cv_mat) noexcept {
     cv::cv2eigen(cv_mat, eigen_mat);
     return eigen_mat;
 }
+/// 将相机坐标系下的位置转换到 odom 坐标系
+inline Eigen::Vector3d
+transformPosition(const Eigen::Vector3d& pos_camera, const Eigen::Matrix4d& T_camera_to_odom) {
+    Eigen::Vector4d pos_homo(pos_camera.x(), pos_camera.y(), pos_camera.z(), 1.0);
+    Eigen::Vector4d pos_odom = T_camera_to_odom * pos_homo;
+    return pos_odom.head<3>();
+}
+
+/// 将相机坐标系下的姿态转换到 odom 坐标系
+inline Eigen::Quaterniond
+transformOrientation(const Eigen::Quaterniond& q_camera, const Eigen::Matrix4d& T_camera_to_odom) {
+    Eigen::Matrix3d R_camera_to_odom = T_camera_to_odom.block<3, 3>(0, 0);
+    Eigen::Matrix3d R_ori_camera = q_camera.normalized().toRotationMatrix();
+    Eigen::Matrix3d R_ori_odom = R_camera_to_odom * R_ori_camera;
+    return Eigen::Quaterniond(R_ori_odom).normalized();
+}
+inline void pnpToEigen(
+    const cv::Mat& rvec,
+    const cv::Mat& tvec,
+    Eigen::Vector3d& t_out,
+    Eigen::Quaterniond& q_out
+) {
+    // 平移
+    cv::cv2eigen(tvec, t_out);
+
+    // 旋转
+    cv::Mat R_cv;
+    cv::Rodrigues(rvec, R_cv);
+    Eigen::Matrix3d R;
+    cv::cv2eigen(R_cv, R);
+
+    q_out = Eigen::Quaterniond(R).normalized();
+}
 
 inline void transformArmorData(armor::Armors& armors, Eigen::Matrix4d T_camera_to_odom) {
     for (auto& armor: armors.armors) {
         try {
             // Step 1: Transform position from camera to odom
-            Eigen::Vector4d pos_camera(armor.pos.x(), armor.pos.y(), armor.pos.z(), 1.0);
-            Eigen::Vector4d pos_odom = T_camera_to_odom * pos_camera;
+            Eigen::Vector3d pos_camera = armor.pos;
+            armor.target_pos = transformPosition(pos_camera, T_camera_to_odom);
 
-            armor.target_pos.x() = pos_odom.x();
-            armor.target_pos.y() = pos_odom.y();
-            armor.target_pos.z() = pos_odom.z();
-
-            // Step 2: Transform orientation from camera to odom
-            Eigen::Matrix3d R_camera_to_odom = T_camera_to_odom.block<3, 3>(0, 0);
+            // 姿态
             Eigen::Quaterniond q_camera(armor.ori.w(), armor.ori.x(), armor.ori.y(), armor.ori.z());
-            Eigen::Matrix3d R_ori_camera = q_camera.normalized().toRotationMatrix();
-
-            Eigen::Matrix3d R_ori_odom = R_camera_to_odom * R_ori_camera;
-            Eigen::Quaterniond q_odom(R_ori_odom);
-
-            armor.target_ori.w() = q_odom.w();
-            armor.target_ori.x() = q_odom.x();
-            armor.target_ori.y() = q_odom.y();
-            armor.target_ori.z() = q_odom.z();
+            Eigen::Quaterniond q_odom = transformOrientation(q_camera, T_camera_to_odom);
+            armor.target_ori = q_odom;
 
             // Step 3: Extract yaw (assuming you have a function like this)
-            Eigen::Vector3d euler = R_ori_odom.eulerAngles(2, 1, 0); // ZYX
+            Eigen::Vector3d euler = q_odom.toRotationMatrix().eulerAngles(2, 1, 0); // ZYX
             armor.yaw = euler[0]; // yaw
 
         } catch (const std::exception& e) {
@@ -248,38 +269,26 @@ inline void transformArmorData(armor::Armors& armors, Eigen::Matrix4d T_camera_t
         }
     }
 }
-inline void transformArmorData(armor::Armor& armor, Eigen::Matrix4d T_camera_to_odom) {
+inline void transformArmorData(armor::Armor& armor, const Eigen::Matrix4d& T_camera_to_odom) {
     try {
-        // Step 1: Transform position from camera to odom
-        Eigen::Vector4d pos_camera(armor.pos.x(), armor.pos.y(), armor.pos.z(), 1.0);
-        Eigen::Vector4d pos_odom = T_camera_to_odom * pos_camera;
+        // 位置
+        Eigen::Vector3d pos_camera = armor.pos;
+        armor.target_pos = transformPosition(pos_camera, T_camera_to_odom);
 
-        armor.target_pos.x() = pos_odom.x();
-        armor.target_pos.y() = pos_odom.y();
-        armor.target_pos.z() = pos_odom.z();
-
-        // Step 2: Transform orientation from camera to odom
-        Eigen::Matrix3d R_camera_to_odom = T_camera_to_odom.block<3, 3>(0, 0);
+        // 姿态
         Eigen::Quaterniond q_camera(armor.ori.w(), armor.ori.x(), armor.ori.y(), armor.ori.z());
-        Eigen::Matrix3d R_ori_camera = q_camera.normalized().toRotationMatrix();
+        Eigen::Quaterniond q_odom = transformOrientation(q_camera, T_camera_to_odom);
+        armor.target_ori = q_odom;
 
-        Eigen::Matrix3d R_ori_odom = R_camera_to_odom * R_ori_camera;
-        Eigen::Quaterniond q_odom(R_ori_odom);
-
-        armor.target_ori.w() = q_odom.w();
-        armor.target_ori.x() = q_odom.x();
-        armor.target_ori.y() = q_odom.y();
-        armor.target_ori.z() = q_odom.z();
-
-        // Step 3: Extract yaw (assuming you have a function like this)
-        Eigen::Vector3d euler = R_ori_odom.eulerAngles(2, 1, 0); // ZYX
+        // 提取 yaw
+        Eigen::Vector3d euler = q_odom.toRotationMatrix().eulerAngles(2, 1, 0); // ZYX
         armor.yaw = euler[0]; // yaw
 
     } catch (const std::exception& e) {
         WUST_ERROR("tf") << "Error in camera-to-odom transform: " << e.what();
-        return;
     }
 }
+
 inline double getNoiseFromCameraYaw(double camera_yaw_deg, double r_front, double r_side) {
     double yaw_rad = camera_yaw_deg * M_PI / 180.0;
     double cos2 = std::cos(yaw_rad);
@@ -471,6 +480,13 @@ inline Eigen::Vector3d xyz2ypd(const Eigen::Vector3d& xyz) {
     auto pitch = std::atan2(z, std::sqrt(x * x + y * y));
     auto distance = std::sqrt(x * x + y * y + z * z);
     return { yaw, pitch, distance };
+}
+template<typename Point>
+inline Point getCenter(const std::vector<Point>& points) {
+    if (points.empty())
+        return Point();
+    return std::accumulate(points.begin(), points.end(), Point())
+        / static_cast<float>(points.size());
 }
 
 } // namespace utils
