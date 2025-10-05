@@ -5,6 +5,7 @@
 本项目基于[中南大学FYT战队2024赛季视觉框架开源](https://github.com/CSU-FYT-Vision/FYT2024_vision),华南师范大学PIONEER战队@chenjunnn[rm_vision](https://github.com/chenjunnn/rm_vision)，华南理工大学 华南虎战队[rm_vision_core](https://github.com/scutrobotlab/rm_vision_core)（本项目的能量机关识别部分完全使用了rm_vision_core的源码，未保留在本仓库）修改与适配，参考了深圳北理莫斯科大学北极熊战队/四川大学火锅战队/沈阳航空航天大学TUP战队/北京科技大学Reborn战队的部分代码与模型，感谢以上开源为本队以及本人的帮助
 
 ## 依赖
+* [wust_vl](https://github.com/WUST-RM/wust_vl)
 * OpenCV
 * [OpenVINO](https://flowus.cn/7a2a3341-74a1-4db9-bced-99fe5d05ab75)/[TensorRT-cuda](https://flowus.cn/e98af178-de0b-4546-808d-a6f1ff199d62)/[NCNN](https://flowus.cn/664f6bee-8ea9-4d54-8a78-e2c0bf38ee9f)/[OnnxRunetime](https://flowus.cn/8fbecbbf-c0f9-49bb-bac5-7b4923f55c99)连接为简单部署文档
 * fmt
