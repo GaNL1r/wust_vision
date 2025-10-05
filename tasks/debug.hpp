@@ -2,6 +2,7 @@
 #include "tasks/auto_aim/armor_tracker/target.hpp"
 #include "tasks/auto_aim/armor_tracker/tracker.hpp"
 #include "tasks/auto_aim/type.hpp"
+#include "tasks/auto_buff/rune_tracker/rune_target.hpp"
 #include "tasks/auto_buff/type.hpp"
 #include "tasks/packet_typedef.hpp"
 struct DebugArmor {
@@ -18,15 +19,18 @@ struct DebugArmor {
 };
 struct DebugRune {
     imgframe src_img;
-    std::vector<rune::RuneObject> objs;
+    rune::RuneTarget target;
+    AimTarget aim_target;
+    rune::PowerRune power_rune;
     double predict_angle;
     GimbalCmd gimbal_cmd;
+    Eigen::Matrix4d T_camera_to_odom;
     std::string debug_text;
-    std::vector<cv::Point2f> manual_r_box;
     double latency_ms;
     double obs_angle;
     double pre_angle;
     double fitter_v;
+    double obs_v;
 };
 struct DebugLogs {
     std::vector<double> time_log;
@@ -43,7 +47,8 @@ struct DebugLogs {
     std::vector<double> ypd_p_log;
     std::vector<double> rune_obs_log;
     std::vector<double> rune_pre_log;
-    std::vector<double> rune_v_log;
+    std::vector<double> rune_obsv_log;
+    std::vector<double> rune_fitv_log;
     std::vector<double> gimbal_yaw_log;
     std::vector<double> gimbal_pitch_log;
     std::vector<double> target_v_yaw_log;
@@ -66,7 +71,8 @@ struct DebugLogs {
         ypd_p_log.clear();
         rune_obs_log.clear();
         rune_pre_log.clear();
-        rune_v_log.clear();
+        rune_obsv_log.clear();
+        rune_fitv_log.clear();
         gimbal_yaw_log.clear();
         gimbal_pitch_log.clear();
         target_v_yaw_log.clear();

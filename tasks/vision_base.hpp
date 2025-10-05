@@ -157,6 +157,15 @@ template<VisionLike T>
 inline int runVisionMain() {
     std::set_terminate([]() {
         std::cerr << "Uncaught exception, terminating program.\n";
+        if (auto e = std::current_exception()) {
+            try {
+                std::rethrow_exception(e);
+            } catch (const std::exception& ex) {
+                std::cerr << "Exception: " << ex.what() << std::endl;
+            } catch (...) {
+                std::cerr << "Unknown exception" << std::endl;
+            }
+        }
         std::abort();
     });
 
@@ -203,6 +212,7 @@ inline int runVisionMain() {
 
     } catch (const std::exception& e) {
         std::cerr << "Caught exception in main: " << e.what() << "\n";
+        throw;
         return -1;
     } catch (...) {
         std::cerr << "Unknown exception caught in main!\n";

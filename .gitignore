@@ -23,3 +23,5 @@ __pycache__
 *.gv
 
 *.pdf
+
+tasks/auto_buff/rune_detector/rm_vision_core

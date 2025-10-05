@@ -30,7 +30,7 @@ public:
         const std::pair<cv::Mat, cv::Mat>& camera_info
     );
     void start();
-    void pushInput(CommonFrame& frame);
+    void pushInput(CommonFrame& frame,bool is_big);
     void setDebug(bool debug);
     DebugRune getDebugFrame();
     GimbalCmd solve();

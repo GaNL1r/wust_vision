@@ -26,16 +26,3 @@ armor_detect:
     top_k: 128
     use_throughputmode: false
     model_type: tup
-
-rune_detector:
-  confidence_threshold: 0.2
-  detect_r_tag: true
-  use_manual_r: true
-  min_lightness: 80
-  device_type: CPU
-  model: /home/hy/rune_dl/runs/pose/train4/weights/best.onnx
-  nms_threshold: 0.3
-  top_k: 128
-  use_fp16: true
-  use_throughputmode: true
-  model_type: v11

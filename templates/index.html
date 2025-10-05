@@ -166,10 +166,18 @@
               <label
                 ><input
                   type="checkbox"
-                  data-key="rune_v"
+                  data-key="rune_obsv"
                   onchange="updateCharts()"
                 />
-                Rune V</label
+                Rune ObsV</label
+              >
+              <label
+                ><input
+                  type="checkbox"
+                  data-key="rune_fitv"
+                  onchange="updateCharts()"
+                />
+                Rune FitV</label
               >
               <label
                 ><input
@@ -231,26 +239,6 @@
 
             <fieldset>
               <legend>主图范围设置</legend>
-              <label
-                >启用固定范围:<input
-                  type="checkbox"
-                  id="enableFixedRange"
-                  onchange="updateMainRange()" /></label
-              ><br />
-              <label
-                >最小 (min):<input
-                  type="number"
-                  id="mainMin"
-                  value="0.0"
-                  step="0.1" /></label
-              ><br />
-              <label
-                >最大 (max):<input
-                  type="number"
-                  id="mainMax"
-                  value="1.0"
-                  step="0.1" /></label
-              ><br />
               <label
                 >最大点数:<input
                   type="number"

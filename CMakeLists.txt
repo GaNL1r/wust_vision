@@ -4,7 +4,7 @@ project(wust_vision LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_BUILD_TYPE "Debug")
+set(CMAKE_BUILD_TYPE "Release")
 message(STATUS "--------------------CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}--------------------")
 
 add_compile_options(-w)
@@ -84,7 +84,7 @@ target_link_libraries(standard
     project_min_deps
     $<TARGET_OBJECTS:auto_aim>
     ${WUST_AUTO_AIM_LIBS}
-    $<TARGET_OBJECTS:auto_buff>
+    $<TARGET_OBJECTS:VisCore_auto_buff>
     ${WUST_AUTO_BUFF_LIBS}
     tasks_common
     gtsam
@@ -137,7 +137,7 @@ if(ROS2_FULL_FOUND)
     project_min_deps
     $<TARGET_OBJECTS:auto_aim>
     ${WUST_AUTO_AIM_LIBS}
-    $<TARGET_OBJECTS:auto_buff>
+    $<TARGET_OBJECTS:VisCore_auto_buff>
     ${WUST_AUTO_BUFF_LIBS}
     tasks_common
     toros2

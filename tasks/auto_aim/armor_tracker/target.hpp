@@ -1,5 +1,4 @@
 #pragma once
-#include "KalmanHyLib/gtsam.hpp"
 #include "tasks/auto_aim/armor_tracker/motion_models/factorypd.hpp"
 #include "tasks/auto_aim/armor_tracker/motion_models/motion_modelypdv2.hpp"
 #include "tasks/auto_aim/type.hpp"

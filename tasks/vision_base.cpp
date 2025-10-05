@@ -70,7 +70,6 @@ bool VisionBase::init() {
     bool use_simplelog = config_["logger"]["use_simplelog"].as<bool>();
     initLogger(log_level_, log_path_, use_logcli, use_logfile, use_simplelog);
     bindConfig(config_binder_, { "max_infer_running" }, &max_infer_running_);
-    // bindConfig(config_binder_, {    "attack_mode"   }, &attack_mode_);
     attack_mode_ = config_["attack_mode"].as<int>();
     auto t_vec = config_["tf"]["t_camera2gimbal"].as<std::vector<double>>();
     if (t_vec.size() != 3) {
@@ -78,7 +77,6 @@ bool VisionBase::init() {
     }
     t_camera2gimbal_ = Eigen::Vector3d(t_vec[0], t_vec[1], t_vec[2]);
 
-    // R_camera2gimbal
     auto R_vec = config_["tf"]["R_camera2gimbal"].as<std::vector<double>>();
     if (R_vec.size() != 9) {
         throw std::runtime_error("YAML tf.R_camera2gimbal must have 9 elements");
@@ -284,8 +282,11 @@ void VisionBase::frameCallback(wust_vl_video::ImageFrame& frame) {
                 auto_aim_->pushInput(frame);
             } break;
             case AttackMode::SMALL_RUNE:
+            {
+                auto_buff_->pushInput(frame,false);
+            }break;
             case AttackMode::BIG_RUNE: {
-                auto_buff_->pushInput(frame);
+                auto_buff_->pushInput(frame,true);
             } break;
             case AttackMode::UNKNOWN: {
                 auto_aim_->pushInput(frame);

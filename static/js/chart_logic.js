@@ -12,7 +12,8 @@ const chartMap = {
   ypd_y: { label: "Ypd Yaw" },
   rune_obs: { label: "Rune Obs" },
   rune_pre: { label: "Rune Pre" },
-  rune_v: { label: "Rune V" },
+  rune_obsv: { label: "Rune ObsV" },
+  rune_fitv: { label: "Rune FitV" },
   gimbal_yaw: { label: "Gimbal Yaw" },
   gimbal_pitch: { label: "Gimbal Pitch" },
   target_v_yaw: { label: "Target V Yaw" },
@@ -111,19 +112,8 @@ const mainChart = new Chart(mainCtx, {
 });
 
 function updateMainRange() {
-  const enable = document.getElementById("enableFixedRange").checked;
-  const min = parseFloat(document.getElementById("mainMin").value);
-  const max = parseFloat(document.getElementById("mainMax").value);
   const maxPts = parseInt(document.getElementById("mainMaxPts").value) || 100;
   mainChart._maxPoints = maxPts;
-  if (enable) {
-    mainChart.options.scales.y.min = min;
-    mainChart.options.scales.y.max = max;
-  } else {
-    mainChart.options.scales.y.min = undefined;
-    mainChart.options.scales.y.max = undefined;
-  }
-  mainChart.update("none");
 }
 
 function updateCharts() {
@@ -223,7 +213,6 @@ async function fetchDataAndUpdateCharts() {
         ds.data = json[key]?.slice(start) || [];
       });
 
-      // === 这里加自适应 margin ===
       const allValues = mainChart.data.datasets.flatMap(ds => ds.data);
       if (allValues.length > 0) {
         const minVal = Math.min(...allValues);
@@ -232,7 +221,7 @@ async function fetchDataAndUpdateCharts() {
         mainChart.options.scales.y.min = minVal - padding;
         mainChart.options.scales.y.max = maxVal + padding;
       }
-      mainChart.update("none");
+      mainChart.update();
     }
 
     Object.entries(individualCharts).forEach(([key, ch]) => {
@@ -248,7 +237,7 @@ async function fetchDataAndUpdateCharts() {
         ch.options.scales.y.min = minVal - padding;
         ch.options.scales.y.max = maxVal + padding;
       }
-      ch.update("none");
+      ch.update();
     });
   } catch (e) {
     console.error("fetch error:", e);

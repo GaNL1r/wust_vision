@@ -7,6 +7,6 @@ find ./src -name '*.cpp' -o -name '*.hpp'  -o -name '*.cu' -o -name '*.h'| xargs
 find ./calibration -name '*.cpp' -o -name '*.hpp'  -o -name '*.cu' -o -name '*.h'| xargs clang-format -i
 
 
-find . -name '*.yaml' -o -name '*.yml' | xargs prettier --write
+find . -name '*.yaml'  | xargs prettier --write
 find . -name '*.py' | xargs black
 find . -name '*.html' | xargs prettier --write

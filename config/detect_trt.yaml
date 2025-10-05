@@ -30,19 +30,3 @@ armor_detect:
     use_cuda_post: false
     log_time: false
     model_type: tup
-
-rune_detector:
-  confidence_threshold: 0.5
-  detect_r_tag: false
-  use_manual_r: true
-  min_lightness: 80
-  model: /home/hy/rune_dl/runs/pose/train4/weights/best.onnx
-  device_id: 0
-  nms_threshold: 0.3
-  top_k: 128
-  max_infer_running: 4
-  min_free_mem_ratio: 0.3
-  use_cuda_pre: false
-  use_cuda_post: false
-  log_time: false
-  model_type: v11

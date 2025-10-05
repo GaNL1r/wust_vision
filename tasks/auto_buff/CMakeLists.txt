@@ -2,72 +2,35 @@ cmake_minimum_required(VERSION 3.14)
 project(auto_buff LANGUAGES CXX)
 
 
-
 set(BUILD_DEFINITIONS "")
-list(APPEND BUILD_LIBS ${CERES_LIBRARIES})
-if(BUILD_WITH_OPENVINO)
-  list(APPEND BUILD_DEFINITIONS USE_OPENVINO)
-  list(APPEND BUILD_LIBS openvino::runtime openvino::frontend::onnx)
-endif()
-if(BUILD_WITH_TRT)
-  list(APPEND BUILD_DEFINITIONS USE_TRT)
-  list(APPEND BUILD_LIBS TensorRT::TensorRT CUDA::cudart /home/hy/TensorRT-10.6.0.26/lib/libnvonnxparser.so cuda_infer)
-endif()
-if(BUILD_WITH_NCNN)
-  list(APPEND BUILD_DEFINITIONS USE_NCNN)
-  list(APPEND BUILD_LIBS ncnn)
-endif()
-if(BUILD_WITH_ORT)
-  list(APPEND BUILD_DEFINITIONS USE_ORT)
-  list(APPEND BUILD_LIBS ${Ort_LIB})
-endif()
-
-# ================== 创建目标库 ==================
-add_library(auto_buff OBJECT)
-
-target_compile_options(auto_buff PRIVATE -w)
-target_compile_definitions(auto_buff PRIVATE ${BUILD_DEFINITIONS})
-target_include_directories(auto_buff PRIVATE
-    include
-    $<$<BOOL:${BUILD_WITH_OPENVINO}>:${OpenVINO_INCLUDE_DIRS}>
-    $<$<BOOL:${BUILD_WITH_TRT}>:${TensorRT_INCLUDE_DIR}>
-    $<$<BOOL:${BUILD_WITH_NCNN}>:${ncnn_INCLUDE_DIRS}>
-    $<$<BOOL:${BUILD_WITH_ORT}>:${Ort_INCLUDE_DIR}>
+list(APPEND BUILD_LIBS  TBB::tbb ${G2O_LIBRARIES} g2o_solver_dense ${CERES_LIBRARIES})
+add_subdirectory(rune_detector/rm_vision_core)
+VisCore_add_module(auto_buff
+DEPENDS rune_detector
 )
-# ================== 公共源文件 ==================
-target_sources(auto_buff PRIVATE
+list(APPEND BUILD_LIBS  VisCore_rune_detector
+    VisCore_core
+    VisCore_detector
+    VisCore_dataio
+    VisCore_rune_center
+    VisCore_rune_target
+    VisCore_rune_fan
+    VisCore_rune_combo
+    VisCore_rune_tracker
+    VisCore_rune_group
+)
+target_compile_options(VisCore_auto_buff PRIVATE -w)
+target_compile_definitions(VisCore_auto_buff PRIVATE ${BUILD_DEFINITIONS})
+target_sources(VisCore_auto_buff PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/auto_buff.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/rune_detect/rune_infer.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/rune_detect/rune_detector_cv.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/curve_fitter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/rune_control/aimer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/rune_optimize/graph_optimizer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/rune_optimize/ba_solver.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/rune_tracker/rune_tracker.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/rune_tracker/rune_target.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/rune_detector/scut_robot_detector.cpp
+    
 )
 
-# ================== 后端源码 ==================
-if(BUILD_WITH_OPENVINO)
-    target_sources(auto_buff PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/rune_detect/openvino/rune_detector_openvino.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/rune_detect/openvino/rune_detector_openvino_wrapper.cpp
-    )
-endif()
 
-if(BUILD_WITH_TRT)
-    target_sources(auto_buff PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/rune_detect/tensorrt/rune_detector_trt.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/rune_detect/tensorrt/rune_detector_trt_wrapper.cpp
-    )
-endif()
-
-if(BUILD_WITH_NCNN)
-    target_sources(auto_buff PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/rune_detect/ncnn/rune_detector_ncnn.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/rune_detect/ncnn/rune_detector_ncnn_wrapper.cpp
-    )
-endif()
-
-if(BUILD_WITH_ORT)
-    target_sources(auto_buff PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/rune_detect/onnxruntime/rune_detector_ort.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/rune_detect/onnxruntime/rune_detector_ort_wrapper.cpp
-    )
-endif()
 set(WUST_AUTO_BUFF_LIBS ${BUILD_LIBS} PARENT_SCOPE)

@@ -20,30 +20,42 @@
 
 namespace ypdrune_motion_model {
 
-constexpr int X_N = 4, Z_N = 4;
+constexpr int X_N = 6, Z_N = 5;
 
 struct Predict {
+    Predict() = default;
+    explicit Predict(double dt): dt(dt) {}
     template<typename T>
-    void operator()(const T x0[X_N], T x1[X_N]) {
+    void operator()(const T x0[X_N], T x1[X_N]) const {
         for (int i = 0; i < X_N; ++i) {
             x1[i] = x0[i];
         }
+        x1[4] += x0[5] * dt;
     }
+    double dt;
 };
-
+template<typename T>
+T normalize_angle_t(T angle) {
+    T two_pi = T(2.0 * M_PI);
+    return angle - two_pi * floor((angle + T(M_PI)) / two_pi);
+}
 struct Measure {
+    Measure() = default;
+    explicit Measure(int id): id(id) {}
     template<typename T>
-    void operator()(const T x[Z_N], T z[Z_N]) {
+    void operator()(const T x[Z_N], T z[Z_N]) const {
         T xy_dist = ceres::sqrt(x[0] * x[0] + x[1] * x[1]);
         T dist = ceres::sqrt(xy_dist * xy_dist + x[2] * x[2]);
 
         // Observation model
         z[0] = ceres::atan2(x[1], x[0]); // yaw
-        z[1] = ceres::atan2(x[3], xy_dist); // pitch
+        z[1] = ceres::atan2(x[2], xy_dist); // pitch
         z[2] = dist; // distance
         z[3] = x[3]; // orientation_yaw
+        z[4] = normalize_angle_t(x[4] + id * 2 * M_PI / 5); // roll
     }
+    int id = 0;
 };
 
-using RuneCenterEKF = kalman_hybird_lib::ExtendedKalmanFilter<X_N, Z_N, Predict, Measure>;
+using RuneESKF = kalman_hybird_lib::ErrorStateEKF<X_N, Z_N, Predict, Measure>;
 } // namespace ypdrune_motion_model

@@ -246,7 +246,25 @@ inline void pnpToEigen(
 
     q_out = Eigen::Quaterniond(R).normalized();
 }
+inline void pnpToEigen(
+    const cv::Vec3d& rvec,
+    const cv::Vec3d& tvec,
+    Eigen::Vector3d& t_out,
+    Eigen::Quaterniond& q_out
+) {
+    // 平移
+    t_out = Eigen::Vector3d(tvec[0], tvec[1], tvec[2]);
 
+    // Rodrigues 旋转向量转矩阵
+    cv::Mat rvec_mat(rvec); // cv::Vec3d -> 3x1 Mat
+    cv::Mat R_cv;
+    cv::Rodrigues(rvec_mat, R_cv);
+
+    Eigen::Matrix3d R;
+    cv::cv2eigen(R_cv, R);
+
+    q_out = Eigen::Quaterniond(R).normalized();
+}
 inline void transformArmorData(armor::Armors& armors, Eigen::Matrix4d T_camera_to_odom) {
     for (auto& armor: armors.armors) {
         try {
@@ -487,6 +505,56 @@ inline Point getCenter(const std::vector<Point>& points) {
         return Point();
     return std::accumulate(points.begin(), points.end(), Point())
         / static_cast<float>(points.size());
+}
+inline bool segmentIntersection(
+    const cv::Point2f& a1,
+    const cv::Point2f& a2,
+    const cv::Point2f& b1,
+    const cv::Point2f& b2,
+    cv::Point2f& intersection
+) {
+    cv::Point2f r = a2 - a1;
+    cv::Point2f s = b2 - b1;
+    float rxs = r.x * s.y - r.y * s.x;
+    float qpxr = (b1 - a1).x * r.y - (b1 - a1).y * r.x;
+
+    if (fabs(rxs) < 1e-6)
+        return false; // 平行或重叠，无唯一交点
+
+    float t = ((b1 - a1).x * s.y - (b1 - a1).y * s.x) / rxs;
+    float u = qpxr / rxs;
+
+    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+        intersection = a1 + t * r;
+        return true;
+    }
+    return false;
+}
+
+/// 主函数：计算线段与 RotatedRect 的交点
+inline std::vector<cv::Point2f> intersectLineRotatedRect(
+    const cv::RotatedRect& rect,
+    const cv::Point2f& line_p1,
+    const cv::Point2f& line_p2
+) {
+    std::vector<cv::Point2f> intersections;
+
+    // 1. 获取旋转矩形四个角点
+    cv::Point2f vertices[4];
+    rect.points(vertices);
+
+    // 2. 遍历矩形四条边，检测交点
+    for (int i = 0; i < 4; i++) {
+        cv::Point2f p1 = vertices[i];
+        cv::Point2f p2 = vertices[(i + 1) % 4];
+        cv::Point2f inter;
+
+        if (segmentIntersection(line_p1, line_p2, p1, p2, inter)) {
+            intersections.push_back(inter);
+        }
+    }
+
+    return intersections;
 }
 
 } // namespace utils

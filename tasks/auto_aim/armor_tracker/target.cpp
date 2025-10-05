@@ -23,8 +23,7 @@ Target::Target(
         return q;
     };
 
-    auto yu_rv2 = [target_config,
-                   this](const Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>& z) {
+    auto yu_rv2 = [this](const Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>& z) {
         Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, ypdv2armor_motion_model::Z_N> r;
         return r;
     };

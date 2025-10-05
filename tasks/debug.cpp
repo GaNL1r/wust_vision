@@ -343,175 +343,113 @@ void drawDebugRuneContent(
     const DebugRune& dbg,
     std::pair<cv::Mat, cv::Mat> camera_info
 ) {
-    const auto& objs = dbg.objs;
     const auto& gimbal_cmd = dbg.gimbal_cmd;
     double predict_angle = dbg.predict_angle;
-    const auto& manual_r_box = dbg.manual_r_box;
     const auto& debug_text = dbg.debug_text;
+    auto aim_target = dbg.aim_target;
+    auto rune = dbg.power_rune;
+    std::string latency_str = fmt::format("Latency: {:.2f}ms", dbg.latency_ms);
+    cv::putText(
+        debug_img,
+        latency_str,
+        cv::Point(10, 30),
+        cv::FONT_HERSHEY_SIMPLEX,
+        0.8,
+        cv::Scalar(255, 255, 255),
+        2
+    );
+    aim_target.tf(dbg.T_camera_to_odom.inverse());
+    if (!aim_target.is_old) {
+        auto pts = aim_target.toPts(camera_info.first, camera_info.second);
+        if (!pts.empty()) {
+            cv::Scalar color = cv::Scalar(255, 255, 255);
+            for (int i = 0; i < 4; i++)
+                cv::line(debug_img, pts[i], pts[(i + 1) % 4], color, 2);
 
-    // for (const auto& obj: objs) {
-    //     if (obj.type == rune::RuneType::INACTIVATED) {
-    //         const auto pts = obj.pts.toVector2f();
-    //         if (pts.size() < 3)
-    //             break;
+            // 后表面
+            for (int i = 4; i < 8; i++)
+                cv::line(debug_img, pts[i], pts[4 + (i + 1) % 4], color, 2);
 
-    //         int sharpest_idx = 0;
-    //         const cv::Point2f& tip = pts[sharpest_idx];
-    //         cv::Point2f aim_point =
-    //             std::accumulate(pts.begin(), pts.end(), cv::Point2f(0, 0)) - tip;
-    //         aim_point *= (1.f / (pts.size() - 1));
+            // 侧边
+            for (int i = 0; i < 4; i++)
+                cv::line(debug_img, pts[i], pts[i + 4], color, 2);
+            cv::Point2f center(0.f, 0.f);
+            for (auto pt: pts) {
+                center += pt;
+            }
+            center *= 1.0 / pts.size();
 
-    //         cv::Point2f vec_to_aim = normalize(aim_point - tip);
-    //         float base_angle = std::atan2(vec_to_aim.y, vec_to_aim.x);
-    //         float angle_rad = base_angle - predict_angle;
-    //         std::vector<cv::Point2f> pts_exclude_tip;
-    //         for (size_t i = 0; i < pts.size(); ++i) {
-    //             if (i != sharpest_idx)
-    //                 pts_exclude_tip.push_back(pts[i]);
-    //         }
-    //         float area = std::fabs(cv::contourArea(pts_exclude_tip));
+            if (gimbal_cmd.fire_advice) {
+                int cross_len = 60;
+                cv::line(
+                    debug_img,
+                    center + cv::Point2f(-cross_len, -cross_len),
+                    center + cv::Point2f(+cross_len, +cross_len),
+                    cv::Scalar(0, 0, 255),
+                    5
+                );
+                cv::line(
+                    debug_img,
+                    center + cv::Point2f(-cross_len, +cross_len),
+                    center + cv::Point2f(+cross_len, -cross_len),
+                    cv::Scalar(0, 0, 255),
+                    5
+                );
+            }
 
-    //         float radius = std::sqrt(area / static_cast<float>(CV_PI));
+            double scale = 10.0;
+            double v_yaw = gimbal_cmd.v_yaw;
+            double v_pitch = gimbal_cmd.v_pitch;
+            double dx = -scale * v_yaw;
+            double dy = scale * v_pitch;
 
-    //         float length = cv::norm(aim_point - tip);
-    //         cv::Point2f end_point_line =
-    //             tip + cv::Point2f(std::cos(angle_rad), std::sin(angle_rad)) * (length - radius);
-    //         cv::Point2f end_point_circle =
-    //             tip + cv::Point2f(std::cos(angle_rad), std::sin(angle_rad)) * length;
+            cv::Point2f start_pt = center;
+            cv::Point2f end_pt = start_pt + cv::Point2f(dx, dy);
+            cv::Scalar color_x = cv::Scalar(50, 50, 255);
+            cv::arrowedLine(debug_img, start_pt, end_pt, color_x, 4, cv::LINE_AA, 0, 0.2);
+        }
+    }
+    if (gimbal_cmd.fire_advice) {
+        std::string fire_str = "Fire!";
+        cv::putText(
+            debug_img,
+            fire_str,
+            { debug_img.cols / 2 - 100, 200 },
+            cv::FONT_HERSHEY_SIMPLEX,
+            2.85,
+            cv::Scalar(0, 0, 255),
+            2
+        );
+    }
 
-    //         cv::line(debug_img, tip, end_point_line, cv::Scalar(255, 255, 255), 2);
-
-    //         cv::circle(
-    //             debug_img,
-    //             end_point_circle,
-    //             static_cast<int>(radius),
-    //             cv::Scalar(255, 255, 255),
-    //             5
-    //         );
-    //         cv::circle(debug_img, end_point_circle, 5, cv::Scalar(255, 255, 255), -1);
-
-    //         break;
-    //     }
-    // }
-
-    // for (int i = 0; i < manual_r_box.size(); i++) {
-    //     cv::line(debug_img, manual_r_box[i], manual_r_box[(i + 1) % 4], cv::Scalar(48, 48, 255), 1);
-    // }
-
-    // for (const auto& obj: objs) {
-    //     auto pts = obj.pts.toVector2f();
-    //     cv::Point2f aim_point =
-    //         std::accumulate(pts.begin() + 1, pts.end(), cv::Point2f(0, 0)) / 4.0f;
-
-    //     cv::Scalar line_color = obj.type == rune::RuneType::INACTIVATED ? cv::Scalar(50, 255, 50)
-    //                                                                     : cv::Scalar(255, 50, 255);
-
-    //     cv::putText(
-    //         debug_img,
-    //         fmt::format("{:.2f}", obj.prob),
-    //         cv::Point2i(pts[1]),
-    //         cv::FONT_HERSHEY_SIMPLEX,
-    //         0.8,
-    //         line_color,
-    //         2
-    //     );
-    //     cv::polylines(debug_img, obj.pts.toVector2i(), true, line_color, 2);
-    //     cv::circle(debug_img, aim_point, 5, line_color, -1);
-
-    //     std::string rune_type = obj.type == rune::RuneType::INACTIVATED ? "_HIT" : "_OK";
-    //     std::string rune_color = enemyColorToString(obj.color);
-    //     cv::putText(
-    //         debug_img,
-    //         rune_color + rune_type,
-    //         cv::Point2i(pts[2]),
-    //         cv::FONT_HERSHEY_SIMPLEX,
-    //         0.8,
-    //         line_color,
-    //         2
-    //     );
-    //     for (int i = 0; i < pts.size(); i++) {
-    //         std::string str = std::to_string(i);
-    //         cv::putText(
-    //             debug_img,
-    //             str,
-    //             pts[i],
-    //             cv::FONT_HERSHEY_SIMPLEX,
-    //             0.8,
-    //             cv::Scalar(0, 50, 255),
-    //             2
-    //         );
-    //     }
-    // }
-
-    // std::string latency_str = fmt::format("Latency: {:.2f}ms", dbg.latency_ms);
-    // cv::putText(
-    //     debug_img,
-    //     latency_str,
-    //     cv::Point2i(10, 30),
-    //     cv::FONT_HERSHEY_SIMPLEX,
-    //     0.8,
-    //     cv::Scalar(255, 255, 255),
-    //     2
-    // );
-
-    // cv::circle(
-    //     debug_img,
-    //     cv::Point2i(debug_img.cols / 2, debug_img.rows / 2),
-    //     5,
-    //     cv::Scalar(255, 255, 255),
-    //     2
-    // );
-
-    // int baseline = 0;
-    // std::string fire_str = gimbal_cmd.fire_advice ? "Fire!" : "";
-    // cv::Size fire_size = cv::getTextSize(fire_str, cv::FONT_HERSHEY_SIMPLEX, 1.2, 2, &baseline);
-    // int fire_x = 1440 / 2 - fire_size.width - 10;
-    // int fire_y = 200;
-
-    // cv::putText(
-    //     debug_img,
-    //     fire_str,
-    //     { fire_x, fire_y },
-    //     cv::FONT_HERSHEY_SIMPLEX,
-    //     2.85,
-    //     cv::Scalar(0, 0, 255),
-    //     2
-    // );
-
-    // std::string gimbal_str = fmt::format(
-    //     "Pitch: {:.2f}, Yaw: {:.2f}, Pitch_diff: {:.2f}, Yaw_diff: {:.2f}",
-    //     gimbal_cmd.pitch,
-    //     gimbal_cmd.yaw,
-    //     gimbal_cmd.pitch_diff,
-    //     gimbal_cmd.yaw_diff
-    // );
-    // cv::putText(
-    //     debug_img,
-    //     gimbal_str,
-    //     { 10, debug_img.rows - 30 },
-    //     cv::FONT_HERSHEY_SIMPLEX,
-    //     0.8,
-    //     cv::Scalar(255, 255, 0),
-    //     2
-    // );
-
-    // int baseline_ = 0;
-    // cv::Size text_size = cv::getTextSize(debug_text, cv::FONT_HERSHEY_SIMPLEX, 1.0, 2, &baseline_);
-
-    // int margin_x = 10;
-    // int margin_y = 30;
-    // int pos_x = debug_img.cols - text_size.width - margin_x;
-    // int pos_y = margin_y + text_size.height;
-
-    // cv::putText(
-    //     debug_img,
-    //     debug_text,
-    //     { pos_x, pos_y },
-    //     cv::FONT_HERSHEY_SIMPLEX,
-    //     1.0,
-    //     cv::Scalar(0, 0, 255),
-    //     2
-    // );
+    // =================== 云台指令 ===================
+    std::string gimbal_str = fmt::format(
+        "Pitch: {:.2f}, Yaw: {:.2f}, Pitch_diff: {:.2f}, Yaw_diff: {:.2f}, V_yaw: {:.2f}, V_pitch: {:.2f}",
+        gimbal_cmd.pitch,
+        gimbal_cmd.yaw,
+        gimbal_cmd.pitch_diff,
+        gimbal_cmd.yaw_diff,
+        gimbal_cmd.v_yaw,
+        gimbal_cmd.v_pitch
+    );
+    cv::putText(
+        debug_img,
+        gimbal_str,
+        { 10, debug_img.rows - 30 },
+        cv::FONT_HERSHEY_SIMPLEX,
+        0.8,
+        cv::Scalar(255, 255, 0),
+        2
+    );
+    rune.tf(dbg.T_camera_to_odom.inverse());
+    rune.draw(debug_img, camera_info.first, camera_info.second);
+    cv::circle(
+        debug_img,
+        cv::Point2i(debug_img.cols / 2, debug_img.rows / 2),
+        5,
+        cv::Scalar(255, 255, 255),
+        2
+    );
 }
 void drawDebugOverlayWrite(
     const DebugArmor& dbg,
@@ -784,38 +722,64 @@ void drawDebugOverlayShow(
     cv::waitKey(1);
 }
 
-void writeTargetLogToJson(const Target& target) {
+void writeTargetLogToJson(const Target& armor_target, const rune::RuneTarget& rune_target) {
     nlohmann::json j;
 
-    j["type"] = target.type_;
-    j["tracking"] = target.is_tracking;
-    j["id"] = static_cast<int>(target.tracked_id_);
-    j["armors_num"] = target.armor_num_;
+    // -------- armor_target 部分 --------
+    nlohmann::json jt;
+    jt["type"] = armor_target.type_;
+    jt["tracking"] = armor_target.is_tracking;
+    jt["id"] = static_cast<int>(armor_target.tracked_id_);
+    jt["armors_num"] = armor_target.armor_num_;
 
     auto now = std::chrono::steady_clock::now();
-    auto age_ms =
-        std::chrono::duration_cast<std::chrono::milliseconds>(now - target.timestamp_).count();
-    j["timestamp_age_ms"] = age_ms;
+    auto age_ms_t =
+        std::chrono::duration_cast<std::chrono::milliseconds>(now - armor_target.timestamp_)
+            .count();
+    jt["timestamp_age_ms"] = age_ms_t;
 
-    j["position"] = { { "x", target.position().x() },
-                      { "y", target.position().y() },
-                      { "z", target.position().z() } };
+    jt["position"] = { { "x", armor_target.position().x() },
+                       { "y", armor_target.position().y() },
+                       { "z", armor_target.position().z() } };
 
-    j["velocity"] = { { "x", target.velocity().x() },
-                      { "y", target.velocity().y() },
-                      { "z", target.velocity().z() } };
+    jt["velocity"] = { { "x", armor_target.velocity().x() },
+                       { "y", armor_target.velocity().y() },
+                       { "z", armor_target.velocity().z() } };
 
-    j["r"] = target.r();
-    j["l"] = target.l();
-    j["h"] = target.h();
-    j["yaw"] = target.yaw();
-    j["v_yaw"] = target.v_yaw();
+    jt["r"] = armor_target.r();
+    jt["l"] = armor_target.l();
+    jt["h"] = armor_target.h();
+    jt["yaw"] = armor_target.yaw();
+    jt["v_yaw"] = armor_target.v_yaw();
 
+    // -------- RuneTarget 部分 --------
+    nlohmann::json jr;
+    jr["tracking"] = rune_target.is_tracking;
+    jr["id"] = static_cast<int>(rune_target.last_id);
+
+    auto age_ms_r =
+        std::chrono::duration_cast<std::chrono::milliseconds>(now - rune_target.timestamp_).count();
+    jr["timestamp_age_ms"] = age_ms_r;
+
+    jr["position"] = { { "x", rune_target.centerPos().x() },
+                       { "y", rune_target.centerPos().y() },
+                       { "z", rune_target.centerPos().z() } };
+
+    jr["roll"] = rune_target.roll() * 180.0 / M_PI;
+    jr["yaw"] = rune_target.yaw() * 180.0 / M_PI;
+    jr["v_roll"] = rune_target.v_roll() * 180.0 / M_PI;
+
+    // -------- 合并 --------
+    j["armor_target"] = jt;
+    j["rune_target"] = jr;
+
+    // -------- 写文件 --------
     std::ofstream file("/dev/shm/target_log.json");
     if (file.is_open()) {
         file << j.dump(2);
     }
 }
+
 void writeSerialLogToJson(const ReceiveAimINFO& aim) {
     nlohmann::json j;
 
@@ -881,7 +845,8 @@ void debuglog(
     armor::Armors armors = dbg_armor.armors;
     double t = std::chrono::duration<double>(now - start_time).count();
     Target target = dbg_armor.target;
-    writeTargetLogToJson(target);
+    rune::RuneTarget rune_target = dbg_rune.target;
+    writeTargetLogToJson(target, rune_target);
 
     double armor_yaw = 0.0, ypd_y = 0.0, ypd_p = 0.0, armor_distance = 0.0;
 
@@ -944,7 +909,8 @@ void debuglog(
     log.cmd_pitch_log.push_back(i_use.pitch);
     log.rune_obs_log.push_back(dbg_rune.obs_angle);
     log.rune_pre_log.push_back(dbg_rune.pre_angle);
-    log.rune_v_log.push_back(dbg_rune.fitter_v);
+    log.rune_fitv_log.push_back(dbg_rune.fitter_v * 180.0 / M_PI);
+    log.rune_obsv_log.push_back(dbg_rune.obs_v* 180.0 / M_PI);
     log.armor_yaw_log.push_back(armor_yaw * 180.0 / M_PI);
     log.armor_x_log.push_back(last_armor_.target_pos.x());
     log.armor_y_log.push_back(last_armor_.target_pos.y());
@@ -976,7 +942,8 @@ void debuglog(
     trim(log.cmd_pitch_log);
     trim(log.rune_obs_log);
     trim(log.rune_pre_log);
-    trim(log.rune_v_log);
+    trim(log.rune_obsv_log);
+    trim(log.rune_fitv_log);    
     trim(log.armor_yaw_log);
     trim(log.armor_x_log);
     trim(log.armor_y_log);
@@ -1007,7 +974,8 @@ void debuglog(
         j["ypd_p"] = log.ypd_p_log;
         j["rune_obs"] = log.rune_obs_log;
         j["rune_pre"] = log.rune_pre_log;
-        j["rune_v"] = log.rune_v_log;
+        j["rune_obsv"] = log.rune_obsv_log;
+        j["rune_fitv"] = log.rune_fitv_log;
         j["gimbal_yaw"] = log.gimbal_yaw_log;
         j["gimbal_pitch"] = log.gimbal_pitch_log;
         j["target_v_yaw"] = log.target_v_yaw_log;
