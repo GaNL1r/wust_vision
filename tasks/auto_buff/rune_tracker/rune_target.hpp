@@ -1,7 +1,6 @@
 #pragma once
 
 #include "spd_fitter.hpp"
-#include "tasks/auto_buff/rune_tracker/motion_models/big.hpp"
 #include "tasks/auto_buff/rune_tracker/motion_models/motion_modelrypd.hpp"
 #include "tasks/auto_buff/type.hpp"
 #include "wust_vl/common/utils/math.hpp"

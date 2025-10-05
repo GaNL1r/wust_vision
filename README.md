@@ -2,7 +2,7 @@
 武汉科技大学崇实战队视觉代码仓库
 
 ## 写在前面
-本项目基于[中南大学FYT战队2024赛季视觉框架开源](https://github.com/CSU-FYT-Vision/FYT2024_vision),华南师范大学PIONEER战队@chenjunnn[rm_vision](https://github.com/chenjunnn/rm_vision)修改与适配，参考了深圳北理莫斯科大学北极熊战队/四川大学火锅战队/沈阳航空航天大学TUP战队/北京科技大学Reborn战队的部分代码与模型，感谢以上开源为本队以及本人的帮助
+本项目基于[中南大学FYT战队2024赛季视觉框架开源](https://github.com/CSU-FYT-Vision/FYT2024_vision),华南师范大学PIONEER战队@chenjunnn[rm_vision](https://github.com/chenjunnn/rm_vision)，华南理工大学 华南虎战队[rm_vision_core](https://github.com/scutrobotlab/rm_vision_core)（本项目的能量机关识别部分完全使用了rm_vision_core的源码，未保留在本仓库）修改与适配，参考了深圳北理莫斯科大学北极熊战队/四川大学火锅战队/沈阳航空航天大学TUP战队/北京科技大学Reborn战队的部分代码与模型，感谢以上开源为本队以及本人的帮助
 
 ## 依赖
 * OpenCV
@@ -45,9 +45,9 @@ sudo make install
 ```
 git clone --recurse-submodules https://github.com/WUST-RM/wust_vision.git
 cd wust_vision
-sudo ./run.sh run/rebuild/build/cal #编译并运行/删除build缓存重新编译/仅编译/简单相机标定
+sudo ./run.sh run xx /rebuild/build #编译并运行xx可执行文件/删除build缓存重新编译/仅编译
 ```
-### 注意：本项目可选择编译OpenVINO/TensorRT-cuda/NCNN/OnnxRunetime与能量机关，需在build缓存前在[CMakeLists.txt](CMakeLists.txt)中修改对应编译选项,修改后需rebuild重新编译，无OpenVINO/TensorRT-cuda/NCNN/OnnxRunetime环境仍可以使用OpenCV的装甲板识别，装甲板/能量机关的识别方案需要在[config/config_common.yaml](config/config_common.yaml)中修改
+### 注意：本项目可选择编译OpenVINO/TensorRT-cuda/NCNN/OnnxRunetime，需在build缓存前在[CMakeLists.txt](CMakeLists.txt)中修改对应编译选项,修改后需rebuild重新编译，无OpenVINO/TensorRT-cuda/NCNN/OnnxRunetime环境仍可以使用OpenCV的装甲板识别，装甲板的识别方案需要在[config/auto_aim.yaml](config/auto_aim.yaml)中修改
 ## 文件树
 ```
 .
@@ -55,6 +55,10 @@ sudo ./run.sh run/rebuild/build/cal #编译并运行/删除build缓存重新编�
 │   ├── angles.h
 │   └── backward-cpp
 │       
+├── calibration
+│   ├── calcamera.cpp
+│   ├── capture.cpp
+│   └── eye_hand.cpp
 ├── cmake
 │   ├── FindG2O.cmake
 │   ├── FindHikSDK.cmake
@@ -64,6 +68,7 @@ sudo ./run.sh run/rebuild/build/cal #编译并运行/删除build缓存重新编�
 ├── config
 │   ├── auto_aim.yaml
 │   ├── auto_buff.yaml
+│   ├── cal.yaml
 │   ├── camera_calibrator.yaml
 │   ├── camera_info.yaml
 │   ├── camera.yaml
@@ -73,9 +78,7 @@ sudo ./run.sh run/rebuild/build/cal #编译并运行/删除build缓存重新编�
 │   ├── detect_openvino.yaml
 │   ├── detect_ort.yaml
 │   ├── detect_trt.yaml
-│   ├── fun.yaml
-│   ├── guard.sh
-│   └── omni_config.yaml
+│   └── guard.sh
 ├── cuda_infer
 │   ├── armor_infer.cu
 │   ├── armor_infer.hpp
@@ -88,19 +91,26 @@ sudo ./run.sh run/rebuild/build/cal #编译并运行/删除build缓存重新编�
 ├── env.bash
 ├── format.sh
 ├── fun
-│ 
+│
 ├── KalmanHyLib
 │   ├── adaptive_extended_kalman_filter.hpp
 │   ├── error_state_extended_kalman_filter.hpp
 │   ├── extended_kalman_filter.hpp
+│   ├── gtsam.hpp
 │   ├── kalman_hybird_lib.hpp
+│   ├── kf.hpp
 │   └── unscented_kalman_filter.hpp
 ├── model
-│ 
+│
 ├── README.md
+├── ros2
+│   ├── CMakeLists.txt
+│   ├── ros2.cpp
+│   └── ros2.hpp
 ├── run.sh
 ├── src
-│   └── auto_aim.cpp
+│   ├── sentry.cpp
+│   └── standard.cpp
 ├── static
 │   ├── 崇实战队logo图标.png
 │   ├── css
@@ -112,6 +122,15 @@ sudo ./run.sh run/rebuild/build/cal #编译并运行/删除build缓存重新编�
 │   └── logo.JPG
 ├── tasks
 │   ├── auto_aim
+│   │   ├── armor_control
+│   │   │   ├── aimer.cpp
+│   │   │   ├── aimer.hpp
+│   │   │   ├── planner.cpp
+│   │   │   ├── planner.hpp
+│   │   │   ├── shooter.cpp
+│   │   │   ├── shooter.hpp
+│   │   │   └── tinympc
+│   │   │       
 │   │   ├── armor_detect
 │   │   │   ├── armor_detect_common.cpp
 │   │   │   ├── armor_detect_common.hpp
@@ -155,11 +174,10 @@ sudo ./run.sh run/rebuild/build/cal #编译并运行/删除build缓存重新编�
 │   │   │   ├── ba_solver.hpp
 │   │   │   ├── graph_optimizer.cpp
 │   │   │   └── graph_optimizer.hpp
-│   │   ├── armor_solver.cpp
-│   │   ├── armor_solver.hpp
 │   │   ├── armor_tracker
 │   │   │   ├── motion_models
 │   │   │   │   ├── acc_model.hpp
+│   │   │   │   ├── factorypd.hpp
 │   │   │   │   ├── motion_modela.hpp
 │   │   │   │   ├── motion_modelonea.hpp
 │   │   │   │   ├── motion_modeloneca.hpp
@@ -167,70 +185,67 @@ sudo ./run.sh run/rebuild/build/cal #编译并运行/删除build缓存重新编�
 │   │   │   │   ├── motion_modelr.hpp
 │   │   │   │   ├── motion_modelrypd.hpp
 │   │   │   │   ├── motion_modelypd.hpp
-│   │   │   │   ├── tracker.hpp
-│   │   │   │   └── tracker_manager.hpp
+│   │   │   │   └── motion_modelypdv2.hpp
 │   │   │   ├── one_ca_tracker.cpp
 │   │   │   ├── one_ca_tracker.hpp
 │   │   │   ├── one_tracker.cpp
 │   │   │   ├── one_tracker.hpp
+│   │   │   ├── target.cpp
+│   │   │   ├── target.hpp
 │   │   │   ├── tracker.cpp
 │   │   │   ├── tracker.hpp
 │   │   │   ├── tracker_manager.cpp
-│   │   │   └── tracker_manager.hpp
+│   │   │   ├── tracker_manager.hpp
+│   │   │   ├── trackerv2.cpp
+│   │   │   ├── trackerv2.hpp
+│   │   │   ├── trackerv3.cpp
+│   │   │   └── trackerv3.hpp
 │   │   ├── auto_aim.cpp
+│   │   ├── auto_aim_fsm.hpp
 │   │   ├── auto_aim.hpp
 │   │   ├── CMakeLists.txt
-│   │   ├── tf.hpp
 │   │   └── type.hpp
 │   ├── auto_buff
 │   │   ├── auto_buff.cpp
 │   │   ├── auto_buff.hpp
 │   │   ├── CMakeLists.txt
-│   │   ├── curve_fitter.cpp
-│   │   ├── curve_fitter.hpp
-│   │   ├── motion_models
-│   │   │   ├── motion_modelr.hpp
-│   │   │   └── motion_modelrypd.hpp
-│   │   ├── rune_detect
-│   │   │   ├── detect_factory.hpp
-│   │   │   ├── ncnn
-│   │   │   │   ├── rune_detector_ncnn.cpp
-│   │   │   │   ├── rune_detector_ncnn.hpp
-│   │   │   │   ├── rune_detector_ncnn_wrapper.cpp
-│   │   │   │   └── rune_detector_ncnn_wrapper.hpp
-│   │   │   ├── onnxruntime
-│   │   │   │   ├── rune_detector_ort.cpp
-│   │   │   │   ├── rune_detector_ort.hpp
-│   │   │   │   ├── rune_detector_ort_wrapper.cpp
-│   │   │   │   └── rune_detector_ort_wrapper.hpp
-│   │   │   ├── openvino
-│   │   │   │   ├── rune_detector_openvino.cpp
-│   │   │   │   ├── rune_detector_openvino.hpp
-│   │   │   │   ├── rune_detector_openvino_wrapper.cpp
-│   │   │   │   └── rune_detector_openvino_wrapper.hpp
-│   │   │   ├── rune_detector_base.hpp
-│   │   │   ├── rune_infer.cpp
-│   │   │   ├── rune_infer.hpp
-│   │   │   └── tensorrt
-│   │   │       ├── rune_detector_trt.cpp
-│   │   │       ├── rune_detector_trt.hpp
-│   │   │       ├── rune_detector_trt_wrapper.cpp
-│   │   │       └── rune_detector_trt_wrapper.hpp
-│   │   ├── rune_solver.cpp
-│   │   ├── rune_solver.hpp
+│   │   ├── rune_control
+│   │   │   ├── aimer.cpp
+│   │   │   └── aimer.hpp
+│   │   ├── rune_detector
+│   │   │   ├── rm_vision_core
+│   │   │   ├── scut_robot_detector.cpp
+│   │   │   └── scut_robot_detector.hpp
+│   │   ├── rune_optimize
+│   │   │   ├── ba_solver.cpp
+│   │   │   ├── ba_solver.hpp
+│   │   │   ├── graph_optimizer.cpp
+│   │   │   └── graph_optimizer.hpp
+│   │   ├── rune_tracker
+│   │   │   ├── motion_models
+│   │   │   │   └── motion_modelrypd.hpp
+│   │   │   ├── rune_target.cpp
+│   │   │   ├── rune_target.hpp
+│   │   │   ├── rune_tracker.cpp
+│   │   │   ├── rune_tracker.hpp
+│   │   │   └── spd_fitter.hpp
 │   │   └── type.hpp
 │   ├── CMakeLists.txt
 │   ├── debug.cpp
 │   ├── debug.hpp
-│   ├── mono_measure_tool.cpp
-│   ├── mono_measure_tool.hpp
 │   ├── packet_typedef.hpp
 │   ├── type_common.hpp
-│   └── utils.hpp
+│   ├── utils.hpp
+│   ├── vision_base.cpp
+│   └── vision_base.hpp
 ├── templates
 │   └── index.html
+├── test
+│   ├── control.cpp
+│   └── test_ros2.cpp
 ├── video.py
 └── web.py
+
 
 
 
