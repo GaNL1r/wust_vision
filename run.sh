@@ -1,33 +1,41 @@
 #!/bin/bash
-cd "$(dirname "$0")"
+# 基于脚本路径的构建与运行脚本（完全不依赖 cd）
 
-source env.bash
+WORK_DIR="$(cd "$(dirname "$0")" && pwd)"
+BUILD_DIR="$WORK_DIR/build"
+CONFIG_DIR="$WORK_DIR/config"
+
+source "$WORK_DIR/env.bash"
+
 blue="\033[1;34m"
 yellow="\033[1;33m"
 reset="\033[0m"
 red="\033[1;31m"
 
-rm /dev/shm/debug_frame.jpg /dev/shm/cmd_log.json /dev/shm/aim_log.json /dev/shm/target_log.json
+# 设置 /dev/shm/debug_frame 权限
 chmod 666 /dev/shm/debug_frame
-rm -rf build/config
-ln -s ../config build/config
-ln -s ../env.bash build/env.bash
-# 如果参数为 rebuild，则删除 build 文件夹
+
+# 清理并建立符号链接
+rm -rf "$BUILD_DIR/config"
+ln -sf "$CONFIG_DIR" "$BUILD_DIR/config"
+ln -sf "$WORK_DIR/env.bash" "$BUILD_DIR/env.bash"
+
+# rebuild 时清理 build
 if [ "$1" == "rebuild" ]; then
     echo -e "${yellow}<--- Rebuilding: Removing build directory --->${reset}"
-    rm -rf build
-fi
-
-if [ ! -d "build" ]; then 
-    mkdir build
+    rm -rf "$BUILD_DIR"
+    mkdir -p "$BUILD_DIR"
+else
+    mkdir -p "$BUILD_DIR"
 fi
 
 echo -e "${yellow}<--- Start CMake --->${reset}"
-cd build
-cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=YES .. \
+cmake -S "$WORK_DIR" -B "$BUILD_DIR" \
+  -DCMAKE_EXPORT_COMPILE_COMMANDS=YES \
   -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_CXX_FLAGS="--gcc-toolchain=/usr"
+
 if [ $? -ne 0 ]; then
     echo -e "${red}\n--- CMake Failed ---${reset}"
     exit 1
@@ -35,36 +43,26 @@ fi
 
 echo -e "${yellow}\n<--- Start Make --->${reset}"
 max_threads=$(grep -c "processor" /proc/cpuinfo)
-make -j "$max_threads"
+make -C "$BUILD_DIR" -j "$max_threads"
 if [ $? -ne 0 ]; then
     echo -e "${red}\n--- Make Failed ---${reset}"
     exit 1
 fi
 
+# 统计总行数
 echo -e "${yellow}\n<--- Total Lines --->${reset}"
-total=$(find .. \
+total=$(find "$WORK_DIR" \
     -type d \( \
-        -path ../build -o \
-        -path ../hikSDK -o \
-        -path ../model -o \
-        -path ../3rdparty -o \
-        -path ../.cache \
+        -path "$BUILD_DIR" -o \
+        -path "$WORK_DIR/model" -o \
+        -path "$WORK_DIR/3rdparty" -o \
+        -path "$WORK_DIR/.cache" \
     \) -prune -o \
     -type f \( \
-        -name "*.cpp" -o \
-        -name "*.hpp" -o \
-        -name "*.c" -o \
-        -name "*.h" -o \
-        -name "*.py" -o \
-        -name "*.html" -o \
-        -name "*.sh" -o \
-        -name "*.md" -o \
-        -name "*.yaml" -o \
-        -name "*.json" -o \
-        -name "*.css" -o \
-        -name "*.js" -o \
-        -name "*.cu" -o \
-        -name "*.txt"\
+        -name "*.cpp" -o -name "*.hpp" -o -name "*.c" -o -name "*.h" \
+        -o -name "*.py" -o -name "*.html" -o -name "*.sh" -o -name "*.md" \
+        -o -name "*.yaml" -o -name "*.json" -o -name "*.css" -o -name "*.js" \
+        -o -name "*.cu" -o -name "*.txt" \
     \) -exec wc -l {} + | awk 'END{print $1}')
 echo -e "${blue}        $total${reset}"
 
@@ -74,35 +72,30 @@ if [ "$1" == "build" ] || [ "$1" == "rebuild" ]; then
     exit 0
 fi
 
-# cp ./wust_vision /usr/local/bin/
-# if [ $? -ne 0 ]; then
-#     echo -e "${red}\n--- Failed to copy wust_vision to /usr/local/bin ---${reset}"
-#     exit 1
-# fi
-
 # Run mode
 if [ "$1" == "run" ]; then
     echo -e "${yellow}\n<--- Running WUST_VISION --->${reset}"
-    ./$2
+    RUN_PROGRAM="$BUILD_DIR/$2"
+    "$RUN_PROGRAM"
     if [ $? -ne 0 ]; then
         echo -e "${red}\n--- Program crashed, running guard.sh ---${reset}"
-        pkill $2
+        pkill "$2"
         timeout=10
-        while pgrep $2 > /dev/null; do
+        while pgrep "$2" > /dev/null; do
             sleep 0.5
             timeout=$((timeout - 1))
             if [ $timeout -le 0 ]; then
                 echo "$2 did not exit after 10 seconds, forcing kill"
-                pkill -9 $2
+                pkill -9 "$2"
                 break
             fi
         done
         
-        ./config/guard.sh $2
+        "$CONFIG_DIR/guard.sh" "$2"
         exit 1
     fi
 else
-    echo -e "${red}\n--- Invalid argument: Please specify 'run', 'build', or 'rebuild' ---${reset}"
+    echo -e "${red}\n--- Invalid argument: Please specify 'run', 'build', 'rebuild', or 'run PROGRAM' ---${reset}"
     exit 1
 fi
 

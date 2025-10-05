@@ -12,12 +12,15 @@ namespace auto_aim {
 struct AutoAimShared {
     std::shared_ptr<MotionBufferGeneric<Motion, 1024>> motion_buffer;
     double bullet_speed;
-    double controller_delay;
-    Eigen::Matrix3d R_camera2gimbal;
-    Eigen::Vector3d t_camera2gimbal;
     double communication_delay_μs;
-    AutoAimShared(std::shared_ptr<MotionBufferGeneric<Motion, 1024>> mb) {
+    AutoAimShared(
+        std::shared_ptr<MotionBufferGeneric<Motion, 1024>> mb,
+        double bullet_speed,
+        double communication_delay_μs
+    ) {
         motion_buffer = mb;
+        this->bullet_speed = bullet_speed;
+        this->communication_delay_μs = communication_delay_μs;
     }
 };
 class AutoAim {

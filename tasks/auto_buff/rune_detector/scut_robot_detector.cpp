@@ -2,7 +2,8 @@
 #include "vc/camera/camera_param.h"
 ScutRobotDetector::ScutRobotDetector(
     const std::pair<cv::Mat, cv::Mat>& camera_info,
-    const YAML::Node& config
+    const YAML::Node& config,
+    int max_detect_running
 ):
     camera_info_(camera_info) {
     CV_Assert(
@@ -52,6 +53,39 @@ ScutRobotDetector::ScutRobotDetector(
         config["rune_optimize"]["min_error_R"].as<double>(),
         config["rune_optimize"]["min_error_t"].as<double>()
     );
+    AdaptiveResourcePool<Infer>::Params pool_params;
+    pool_params.resource_initializer = [=]() {
+        std::vector<std::unique_ptr<Infer>> infers;
+        for (int i = 0; i < max_detect_running; ++i) {
+            auto infer = std::make_unique<Infer>();
+            infer->detector = RuneDetector::make_detector();
+            infer->rune_groups = std::vector<FeatureNode_ptr> {};
+            infers.emplace_back(std::move(infer));
+        }
+        return infers;
+    };
+    auto release_func = [](std::unique_ptr<Infer>& resource) {
+        if (resource) {
+        }
+    };
+    auto restore_func = [=](size_t idx) -> std::unique_ptr<Infer> {
+        auto infer = std::make_unique<Infer>();
+        infer->detector = RuneDetector::make_detector();
+        infer->rune_groups = std::vector<FeatureNode_ptr> {};
+        return infer;
+    };
+    pool_params.restore_func = restore_func;
+
+    pool_params.release_func = release_func;
+
+    pool_params.can_restore = [=](size_t active_count) { return false; };
+
+    pool_params.should_release = [=](size_t active_count) { return false; };
+
+    pool_params.logger = [](const std::string& msg) {
+        WUST_INFO("ScutRobotDector:infer pool") << msg;
+    };
+    infer_pool_ = std::make_unique<AdaptiveResourcePool<Infer>>(pool_params);
 }
 Eigen::Quaterniond scutRobot2us(Eigen::Quaterniond scut) {
     Eigen::Matrix3d R_img2gimbal;
@@ -73,17 +107,30 @@ Eigen::Quaterniond scutRobot2us(Eigen::Quaterniond scut) {
     Eigen::Quaterniond q_us(R_us);
     return q_us;
 }
+PixChannel toScutPixChannel(int detect_color) {
+    if (detect_color == 0) {
+        return PixChannel::RED;
+    } else {
+        return PixChannel::BLUE;
+    }
+}
 
-rune::RuneFan ScutRobotDetector::detect(
+void ScutRobotDetector::detect(
     const CommonFrame& frame,
     Eigen::Vector3d gimbal,
     Eigen::Matrix4d T_camera_to_odom,
+    bool is_big,
     bool debug,
-    cv::Mat& debug_img
+    Infer* infer
 ) {
+    rune::RuneFan fan { .is_valid = false, .timestamp = frame.timestamp, .id = frame.id ,.is_big = is_big};
+    if (!infer || !callback_) {
+        return;
+    }
     if (debug) {
         DebugTools::get()->setImage(frame.src_img);
     }
+    auto t1 = std::chrono::steady_clock::now();
     GyroData gyroData;
     gyroData.rotation.yaw = gimbal[0];
     gyroData.rotation.pitch = gimbal[1];
@@ -93,19 +140,17 @@ rune::RuneFan ScutRobotDetector::detect(
     input.setImage(frame.src_img);
     input.setTick(frame.timestamp);
     input.setGyroData(GyroData());
-    input.setColor(PixChannel::RED);
-    input.setFeatureNodes(rune_groups_);
+    input.setColor(toScutPixChannel(frame.detect_color));
+    input.setFeatureNodes(infer->rune_groups);
     input.setDebug(debug);
-    rune::RuneFan fan { .is_valid = false, .timestamp = frame.timestamp, .id = frame.id };
-    static auto rune_detector = RuneDetector::make_detector();
 
-    rune_detector->detect(input, output);
-    rune_groups_ = output.getFeatureNodes();
+    infer->detector->detect(input, output);
+    infer->rune_groups = output.getFeatureNodes();
 
     do {
-        if (rune_groups_.empty())
+        if (infer->rune_groups.empty())
             break;
-        auto rune_group = RuneGroup::cast(rune_groups_.front());
+        auto rune_group = RuneGroup::cast(infer->rune_groups.front());
 
         if (rune_group->childFeatures().empty())
             break;
@@ -126,7 +171,6 @@ rune::RuneFan ScutRobotDetector::detect(
         if (!target_tracker)
             break;
 
-        // 获取位姿信息
         auto pose = output.getPnpData();
         auto tvec = pose.tvec();
         tvec = tvec * 0.001;
@@ -147,6 +191,8 @@ rune::RuneFan ScutRobotDetector::detect(
 
         fan.is_valid = true;
     } while (0);
+    auto t2 = std::chrono::steady_clock::now();
+    cv::Mat debug_img;
     if (debug) {
         debug_img = DebugTools::get()->getImage().clone();
         auto debug_bin = output.getDebugImg();
@@ -169,5 +215,21 @@ rune::RuneFan ScutRobotDetector::detect(
             small_bin.copyTo(debug_img(cv::Rect(x, y, small_bin.cols, small_bin.rows)));
         }
     }
-    return fan;
+    callback_(fan, frame, debug_img);
+}
+void ScutRobotDetector::pushInput(
+    CommonFrame& frame,
+    Eigen::Vector3d gimbal,
+    Eigen::Matrix4d T_camera_to_odom,
+    bool is_big,
+    bool debug
+) {
+    if (infer_pool_) {
+        auto infer_ptr = infer_pool_->acquire();
+        if (infer_ptr != nullptr) {
+            frame.id = current_id_++;
+            detect(frame, gimbal, T_camera_to_odom, is_big,debug, infer_ptr);
+            infer_pool_->release(infer_ptr);
+        }
+    }
 }

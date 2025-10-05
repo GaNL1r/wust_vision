@@ -18,8 +18,7 @@ public:
         bool use_off_fire,
         double gun_yaw_speed = 0.0
     );
-    double getFlyingTime(const Eigen::Vector3d& target_position, const double bullet_speed)
-    {
+    double getFlyingTime(const Eigen::Vector3d& target_position, const double bullet_speed) {
         return trajectory_compensator_->getFlyingTime(target_position, bullet_speed);
     }
     std::shared_ptr<TrajectoryCompensator> trajectory_compensator_;

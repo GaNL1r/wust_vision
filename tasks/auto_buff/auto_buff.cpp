@@ -21,7 +21,8 @@ struct AutoBuff::Impl {
         int& use_detect_ncnn_count,
         const Eigen::Matrix3d& R_camera2gimbal,
         const Eigen::Vector3d& t_camera2gimbal,
-        const std::pair<cv::Mat, cv::Mat>& camera_info
+        const std::pair<cv::Mat, cv::Mat>& camera_info,
+        int max_detect_running
     ) {
         config_ = config;
         R_camera2gimbal_ = R_camera2gimbal;
@@ -36,8 +37,15 @@ struct AutoBuff::Impl {
             for (int j = 0; j < 3; ++j)
                 camera_matrix[i * 3 + j] = camera_info.first.at<double>(i, j);
 
- 
-        scut_detector_ = ScutRobotDetector::make_detector(camera_info_, config);
+        scut_detector_ = ScutRobotDetector::make_detector(camera_info_, config, max_detect_running);
+        scut_detector_->setCallback(std::bind(
+            &AutoBuff::Impl::runeDetectCallback,
+            this,
+            std::placeholders::_1,
+            std::placeholders::_2,
+            std::placeholders::_3
+
+        ));
         rune_queue_ = std::make_unique<OrderedQueue<rune::RuneFan>>(10, 500);
         rune::RuneTargetConfig rune_target_config;
         rune_target_config.loadFromYaml(config["rune_tracker"]);
@@ -71,9 +79,8 @@ struct AutoBuff::Impl {
         wust_vl_concurrency::ThreadManager::instance().registerThread(processing_thread_);
         run_flag_ = true;
     }
-    void pushInput(CommonFrame& frame,bool is_big) {
+    void pushInput(CommonFrame& frame, bool is_big) {
         img_recv_count_++;
-        frame.id = current_id_++;
         Eigen::Vector3d v = Eigen::Vector3d::Zero();
         Eigen::Matrix3d R_gimbal2odom = Eigen::Matrix3d::Identity();
         Eigen::Vector3d gimbal = Eigen::Vector3d::Zero();
@@ -100,20 +107,17 @@ struct AutoBuff::Impl {
 
         Eigen::Matrix4d T_camera_to_odom =
             utils::computeCameraToOdomTransform(R_gimbal2odom, R_camera2gimbal_, t_camera2gimbal_);
-        cv::Mat debug_img;
-
-        {
-            std::lock_guard<std::mutex> lock(callback_mutex_);
-            auto fan =
-                scut_detector_->detect(frame, gimbal, T_camera_to_odom, debug_mode_, debug_img);
-            fan.is_big = is_big;
-            rune_queue_->enqueue(fan);
-        }
+        scut_detector_->pushInput(frame, gimbal, T_camera_to_odom, is_big, debug_mode_);
         T_camera_to_odom_ = T_camera_to_odom;
+    }
+    void
+    runeDetectCallback(const rune::RuneFan& fan, const CommonFrame& frame, cv::Mat& debug_img) {
+        std::lock_guard<std::mutex> lock(callback_mutex_);
+        rune_queue_->enqueue(fan);
         if (debug_mode_) {
             std::lock_guard<std::mutex> lock(dbg_mutex_);
             auto_buff_debug_.src_img = { std::move(debug_img), frame.timestamp };
-            auto_buff_debug_.T_camera_to_odom = T_camera_to_odom;
+            auto_buff_debug_.T_camera_to_odom = T_camera_to_odom_;
         }
 
         detect_finish_count_++;
@@ -125,6 +129,7 @@ struct AutoBuff::Impl {
             return;
         }
         last_rune_target_time_ = fan.timestamp;
+
         auto rune_target = rune_tracker_->track(fan);
         {
             std::lock_guard<std::mutex> lock(rune_target_mutex_);
@@ -151,7 +156,9 @@ struct AutoBuff::Impl {
             last_unwrapped_roll = obs_angle;
             last_raw_roll = raw_roll;
             auto_buff_debug_.obs_v = rune_target.v_roll();
-            auto_buff_debug_.fitter_v = rune_target.getFitterSpd(time_utils::now()+std::chrono::microseconds(int(0.2 * 1e6)));
+            auto_buff_debug_.fitter_v = rune_target.getFitterSpd(
+                time_utils::now() + std::chrono::microseconds(int(0.2 * 1e6))
+            );
             auto_buff_debug_.obs_angle = obs_angle;
             auto_buff_debug_.pre_angle = pre_angle;
             auto_buff_debug_.target = rune_target;
@@ -233,7 +240,7 @@ struct AutoBuff::Impl {
     }
 
     std::mutex callback_mutex_;
-    int current_id_ = 0;
+    //int current_id_ = 0;
     std::unique_ptr<ScutRobotDetector> scut_detector_;
     std::unique_ptr<RuneTracker> rune_tracker_;
     std::unique_ptr<rune::Aimer> aimer_;
@@ -273,16 +280,17 @@ bool AutoBuff::init(
     int& use_detect_ncnn_count,
     const Eigen::Matrix3d& R_camera2gimbal,
     const Eigen::Vector3d& t_camera2gimbal,
-    const std::pair<cv::Mat, cv::Mat>& camera_info
+    const std::pair<cv::Mat, cv::Mat>& camera_info,
+    int max_detect_running
 ) {
     return _impl
-        ->init(config, use_detect_ncnn_count, R_camera2gimbal, t_camera2gimbal, camera_info);
+        ->init(config, use_detect_ncnn_count, R_camera2gimbal, t_camera2gimbal, camera_info,max_detect_running);
 }
 void AutoBuff::start() {
     _impl->start();
 }
-void AutoBuff::pushInput(CommonFrame& frame,bool is_big) {
-    _impl->pushInput(frame,is_big);
+void AutoBuff::pushInput(CommonFrame& frame, bool is_big) {
+    _impl->pushInput(frame, is_big);
 }
 void AutoBuff::setDebug(bool debug) {
     _impl->setDebug(debug);

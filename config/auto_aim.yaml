@@ -1,4 +1,4 @@
-armor_detect_backend: openvino
+armor_detect_backend: opencv
 max_detect_armors: 11
 use_ba: true
 
@@ -51,8 +51,8 @@ aimer:
   leaving_angle: 20
 
 shooter:
-  shooting_range_h: 0.01
-  shooting_range_w: 0.01
+  shooting_range_h: 0.135
+  shooting_range_w: 0.135
   trajectory_offset:
     - d_max: 9
       d_min: 0

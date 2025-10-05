@@ -1,8 +1,0 @@
-pattern_cols: 11
-pattern_rows: 8
-center_distance_mm: 15
-
-R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, 1]
-
-camera_matrix: [2409.65686, 0., 697.53936, 0., 2409.7232, 542.54474, 0., 0., 1.]
-distort_coeffs: [-0.035576, 0.087575, -0.001803, -0.000411, 0.000000]

@@ -9,13 +9,16 @@ namespace auto_buff {
 struct AutoBuffShared {
     std::shared_ptr<MotionBufferGeneric<Motion, 1024>> motion_buffer;
     double bullet_speed;
-    double controller_delay;
     bool is_rune_big;
-    Eigen::Matrix3d R_camera2gimbal;
-    Eigen::Vector3d t_camera2gimbal;
     double communication_delay_μs;
-    AutoBuffShared(std::shared_ptr<MotionBufferGeneric<Motion, 1024>> mb) {
+    AutoBuffShared(
+        std::shared_ptr<MotionBufferGeneric<Motion, 1024>> mb,
+        double bullet_speed,
+        double communication_delay_μs
+    ) {
         motion_buffer = mb;
+        this->bullet_speed = bullet_speed;
+        this->communication_delay_μs = communication_delay_μs;
     }
 };
 class AutoBuff {
@@ -27,10 +30,11 @@ public:
         int& use_detect_ncnn_count,
         const Eigen::Matrix3d& R_camera2gimbal,
         const Eigen::Vector3d& t_camera2gimbal,
-        const std::pair<cv::Mat, cv::Mat>& camera_info
+        const std::pair<cv::Mat, cv::Mat>& camera_info,
+        int max_detect_running
     );
     void start();
-    void pushInput(CommonFrame& frame,bool is_big);
+    void pushInput(CommonFrame& frame, bool is_big);
     void setDebug(bool debug);
     DebugRune getDebugFrame();
     GimbalCmd solve();

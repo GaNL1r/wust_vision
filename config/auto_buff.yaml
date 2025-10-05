@@ -1,3 +1,12 @@
+rune_optimize:
+  max_iter_R: 300
+  max_iter_t: 1000
+  step_R: 30
+  step_t: 100
+  min_error_R: 0.7
+  min_error_t: 0.5
+  distance_fix_a2: 0.00
+
 rune_tracker:
   lost_time_thres: 2.0
   tracking_thres: 10

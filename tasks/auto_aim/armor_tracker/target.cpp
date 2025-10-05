@@ -55,24 +55,7 @@ Target::Target(
     double yc = ya + r * sin(yaw);
     double zc = za;
     target_state_ << xc, 0, yc, 0, zc, 0, yaw, 0, r, 0, 0;
-    // fg_estimator_ =  ypdv2armor_motion_model::RobotStateFACTOR();
-    // gtsam::Vector sigmas = gtsam::Vector::Constant( ypdv2armor_motion_model::X_N, 1.0);
-    // sigmas(0) = sigmas(2) = sigmas(4) = 0.05; // pos
-    // sigmas(1) = sigmas(3) = sigmas(5) = 1.0; // vel
-    // sigmas(6) = 0.05; // yaw
-    // sigmas(7) = 1.0; // yaw_rate
-    // sigmas(8) = 0.1; // radius
-    // sigmas(9) = sigmas(10) = 1.0; // others
-    // step_ = 0;
 
-    // // 添加 Prior
-    // fg_estimator_.addPrior(
-    //     gtsam_motion_generic::XKey(step_),
-    //     target_state_,
-    //     gtsam_motion_generic::noiseModel::Diagonal::Sigmas(sigmas),
-    //     a.timestamp
-    // );
-    // step_++;
     esekf_ypd_.setState(target_state_);
     tracked_id_ = a.number;
     type_ = a.type;
@@ -272,35 +255,6 @@ bool Target::update(const armor::Armor& armor) {
     esekf_ypd_.setMeasureFunc(ypdv2armor_motion_model::Measure { id, armor_num_ });
 
     esekf_ypd_.update(measurement_);
-    // using namespace ypdv2armor_motion_model;
-    // using VectorX = Eigen::Matrix<double, X_N, 1>;
-    // using VectorZ = Eigen::Matrix<double, Z_N, 1>;
-    // VectorX x_post = esekf_ypd_.getState();
-    // Eigen::Matrix<double, X_N, X_N> P_post = esekf_ypd_.getPosteriorCovariance();
-    // for (int i = 0; i < X_N; ++i) if (P_post(i,i) <= 1e-9) P_post(i,i) = 1e-4;
-    // // --- prior noise model ---
-    // Eigen::VectorXd sigmas_post = computeProcessNoise(dt_).diagonal().cwiseSqrt();
-    // auto priorPostModel = gtsam_motion_generic::noiseModel::Diagonal::Sigmas(sigmas_post);
 
-    // // --- 因子图更新 ---
-    // fg_estimator_.addPrior(gtsam_motion_generic::XKey(step_), x_post, priorPostModel, timestamp_);
-
-    // if (step_ > 0) {
-    //     fg_estimator_.addMotionFactor(gtsam_motion_generic::XKey(step_-1), gtsam_motion_generic::XKey(step_), Predict {
-    //             dt_,
-    //             ypdv2armor_motion_model::MotionModel::CONSTANT_VEL_ROT,
-    //             0.0,
-    //             0.0,
-    //             0.0 }, priorPostModel, timestamp_);
-    // }
-    // Eigen::VectorXd sigmas_meas(Z_N);
-    // sigmas_meas = this->computeMeasurementCovariance(measurement_).diagonal().cwiseSqrt();
-    // auto measModel = gtsam_motion_generic::noiseModel::Diagonal::Sigmas(sigmas_meas);
-    // fg_estimator_.addMeasurementFactor(gtsam_motion_generic::XKey(step_), measurement_, ypdv2armor_motion_model::Measure { id, armor_num_ }, measModel, timestamp_);
-
-    // fg_estimator_.update();
-    // target_state_ = fg_estimator_.estimate(gtsam_motion_generic::XKey(step_));
-    // esekf_ypd_.setState(target_state_);
-    // ++step_;
     return true;
 }

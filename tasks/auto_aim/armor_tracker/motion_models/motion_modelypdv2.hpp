@@ -16,7 +16,6 @@
 // ceres
 #include <ceres/ceres.h>
 // project
-#include "KalmanHyLib/gtsam.hpp"
 #include "KalmanHyLib/kalman_hybird_lib.hpp"
 namespace ypdv2armor_motion_model {
 
@@ -115,6 +114,5 @@ struct Measure {
 
 using RobotStateEKF = kalman_hybird_lib::ExtendedKalmanFilter<X_N, Z_N, Predict, Measure>;
 using RobotStateESEKF = kalman_hybird_lib::ErrorStateEKF<X_N, Z_N, Predict, Measure>;
-using RobotStateFACTOR = gtsam_motion_generic::FactorGraphEstimator<X_N, Z_N, Predict, Measure>;
 
 } // namespace ypdv2armor_motion_model

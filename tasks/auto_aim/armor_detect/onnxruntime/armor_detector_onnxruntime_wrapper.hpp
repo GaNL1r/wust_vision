@@ -1,4 +1,4 @@
-// Copyright 2025 XiaoJian Wu
+// Copyright 2025 Xiaojian Wu
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,18 +13,18 @@
 // limitations under the License.
 #pragma once
 #include "tasks/auto_aim/armor_detect/armor_detector_base.hpp"
-#include "tasks/auto_aim/armor_detect/tensorrt/armor_detector_trt.hpp"
+#include "tasks/auto_aim/armor_detect/onnxruntime/armor_detector_onnxruntime.hpp"
 #include <yaml-cpp/yaml.h>
 
-class ArmorDetectorTrtWrapper: public ArmorDetectorBase {
+class ArmorDetectorOrtWrapper: public ArmorDetectorBase {
 public:
-    ArmorDetectorTrtWrapper(const YAML::Node& config, bool use_armor_detect_common = true);
-    ~ArmorDetectorTrtWrapper() override;
+    ArmorDetectorOrtWrapper(const YAML::Node& config, bool use_armor_detect_common = true);
+    ~ArmorDetectorOrtWrapper() override;
 
     void pushInput(CommonFrame& frame) override;
 
     void setCallback(DetectorCallback cb) override;
 
 private:
-    std::unique_ptr<ArmorDetectTrt> detector_;
+    std::unique_ptr<ArmorDetectOnnxRuntime> detector_;
 };

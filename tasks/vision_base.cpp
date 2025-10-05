@@ -120,24 +120,25 @@ bool VisionBase::init() {
     YAML::Node auto_buff_config = YAML::LoadFile(auto_buff_config_);
     auto_buff_ = std::make_unique<auto_buff::AutoBuff>();
     auto_buff_
-        ->init(auto_buff_config, use_ncnn_count_, R_camera2gimbal_, t_camera2gimbal_, camera_info);
+        ->init(auto_buff_config, use_ncnn_count_, R_camera2gimbal_, t_camera2gimbal_, camera_info,max_infer_running_);
     thread_pool_ = std::make_unique<ThreadPool>(std::thread::hardware_concurrency());
     motion_buffer_ = std::make_shared<MotionBufferGeneric<Motion, 1024>>();
-    auto_aim_shared_ = std::make_shared<auto_aim::AutoAimShared>(motion_buffer_);
-    auto_aim_shared_->bullet_speed = config_["shoot"]["bullet_speed"].as<double>(20.0);
-    auto_aim_shared_->controller_delay = config_["shoot"]["controller_delay"].as<double>(0.0);
-    auto_aim_shared_->R_camera2gimbal = R_camera2gimbal_;
-    auto_aim_shared_->t_camera2gimbal = t_camera2gimbal_;
+    double bullet_speed = config_["shoot"]["bullet_speed"].as<double>(20.0);
+    double communication_delay_μs = config_["control"]["communication_delay_us"].as<double>(1000.0);
+    auto_aim_shared_ = std::make_shared<auto_aim::AutoAimShared>(
+        motion_buffer_,
+        bullet_speed,
+        communication_delay_μs
+    );
     auto_aim_->setShared(auto_aim_shared_);
-    auto_buff_shared_ = std::make_shared<auto_buff::AutoBuffShared>(motion_buffer_);
-    auto_buff_shared_->bullet_speed = config_["shoot"]["bullet_speed"].as<double>(20.0);
-    auto_buff_shared_->controller_delay = config_["shoot"]["controller_delay"].as<double>(0.0);
-    auto_buff_shared_->R_camera2gimbal = R_camera2gimbal_;
-    auto_buff_shared_->t_camera2gimbal = t_camera2gimbal_;
+    auto_buff_shared_ = std::make_shared<auto_buff::AutoBuffShared>(
+        motion_buffer_,
+        bullet_speed,
+        communication_delay_μs
+    );
     auto_buff_->setShared(auto_buff_shared_);
 
     std::string device_name = config_["control"]["device_name"].as<std::string>();
-    bindConfig(config_binder_, { "control", "communication_delay_us" }, &communication_delay_μs_);
 
     serial_ = std::make_shared<SerialDriver>();
     bool use_serial = config_["control"]["use_serial"].as<bool>();
@@ -256,9 +257,6 @@ void VisionBase::frameCallback(wust_vl_video::ImageFrame& frame) {
     if (!run_flag_ || infer_running_count_ >= max_infer_running_) {
         return;
     }
-    // auto node = YAML::LoadFile("config/tmp.yaml");
-    // double exposure_time = node["exposure_time"].as<double>(0.0);
-    // camera_->setHikExposureTime(exposure_time);
     CommonFrame common_frame;
     common_frame.timestamp = frame.timestamp;
     if (frame.src_img.empty()) {
@@ -281,12 +279,11 @@ void VisionBase::frameCallback(wust_vl_video::ImageFrame& frame) {
             case AttackMode::ARMOR: {
                 auto_aim_->pushInput(frame);
             } break;
-            case AttackMode::SMALL_RUNE:
-            {
-                auto_buff_->pushInput(frame,false);
-            }break;
+            case AttackMode::SMALL_RUNE: {
+                auto_buff_->pushInput(frame, false);
+            } break;
             case AttackMode::BIG_RUNE: {
-                auto_buff_->pushInput(frame,true);
+                auto_buff_->pushInput(frame, true);
             } break;
             case AttackMode::UNKNOWN: {
                 auto_aim_->pushInput(frame);

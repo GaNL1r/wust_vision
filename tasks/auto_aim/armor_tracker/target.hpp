@@ -52,8 +52,6 @@ public:
     std::chrono::steady_clock::time_point timestamp_;
     double dt_;
     ypdv2armor_motion_model::RobotStateESEKF esekf_ypd_;
-    ypdv2armor_motion_model::RobotStateFACTOR fg_estimator_;
-    size_t step_ { 0 };
     TargetConfig target_config_;
     void predict(
         std::chrono::steady_clock::time_point t,

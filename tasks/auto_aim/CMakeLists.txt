@@ -19,7 +19,7 @@ if(BUILD_WITH_ORT)
 endif()
 add_subdirectory(armor_control/tinympc)
 list(APPEND BUILD_LIBS tinympcstatic TBB::tbb ${G2O_LIBRARIES} g2o_solver_dense ${CERES_LIBRARIES})
-# ================== 创建目标库 ==================
+
 add_library(auto_aim OBJECT)
 
 target_compile_options(auto_aim PRIVATE -w)
@@ -31,7 +31,7 @@ target_include_directories(auto_aim PRIVATE
     $<$<BOOL:${BUILD_WITH_NCNN}>:${ncnn_INCLUDE_DIRS}>
     $<$<BOOL:${BUILD_WITH_ORT}>:${Ort_INCLUDE_DIR}>
 )
-# ================== 公共源文件 ==================
+
 target_sources(auto_aim PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/auto_aim.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_control/aimer.cpp
@@ -55,7 +55,7 @@ target_sources(auto_aim PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/number_classifier.cpp
 )
 
-# ================== 后端源码 ==================
+
 if(BUILD_WITH_OPENVINO)
     target_sources(auto_aim PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/openvino/armor_detector_openvino.cpp
@@ -65,8 +65,8 @@ endif()
 
 if(BUILD_WITH_TRT)
     target_sources(auto_aim PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/tensorrt/armor_detector_trt.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/tensorrt/armor_detector_trt_wrapper.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/tensorrt/armor_detector_tensorrt.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/tensorrt/armor_detector_tensorrt_wrapper.cpp
     )
 endif()
 
@@ -79,8 +79,8 @@ endif()
 
 if(BUILD_WITH_ORT)
     target_sources(auto_aim PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/onnxruntime/armor_detector_ort.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/onnxruntime/armor_detector_ort_wrapper.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/onnxruntime/armor_detector_onnxruntime.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/onnxruntime/armor_detector_onnxruntime_wrapper.cpp
     )
 endif()
 set(WUST_AUTO_AIM_LIBS ${BUILD_LIBS} PARENT_SCOPE)

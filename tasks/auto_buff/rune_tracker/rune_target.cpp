@@ -152,7 +152,7 @@ bool RuneTarget::update(const rune::RuneFan& fan) {
     double tostart = time_utils::durationSec(start_time_, fan.timestamp);
     fitter_.update(tostart, v_roll());
     fitter_.setAngleRef(tostart, roll());
-    fitter_.fit();
+    fitter_.fitAsync();
     last_time_ = tostart;
     return true;
 }

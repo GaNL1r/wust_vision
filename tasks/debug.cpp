@@ -910,7 +910,7 @@ void debuglog(
     log.rune_obs_log.push_back(dbg_rune.obs_angle);
     log.rune_pre_log.push_back(dbg_rune.pre_angle);
     log.rune_fitv_log.push_back(dbg_rune.fitter_v * 180.0 / M_PI);
-    log.rune_obsv_log.push_back(dbg_rune.obs_v* 180.0 / M_PI);
+    log.rune_obsv_log.push_back(dbg_rune.obs_v * 180.0 / M_PI);
     log.armor_yaw_log.push_back(armor_yaw * 180.0 / M_PI);
     log.armor_x_log.push_back(last_armor_.target_pos.x());
     log.armor_y_log.push_back(last_armor_.target_pos.y());
@@ -943,7 +943,7 @@ void debuglog(
     trim(log.rune_obs_log);
     trim(log.rune_pre_log);
     trim(log.rune_obsv_log);
-    trim(log.rune_fitv_log);    
+    trim(log.rune_fitv_log);
     trim(log.armor_yaw_log);
     trim(log.armor_x_log);
     trim(log.armor_y_log);

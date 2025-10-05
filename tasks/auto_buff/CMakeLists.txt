@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
 project(auto_buff LANGUAGES CXX)
-
-
 set(BUILD_DEFINITIONS "")
 list(APPEND BUILD_LIBS  TBB::tbb ${G2O_LIBRARIES} g2o_solver_dense ${CERES_LIBRARIES})
 add_subdirectory(rune_detector/rm_vision_core)

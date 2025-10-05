@@ -114,11 +114,11 @@ public:
             predict(t);
         }
     }
-    double getFitterSpd(std::chrono::steady_clock::time_point t)
-    {   double to_start = time_utils::durationSec(start_time_, t);
+    double getFitterSpd(std::chrono::steady_clock::time_point t) {
+        double to_start = time_utils::durationSec(start_time_, t);
         return fitter_.predictSpeed(to_start);
     }
-    
+
     Eigen::Vector3d centerPos() const {
         return { target_state_(0), target_state_(1), target_state_(2) };
     }

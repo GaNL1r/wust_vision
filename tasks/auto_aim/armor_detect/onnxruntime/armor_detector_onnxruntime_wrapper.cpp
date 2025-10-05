@@ -11,9 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "tasks/auto_aim/armor_detect/tensorrt/armor_detector_trt_wrapper.hpp"
+#include "armor_detector_onnxruntime_wrapper.hpp"
 
-ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(
+ArmorDetectorOrtWrapper::ArmorDetectorOrtWrapper(
     const YAML::Node& config,
     bool use_armor_detect_common
 ) {
@@ -21,17 +21,11 @@ ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(
     auto classify_label_path = config["armor_detect"]["classify"]["label_path"].as<std::string>();
     double classify_threshold = config["armor_detect"]["classify"]["threshold"].as<double>();
     const std::string model_path = config["armor_detect"]["model"]["model_path"].as<std::string>();
-    ArmorDetectTrt::Params params;
-    params.conf_threshold = config["armor_detect"]["model"]["conf_threshold"].as<float>();
-    params.nms_threshold = config["armor_detect"]["model"]["nms_threshold"].as<float>();
-    params.top_k = config["armor_detect"]["model"]["top_k"].as<int>();
-    params.device_id = config["armor_detect"]["model"]["device_id"].as<int>();
-    params.max_infer_running = config["armor_detect"]["model"]["max_infer_running"].as<int>();
-    params.min_free_mem_ratio = config["armor_detect"]["model"]["min_free_mem_ratio"].as<double>();
-    params.use_cuda_pre = config["armor_detect"]["model"]["use_cuda_pre"].as<bool>();
-    params.use_cuda_post = config["armor_detect"]["model"]["use_cuda_post"].as<bool>();
-    params.log_time = config["armor_detect"]["model"]["log_time"].as<bool>();
+    float conf_threshold = config["armor_detect"]["model"]["conf_threshold"].as<float>();
+    int top_k = config["armor_detect"]["model"]["top_k"].as<int>();
+    float nms_threshold = config["armor_detect"]["model"]["nms_threshold"].as<float>();
     std::string model_type = config["armor_detect"]["model"]["model_type"].as<std::string>();
+    std::string provider = config["armor_detect"]["model"]["provider"].as<std::string>("CPU");
     WUST_INFO("armor_detector") << "model_path: " << model_path;
     int binary_thres;
     float expand_ratio_w, expand_ratio_h;
@@ -70,21 +64,24 @@ ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(
         .max_pts_error = max_pts_error
     };
 
-    detector_ = std::make_unique<ArmorDetectTrt>(
+    detector_ = std::make_unique<ArmorDetectOnnxRuntime>(
+        provider,
         model_type,
         model_path,
-        params,
         armor_detect_common_params,
+        conf_threshold,
+        top_k,
+        nms_threshold,
         use_armor_detect_common
     );
 }
 
-ArmorDetectorTrtWrapper::~ArmorDetectorTrtWrapper() = default;
+ArmorDetectorOrtWrapper::~ArmorDetectorOrtWrapper() = default;
 
-void ArmorDetectorTrtWrapper::pushInput(CommonFrame& frame) {
+void ArmorDetectorOrtWrapper::pushInput(CommonFrame& frame) {
     detector_->pushInput(frame);
 }
 
-void ArmorDetectorTrtWrapper::setCallback(DetectorCallback cb) {
+void ArmorDetectorOrtWrapper::setCallback(DetectorCallback cb) {
     detector_->setCallback(std::move(cb));
 }

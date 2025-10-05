@@ -1,5 +1,5 @@
 max_infer_running: 6
-detect_color: 1
+detect_color: 0
 attack_mode: 1
 debug_mode: true
 
@@ -14,12 +14,14 @@ control:
   yaw_avg_windows: 20
   device_name: /dev/ttyACM_RMc
   use_serial: false
+  
 logger:
   log_level: INFO
   log_path: /home/hy/wust_log
   use_logcli: true
   use_logfile: true
   use_simplelog: true
+
 shoot:
   bullet_speed: 18.0
   controller_delay: 0.00

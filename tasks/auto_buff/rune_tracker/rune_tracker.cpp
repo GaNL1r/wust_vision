@@ -88,7 +88,7 @@ bool RuneTracker::initTarget(const rune::RuneFan& fan) {
     if (!fan.is_valid) {
         return false;
     }
-    target_ = rune::RuneTarget(fan.is_big,fan, target_config_, pre_v_roll_);
+    target_ = rune::RuneTarget(fan.is_big, fan, target_config_, pre_v_roll_);
     tracker_state = DETECTING;
     return true;
 }

@@ -22,7 +22,7 @@
 #endif
 
 #ifdef USE_TRT
-    #include "tasks/auto_aim//armor_detect/tensorrt/armor_detector_trt_wrapper.hpp"
+    #include "tasks/auto_aim//armor_detect/tensorrt/armor_detector_tensorrt_wrapper.hpp"
 
 #endif
 
@@ -32,7 +32,7 @@
 #endif
 
 #ifdef USE_ORT
-    #include "tasks/auto_aim/armor_detect/onnxruntime/armor_detector_ort_wrapper.hpp"
+    #include "tasks/auto_aim/armor_detect/onnxruntime/armor_detector_onnxruntime_wrapper.hpp"
 
 #endif
 #include "tasks/auto_aim/armor_detect/opencv/armor_detector_opencv_wrapper.hpp"
