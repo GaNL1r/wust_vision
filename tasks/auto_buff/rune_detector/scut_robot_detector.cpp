@@ -66,6 +66,7 @@ ScutRobotDetector::ScutRobotDetector(
     };
     auto release_func = [](std::unique_ptr<Infer>& resource) {
         if (resource) {
+
         }
     };
     auto restore_func = [=](size_t idx) -> std::unique_ptr<Infer> {
@@ -123,13 +124,17 @@ void ScutRobotDetector::detect(
     bool debug,
     Infer* infer
 ) {
-    rune::RuneFan fan { .is_valid = false, .timestamp = frame.timestamp, .id = frame.id ,.is_big = is_big};
-    if (!infer || !callback_) {
+    rune::RuneFan fan { .is_valid = false,
+                        .timestamp = frame.timestamp,
+                        .id = frame.id,
+                        .is_big = is_big };
+    if (!infer || !callback_ || !infer->detector) {
         return;
     }
     if (debug) {
         DebugTools::get()->setImage(frame.src_img);
     }
+
     auto t1 = std::chrono::steady_clock::now();
     GyroData gyroData;
     gyroData.rotation.yaw = gimbal[0];
@@ -143,9 +148,14 @@ void ScutRobotDetector::detect(
     input.setColor(toScutPixChannel(frame.detect_color));
     input.setFeatureNodes(infer->rune_groups);
     input.setDebug(debug);
-
-    infer->detector->detect(input, output);
+    try{
+        infer->detector->detect(input, output);
     infer->rune_groups = output.getFeatureNodes();
+    }catch(std::exception& e)
+    {
+        std::cout << "detect error" << std::endl;
+    }
+    
 
     do {
         if (infer->rune_groups.empty())
@@ -170,7 +180,10 @@ void ScutRobotDetector::detect(
 
         if (!target_tracker)
             break;
-
+        if(!output.getValid())
+        {
+            break;
+        }
         auto pose = output.getPnpData();
         auto tvec = pose.tvec();
         tvec = tvec * 0.001;
@@ -215,6 +228,7 @@ void ScutRobotDetector::detect(
             small_bin.copyTo(debug_img(cv::Rect(x, y, small_bin.cols, small_bin.rows)));
         }
     }
+    
     callback_(fan, frame, debug_img);
 }
 void ScutRobotDetector::pushInput(
@@ -228,7 +242,7 @@ void ScutRobotDetector::pushInput(
         auto infer_ptr = infer_pool_->acquire();
         if (infer_ptr != nullptr) {
             frame.id = current_id_++;
-            detect(frame, gimbal, T_camera_to_odom, is_big,debug, infer_ptr);
+            detect(frame, gimbal, T_camera_to_odom, is_big, debug, infer_ptr);
             infer_pool_->release(infer_ptr);
         }
     }

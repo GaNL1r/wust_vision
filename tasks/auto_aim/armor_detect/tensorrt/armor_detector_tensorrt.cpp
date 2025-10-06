@@ -298,7 +298,7 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
                          << "post " << time_utils::durationMs(t2, t3) << " "
                          << "total " << time_utils::durationMs(t0, t3);
     }
-
+    infer_pool_->release(infer);
     std::vector<armor::ArmorObject> armors;
     if (use_armor_detect_common_) {
         armors = armor_detect_common_->detectNet(frame.src_img, objs_result, frame.detect_color);
@@ -332,7 +332,6 @@ void ArmorDetectTrt::pushInput(CommonFrame& frame) {
         if (infer_ptr != nullptr) {
             frame.id = current_id_++;
             this->processCallback(frame, infer_ptr);
-            infer_pool_->release(infer_ptr);
         }
     }
 }

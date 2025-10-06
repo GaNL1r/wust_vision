@@ -9,6 +9,10 @@ namespace auto_buff {
 struct AutoBuff::Impl {
     ~Impl() {
         run_flag_ = false;
+        if(scut_detector_)
+        {
+            scut_detector_.reset();
+        }
         if (processing_thread_) {
             processing_thread_->stop();
             wust_vl_concurrency::ThreadManager::instance().unregisterThread(
@@ -104,7 +108,7 @@ struct AutoBuff::Impl {
                 apply_motion(*last_att);
             }
         }
-
+        
         Eigen::Matrix4d T_camera_to_odom =
             utils::computeCameraToOdomTransform(R_gimbal2odom, R_camera2gimbal_, t_camera2gimbal_);
         scut_detector_->pushInput(frame, gimbal, T_camera_to_odom, is_big, debug_mode_);
@@ -283,8 +287,14 @@ bool AutoBuff::init(
     const std::pair<cv::Mat, cv::Mat>& camera_info,
     int max_detect_running
 ) {
-    return _impl
-        ->init(config, use_detect_ncnn_count, R_camera2gimbal, t_camera2gimbal, camera_info,max_detect_running);
+    return _impl->init(
+        config,
+        use_detect_ncnn_count,
+        R_camera2gimbal,
+        t_camera2gimbal,
+        camera_info,
+        max_detect_running
+    );
 }
 void AutoBuff::start() {
     _impl->start();

@@ -18,7 +18,7 @@ while true; do
     done
 
     source env.bash
-    ./$1
+    $1
     sleep 1
 done
 

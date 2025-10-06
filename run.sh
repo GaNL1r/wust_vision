@@ -78,22 +78,27 @@ if [ "$1" == "run" ]; then
     RUN_PROGRAM="$BUILD_DIR/$2"
     "$RUN_PROGRAM"
     if [ $? -ne 0 ]; then
-        echo -e "${red}\n--- Program crashed, running guard.sh ---${reset}"
-        pkill "$2"
-        timeout=10
-        while pgrep "$2" > /dev/null; do
-            sleep 0.5
-            timeout=$((timeout - 1))
-            if [ $timeout -le 0 ]; then
-                echo "$2 did not exit after 10 seconds, forcing kill"
-                pkill -9 "$2"
-                break
-            fi
-        done
-        
-        "$CONFIG_DIR/guard.sh" "$2"
-        exit 1
-    fi
+    echo -e "${red}\n--- Program crashed, running guard.sh ---${reset}"
+    pkill "$2"
+    timeout=10
+    while pgrep "$2" > /dev/null; do
+        sleep 0.5
+        timeout=$((timeout - 1))
+        if [ $timeout -le 0 ]; then
+            echo "$2 did not exit after 10 seconds, forcing kill"
+            pkill -9 "$2"
+            break
+        fi
+    done
+
+    # 获取 guard.sh 和被运行程序的绝对路径
+    GUARD_SCRIPT="$(realpath "$CONFIG_DIR/guard.sh")"
+    TARGET_PATH="$(realpath "$RUN_PROGRAM")"
+
+    "$GUARD_SCRIPT" "$TARGET_PATH"
+    exit 1
+fi
+
 else
     echo -e "${red}\n--- Invalid argument: Please specify 'run', 'build', 'rebuild', or 'run PROGRAM' ---${reset}"
     exit 1

@@ -119,8 +119,14 @@ bool VisionBase::init() {
     );
     YAML::Node auto_buff_config = YAML::LoadFile(auto_buff_config_);
     auto_buff_ = std::make_unique<auto_buff::AutoBuff>();
-    auto_buff_
-        ->init(auto_buff_config, use_ncnn_count_, R_camera2gimbal_, t_camera2gimbal_, camera_info,max_infer_running_);
+    auto_buff_->init(
+        auto_buff_config,
+        use_ncnn_count_,
+        R_camera2gimbal_,
+        t_camera2gimbal_,
+        camera_info,
+        max_infer_running_
+    );
     thread_pool_ = std::make_unique<ThreadPool>(std::thread::hardware_concurrency());
     motion_buffer_ = std::make_shared<MotionBufferGeneric<Motion, 1024>>();
     double bullet_speed = config_["shoot"]["bullet_speed"].as<double>(20.0);

@@ -10,15 +10,15 @@ rune_optimize:
 rune_tracker:
   lost_time_thres: 2.0
   tracking_thres: 10
-  max_dis_diff: 3.0
+  max_dis_diff: 30.0
   esekf_iter_num: 2
   q_roll: 10.0
   q_xyz: 0.5
-  q_yaw: 0.1
+  q_yaw: 0.5
   yp_r: 0.01
   dis_r: 0.05
   yaw_r: 0.1
-  roll_r: 0.1
+  roll_r: 0.2
 
 aimer:
   trajectory_offset:
