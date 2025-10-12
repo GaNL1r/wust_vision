@@ -16,21 +16,21 @@ armor_tracker:
   tracking_thres: 10
   max_yaw_diff_deg: 80.0
   max_dis_diff: 1.0
-  qxyz_common: 400.0
+  qxyz_common: 200.0
   qyaw_common: 100.0
   qxyz_output: 10.0
   qyaw_output: 0.1
   q_r: 0.0
   q_l: 0.0
-  q_h: 1.0
+  q_h: 0.0
   yp_r: 4e-3
   dis_r_front: 0.5
   dis_r_side: 1.5
-  dis2_r_ratio: 0.005
+  dis2_r_ratio: 0.01
   yaw_r_base_front: 0.08
   yaw_r_base_side: 0.06
   yaw_r_log_ratio: 0.005
-  esekf_iter_num: 10
+  esekf_iter_num: 2
 
 auto_aim_fsm:
   thres_up_1: 3.5
