@@ -1,4 +1,4 @@
-armor_detect_backend: openvino
+armor_detect_backend: tensorrt
 max_detect_armors: 11
 use_ba: true
 
@@ -16,10 +16,13 @@ armor_tracker:
   tracking_thres: 10
   max_yaw_diff_deg: 80.0
   max_dis_diff: 1.0
-  qxyz_common: 100.0
-  qyaw_common: 50.0
+  qxyz_common: 400.0
+  qyaw_common: 100.0
   qxyz_output: 10.0
   qyaw_output: 0.1
+  q_r: 0.0
+  q_l: 0.0
+  q_h: 1.0
   yp_r: 4e-3
   dis_r_front: 0.5
   dis_r_side: 1.5
@@ -51,15 +54,15 @@ aimer:
   leaving_angle: 20
 
 shooter:
-  shooting_range_h: 0.135
-  shooting_range_w: 0.135
+  shooting_range_h: 0.1
+  shooting_range_w: 0.12
   trajectory_offset:
     - d_max: 9
       d_min: 0
       h_max: 1.4
       h_min: -1
-      pitch_off: -0.0
-      yaw_off: -1.0
+      pitch_off: -0.5
+      yaw_off: -2.5
     - d_max: 10
       d_min: 9
       h_max: 0.4

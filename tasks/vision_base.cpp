@@ -5,14 +5,14 @@ VisionBase::VisionBase(
     std::string common_config,
     std::string camera_config,
     std::string auto_aim_config,
-    std::string auto_buff_config
+    std::string auto_buff_config 
 ):
     common_config_(common_config),
     camera_config_(camera_config),
     auto_aim_config_(auto_aim_config),
     auto_buff_config_(auto_buff_config) {}
 VisionBase::~VisionBase() {
-    // stop();
+    stop();
 }
 void VisionBase::stop() {
     run_flag_ = false;
@@ -60,7 +60,8 @@ void VisionBase::stop() {
 #endif
     WUST_MAIN("main") << "vision stop already!";
 }
-bool VisionBase::init() {
+bool VisionBase::init(bool debug_mode) {
+    debug_mode_ = debug_mode;
     config_ = YAML::LoadFile(common_config_);
     config_binder_ = std::make_shared<wust_vl_utils::ConfigBinder>(common_config_);
     std::string log_level_ = config_["logger"]["log_level"].as<std::string>("INFO");
@@ -173,7 +174,7 @@ bool VisionBase::init() {
     pitch_avg_ = std::make_unique<Averager<double>>(pitch_avg_windows);
     timer_ = std::make_unique<Timer>();
     detect_color_ = config_["detect_color"].as<int>(0);
-    debug_mode_ = config_["debug_mode"].as<bool>(false);
+    // debug_mode_ = config_["debug_mode"].as<bool>(false);
     auto_exposure_cfg_.loadFromYaml(config_["auto_exposure"]);
     if (auto_aim_) {
         auto_aim_->setDebug(debug_mode_);
@@ -198,7 +199,7 @@ void VisionBase::serialCallback(const uint8_t* data, std::size_t len) {
         {
             return;
         }
-        detect_color_ = aim_data.detect_color;
+        //detect_color_ = aim_data.detect_color;
         double roll = -(aim_data.roll) * M_PI / 180.0;
         double pitch = (aim_data.pitch) * M_PI / 180.0;
         double yaw = (aim_data.yaw) * M_PI / 180.0;
@@ -329,6 +330,8 @@ void VisionBase::checkStateMatchMode() {
         } break;
     }
 }
+
+
 void VisionBase::timerCallback(double dt_ms) {
     static double last_yaw = 0.0;
     static double last_pitch = 0.0;
@@ -357,15 +360,18 @@ void VisionBase::timerCallback(double dt_ms) {
     }
 
     last_cmd_ = cmd;
+
     double cmd_pitch = cmd.pitch;
     double cmd_yaw = cmd.yaw;
-    if (cmd.pitch >= 15.0) {
-        cmd_pitch = 15.0;
+    if (cmd.pitch >= 35.0) {
+        cmd_pitch = 35.0;
     }
     const double max_delta_yaw = 5.0;
     const double max_delta_pitch = 1.0;
     double pitch_delta = cmd_pitch - last_pitch;
     double yaw_delta = cmd_yaw - last_yaw;
+    if (yaw_delta > 180.0) yaw_delta -= 360.0;
+    if (yaw_delta < -180.0) yaw_delta += 360.0;
     if (pitch_delta > max_delta_pitch)
         pitch_delta = max_delta_pitch;
     if (pitch_delta < -max_delta_pitch)
@@ -387,14 +393,10 @@ void VisionBase::timerCallback(double dt_ms) {
     }
 
     send_data.detect_color = detect_color_;
-    // send_data.distance = cmd.distance;
-    // send_data.fire = cmd.fire_advice;
     double avg_pitch = pitch_avg_->average();
     double avg_yaw = yaw_avg_->average();
     send_data.pitch = avg_pitch;
     send_data.yaw = avg_yaw;
-    // send_data.pitch_diff = cmd.pitch_diff;
-    // send_data.yaw_diff = cmd.yaw_diff;
     send_data.v_pitch = cmd.v_pitch;
     send_data.v_yaw = cmd.v_yaw;
     send_data.target_yaw = cmd.target_yaw;

@@ -66,7 +66,6 @@ ScutRobotDetector::ScutRobotDetector(
     };
     auto release_func = [](std::unique_ptr<Infer>& resource) {
         if (resource) {
-
         }
     };
     auto restore_func = [=](size_t idx) -> std::unique_ptr<Infer> {
@@ -148,14 +147,12 @@ void ScutRobotDetector::detect(
     input.setColor(toScutPixChannel(frame.detect_color));
     input.setFeatureNodes(infer->rune_groups);
     input.setDebug(debug);
-    try{
+    try {
         infer->detector->detect(input, output);
-    infer->rune_groups = output.getFeatureNodes();
-    }catch(std::exception& e)
-    {
-        std::cout << "detect error" << std::endl;
+        infer->rune_groups = output.getFeatureNodes();
+    } catch (std::exception& e) {
+        std::cout << "detect error" << e.what()<< std::endl;
     }
-    
 
     do {
         if (infer->rune_groups.empty())
@@ -180,8 +177,7 @@ void ScutRobotDetector::detect(
 
         if (!target_tracker)
             break;
-        if(!output.getValid())
-        {
+        if (!output.getValid()) {
             break;
         }
         auto pose = output.getPnpData();
@@ -228,7 +224,7 @@ void ScutRobotDetector::detect(
             small_bin.copyTo(debug_img(cv::Rect(x, y, small_bin.cols, small_bin.rows)));
         }
     }
-    
+
     callback_(fan, frame, debug_img);
 }
 void ScutRobotDetector::pushInput(

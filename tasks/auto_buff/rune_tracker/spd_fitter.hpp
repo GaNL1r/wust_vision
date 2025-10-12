@@ -49,10 +49,22 @@ public:
     // --- 数据输入（线程安全） ---
     void update(double time_s, double speed_rads) {
         std::scoped_lock lock(mtx_);
+
+        // 插入新样本（按时间排序）
         auto it = std::lower_bound(times_.begin(), times_.end(), time_s);
         size_t idx = std::distance(times_.begin(), it);
         times_.insert(it, time_s);
         speeds_.insert(speeds_.begin() + idx, speed_rads);
+
+        // --- 新增: 保留最近5秒 ---
+        const double window_sec = 5.0;
+        if (!times_.empty()) {
+            double latest = times_.back();
+            while (!times_.empty() && latest - times_.front() > window_sec) {
+                times_.erase(times_.begin());
+                speeds_.erase(speeds_.begin());
+            }
+        }
     }
 
     // --- 同步拟合 ---
@@ -176,23 +188,7 @@ private:
             }
         }
 
-        // --- 异常值剔除（使用中位数+偏差阈值） ---
-        double median = 0.0;
-        if (!s_unique.empty()) {
-            std::vector<double> sorted_s = s_unique;
-            std::sort(sorted_s.begin(), sorted_s.end());
-            median = sorted_s[sorted_s.size() / 2];
-            double threshold = 0.5; // 可调整，单位弧度
-            std::vector<double> t_clean, s_clean;
-            for (size_t i = 0; i < s_unique.size(); ++i) {
-                if (std::abs(s_unique[i] - median) < threshold) {
-                    t_clean.push_back(t_unique[i]);
-                    s_clean.push_back(s_unique[i]);
-                }
-            }
-            t_unique.swap(t_clean);
-            s_unique.swap(s_clean);
-        }
+     
 
         P params_initial = params_snapshot ? *params_snapshot : params_;
 

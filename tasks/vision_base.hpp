@@ -38,7 +38,7 @@ public:
      * @brief 初始化各模块
      * @return true 表示初始化成功，否则抛出异常
      */
-    bool init();
+    bool init(bool debug_mode);
     /**
      * @brief 启动所有线程和模块
      */
@@ -138,22 +138,20 @@ public:
 };
 template<typename T>
 concept VisionLike = requires(T v) {
-    {
-        v.init()
-        } -> std::same_as<bool>;
-    {
-        v.start()
-        } -> std::same_as<void>;
-    {
-        v.stop()
-        } -> std::same_as<void>;
-    {
-        v.checkStateMatchMode()
-        } -> std::same_as<void>;
+    { v.init(std::declval<bool>()) } -> std::same_as<bool>;
+    { v.start() } -> std::same_as<void>;
+    { v.stop() } -> std::same_as<void>;
+    { v.checkStateMatchMode() } -> std::same_as<void>;
 };
 
 template<VisionLike T>
-inline int runVisionMain() {
+inline int runVisionMain(int argc, char** argv) {
+    bool debug = false;
+    if (argc > 1) {
+        std::string firstArg = argv[1];
+        debug = (firstArg == "true" || firstArg == "1");
+        std::cout << "debug: " << firstArg << std::endl;
+    }
     std::set_terminate([]() {
         std::cerr << "Uncaught exception, terminating program.\n";
         if (auto e = std::current_exception()) {
@@ -173,7 +171,7 @@ inline int runVisionMain() {
 
         {
             T v;
-            v.init();
+            v.init(debug);
             v.start();
 
             SignalHandler sig;
@@ -203,7 +201,6 @@ inline int runVisionMain() {
                 std::exit(1);
             }
             std::cout << "v.stop() finished, v will be destructed now." << std::endl;
-            v.stop();
         }
 
         std::cout << "Exiting program..." << std::endl;
@@ -221,7 +218,7 @@ inline int runVisionMain() {
 
 #define VISION_MAIN(VISION_TYPE) \
     int main(int argc, char** argv) { \
-        return runVisionMain<VISION_TYPE>(); \
+        return runVisionMain<VISION_TYPE>(argc, argv); \
     }
 
 #define ENABLE_BACKWARD() \

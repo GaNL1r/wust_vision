@@ -10,6 +10,9 @@ struct TargetConfig {
     double qyaw_common = 400;
     double qxyz_output = 10;
     double qyaw_output = 0.1;
+    double q_r=0;
+    double q_l=0;
+    double q_h=0;
     double yp_r = 4e-3;
     double dis_r_front = 0.05;
     double dis_r_side = 0.07;
@@ -17,6 +20,7 @@ struct TargetConfig {
     double yaw_r_base_front = 0.09;
     double yaw_r_base_side = 0.09;
     double yaw_r_log_ratio = 0.005;
+    
 };
 class Target {
 public:

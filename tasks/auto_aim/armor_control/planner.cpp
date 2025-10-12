@@ -36,7 +36,6 @@ Plan Planner::plan(
         }
     }
     auto now = time_utils::now();
-    // auto bullet_traj = tools::Trajectory(bullet_speed, min_dist, xyz.z());
     double dt0 = time_utils::durationSec(target.timestamp_, now);
     double fly_time = aimer_->getFlyingTime(xyz, bullet_speed);
     double dt_total = dt0 + fly_time + aimer_->getPredelay();
@@ -56,7 +55,10 @@ Plan Planner::plan(
     Trajectory traj;
 
     try {
-        yaw0 = aim(target, bullet_speed, aim_center, aim_first, self_v_yaw, dt_total)(0);
+        // aim() 返回的是归一化角度（-pi,pi），这里再次显式 normalize 以保险
+        yaw0 = angles::normalize_angle(
+            aim(target, bullet_speed, aim_center, aim_first, self_v_yaw, dt_total)(0)
+        );
         traj = get_trajectory(
             target,
             yaw0,
@@ -74,6 +76,7 @@ Plan Planner::plan(
 
     // 3. Solve yaw
     Eigen::VectorXd x0(2);
+    // traj(0,0) 在 get_trajectory 中是相对 yaw0 的短角差（yaw_rel），适合作为 solver 的初始角度
     x0 << traj(0, 0), traj(1, 0);
     tiny_set_x0(yaw_solver_, x0);
 
@@ -91,31 +94,39 @@ Plan Planner::plan(
         return { false };
     }
     Plan plan;
-
     plan.control = true;
 
+    // target_yaw 是绝对角度：traj 存的是 yaw_rel（相对于 yaw0），因此要 + yaw0 并 normalize
     plan.target_yaw = angles::normalize_angle(traj(0, MPC_HALF_HORIZON) + yaw0);
     plan.target_pitch = traj(2, MPC_HALF_HORIZON);
 
+    // solver->work->x(0, k) 是相对于 yaw0 的角（与 traj 一致的语义），因此加回 yaw0 得到绝对角度
     plan.yaw = angles::normalize_angle(yaw_solver_->work->x(0, MPC_HALF_HORIZON) + yaw0);
-    plan.yaw_vel = angles::normalize_angle(yaw_solver_->work->x(1, MPC_HALF_HORIZON));
+
+    // 注意：速度/加速度不应被 normalize（它们不是角度）
+    plan.yaw_vel = yaw_solver_->work->x(1, MPC_HALF_HORIZON);
     plan.yaw_acc = yaw_solver_->work->u(0, MPC_HALF_HORIZON);
 
     plan.pitch = pitch_solver_->work->x(0, MPC_HALF_HORIZON);
     plan.pitch_vel = pitch_solver_->work->x(1, MPC_HALF_HORIZON);
     plan.pitch_acc = pitch_solver_->work->u(0, MPC_HALF_HORIZON);
 
-    auto shoot_offset_ = 2;
-    plan.fire = std::hypot(
-                    traj(0, MPC_HALF_HORIZON + shoot_offset_)
-                        - yaw_solver_->work->x(0, MPC_HALF_HORIZON + shoot_offset_),
-                    traj(2, MPC_HALF_HORIZON + shoot_offset_)
-                        - pitch_solver_->work->x(0, MPC_HALF_HORIZON + shoot_offset_)
-                )
-        < fire_thresh_;
+    // fire 判定：yaw 误差使用短角差以避免 ±pi 跳变
+    auto idx = MPC_HALF_HORIZON + /*shoot_offset=*/2;
+    if (idx >= MPC_HORIZON)
+        idx = MPC_HORIZON - 1;
+
+    double yaw_err = angles::shortest_angular_distance(
+        traj(0, idx),
+        yaw_solver_->work->x(0, idx)
+    ); // traj 与 solver 的语义都是“相对 yaw0”的角度，因此这里直接比较
+    double pitch_err = traj(2, idx) - pitch_solver_->work->x(0, idx);
+
+    plan.fire = std::hypot(yaw_err, pitch_err) < fire_thresh_;
 
     return plan;
 }
+
 void Planner::setup_yaw_solver(const YAML::Node& config) {
     auto max_yaw_acc = config["max_yaw_acc"].as<double>();
     auto Q_yaw = config["Q_yaw"].as<std::vector<double>>();
@@ -269,7 +280,8 @@ Eigen::Matrix<double, 2, 1> Planner::aim(
     cmd.appera = true;
     gimbal_cmd = shooter_->shoot(cmd, bullet_speed);
 
-    return { gimbal_cmd.yaw * M_PI / 180.0, gimbal_cmd.pitch * M_PI / 180.0 };
+    return { angles::normalize_angle(gimbal_cmd.yaw * M_PI / 180.0),
+             angles::normalize_angle(gimbal_cmd.pitch * M_PI / 180.0) };
 }
 
 Trajectory Planner::get_trajectory(
@@ -283,36 +295,57 @@ Trajectory Planner::get_trajectory(
     double cal_dt,
     int cal_horizon
 ) {
+    // ================================
     // 生成 CAL 参考轨迹
+    // ================================
     Eigen::Matrix<double, 4, Eigen::Dynamic> cal_traj(4, cal_horizon);
 
+    auto unwrap_angle = [](double prev, double current) {
+        // 返回相对 prev 连续的角度值（消除 ±2π 跳变）
+        double diff = angles::shortest_angular_distance(prev, current);
+        return prev + diff;
+    };
+
+    // 初始化预测窗口
     target.predict(-cal_dt * (cal_horizon / 2.0 + 1));
     auto yaw_pitch_last = aim(target, bullet_speed, aim_center, aim_first, self_v_yaw, dt);
 
+    // 预测第一个状态
     target.predict(cal_dt);
     auto yaw_pitch = aim(target, bullet_speed, aim_center, aim_first, self_v_yaw, dt);
+
+    // 初始化连续 yaw
+    double yaw_continuous_last = yaw_pitch_last(0);
+    double yaw_continuous = unwrap_angle(yaw_continuous_last, yaw_pitch(0));
 
     for (int i = 0; i < cal_horizon; i++) {
         target.predict(cal_dt);
         auto yaw_pitch_next = aim(target, bullet_speed, aim_center, aim_first, self_v_yaw, dt);
 
-        // 角度速度计算，处理 wrap-around
-        double yaw_diff = yaw_pitch_next(0) - yaw_pitch_last(0);
-        if (yaw_diff > M_PI)
-            yaw_diff -= 2 * M_PI;
-        if (yaw_diff < -M_PI)
-            yaw_diff += 2 * M_PI;
+        // 展开 yaw 连续角度
+        double yaw_continuous_next = unwrap_angle(yaw_continuous, yaw_pitch_next(0));
 
+        // 计算角速度
+        double yaw_diff = yaw_continuous_next - yaw_continuous_last;
         double yaw_vel = yaw_diff / (2 * cal_dt);
         double pitch_vel = (yaw_pitch_next(1) - yaw_pitch_last(1)) / (2 * cal_dt);
 
-        cal_traj.col(i) << yaw_pitch(0) - yaw0, yaw_vel, yaw_pitch(1), pitch_vel;
+        // 相对 yaw0 的短角差，避免 wrap-around
+        double yaw_rel = angles::shortest_angular_distance(yaw0, yaw_continuous);
 
+        // 存储参考轨迹点
+        cal_traj.col(i) << yaw_rel, yaw_vel, yaw_pitch(1), pitch_vel;
+
+        // 更新状态
         yaw_pitch_last = yaw_pitch;
         yaw_pitch = yaw_pitch_next;
+        yaw_continuous_last = yaw_continuous;
+        yaw_continuous = yaw_continuous_next;
     }
 
+    // ================================
     // 插值到 MPC_HORIZON
+    // ================================
     Trajectory mpc_traj;
     for (int i = 0; i < MPC_HORIZON; i++) {
         double t = i * MPC_DT;
@@ -321,17 +354,13 @@ Trajectory Planner::get_trajectory(
         int idx1 = std::min(idx0 + 1, cal_horizon - 1);
         double alpha = idx_f - idx0;
 
-        // yaw 插值，处理 wrap-around
+        // yaw 插值（保持 wrap-around 连续性）
         double yaw0_cal = cal_traj(0, idx0);
         double yaw1_cal = cal_traj(0, idx1);
-        double yaw_diff = yaw1_cal - yaw0_cal;
-        if (yaw_diff > M_PI)
-            yaw_diff -= 2 * M_PI;
-        if (yaw_diff < -M_PI)
-            yaw_diff += 2 * M_PI;
+        double yaw_diff = angles::shortest_angular_distance(yaw0_cal, yaw1_cal);
         double yaw_interp = yaw0_cal + alpha * yaw_diff;
 
-        // pitch 和速度线性插值
+        // pitch 与角速度线性插值
         double pitch_interp = cal_traj(2, idx0) + alpha * (cal_traj(2, idx1) - cal_traj(2, idx0));
         double yaw_vel_interp = cal_traj(1, idx0) + alpha * (cal_traj(1, idx1) - cal_traj(1, idx0));
         double pitch_vel_interp =

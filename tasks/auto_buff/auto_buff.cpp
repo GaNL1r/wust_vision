@@ -9,8 +9,7 @@ namespace auto_buff {
 struct AutoBuff::Impl {
     ~Impl() {
         run_flag_ = false;
-        if(scut_detector_)
-        {
+        if (scut_detector_) {
             scut_detector_.reset();
         }
         if (processing_thread_) {
@@ -108,7 +107,7 @@ struct AutoBuff::Impl {
                 apply_motion(*last_att);
             }
         }
-        
+
         Eigen::Matrix4d T_camera_to_odom =
             utils::computeCameraToOdomTransform(R_gimbal2odom, R_camera2gimbal_, t_camera2gimbal_);
         scut_detector_->pushInput(frame, gimbal, T_camera_to_odom, is_big, debug_mode_);

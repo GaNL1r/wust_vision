@@ -105,6 +105,9 @@ Target::computeProcessNoise(double dt) const {
     double q_z_z = pow(t, 4) / 4 * v1, q_z_vz = pow(t, 3) / 2 * v1, q_vz_vz = pow(t, 2) * v1;
     double q_yaw_yaw = pow(t, 4) / 4 * v2, q_yaw_vyaw = pow(t, 3) / 2 * v2,
            q_vyaw_vyaw = pow(t, 2) * v2;
+    double q_r= target_config_.q_r;
+    double q_l= target_config_.q_l;
+    double q_h= target_config_.q_h;
     // clang-format off
             //      xc      v_xc    yc      v_yc    zc      v_zc    yaw         v_yaw       r       l   h
             q <<    q_x_x,  q_x_vx, 0,      0,      0,      0,      0,          0,          0,      0,  0,
@@ -115,9 +118,9 @@ Target::computeProcessNoise(double dt) const {
                     0,      0,      0,      0,      q_z_vz, q_vz_vz,0,          0,          0,      0,  0,
                     0,      0,      0,      0,      0,      0,      q_yaw_yaw,  q_yaw_vyaw, 0,      0,  0,
                     0,      0,      0,      0,      0,      0,      q_yaw_vyaw, q_vyaw_vyaw,0,      0,  0,
-                    0,      0,      0,      0,      0,      0,      0,          0,          0,      0,  0,
-                    0,      0,      0,      0,      0,      0,      0,          0,          0,      0,  0,
-                    0,      0,      0,      0,      0,      0,      0,          0,          0,      0,  0;
+                    0,      0,      0,      0,      0,      0,      0,          0,          q_r,      0,  0,
+                    0,      0,      0,      0,      0,      0,      0,          0,          0,      q_l,  0,
+                    0,      0,      0,      0,      0,      0,      0,          0,          0,      0,  q_h;
     // clang-format on
     return q;
 }

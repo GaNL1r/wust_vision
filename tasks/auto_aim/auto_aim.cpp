@@ -212,12 +212,12 @@ struct AutoAim::Impl {
             std::cout << "cao" << std::endl;
             return;
         }
+        auto now = std::chrono::steady_clock::now();
         target = tracker_manager_->update(armors, auto_aim_fsm_cl_);
         {
             std::lock_guard<std::mutex> lock(armor_solver_target_mutex_);
             armor_solver_target_ = target;
         }
-        auto now = std::chrono::steady_clock::now();
 
         auto latency_ms = time_utils::durationMs(armors.timestamp, now);
         latency_averager_->add(latency_ms);
@@ -270,19 +270,20 @@ struct AutoAim::Impl {
                 gimbal_cmd.target_yaw = only_check_fire.target_yaw;
                 gimbal_cmd.target_pitch = only_check_fire.target_pitch;
             } else {
-                auto only_check_fire = shooter_->shoot(
-                    tmp_cmd,
-                    gimbal_cmd.yaw * M_PI / 180.0,
-                    gimbal_cmd.pitch * M_PI / 180.0,
-                    shared_->bullet_speed,
-                    true,
-                    last_att->data.vyaw
-                );
-                gimbal_cmd.fire_advice = only_check_fire.fire_advice;
-                gimbal_cmd.enable_pitch_diff = only_check_fire.enable_pitch_diff;
-                gimbal_cmd.enable_yaw_diff = only_check_fire.enable_yaw_diff;
-                gimbal_cmd.target_yaw = only_check_fire.target_yaw;
-                gimbal_cmd.target_pitch = only_check_fire.target_pitch;
+                // auto only_check_fire = shooter_->shoot(
+                //     tmp_cmd,
+                //     gimbal_cmd.yaw * M_PI / 180.0,
+                //     gimbal_cmd.pitch * M_PI / 180.0,
+                //     shared_->bullet_speed,
+                //     true,
+                //     last_att->data.vyaw
+                // );
+                // gimbal_cmd.fire_advice = only_check_fire.fire_advice;
+                // gimbal_cmd.enable_pitch_diff = only_check_fire.enable_pitch_diff;
+                // gimbal_cmd.enable_yaw_diff = only_check_fire.enable_yaw_diff;
+                // gimbal_cmd.target_yaw = only_check_fire.target_yaw;
+                // gimbal_cmd.target_pitch = only_check_fire.target_pitch;
+                gimbal_cmd.appera = false;
             }
 
         } else {

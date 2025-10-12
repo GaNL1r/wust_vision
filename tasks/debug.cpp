@@ -110,8 +110,7 @@ void drawDebugArmorContent(
                     armor_data.armors.emplace_back(armor::Armor { .type = armor_target.type_,
                                                                   .pos = pos,
                                                                   .ori = ori,
-                                                                  .is_ok = true,
-                                                                  .distance_to_image_center = 0.0f }
+                                                                  .is_ok = true }
                     );
                 }
             }
@@ -304,11 +303,11 @@ void drawDebugArmorContent(
 
     // =================== 云台指令 ===================
     std::string gimbal_str = fmt::format(
-        "Pitch: {:.2f}, Yaw: {:.2f}, Pitch_diff: {:.2f}, Yaw_diff: {:.2f}, V_yaw: {:.2f}, V_pitch: {:.2f}",
+        "Pitch: {:.2f}, Yaw: {:.2f}, Enable_pitch_diff: {:.2f}, Enable_yaw_diff: {:.2f}, V_yaw: {:.2f}, V_pitch: {:.2f}",
         gimbal_cmd.pitch,
         gimbal_cmd.yaw,
-        gimbal_cmd.pitch_diff,
-        gimbal_cmd.yaw_diff,
+        gimbal_cmd.enable_pitch_diff,
+        gimbal_cmd.enable_yaw_diff,
         gimbal_cmd.v_yaw,
         gimbal_cmd.v_pitch
     );

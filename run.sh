@@ -76,7 +76,10 @@ fi
 if [ "$1" == "run" ]; then
     echo -e "${yellow}\n<--- Running WUST_VISION --->${reset}"
     RUN_PROGRAM="$BUILD_DIR/$2"
-    "$RUN_PROGRAM"
+    ORIGINAL_ARGS=("$@")
+    shift 2
+    "$RUN_PROGRAM" "$@"
+    set -- "${ORIGINAL_ARGS[@]}"
     if [ $? -ne 0 ]; then
     echo -e "${red}\n--- Program crashed, running guard.sh ---${reset}"
     pkill "$2"
@@ -95,7 +98,7 @@ if [ "$1" == "run" ]; then
     GUARD_SCRIPT="$(realpath "$CONFIG_DIR/guard.sh")"
     TARGET_PATH="$(realpath "$RUN_PROGRAM")"
 
-    "$GUARD_SCRIPT" "$TARGET_PATH"
+    "$GUARD_SCRIPT" "$TARGET_PATH" "$@"
     exit 1
 fi
 

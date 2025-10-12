@@ -18,7 +18,11 @@ while true; do
     done
 
     source env.bash
-    $1
+    ORIGINAL_ARGS=("$@")
+    shift 1
+    $1 "$@"
+    set -- "${ORIGINAL_ARGS[@]}"
+    
     sleep 1
 done
 
