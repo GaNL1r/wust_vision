@@ -20,8 +20,8 @@ public:
             ros2_.reset();
         }
     }
-    bool init() {
-        VisionBase::init();
+    bool init(bool debug_mode) {
+        VisionBase::init(debug_mode);
         rclcpp::init(0, nullptr);
         ros2_ = std::make_shared<Ros2Node>("vison_node");
         ros2_->add_subscription<geometry_msgs::msg::Twist>(
@@ -152,13 +152,11 @@ public:
                     return;
                 }
                 ReceiveAimINFO aim;
-                std::memcpy(&aim, data, sizeof(aim)); // 安全拷贝（避免未对齐问题）
-                // 可选：再次校验 aim.cmd_ID == ID_AIM_INFO
+                std::memcpy(&aim, data, sizeof(aim));
                 if (aim.cmd_ID != ID_AIM_INFO) {
                     std::cerr << "AIM: cmd_ID mismatch\n";
                     return;
                 }
-                // 处理 aim
                 handleAim(aim);
 
             } else if (cmd == ID_REFEREE_INFO) {

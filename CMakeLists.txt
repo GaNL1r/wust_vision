@@ -100,52 +100,52 @@ target_link_libraries(eye_hand project_min_deps)
 
 
 # ------------------- ROS2 -------------------
-# find_package(ament_cmake QUIET)
-# find_package(rclcpp QUIET)
-# find_package(geometry_msgs QUIET)
-# find_package(std_msgs QUIET)
-# find_package(wust_interfaces QUIET)
-# set(ROS2_CORE_FOUND FALSE)
-# set(ROS2_FULL_FOUND FALSE)
+find_package(ament_cmake QUIET)
+find_package(rclcpp QUIET)
+find_package(geometry_msgs QUIET)
+find_package(std_msgs QUIET)
+find_package(wust_interfaces QUIET)
+set(ROS2_CORE_FOUND FALSE)
+set(ROS2_FULL_FOUND FALSE)
 
-# if(ament_cmake_FOUND AND rclcpp_FOUND)
-#   set(ROS2_CORE_FOUND TRUE)
-# endif()
+if(ament_cmake_FOUND AND rclcpp_FOUND)
+  set(ROS2_CORE_FOUND TRUE)
+endif()
 
-# if(ament_cmake_FOUND AND rclcpp_FOUND  AND geometry_msgs_FOUND AND wust_interfaces_FOUND)
-#   set(ROS2_FULL_FOUND TRUE)
-# endif()
+if(ament_cmake_FOUND AND rclcpp_FOUND  AND geometry_msgs_FOUND AND wust_interfaces_FOUND)
+  set(ROS2_FULL_FOUND TRUE)
+endif()
 
-# if(ROS2_CORE_FOUND)
-#   message(STATUS "ROS2 core environment found, adding ros2 subdirectory.")
-#   add_subdirectory(ros2)
-# endif()
+if(ROS2_CORE_FOUND)
+  message(STATUS "ROS2 core environment found, adding ros2 subdirectory.")
+  add_subdirectory(ros2)
+endif()
 
-# if(ROS2_FULL_FOUND)
-#   message(STATUS "ROS2 full environment found, compiling test_ros2 and sentry.")
+if(ROS2_FULL_FOUND)
+  message(STATUS "ROS2 full environment found, compiling test_ros2 and sentry.")
 
-#   add_executable(test_ros2 test/test_ros2.cpp)
-#   target_link_libraries(test_ros2
-#     project_min_deps
-#     toros2
-#   )
-#   ament_target_dependencies(test_ros2 rclcpp std_msgs geometry_msgs)
+  add_executable(test_ros2 test/test_ros2.cpp)
+  target_link_libraries(test_ros2
+    project_min_deps
+    toros2
+  )
+  ament_target_dependencies(test_ros2 rclcpp std_msgs geometry_msgs)
 
-#   add_executable(sentry src/sentry.cpp)
-#   target_link_libraries(sentry
-#     project_min_deps
-#     $<TARGET_OBJECTS:auto_aim>
-#     ${WUST_AUTO_AIM_LIBS}
-#     $<TARGET_OBJECTS:VisCore_auto_buff>
-#     ${WUST_AUTO_BUFF_LIBS}
-#     tasks_common
-#     toros2
-#     gtsam
-#   )
-#   ament_target_dependencies(sentry rclcpp std_msgs geometry_msgs wust_interfaces)
-#   add_executable(control test/control.cpp)
-#   target_link_libraries(control project_min_deps toros2)
-#   ament_target_dependencies(control rclcpp std_msgs)
-# else()
-#   message(WARNING "ROS2 dependencies incomplete, skipping ...")
-# endif()
+  add_executable(sentry src/sentry.cpp)
+  target_link_libraries(sentry
+    project_min_deps
+    $<TARGET_OBJECTS:auto_aim>
+    ${WUST_AUTO_AIM_LIBS}
+    $<TARGET_OBJECTS:VisCore_auto_buff>
+    ${WUST_AUTO_BUFF_LIBS}
+    tasks_common
+    toros2
+    gtsam
+  )
+  ament_target_dependencies(sentry rclcpp std_msgs geometry_msgs wust_interfaces)
+  add_executable(control test/control.cpp)
+  target_link_libraries(control project_min_deps toros2)
+  ament_target_dependencies(control rclcpp std_msgs)
+else()
+  message(WARNING "ROS2 dependencies incomplete, skipping ...")
+endif()
