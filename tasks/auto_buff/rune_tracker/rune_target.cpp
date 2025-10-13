@@ -23,7 +23,13 @@ RuneTarget::RuneTarget(
     Eigen::DiagonalMatrix<double, ypdrune_motion_model::X_N> p0;
     p0.setIdentity();
     esekf_ypd_ = ypdrune_motion_model::RuneESKF(f, h, u_q, u_r, p0);
-    esekf_ypd_.setAngleDims({ 0, 3, 4 });
+    esekf_ypd_.setResidualFunc([](const Eigen::VectorXd& z, const Eigen::VectorXd& z_pred) {
+        Eigen::VectorXd r = z - z_pred;
+        r[0] = angles::shortest_angular_distance(z_pred[0], z[0]); // yaw
+        r[3] = angles::shortest_angular_distance(z_pred[3], z[3]); // ori_yaw
+        r[4] = angles::shortest_angular_distance(z_pred[4], z[4]); // ori_roll
+        return r;
+    });
     esekf_ypd_.setIterationNum(1);
     esekf_ypd_.setInjectFunc([](const Eigen::Matrix<double, ypdrune_motion_model::X_N, 1>& delta,
                                 Eigen::Matrix<double, ypdrune_motion_model::X_N, 1>& nominal) {

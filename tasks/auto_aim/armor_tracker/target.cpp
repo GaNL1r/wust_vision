@@ -29,8 +29,8 @@ Target::Target(
     };
     esekf_ypd_ = ypdv2armor_motion_model::RobotStateESEKF(yfv2, yhv2, yu_qv2, yu_rv2, p0);
 
-    esekf_ypd_.setResidualFunc([](const Eigen::Vector3d& z, const Eigen::Vector3d& z_pred) {
-        Eigen::Vector3d r = z - z_pred;
+    esekf_ypd_.setResidualFunc([](const Eigen::VectorXd& z, const Eigen::VectorXd& z_pred) {
+        Eigen::VectorXd r = z - z_pred;
         r[0] = angles::shortest_angular_distance(z_pred[0], z[0]); // yaw
         r[3] = angles::shortest_angular_distance(z_pred[3], z[3]); // ori_yaw
         return r;
