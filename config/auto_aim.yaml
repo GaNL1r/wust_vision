@@ -30,7 +30,7 @@ armor_tracker:
   yaw_r_base_front: 0.08
   yaw_r_base_side: 0.06
   yaw_r_log_ratio: 0.005
-  esekf_iter_num: 2
+  esekf_iter_num: 20
 
 auto_aim_fsm:
   thres_up_1: 3.5

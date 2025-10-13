@@ -125,15 +125,71 @@ bool TrackerV3::updateTarget(const armor::Armors& armors) {
     }
     int found_count = 0;
     target_.predict(armors.timestamp, armors.v, false);
+    std::vector<armor::Armor> valid_armors;
     for (const auto& armor: armors.armors) {
         if (!armor::isSameTarget(armor.number, target_.tracked_id_))
             continue;
         found_count++;
+        valid_armors.push_back(armor);
     }
     if (found_count == 0)
         return false;
     found_count = 0;
-    for (auto& armor: armors.armors) {
+    const std::vector<Eigen::Vector4d>& xyza_list = target_.getArmorPosAndYaw();
+
+    std::vector<std::pair<Eigen::Vector4d, int>> xyza_i_list;
+    for (int i = 0; i < target_.armor_num_; i++) {
+        xyza_i_list.push_back({ xyza_list[i], i });
+    }
+
+    std::sort(
+        xyza_i_list.begin(),
+        xyza_i_list.end(),
+        [](const std::pair<Eigen::Vector4d, int>& a, const std::pair<Eigen::Vector4d, int>& b) {
+            Eigen::Vector3d ypd1 = utils::xyz2ypd(a.first.head(3));
+            Eigen::Vector3d ypd2 = utils::xyz2ypd(b.first.head(3));
+            return ypd1[2] < ypd2[2];
+        }
+    );
+
+    // key: xyza_index, value: pair<armor*, error>
+    std::unordered_map<int, std::pair<armor::Armor*, double>> xyza_best_map;
+
+    for (auto& armor: valid_armors) {
+        int best_id = -1;
+        double min_angle_error = 1e10;
+
+        // 只匹配前 3 个最近的 xyza
+        for (int i = 0; i < 3; i++) {
+            const auto& xyza = xyza_i_list[i].first;
+            Eigen::Vector3d ypd = utils::xyz2ypd(xyza.head(3));
+
+            double angle_error =
+                std::abs(
+                    angles::normalize_angle(target_.orientationToYaw(armor.target_ori) - xyza[3])
+                )
+                + std::abs(angles::normalize_angle(utils::xyz2ypd(armor.target_pos)[0] - ypd[0]))
+                + std::abs(angles::normalize_angle(utils::xyz2ypd(armor.target_pos)[1] - ypd[1]));
+
+            if (angle_error < min_angle_error) {
+                min_angle_error = angle_error;
+                best_id = xyza_i_list[i].second;
+            }
+        }
+
+        if (best_id >= 0) {
+            auto it = xyza_best_map.find(best_id);
+            if (it == xyza_best_map.end() || min_angle_error < it->second.second) {
+                xyza_best_map[best_id] = { &armor, min_angle_error };
+            }
+        }
+    }
+
+    std::vector<armor::Armor> filtered_armors;
+    for (auto& kv: xyza_best_map) {
+        filtered_armors.push_back(*(kv.second.first));
+    }
+    for (auto& armor: filtered_armors) {
         if (!armor::isSameTarget(armor.number, target_.tracked_id_))
             continue;
         if (armor.is_none_purple) {
@@ -148,6 +204,7 @@ bool TrackerV3::updateTarget(const armor::Armors& armors) {
             found_count++;
         }
     }
+
     if (found_count == 0)
         return false;
     return true;

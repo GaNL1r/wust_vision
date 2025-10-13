@@ -115,6 +115,12 @@ std::vector<armor::Armor> ArmorPoseEstimator::extractArmorPoses(
         }
 
         sortPnPResult(a, rvecs, tvecs, type, camera_intrinsic, camera_distortion);
+        // if(a.number==armor::ArmorNumber::OUTPOST){
+        //     double reprojErr = pnp_solver_->calculateReprojectionError(
+        //         a.landmarks(), rvecs[0], tvecs[0], type, camera_intrinsic, camera_distortion
+        //     );
+        //     std::cout<<"outpost pnp reproj err: "<<reprojErr<<std::endl;
+        // }
         cv::Mat R_cv;
         cv::Rodrigues(rvecs[0], R_cv);
         Eigen::Matrix3d R = utils::cvToEigen(R_cv);

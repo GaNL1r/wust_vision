@@ -77,6 +77,7 @@ public:
         this->last_yaw_ = yaw;
         return yaw;
     }
+
     std::vector<double> getArmorYaws() const {
         std::vector<double> yaw_list;
 

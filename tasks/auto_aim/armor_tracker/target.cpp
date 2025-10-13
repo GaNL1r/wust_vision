@@ -29,12 +29,15 @@ Target::Target(
     };
     esekf_ypd_ = ypdv2armor_motion_model::RobotStateESEKF(yfv2, yhv2, yu_qv2, yu_rv2, p0);
 
-    esekf_ypd_.setResidualFunc([](const Eigen::VectorXd& z, const Eigen::VectorXd& z_pred) {
-        Eigen::VectorXd r = z - z_pred;
-        r[0] = angles::shortest_angular_distance(z_pred[0], z[0]); // yaw
-        r[3] = angles::shortest_angular_distance(z_pred[3], z[3]); // ori_yaw
-        return r;
-    });
+    esekf_ypd_.setResidualFunc(
+        [](const Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>& z_pred,
+           const Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>& z) {
+            Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1> r = z - z_pred;
+            r[0] = angles::shortest_angular_distance(z_pred[0], z[0]); // yaw
+            r[3] = angles::shortest_angular_distance(z_pred[3], z[3]); // ori_yaw
+            return r;
+        }
+    );
     esekf_ypd_.setIterationNum(target_config_.esekf_iter_num);
     esekf_ypd_.setInjectFunc([](const Eigen::Matrix<double, ypdv2armor_motion_model::X_N, 1>& delta,
                                 Eigen::Matrix<double, ypdv2armor_motion_model::X_N, 1>& nominal) {
@@ -234,15 +237,17 @@ bool Target::update(const armor::Armor& armor) {
     double ypd_p = std::atan2(p.z(), std::sqrt(p.x() * p.x() + p.y() * p.y()));
     double ypd_d = std::sqrt(p.x() * p.x() + p.y() * p.y() + p.z() * p.z());
     measurement_ = Eigen::Vector4d(ypd_y, ypd_p, ypd_d, measured_yaw);
-
-    auto tmp_esekf = esekf_ypd_;
-    tmp_esekf.setMeasureFunc(ypdv2armor_motion_model::Measure { id, armor_num_ });
-    tmp_esekf.update(measurement_);
-    auto tmp_state = tmp_esekf.predict();
-    if (diverged(tmp_state)) {
-        WUST_WARN("target") << "This update make diverged skip!!";
-        return false;
+    if (tracked_id_ != armor::ArmorNumber::OUTPOST) {
+        auto tmp_esekf = esekf_ypd_;
+        tmp_esekf.setMeasureFunc(ypdv2armor_motion_model::Measure { id, armor_num_ });
+        tmp_esekf.update(measurement_);
+        auto tmp_state = tmp_esekf.predict();
+        if (diverged(tmp_state)) {
+            WUST_WARN("target") << "This update make diverged skip!!";
+            return false;
+        }
     }
+
     if (id != 0)
         jumped = true;
 
