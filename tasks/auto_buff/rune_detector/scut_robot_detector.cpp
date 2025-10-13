@@ -151,7 +151,7 @@ void ScutRobotDetector::detect(
         infer->detector->detect(input, output);
         infer->rune_groups = output.getFeatureNodes();
     } catch (std::exception& e) {
-        std::cout << "detect error" << e.what()<< std::endl;
+        std::cout << "detect error" << e.what() << std::endl;
     }
 
     do {

@@ -110,8 +110,7 @@ void drawDebugArmorContent(
                     armor_data.armors.emplace_back(armor::Armor { .type = armor_target.type_,
                                                                   .pos = pos,
                                                                   .ori = ori,
-                                                                  .is_ok = true }
-                    );
+                                                                  .is_ok = true });
                 }
             }
         }

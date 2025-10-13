@@ -138,10 +138,18 @@ public:
 };
 template<typename T>
 concept VisionLike = requires(T v) {
-    { v.init(std::declval<bool>()) } -> std::same_as<bool>;
-    { v.start() } -> std::same_as<void>;
-    { v.stop() } -> std::same_as<void>;
-    { v.checkStateMatchMode() } -> std::same_as<void>;
+    {
+        v.init(std::declval<bool>())
+        } -> std::same_as<bool>;
+    {
+        v.start()
+        } -> std::same_as<void>;
+    {
+        v.stop()
+        } -> std::same_as<void>;
+    {
+        v.checkStateMatchMode()
+        } -> std::same_as<void>;
 };
 
 template<VisionLike T>

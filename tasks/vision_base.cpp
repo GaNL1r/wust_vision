@@ -5,7 +5,7 @@ VisionBase::VisionBase(
     std::string common_config,
     std::string camera_config,
     std::string auto_aim_config,
-    std::string auto_buff_config 
+    std::string auto_buff_config
 ):
     common_config_(common_config),
     camera_config_(camera_config),
@@ -331,7 +331,6 @@ void VisionBase::checkStateMatchMode() {
     }
 }
 
-
 void VisionBase::timerCallback(double dt_ms) {
     static double last_yaw = 0.0;
     static double last_pitch = 0.0;
@@ -370,8 +369,10 @@ void VisionBase::timerCallback(double dt_ms) {
     const double max_delta_pitch = 1.0;
     double pitch_delta = cmd_pitch - last_pitch;
     double yaw_delta = cmd_yaw - last_yaw;
-    if (yaw_delta > 180.0) yaw_delta -= 360.0;
-    if (yaw_delta < -180.0) yaw_delta += 360.0;
+    if (yaw_delta > 180.0)
+        yaw_delta -= 360.0;
+    if (yaw_delta < -180.0)
+        yaw_delta += 360.0;
     if (pitch_delta > max_delta_pitch)
         pitch_delta = max_delta_pitch;
     if (pitch_delta < -max_delta_pitch)

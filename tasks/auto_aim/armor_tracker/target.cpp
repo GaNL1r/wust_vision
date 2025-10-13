@@ -28,7 +28,13 @@ Target::Target(
         return r;
     };
     esekf_ypd_ = ypdv2armor_motion_model::RobotStateESEKF(yfv2, yhv2, yu_qv2, yu_rv2, p0);
-    esekf_ypd_.setAngleDims({ 0, 3 });
+
+    esekf_ypd_.setResidualFunc([](const Eigen::Vector3d& z, const Eigen::Vector3d& z_pred) {
+        Eigen::Vector3d r = z - z_pred;
+        r[0] = angles::shortest_angular_distance(z_pred[0], z[0]); // yaw
+        r[3] = angles::shortest_angular_distance(z_pred[3], z[3]); // ori_yaw
+        return r;
+    });
     esekf_ypd_.setIterationNum(target_config_.esekf_iter_num);
     esekf_ypd_.setInjectFunc([](const Eigen::Matrix<double, ypdv2armor_motion_model::X_N, 1>& delta,
                                 Eigen::Matrix<double, ypdv2armor_motion_model::X_N, 1>& nominal) {
@@ -105,9 +111,9 @@ Target::computeProcessNoise(double dt) const {
     double q_z_z = pow(t, 4) / 4 * v1, q_z_vz = pow(t, 3) / 2 * v1, q_vz_vz = pow(t, 2) * v1;
     double q_yaw_yaw = pow(t, 4) / 4 * v2, q_yaw_vyaw = pow(t, 3) / 2 * v2,
            q_vyaw_vyaw = pow(t, 2) * v2;
-    double q_r= target_config_.q_r;
-    double q_l= target_config_.q_l;
-    double q_h= target_config_.q_h;
+    double q_r = target_config_.q_r;
+    double q_l = target_config_.q_l;
+    double q_h = target_config_.q_h;
     // clang-format off
             //      xc      v_xc    yc      v_yc    zc      v_zc    yaw         v_yaw       r       l   h
             q <<    q_x_x,  q_x_vx, 0,      0,      0,      0,      0,          0,          0,      0,  0,

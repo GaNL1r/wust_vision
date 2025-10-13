@@ -188,8 +188,6 @@ private:
             }
         }
 
-     
-
         P params_initial = params_snapshot ? *params_snapshot : params_;
 
         double err_pos = fit_with_sign(+1, t_unique, s_unique, params_initial, verbose);
