@@ -2,6 +2,17 @@ armor_detect_backend: tensorrt
 max_detect_armors: 11
 use_ba: true
 
+armor_map:
+  SENTRY: 4
+  NO1: 2
+  NO2: 3
+  NO3: 4
+  NO4: 5
+  NO5: 9
+  OUTPOST: 6
+  BASE: 7
+  UNKNOWN: -1
+
 armor_optimize:
   max_iter_R: 300
   max_iter_t: 1000

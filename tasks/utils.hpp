@@ -491,6 +491,7 @@ inline CommonFrame toCommonFrame(wust_vl_video::ImageFrame& frame) {
         return common_frame;
     }
     common_frame.src_img = std::move(frame.src_img);
+    return common_frame;
 }
 inline Eigen::Vector3d xyz2ypd(const Eigen::Vector3d& xyz) {
     auto x = xyz[0], y = xyz[1], z = xyz[2];

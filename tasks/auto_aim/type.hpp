@@ -139,24 +139,20 @@ inline int formArmorNumber(ArmorNumber number) {
             return 8;
     }
 }
-inline int retypetotracker(ArmorNumber a) {
-    static const std::unordered_map<ArmorNumber, int> map = {
-        { ArmorNumber::SENTRY, 4 },  { ArmorNumber::NO1, 2 },  { ArmorNumber::NO2, 3 },
-        { ArmorNumber::NO3, 4 },     { ArmorNumber::NO4, 5 },  { ArmorNumber::NO5, 9 },
-        { ArmorNumber::OUTPOST, 6 }, { ArmorNumber::BASE, 7 }, { ArmorNumber::UNKNOWN, -1 }
-    };
+// inline int retypetotracker(ArmorNumber a) {
+//     static const std::unordered_map<ArmorNumber, int> map = {
+//         { ArmorNumber::SENTRY, 4 },  { ArmorNumber::NO1, 2 },  { ArmorNumber::NO2, 3 },
+//         { ArmorNumber::NO3, 4 },     { ArmorNumber::NO4, 5 },  { ArmorNumber::NO5, 9 },
+//         { ArmorNumber::OUTPOST, 6 }, { ArmorNumber::BASE, 7 }, { ArmorNumber::UNKNOWN, -1 }
+//     };
 
-    auto it = map.find(a);
-    if (it != map.end())
-        return it->second;
+//     auto it = map.find(a);
+//     if (it != map.end())
+//         return it->second;
 
-    std::cerr << "[retypetotracker] Invalid ArmorNumber: " << static_cast<int>(a) << std::endl;
-    return -1;
-}
-inline bool isSameTarget(ArmorNumber a, ArmorNumber b) {
-    return retypetotracker(a) == retypetotracker(b);
-}
-
+//     std::cerr << "[retypetotracker] Invalid ArmorNumber: " << static_cast<int>(a) << std::endl;
+//     return -1;
+// }
 inline std::string armorNumberToString(ArmorNumber num) {
     switch (num) {
         case ArmorNumber::SENTRY:
@@ -179,6 +175,35 @@ inline std::string armorNumberToString(ArmorNumber num) {
             return "UNKNOWN";
     }
 }
+
+inline int retypetotracker(ArmorNumber a) {
+    // 静态缓存，只加载一次
+    static std::unordered_map<std::string, int> armor_map;
+    static bool loaded = false;
+
+    if (!loaded) {
+        try {
+            YAML::Node config = YAML::LoadFile(AUTO_AIM_CONFIG)["armor_map"];
+            for (auto it = config.begin(); it != config.end(); ++it) {
+                armor_map[it->first.as<std::string>()] = it->second.as<int>();
+            }
+            loaded = true;
+        } catch (const std::exception& e) {
+            std::cerr << "[retypetotracker] Failed to load armor_map.yaml: " << e.what() << std::endl;
+        }
+    }
+
+    std::string key = armorNumberToString(a);
+    auto it = armor_map.find(key);
+    if (it != armor_map.end()) return it->second;
+
+    std::cerr << "[retypetotracker] Invalid ArmorNumber: " << static_cast<int>(a) << std::endl;
+    return -1;
+}
+inline bool isSameTarget(ArmorNumber a, ArmorNumber b) {
+    return retypetotracker(a) == retypetotracker(b);
+}
+
 
 enum class ArmorsNum { NORMAL_4 = 4, OUTPOST_3 = 3 };
 

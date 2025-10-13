@@ -3,10 +3,7 @@
 #include "ros2/ros2.hpp"
 #include "tasks/vision_base.hpp"
 #include "wust_interfaces/msg/rmul2024.hpp"
-#define COMMON_CONFIG "config/common.yaml"
-#define CAMERA_CONFIG "config/camera.yaml"
-#define AUTO_AIM_CONFIG "config/auto_aim.yaml"
-#define AUTO_BUFF_CONFIG "config/auto_buff.yaml"
+
 ENABLE_BACKWARD()
 class vision: public VisionBase {
 public:
