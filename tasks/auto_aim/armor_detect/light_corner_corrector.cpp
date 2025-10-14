@@ -82,7 +82,7 @@ LightCornerCorrector::findSymmetryAxis(const cv::Mat& gray_img, const armor::Lig
         const float* row_ptr = roi_float.ptr<float>(y);
         for (int x = 0; x < roi_float.cols; ++x) {
             float val = row_ptr[x];
-            if (val > 0.1f) {
+            if (val > 1.0f) {
                 points.emplace_back(static_cast<float>(x), static_cast<float>(y));
             }
         }

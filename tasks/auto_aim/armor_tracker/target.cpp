@@ -161,21 +161,12 @@ void Target::predict(double dt, Eigen::Vector3d self_v, bool use_lin_pre) {
         target_state_ << pos.x(), vel.x(), pos.y(), vel.y(), pos.z(), vel.z(), yaw, v_yaw, r, l, h;
         esekf_ypd_.setState(target_state_);
     } else {
-        if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
-            esekf_ypd_.setPredictFunc(ypdv2armor_motion_model::Predict {
-                dt,
-                ypdv2armor_motion_model::MotionModel::CONSTANT_ROTATION,
-                self_v.x(),
-                self_v.y(),
-                self_v.z() });
-        } else {
-            esekf_ypd_.setPredictFunc(ypdv2armor_motion_model::Predict {
-                dt,
-                ypdv2armor_motion_model::MotionModel::CONSTANT_VEL_ROT,
-                self_v.x(),
-                self_v.y(),
-                self_v.z() });
-        }
+        esekf_ypd_.setPredictFunc(ypdv2armor_motion_model::Predict {
+            dt,
+            ypdv2armor_motion_model::MotionModel::CONSTANT_VEL_ROT,
+            self_v.x(),
+            self_v.y(),
+            self_v.z() });
         auto yu_qv2 = [dt, this]() { return computeProcessNoise(dt); };
 
         esekf_ypd_.setUpdateQ(yu_qv2);

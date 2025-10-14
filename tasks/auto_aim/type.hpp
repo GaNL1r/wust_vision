@@ -189,13 +189,15 @@ inline int retypetotracker(ArmorNumber a) {
             }
             loaded = true;
         } catch (const std::exception& e) {
-            std::cerr << "[retypetotracker] Failed to load armor_map.yaml: " << e.what() << std::endl;
+            std::cerr << "[retypetotracker] Failed to load armor_map.yaml: " << e.what()
+                      << std::endl;
         }
     }
 
     std::string key = armorNumberToString(a);
     auto it = armor_map.find(key);
-    if (it != armor_map.end()) return it->second;
+    if (it != armor_map.end())
+        return it->second;
 
     std::cerr << "[retypetotracker] Invalid ArmorNumber: " << static_cast<int>(a) << std::endl;
     return -1;
@@ -203,7 +205,6 @@ inline int retypetotracker(ArmorNumber a) {
 inline bool isSameTarget(ArmorNumber a, ArmorNumber b) {
     return retypetotracker(a) == retypetotracker(b);
 }
-
 
 enum class ArmorsNum { NORMAL_4 = 4, OUTPOST_3 = 3 };
 
