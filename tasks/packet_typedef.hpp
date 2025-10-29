@@ -116,29 +116,6 @@ struct SendRobotCmdData {
     uint8_t detect_color; // 0 red 1 blue
 } __attribute__((packed));
 
-// struct SendRobotCmdData {
-//     uint8_t cmd_ID; //命令码
-//     uint32_t time_stamp;
-
-//     float pitch;
-//     float yaw;
-//     float distance;
-
-//     uint8_t appear;
-//     uint8_t fire;
-
-//     float yaw_diff;
-//     float pitch_diff;
-
-//     float v_yaw;
-//     float v_pitch;
-
-//     uint8_t detect_color; // 0 red 1 blue
-
-//     float enable_yaw_diff;
-//     float
-//         enable_pitch_diff; //计算当前yaw pitch 与本包次发送yaw pitch的差绝对值小于enable（角度） 且 fire ==true ，开火
-// } __attribute__((packed));
 struct NavRobotCmdData {
     uint8_t cmd_ID; //命令码
     uint32_t time_stamp;

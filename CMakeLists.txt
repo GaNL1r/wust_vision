@@ -25,7 +25,7 @@ find_package(G2O         REQUIRED)
 find_package(Ceres       REQUIRED)
 find_package(HikSDK      REQUIRED)
 find_package(TBB         REQUIRED)
-find_package(GTSAM       REQUIRED)  
+
 if(BUILD_WITH_OPENVINO)
     find_package(OpenVINO REQUIRED COMPONENTS Runtime ONNX)
 endif()
@@ -75,6 +75,7 @@ target_link_libraries(project_min_deps INTERFACE
 # ------------------- Subdirectories -------------------
 add_subdirectory(tasks/auto_aim)
 add_subdirectory(tasks/auto_buff)
+add_subdirectory(tasks/auto_sniper)
 add_subdirectory(tasks)
 
 # ------------------- Executables -------------------
@@ -86,7 +87,6 @@ target_link_libraries(standard
     $<TARGET_OBJECTS:VisCore_auto_buff>
     ${WUST_AUTO_BUFF_LIBS}
     tasks_common
-    gtsam
 )
 
 add_executable(calcapture calibration/capture.cpp)
@@ -104,6 +104,7 @@ find_package(ament_cmake QUIET)
 find_package(rclcpp QUIET)
 find_package(geometry_msgs QUIET)
 find_package(std_msgs QUIET)
+find_package(tf2_ros QUIET)
 find_package(wust_interfaces QUIET)
 set(ROS2_CORE_FOUND FALSE)
 set(ROS2_FULL_FOUND FALSE)
@@ -112,8 +113,9 @@ if(ament_cmake_FOUND AND rclcpp_FOUND)
   set(ROS2_CORE_FOUND TRUE)
 endif()
 
-if(ament_cmake_FOUND AND rclcpp_FOUND  AND geometry_msgs_FOUND AND wust_interfaces_FOUND)
+if(ament_cmake_FOUND AND rclcpp_FOUND  AND geometry_msgs_FOUND AND wust_interfaces_FOUND AND tf2_ros_FOUND)
   set(ROS2_FULL_FOUND TRUE)
+  
 endif()
 
 if(ROS2_CORE_FOUND)
@@ -123,7 +125,7 @@ endif()
 
 if(ROS2_FULL_FOUND)
   message(STATUS "ROS2 full environment found, compiling test_ros2 and sentry.")
-
+  include_directories(${geometry_msgs_INCLUDE_DIRS})
   add_executable(test_ros2 test/test_ros2.cpp)
   target_link_libraries(test_ros2
     project_min_deps
@@ -140,9 +142,20 @@ if(ROS2_FULL_FOUND)
     ${WUST_AUTO_BUFF_LIBS}
     tasks_common
     toros2
-    gtsam
   )
-  ament_target_dependencies(sentry rclcpp std_msgs geometry_msgs wust_interfaces)
+  ament_target_dependencies(sentry rclcpp std_msgs geometry_msgs wust_interfaces tf2_ros)
+  add_executable(hero src/hero.cpp)
+  target_link_libraries(hero
+    project_min_deps
+    $<TARGET_OBJECTS:auto_aim>
+    ${WUST_AUTO_AIM_LIBS}
+    $<TARGET_OBJECTS:VisCore_auto_buff>
+    ${WUST_AUTO_BUFF_LIBS}
+    tasks_common
+    toros2
+    auto_sniper
+  )
+  ament_target_dependencies(hero rclcpp std_msgs geometry_msgs wust_interfaces tf2_ros)
   add_executable(control test/control.cpp)
   target_link_libraries(control project_min_deps toros2)
   ament_target_dependencies(control rclcpp std_msgs)

@@ -85,3 +85,4 @@ trajectory_compensator:
   compenstator_type: ideal
   gravity: 9.8
   iteration_times: 20
+  resistance: 0.092

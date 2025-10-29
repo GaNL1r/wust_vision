@@ -68,6 +68,7 @@ public:
      */
     void debugThread();
     void autoExposureControl(const cv::Mat& frame);
+    void updateBulletSpeed(double bullet_speed);
     std::unique_ptr<ThreadPool> thread_pool_;
     std::unique_ptr<auto_aim::AutoAim> auto_aim_;
     std::unique_ptr<auto_buff::AutoBuff> auto_buff_;
@@ -87,6 +88,7 @@ public:
     std::unique_ptr<Averager<double>> yaw_avg_;
     std::unique_ptr<Averager<double>> pitch_avg_;
     std::pair<cv::Mat, cv::Mat> camera_info_;
+    double bullet_speed_;
     int attack_mode_;
     int max_infer_running_;
     bool run_flag_ = true;

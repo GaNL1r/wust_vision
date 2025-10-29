@@ -185,6 +185,15 @@ bool VisionBase::init(bool debug_mode) {
 
     return true;
 }
+void VisionBase::updateBulletSpeed(double bullet_speed) {
+    if (auto_aim_shared_) {
+        auto_aim_shared_->bullet_speed = bullet_speed;
+    }
+    if (auto_buff_shared_) {
+        auto_buff_shared_->bullet_speed = bullet_speed;
+    }
+    bullet_speed_ = bullet_speed;
+}
 void VisionBase::serialCallback(const uint8_t* data, std::size_t len) {
     static Averager<double> vyaw_avg(100);
     if (len != sizeof(ReceiveAimINFO)) {
@@ -207,7 +216,7 @@ void VisionBase::serialCallback(const uint8_t* data, std::size_t len) {
         double v_pitch = aim_data.pitch_vel * M_PI / 180.0;
         double v_yaw = aim_data.yaw_vel * M_PI / 180.0;
         vyaw_avg.add(v_yaw);
-
+        updateBulletSpeed(aim_data.bullet_speed);
         double v_x = 0.0;
         double v_y = 0.0;
         double v_z = 0.0;
