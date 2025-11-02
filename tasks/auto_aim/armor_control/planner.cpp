@@ -1,7 +1,11 @@
 #include "planner.hpp"
 #include <wust_vl/common/utils/timer.hpp>
-inline double rad2deg(double r) { return r / M_PI * 180.0; }
-inline double deg2rad(double d) { return d * M_PI / 180.0; }
+inline double rad2deg(double r) {
+    return r / M_PI * 180.0;
+}
+inline double deg2rad(double d) {
+    return d * M_PI / 180.0;
+}
 Planner::Planner(
     const YAML::Node& config,
     std::shared_ptr<Aimer> aimer,
@@ -12,6 +16,8 @@ Planner::Planner(
     setup_yaw_solver(config);
     setup_pitch_solver(config);
 }
+
+
 
 Plan Planner::plan(
     Target target,
@@ -116,7 +122,6 @@ Plan Planner::plan(
     return plan;
 }
 
-
 void Planner::setup_yaw_solver(const YAML::Node& config) {
     max_yaw_acc_ = config["max_yaw_acc"].as<double>();
     auto Q_yaw = config["Q_yaw"].as<std::vector<double>>();
@@ -192,7 +197,8 @@ Eigen::Matrix<double, 2, 1> Planner::aim(
     if (aim_first && target.tracked_id_ != armor::ArmorNumber::OUTPOST) {
         std::vector<int> candidates;
         for (int i = 0; i < armor_num; ++i)
-            if (std::abs(delta_angles[i]) <= 60.0 / 57.3) candidates.push_back(i);
+            if (std::abs(delta_angles[i]) <= 60.0 / 57.3)
+                candidates.push_back(i);
 
         if (!candidates.empty()) {
             if (candidates.size() > 1) {
@@ -206,16 +212,23 @@ Eigen::Matrix<double, 2, 1> Planner::aim(
             }
         }
     } else {
-        double coming_angle = 70.0/57.3, leaving_angle = 30.0/57.3;
+        double coming_angle = 70.0 / 57.3, leaving_angle = 30.0 / 57.3;
         if (target.tracked_id_ != armor::ArmorNumber::OUTPOST) {
             auto cl = aimer_->getCommingLeaving();
             coming_angle = cl.first / 57.3;
             leaving_angle = cl.second / 57.3;
         }
         for (int i = 0; i < armor_num; ++i) {
-            if (std::abs(delta_angles[i]) > coming_angle) continue;
-            if (target.v_yaw() > 0 && delta_angles[i] < leaving_angle) { chosen = armor_list[i].head<3>(); break; }
-            if (target.v_yaw() < 0 && delta_angles[i] > -leaving_angle) { chosen = armor_list[i].head<3>(); break; }
+            if (std::abs(delta_angles[i]) > coming_angle)
+                continue;
+            if (target.v_yaw() > 0 && delta_angles[i] < leaving_angle) {
+                chosen = armor_list[i].head<3>();
+                break;
+            }
+            if (target.v_yaw() < 0 && delta_angles[i] > -leaving_angle) {
+                chosen = armor_list[i].head<3>();
+                break;
+            }
         }
     }
 
@@ -315,7 +328,8 @@ Trajectory Planner::get_trajectory(
 
         double pitch_interp = cal_traj(2, idx0) + alpha * (cal_traj(2, idx1) - cal_traj(2, idx0));
         double yaw_vel_interp = cal_traj(1, idx0) + alpha * (cal_traj(1, idx1) - cal_traj(1, idx0));
-        double pitch_vel_interp = cal_traj(3, idx0) + alpha * (cal_traj(3, idx1) - cal_traj(3, idx0));
+        double pitch_vel_interp =
+            cal_traj(3, idx0) + alpha * (cal_traj(3, idx1) - cal_traj(3, idx0));
 
         mpc_traj.col(i) << yaw_interp, yaw_vel_interp, pitch_interp, pitch_vel_interp;
     }

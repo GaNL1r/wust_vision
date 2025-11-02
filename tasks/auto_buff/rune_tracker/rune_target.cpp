@@ -30,7 +30,17 @@ RuneTarget::RuneTarget(
         r[4] = angles::shortest_angular_distance(z_pred[4], z[4]); // ori_roll
         return r;
     });
-    esekf_ypd_.setIterationNum(1);
+    esekf_ypd_.setResidualFunc(
+        [](const Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>& z_pred,
+           const Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>& z) {
+            Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1> r = z - z_pred;
+            r[0] = angles::shortest_angular_distance(z_pred[0], z[0]); // yaw
+            r[3] = angles::shortest_angular_distance(z_pred[3], z[3]); // ori_yaw
+            r[4] = angles::shortest_angular_distance(z_pred[4], z[4]);
+            return r;
+        }
+    );
+    esekf_ypd_.setIterationNum(target_config_.esekf_iter_num);
     esekf_ypd_.setInjectFunc([](const Eigen::Matrix<double, ypdrune_motion_model::X_N, 1>& delta,
                                 Eigen::Matrix<double, ypdrune_motion_model::X_N, 1>& nominal) {
         for (int i = 0; i < ypdrune_motion_model::X_N; i++) {
@@ -111,13 +121,13 @@ void RuneTarget::predict(double dt) {
     esekf_ypd_.setUpdateQ(u_q);
 
     target_state_ = esekf_ypd_.predict();
-
     if (centerPos().norm() < 0.5) {
         is_tracking = false;
     }
 }
 bool RuneTarget::update(const rune::RuneFan& fan) {
     timestamp_ = fan.timestamp;
+    
     int id;
     auto min_angle_error = 1e10;
     const auto angles = getAngles();
@@ -131,6 +141,7 @@ bool RuneTarget::update(const rune::RuneFan& fan) {
         }
     }
     auto p = fan.target_pos;
+  
     double measured_yaw = orientationToYaw(fan.target_ori);
     double measured_roll = orientationToRoll(fan.target_ori);
     double ypd_y = std::atan2(p.y(), p.x());

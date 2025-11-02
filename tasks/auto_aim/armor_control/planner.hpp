@@ -31,7 +31,6 @@ struct Plan {
     double distance;
 };
 
-
 class Planner {
 public:
     Eigen::Vector4d debug_xyza;
@@ -55,7 +54,7 @@ private:
     double pitch_offset_;
     double fire_thresh_;
     double low_speed_delay_time_, high_speed_delay_time_, decision_speed_;
-    double max_yaw_acc_ ,max_pitch_acc_;
+    double max_yaw_acc_, max_pitch_acc_;
     int aim_first_idx_;
     TinySolver* yaw_solver_;
     TinySolver* pitch_solver_;

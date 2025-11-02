@@ -1,4 +1,4 @@
-type: hik_camera
+type: video_player
 
 camera_info_path: "/home/hy/wust_vision/config/camera_info.yaml"
 
@@ -23,6 +23,6 @@ video_player:
   #path: /home/hy/wust_data/video/jiao.avi
   #path: /home/hy/Z_LION_AutoAim2025/src/auto_aim_publisher/videos/sample.avi
   #path: /home/hy/data/4k.MP4
-  path: /home/hy/rune_dl/G.mp4
+  path: /home/hy/rune_dl/runeA.mp4
   #path: /home/hy/wust_data/video/Sentry.mp4
   start_frame: 0
