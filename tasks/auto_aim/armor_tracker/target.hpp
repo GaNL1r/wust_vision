@@ -58,6 +58,7 @@ public:
     TargetConfig target_config_;
     double outpost_1_0diff_z_ = 0.0;
     double outpost_2_0diff_z_ = 0.0;
+    std::vector<int> hist1_, hist2_;
     void predict(
         std::chrono::steady_clock::time_point t,
         Eigen::Vector3d self_v = Eigen::Vector3d::Zero(),

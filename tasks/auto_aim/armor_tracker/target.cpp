@@ -183,19 +183,35 @@ void Target::predict(double dt, Eigen::Vector3d self_v, bool use_lin_pre) {
         is_tracking = false;
     }
 }
-inline double quantize_outpost_diff(double dz) {
-    static constexpr double candidates[] = { 0.1, -0.1, 0.2, -0.2 };
-    double best = candidates[0];
-    double min_diff = std::abs(dz - best);
-    for (double c: candidates) {
-        double diff = std::abs(dz - c);
+static constexpr double DZ_1 = 0.1;
+static constexpr double DZ_2 = -0.1;
+static constexpr double DZ_3 = 0.2;
+static constexpr double DZ_4 = -0.2;
+
+inline double outpost_diff_from_id(int id) {
+    switch (id) {
+        case 1: return DZ_1;
+        case 2: return DZ_2;
+        case 3: return DZ_3;
+        case 4: return DZ_4;
+        default: return 0.0;
+    }
+}
+
+inline int quantize_outpost_diff(double dz) {
+    static constexpr double candidates[] = {DZ_1, DZ_2, DZ_3, DZ_4};
+    int best_id = 1;
+    double min_diff = std::abs(dz - candidates[0]);
+    for (int i = 1; i < 4; ++i) {
+        double diff = std::abs(dz - candidates[i]);
         if (diff < min_diff) {
             min_diff = diff;
-            best = c;
+            best_id = i + 1;  // ID 从 1 开始
         }
     }
-    return best;
+    return best_id;
 }
+
 
 bool Target::update(const armor::Armor& armor) {
     timestamp_ = armor.timestamp;
@@ -243,15 +259,38 @@ bool Target::update(const armor::Armor& armor) {
                 min_angle_error = angle_error;
             }
         }
+        const size_t MAX_SIZE = 30;
+
+        auto get_mode = [](const std::vector<int>& v) {
+            std::unordered_map<int, int> freq;
+            for (int x : v)
+                freq[x]++;
+            int mode = 0;
+            int max_c = 0;
+            for (auto& [val, c] : freq)
+                if (c > max_c)
+                    mode = val, max_c = c;
+            return mode;
+        };
+
+        double dz = armor.target_pos.z() - position().z();
+        int match_dz_id = quantize_outpost_diff(dz);  
+
         if (id == 1) {
-            double dz = armor.target_pos.z() - position().z();
-            outpost_1_0diff_z_ = quantize_outpost_diff(dz);
+            hist1_.push_back(match_dz_id);
+            if (hist1_.size() > MAX_SIZE)
+                hist1_.erase(hist1_.begin());
+            int mode_id = get_mode(hist1_);
+            outpost_1_0diff_z_ = outpost_diff_from_id(mode_id); 
+        } 
+        else if (id == 2) {
+            hist2_.push_back(match_dz_id);
+            if (hist2_.size() > MAX_SIZE)
+                hist2_.erase(hist2_.begin());
+            int mode_id = get_mode(hist2_);
+            outpost_2_0diff_z_ = outpost_diff_from_id(mode_id);  
         }
 
-        if (id == 2) {
-            double dz = armor.target_pos.z() - position().z();
-            outpost_2_0diff_z_ = quantize_outpost_diff(dz);
-        }
     }
 
     auto p = armor.target_pos;

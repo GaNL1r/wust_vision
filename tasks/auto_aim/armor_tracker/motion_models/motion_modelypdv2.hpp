@@ -114,7 +114,7 @@ struct Measure {
         z[3] = normalize_angle_t(x[6] + id * 2 * M_PI / armor_num); // orientation_yaw
     }
     template<typename T>
-    T getoutpost_armor_z(const T x[X_N]) const{
+    T getoutpost_armor_z(const T x[X_N]) const {
         return (id == 0) ? x[4]
             : (id == 1)  ? x[4] + outpost_1_0diff_z
             : (id == 2)  ? x[4] + outpost_2_0diff_z
