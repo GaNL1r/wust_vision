@@ -56,6 +56,8 @@ public:
     double dt_;
     ypdv2armor_motion_model::RobotStateESEKF esekf_ypd_;
     TargetConfig target_config_;
+    double outpost_1_0diff_z_ = 0.0;
+    double outpost_2_0diff_z_ = 0.0;
     void predict(
         std::chrono::steady_clock::time_point t,
         Eigen::Vector3d self_v = Eigen::Vector3d::Zero(),
@@ -146,7 +148,7 @@ public:
         auto pos_ok = position().norm() < 10.0 && position().norm() > 0.5;
         bool output_ok = true;
         if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
-            if (std::abs(target_state[7]) > 2.0) {
+            if (std::abs(target_state[7]) > M_PI) {
                 output_ok = false;
             }
         }
@@ -168,13 +170,20 @@ public:
     Eigen::Vector3d h_armor_xyz(const Eigen::VectorXd& x, int id) const {
         auto angle = angles::normalize_angle(x[6] + id * 2 * CV_PI / armor_num_);
         auto use_l_h = (armor_num_ == 4) && (id == 1 || id == 3);
+        auto outpost = armor_num_ == 3;
 
         auto r = (use_l_h) ? x[8] + x[9] : x[8];
         auto armor_x = x[0] - r * std::cos(angle);
         auto armor_y = x[2] - r * std::sin(angle);
-        auto armor_z = (use_l_h) ? x[4] + x[10] : x[4];
+        auto armor_z = (outpost) ? getoutpost_armor_z(id, x) : (use_l_h) ? x[4] + x[10] : x[4];
 
         return { armor_x, armor_y, armor_z };
+    }
+    double getoutpost_armor_z(int id, const Eigen::VectorXd x) const {
+        return (id == 0) ? x[4]
+            : (id == 1)  ? x[4] + outpost_1_0diff_z_
+            : (id == 2)  ? x[4] + outpost_2_0diff_z_
+                         : x[4];
     }
     Eigen::Vector3d h_armor_vxyz(const Eigen::VectorXd& x, int id) const {
         Eigen::Vector3d v_center(x[1], x[3], x[5]);

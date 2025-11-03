@@ -238,7 +238,7 @@ void VisionBase::serialCallback(const uint8_t* data, std::size_t len) {
 double computeBrightness(const cv::Mat& frame) {
     cv::Mat gray;
     cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
-    return cv::mean(gray)[0]; // 返回灰度均值
+    return cv::mean(gray)[0];
 }
 void VisionBase::autoExposureControl(const cv::Mat& frame) {
     if (!auto_exposure_cfg_.enable) {
@@ -252,12 +252,12 @@ void VisionBase::autoExposureControl(const cv::Mat& frame) {
 
     if (elapsed_ms >= auto_exposure_cfg_.control_interval_ms) {
         double brightness = computeBrightness(frame);
-        double diff = brightness - auto_exposure_cfg_.target_brightness; // 目标亮度
+        double diff = brightness - auto_exposure_cfg_.target_brightness;
         const double exposure_min = auto_exposure_cfg_.exposure_min;
         const double exposure_max = auto_exposure_cfg_.exposure_max;
         double exposure_time = camera_->getHikExposureTime();
         if (fabs(diff) > auto_exposure_cfg_.tolerance && exposure_time > 0.0) {
-            exposure_time -= diff * auto_exposure_cfg_.step_gain; // 快速降低曝光
+            exposure_time -= diff * auto_exposure_cfg_.step_gain;
         } else {
             exposure_time -= auto_exposure_cfg_.decay_step;
         }

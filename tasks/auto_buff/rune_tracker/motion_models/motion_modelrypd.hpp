@@ -43,7 +43,7 @@ struct Measure {
     Measure() = default;
     explicit Measure(int id): id(id) {}
     template<typename T>
-    void operator()(const T x[Z_N], T z[Z_N]) const {
+    void operator()(const T x[X_N], T z[Z_N]) const {
         T xy_dist = ceres::sqrt(x[0] * x[0] + x[1] * x[1]);
         T dist = ceres::sqrt(xy_dist * xy_dist + x[2] * x[2]);
 

@@ -33,7 +33,7 @@ struct Predict {
 
 struct Measure {
     template<typename T>
-    void operator()(const T x[Z_N], T z[Z_N]) {
+    void operator()(const T x[X_N], T z[Z_N]) {
         T xy_dist = ceres::sqrt(x[0] * x[0] + x[1] * x[1]);
         T dist = ceres::sqrt(xy_dist * xy_dist + x[2] * x[2]);
 

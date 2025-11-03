@@ -81,7 +81,7 @@ struct Predict {
 
 struct Measure {
     template<typename T>
-    void operator()(const T x[Z_N], T z[Z_N]) {
+    void operator()(const T x[X_N], T z[Z_N]) {
         // Compute armor position
         T armor_x = x[0] - ceres::cos(x[6]) * x[8];
         T armor_y = x[2] - ceres::sin(x[6]) * x[8];

@@ -17,8 +17,6 @@ Planner::Planner(
     setup_pitch_solver(config);
 }
 
-
-
 Plan Planner::plan(
     Target target,
     double bullet_speed,

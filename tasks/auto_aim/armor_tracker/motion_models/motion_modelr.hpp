@@ -33,7 +33,7 @@ struct Predict {
 
 struct Measure {
     template<typename T>
-    void operator()(const T x[Z_N], T z[Z_N]) {
+    void operator()(const T x[X_N], T z[Z_N]) {
         for (int i = 0; i < Z_N; ++i) {
             z[i] = x[i];
         }
