@@ -17,37 +17,9 @@ VisionBase::~VisionBase() {
         camera_->stop();
         camera_.reset();
     }
-    if (auto_aim_) {
-        auto_aim_.reset();
-    }
-    WUST_INFO("stop") << "auto_aim stop";
-    if (auto_buff_) {
-        auto_buff_.reset();
-    }
-    WUST_INFO("stop") << "auto_buff stop";
-    if (timer_) {
-        timer_.reset();
-    }
-    WUST_INFO("stop") << "timer stop";
     if (serial_) {
         serial_->stop();
         serial_.reset();
-    }
-    if (motion_buffer_) {
-        motion_buffer_.reset();
-    }
-    if (auto_aim_shared_) {
-        auto_aim_shared_.reset();
-    }
-    if (auto_buff_shared_) {
-        auto_buff_shared_.reset();
-    }
-    WUST_INFO("stop") << "serial stop";
-    if (debug_thread_.joinable()) {
-        debug_thread_.join();
-    }
-    if (thread_pool_) {
-        thread_pool_.reset();
     }
 
 #ifdef USE_NCNN
