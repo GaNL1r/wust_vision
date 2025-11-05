@@ -21,6 +21,10 @@ VisionBase::~VisionBase() {
         serial_->stop();
         serial_.reset();
     }
+    if(debug_thread_.joinable())
+    {
+        debug_thread_.join();
+    }
 
 #ifdef USE_NCNN
     if (use_ncnn_count_ > 0) {
@@ -143,7 +147,6 @@ bool VisionBase::init(bool debug_mode) {
     pitch_avg_ = std::make_unique<Averager<double>>(pitch_avg_windows);
     timer_ = std::make_unique<Timer>();
     detect_color_ = config_["detect_color"].as<int>(0);
-    // debug_mode_ = config_["debug_mode"].as<bool>(false);
     auto_exposure_cfg_.loadFromYaml(config_["auto_exposure"]);
     if (auto_aim_) {
         auto_aim_->setDebug(debug_mode_);
