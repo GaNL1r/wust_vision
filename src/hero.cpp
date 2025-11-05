@@ -8,8 +8,8 @@ ENABLE_BACKWARD()
 class vision: public VisionBase {
 public:
     vision(): VisionBase(COMMON_CONFIG, CAMERA_CONFIG, AUTO_AIM_CONFIG, AUTO_BUFF_CONFIG) {}
-    void stop() {
-        VisionBase::stop();
+    ~vision() {
+        VisionBase::~VisionBase();
         auto node = Ros2Context::get_node();
         rclcpp::shutdown();
         node->shutdown();

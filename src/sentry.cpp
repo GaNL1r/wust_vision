@@ -8,8 +8,8 @@ ENABLE_BACKWARD()
 class vision: public VisionBase {
 public:
     vision(): VisionBase(COMMON_CONFIG, CAMERA_CONFIG, AUTO_AIM_CONFIG, AUTO_BUFF_CONFIG) {}
-    void stop() {
-        VisionBase::stop();
+    ~vision() {
+        VisionBase::~VisionBase();
         if (sim_thread_.joinable()) {
             sim_thread_.join();
         }

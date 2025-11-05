@@ -12,9 +12,6 @@ VisionBase::VisionBase(
     auto_aim_config_(auto_aim_config),
     auto_buff_config_(auto_buff_config) {}
 VisionBase::~VisionBase() {
-    stop();
-}
-void VisionBase::stop() {
     run_flag_ = false;
     if (camera_) {
         camera_->stop();

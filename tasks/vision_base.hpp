@@ -31,10 +31,6 @@ public:
     );
     ~VisionBase();
     /**
-     * @brief 显式停止运行并释放资源
-     */
-    void stop();
-    /**
      * @brief 初始化各模块
      * @return true 表示初始化成功，否则抛出异常
      */
@@ -147,9 +143,6 @@ concept VisionLike = requires(T v) {
         v.start()
         } -> std::same_as<void>;
     {
-        v.stop()
-        } -> std::same_as<void>;
-    {
         v.checkStateMatchMode()
         } -> std::same_as<void>;
 };
@@ -205,12 +198,6 @@ inline int runVisionMain(int argc, char** argv) {
                 }
                 std::this_thread::sleep_for(std::chrono::milliseconds(1000));
             }
-            auto stop_future = std::async(std::launch::async, [&v]() { v.stop(); });
-            if (stop_future.wait_for(std::chrono::seconds(5)) == std::future_status::timeout) {
-                std::cerr << "v.stop() timed out, forcing exit!" << std::endl;
-                std::exit(1);
-            }
-            std::cout << "v.stop() finished, v will be destructed now." << std::endl;
         }
 
         std::cout << "Exiting program..." << std::endl;

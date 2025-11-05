@@ -4,6 +4,9 @@ project(wust_vision LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
+set(CMAKE_UNITY_BUILD ON)
+
 set(CMAKE_BUILD_TYPE "Release")
 message(STATUS "--------------------CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}--------------------")
 
@@ -39,7 +42,7 @@ if(BUILD_WITH_TRT)
     enable_language(CUDA)
     set(CMAKE_CUDA_STANDARD 14)
     set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-
+    set(CMAKE_CUDA_COMPILER_LAUNCHER ccache)
     add_subdirectory(${CMAKE_SOURCE_DIR}/cuda_infer ${CMAKE_BINARY_DIR}/cuda_infer_build)
 endif()
 
