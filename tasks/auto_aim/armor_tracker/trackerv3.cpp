@@ -158,22 +158,35 @@ bool TrackerV3::updateTarget(const armor::Armors& armors) {
     for (auto& armor: valid_armors) {
         int best_id = -1;
         double min_angle_error = 1e10;
+        if (target_.armor_num_ > 3) {
+            for (int i = 0; i < 3; i++) {
+                const auto& xyza = xyza_i_list[i].first;
+                Eigen::Vector3d ypd = utils::xyz2ypd(xyza.head(3));
 
-        // 只匹配前 3 个最近的 xyza
-        for (int i = 0; i < 3; i++) {
-            const auto& xyza = xyza_i_list[i].first;
-            Eigen::Vector3d ypd = utils::xyz2ypd(xyza.head(3));
+                double angle_error = std::abs(angles::normalize_angle(
+                                         target_.orientationToYaw(armor.target_ori) - xyza[3]
+                                     ))
+                    + std::abs(angles::normalize_angle(utils::xyz2ypd(armor.target_pos)[0] - ypd[0])
+                    )
+                    + std::abs(angles::normalize_angle(utils::xyz2ypd(armor.target_pos)[1] - ypd[1])
+                    );
 
-            double angle_error =
-                std::abs(
+                if (angle_error < min_angle_error) {
+                    min_angle_error = angle_error;
+                    best_id = xyza_i_list[i].second;
+                }
+            }
+        } else {
+            for (int i = 0; i < 3; i++) {
+                const auto& xyza = xyza_i_list[i].first;
+                Eigen::Vector3d ypd = utils::xyz2ypd(xyza.head(3));
+                auto angle_error = std::abs(
                     angles::normalize_angle(target_.orientationToYaw(armor.target_ori) - xyza[3])
-                )
-                + std::abs(angles::normalize_angle(utils::xyz2ypd(armor.target_pos)[0] - ypd[0]))
-                + std::abs(angles::normalize_angle(utils::xyz2ypd(armor.target_pos)[1] - ypd[1]));
-
-            if (angle_error < min_angle_error) {
-                min_angle_error = angle_error;
-                best_id = xyza_i_list[i].second;
+                );
+                if (std::abs(angle_error) < std::abs(min_angle_error)) {
+                    best_id = xyza_i_list[i].second;
+                    min_angle_error = angle_error;
+                }
             }
         }
 

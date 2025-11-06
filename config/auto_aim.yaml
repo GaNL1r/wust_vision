@@ -1,4 +1,4 @@
-armor_detect_backend: tensorrt
+armor_detect_backend: opencv
 max_detect_armors: 11
 use_ba: true
 
@@ -23,14 +23,14 @@ armor_optimize:
   distance_fix_a2: 0.00
 
 armor_tracker:
-  lost_time_thres: 1.0
+  lost_time_thres: 2.0
   tracking_thres: 10
   max_yaw_diff_deg: 80.0
   max_dis_diff: 1.0
   qxyz_common: 200.0
   qyaw_common: 100.0
   qxyz_output: 10.0
-  qyaw_output: 0.1
+  qyaw_output: 0.2
   q_r: 0.0
   q_l: 0.0
   q_h: 0.0

@@ -93,7 +93,7 @@ bool NumberClassifier::classifyNumber(armor::ArmorObject& armor) {
     cv::Point class_id_point;
     cv::minMaxLoc(softmax_prob.reshape(1, 1), nullptr, &confidence, nullptr, &class_id_point);
     int label_id = class_id_point.x;
-
+    double raw_conf = armor.confidence;
     armor.confidence = confidence;
 
     static const std::map<int, armor::ArmorNumber> label_to_armor_number = {
@@ -108,7 +108,7 @@ bool NumberClassifier::classifyNumber(armor::ArmorObject& armor) {
 
         return true;
     } else {
-        //armor.confidence = 0;
+        armor.confidence = raw_conf;
         return false;
     }
 }

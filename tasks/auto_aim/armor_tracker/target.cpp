@@ -30,8 +30,10 @@ Target::Target(
     esekf_ypd_ = ypdv2armor_motion_model::RobotStateESEKF(yfv2, yhv2, yu_qv2, yu_rv2, p0);
 
     esekf_ypd_.setResidualFunc(
-        [](const Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>& z_pred,
-           const Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>& z) {
+        [this](
+            const Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>& z_pred,
+            const Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>& z
+        ) {
             Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1> r = z - z_pred;
             r[0] = angles::shortest_angular_distance(z_pred[0], z[0]); // yaw
             r[3] = angles::shortest_angular_distance(z_pred[3], z[3]); // ori_yaw
@@ -39,15 +41,20 @@ Target::Target(
         }
     );
     esekf_ypd_.setIterationNum(target_config_.esekf_iter_num);
-    esekf_ypd_.setInjectFunc([](const Eigen::Matrix<double, ypdv2armor_motion_model::X_N, 1>& delta,
-                                Eigen::Matrix<double, ypdv2armor_motion_model::X_N, 1>& nominal) {
-        for (int i = 0; i < ypdv2armor_motion_model::X_N; i++) {
-            if (i == 6)
-                continue;
-            nominal[i] += delta[i];
+    esekf_ypd_.setInjectFunc(
+        [this](
+            const Eigen::Matrix<double, ypdv2armor_motion_model::X_N, 1>& delta,
+            Eigen::Matrix<double, ypdv2armor_motion_model::X_N, 1>& nominal
+        ) {
+            for (int i = 0; i < ypdv2armor_motion_model::X_N; i++) {
+                if (i == 6)
+                    continue;
+                nominal[i] += delta[i];
+            }
+            nominal[6] = angles::normalize_angle(nominal[6] + delta[6]);
         }
-        nominal[6] = angles::normalize_angle(nominal[6] + delta[6]);
-    });
+    );
+
     esekf_ypd_.setNisThreshold(9.488);
     esekf_ypd_.setNeesThreshold(9.488);
     esekf_ypd_.setWindowSize(50);
@@ -161,12 +168,21 @@ void Target::predict(double dt, Eigen::Vector3d self_v, bool use_lin_pre) {
         target_state_ << pos.x(), vel.x(), pos.y(), vel.y(), pos.z(), vel.z(), yaw, v_yaw, r, l, h;
         esekf_ypd_.setState(target_state_);
     } else {
-        esekf_ypd_.setPredictFunc(ypdv2armor_motion_model::Predict {
-            dt,
-            ypdv2armor_motion_model::MotionModel::CONSTANT_VEL_ROT,
-            self_v.x(),
-            self_v.y(),
-            self_v.z() });
+        if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
+            esekf_ypd_.setPredictFunc(ypdv2armor_motion_model::Predict {
+                dt,
+                ypdv2armor_motion_model::MotionModel::CONSTANT_ROTATION,
+                self_v.x(),
+                self_v.y(),
+                self_v.z() });
+        } else {
+            esekf_ypd_.setPredictFunc(ypdv2armor_motion_model::Predict {
+                dt,
+                ypdv2armor_motion_model::MotionModel::CONSTANT_VEL_ROT,
+                self_v.x(),
+                self_v.y(),
+                self_v.z() });
+        }
         auto yu_qv2 = [dt, this]() { return computeProcessNoise(dt); };
 
         esekf_ypd_.setUpdateQ(yu_qv2);
@@ -183,35 +199,6 @@ void Target::predict(double dt, Eigen::Vector3d self_v, bool use_lin_pre) {
         is_tracking = false;
     }
 }
-static constexpr double DZ_1 = 0.1;
-static constexpr double DZ_2 = -0.1;
-static constexpr double DZ_3 = 0.2;
-static constexpr double DZ_4 = -0.2;
-
-inline double outpost_diff_from_id(int id) {
-    switch (id) {
-        case 1: return DZ_1;
-        case 2: return DZ_2;
-        case 3: return DZ_3;
-        case 4: return DZ_4;
-        default: return 0.0;
-    }
-}
-
-inline int quantize_outpost_diff(double dz) {
-    static constexpr double candidates[] = {DZ_1, DZ_2, DZ_3, DZ_4};
-    int best_id = 1;
-    double min_diff = std::abs(dz - candidates[0]);
-    for (int i = 1; i < 4; ++i) {
-        double diff = std::abs(dz - candidates[i]);
-        if (diff < min_diff) {
-            min_diff = diff;
-            best_id = i + 1;  // ID 从 1 开始
-        }
-    }
-    return best_id;
-}
-
 
 bool Target::update(const armor::Armor& armor) {
     timestamp_ = armor.timestamp;
@@ -259,38 +246,47 @@ bool Target::update(const armor::Armor& armor) {
                 min_angle_error = angle_error;
             }
         }
-        const size_t MAX_SIZE = 30;
-
-        auto get_mode = [](const std::vector<int>& v) {
-            std::unordered_map<int, int> freq;
-            for (int x : v)
-                freq[x]++;
-            int mode = 0;
-            int max_c = 0;
-            for (auto& [val, c] : freq)
-                if (c > max_c)
-                    mode = val, max_c = c;
-            return mode;
-        };
 
         double dz = armor.target_pos.z() - position().z();
-        int match_dz_id = quantize_outpost_diff(dz);  
-
-        if (id == 1) {
-            hist1_.push_back(match_dz_id);
-            if (hist1_.size() > MAX_SIZE)
-                hist1_.erase(hist1_.begin());
-            int mode_id = get_mode(hist1_);
-            outpost_1_0diff_z_ = outpost_diff_from_id(mode_id); 
-        } 
-        else if (id == 2) {
-            hist2_.push_back(match_dz_id);
-            if (hist2_.size() > MAX_SIZE)
-                hist2_.erase(hist2_.begin());
-            int mode_id = get_mode(hist2_);
-            outpost_2_0diff_z_ = outpost_diff_from_id(mode_id);  
+        // int match_dz_id = armor::quantize_outpost_diff(dz);
+        double best_dz = 0;
+        double min_dz_error = std::numeric_limits<double>::max();
+        double raw_0_z = target_state_[4];
+        std::vector<double> dz_list;
+        if (dz > 0) {
+            dz_list = { 0.2, 0.1 };
+        } else {
+            dz_list = { -0.2, -0.1 };
         }
-
+        if (id == 1) {
+            for (auto pdz: dz_list) {
+                auto tmp_esekf = esekf_ypd_;
+                tmp_esekf.setMeasureFunc(
+                    ypdv2armor_motion_model::Measure { id, armor_num_, pdz, outpost_2_0diff_z_ }
+                );
+                tmp_esekf.update(measurement_);
+                auto tmp_state = tmp_esekf.predict();
+                double dz_error = std::abs(tmp_state[4] - raw_0_z);
+                if (dz_error < min_dz_error) {
+                    min_dz_error = dz_error;
+                    outpost_1_0diff_z_ = pdz;
+                }
+            }
+        } else if (id == 2) {
+            for (auto pdz: dz_list) {
+                auto tmp_esekf = esekf_ypd_;
+                tmp_esekf.setMeasureFunc(
+                    ypdv2armor_motion_model::Measure { id, armor_num_, outpost_1_0diff_z_, pdz }
+                );
+                tmp_esekf.update(measurement_);
+                auto tmp_state = tmp_esekf.predict();
+                double dz_error = std::abs(tmp_state[4] - raw_0_z);
+                if (dz_error < min_dz_error) {
+                    min_dz_error = dz_error;
+                    outpost_2_0diff_z_ = pdz;
+                }
+            }
+        }
     }
 
     auto p = armor.target_pos;
@@ -338,7 +334,7 @@ bool Target::update(const armor::Armor& armor) {
         ypdv2armor_motion_model::Measure { id, armor_num_, outpost_1_0diff_z_, outpost_2_0diff_z_ }
     );
 
-    esekf_ypd_.update(measurement_);
+    target_state_ = esekf_ypd_.update(measurement_);
 
     return true;
 }

@@ -21,8 +21,7 @@ VisionBase::~VisionBase() {
         serial_->stop();
         serial_.reset();
     }
-    if(debug_thread_.joinable())
-    {
+    if (debug_thread_.joinable()) {
         debug_thread_.join();
     }
 

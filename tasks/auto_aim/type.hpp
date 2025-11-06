@@ -2,6 +2,7 @@
 #include "3rdparty/angles.h"
 #include "auto_aim_fsm.hpp"
 #include "tasks/type_common.hpp"
+#include <array>
 #include <numeric>
 #include <opencv2/opencv.hpp>
 #include <yaml-cpp/yaml.h>
@@ -440,5 +441,38 @@ struct Armors {
     int id;
     Eigen::Vector3d v;
 };
+static constexpr double DZ_1 = 0.1;
+static constexpr double DZ_2 = -0.1;
+static constexpr double DZ_3 = 0.2;
+static constexpr double DZ_4 = -0.2;
+static constexpr std::array<double, 4> outpostDZ = { DZ_1, DZ_2, DZ_3, DZ_4 };
+inline double outpost_diff_from_id(int id) {
+    switch (id) {
+        case 1:
+            return DZ_1;
+        case 2:
+            return DZ_2;
+        case 3:
+            return DZ_3;
+        case 4:
+            return DZ_4;
+        default:
+            return 0.0;
+    }
+}
+
+inline int quantize_outpost_diff(double dz) {
+    static constexpr double candidates[] = { DZ_1, DZ_2, DZ_3, DZ_4 };
+    int best_id = 1;
+    double min_diff = std::abs(dz - candidates[0]);
+    for (int i = 1; i < 4; ++i) {
+        double diff = std::abs(dz - candidates[i]);
+        if (diff < min_diff) {
+            min_diff = diff;
+            best_id = i + 1; // ID 从 1 开始
+        }
+    }
+    return best_id;
+}
 
 } // namespace armor

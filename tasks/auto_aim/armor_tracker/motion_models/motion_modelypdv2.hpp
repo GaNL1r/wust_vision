@@ -52,9 +52,9 @@ struct Predict {
         // v_xyz
         if (model == MotionModel::CONSTANT_VEL_ROT || model == MotionModel::CONSTANT_VELOCITY) {
             // linear velocity
-            x1[0] += x0[1] * dt;
-            x1[2] += x0[3] * dt;
-            x1[4] += x0[5] * dt;
+            x1[0] += x0[1] * T(dt);
+            x1[2] += x0[3] * T(dt);
+            x1[4] += x0[5] * T(dt);
         } else {
             // no velocity
             x1[1] *= T(0.);
@@ -69,7 +69,7 @@ struct Predict {
         // v_yaw
         if (model == MotionModel::CONSTANT_VEL_ROT || model == MotionModel::CONSTANT_ROTATION) {
             // angular velocity
-            x1[6] += x0[7] * dt;
+            x1[6] += x0[7] * T(dt);
         } else {
             // no rotation
             x1[7] *= T(0.);

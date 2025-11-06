@@ -58,7 +58,6 @@ public:
     TargetConfig target_config_;
     double outpost_1_0diff_z_ = 0.0;
     double outpost_2_0diff_z_ = 0.0;
-    std::vector<int> hist1_, hist2_;
     void predict(
         std::chrono::steady_clock::time_point t,
         Eigen::Vector3d self_v = Eigen::Vector3d::Zero(),
@@ -79,6 +78,12 @@ public:
         yaw = this->last_yaw_ + angles::shortest_angular_distance(this->last_yaw_, yaw);
         this->last_yaw_ = yaw;
         return yaw;
+    }
+    std::vector<std::pair<double, int>> getOutpostArmorZ() const {
+        double z0 = target_state_[4];
+        double z1 = z0 + outpost_1_0diff_z_;
+        double z2 = z0 + outpost_2_0diff_z_;
+        return { { z0, 0 }, { z1, 1 }, { z2, 2 } };
     }
 
     std::vector<double> getArmorYaws() const {
@@ -149,7 +154,7 @@ public:
         auto pos_ok = position().norm() < 10.0 && position().norm() > 0.5;
         bool output_ok = true;
         if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
-            if (std::abs(target_state[7]) > M_PI) {
+            if (std::abs(target_state[7]) > 1.5 * M_PI) {
                 output_ok = false;
             }
         }
