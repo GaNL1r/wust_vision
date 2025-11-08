@@ -17,7 +17,7 @@ Target::Target(
     target_config_ = target_config;
     target_state_ = Eigen::VectorXd::Zero(ypdv2armor_motion_model::X_N);
     auto yfv2 = ypdv2armor_motion_model::Predict(0.005);
-    auto yhv2 = ypdv2armor_motion_model::Measure(0, 4, 0, 0);
+    auto yhv2 = ypdv2armor_motion_model::Measure(0, 4);
     auto yu_qv2 = [this]() {
         Eigen::Matrix<double, ypdv2armor_motion_model::X_N, ypdv2armor_motion_model::X_N> q;
         return q;
@@ -108,12 +108,17 @@ Eigen::Matrix<double, ypdv2armor_motion_model::X_N, ypdv2armor_motion_model::X_N
 Target::computeProcessNoise(double dt) const {
     Eigen::Matrix<double, ypdv2armor_motion_model::X_N, ypdv2armor_motion_model::X_N> q;
     double v1, v2;
+    double q_l, q_h;
     if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
         v1 = target_config_.qxyz_output; // 前哨站加速度方差
         v2 = target_config_.qyaw_output; // 前哨站角加速度方差
+        q_l = target_config_.q_outpost_dz;
+        q_h = target_config_.q_outpost_dz;
     } else {
         v1 = target_config_.qxyz_common; // 加速度方差
         v2 = target_config_.qyaw_common; // 角加速度方差
+        q_l = target_config_.q_l;
+        q_h = target_config_.q_h;
     }
     double t = dt;
     double q_x_x = pow(t, 4) / 4 * v1, q_x_vx = pow(t, 3) / 2 * v1, q_vx_vx = pow(t, 2) * v1;
@@ -122,8 +127,7 @@ Target::computeProcessNoise(double dt) const {
     double q_yaw_yaw = pow(t, 4) / 4 * v2, q_yaw_vyaw = pow(t, 3) / 2 * v2,
            q_vyaw_vyaw = pow(t, 2) * v2;
     double q_r = target_config_.q_r;
-    double q_l = target_config_.q_l;
-    double q_h = target_config_.q_h;
+
     // clang-format off
             //      xc      v_xc    yc      v_yc    zc      v_zc    yaw         v_yaw       r       l   h
             q <<    q_x_x,  q_x_vx, 0,      0,      0,      0,      0,          0,          0,      0,  0,
@@ -198,10 +202,21 @@ void Target::predict(double dt, Eigen::Vector3d self_v, bool use_lin_pre) {
     if (position().norm() < 0.5) {
         is_tracking = false;
     }
+    if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
+        if (target_state_[7] > armor::outpost_v_yaw) {
+            target_state_[7] = armor::outpost_v_yaw;
+            esekf_ypd_.setState(target_state_);
+        }
+    }
 }
 
-bool Target::update(const armor::Armor& armor) {
+bool Target::update(const armor::Armor& a) {
+    auto armor = a;
     timestamp_ = armor.timestamp;
+    auto yu_rv2 = [this](const Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>& z) {
+        return this->computeMeasurementCovariance(z);
+    };
+    esekf_ypd_.setUpdateR(yu_rv2);
     int id;
     auto min_angle_error = 1e10;
     const std::vector<Eigen::Vector4d>& xyza_list = getArmorPosAndYaw();
@@ -236,7 +251,7 @@ bool Target::update(const armor::Armor& armor) {
             }
         }
     } else {
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 2; i++) {
             const auto& xyza = xyza_i_list[i].first;
             Eigen::Vector3d ypd = utils::xyz2ypd(xyza.head(3));
             auto angle_error =
@@ -244,47 +259,6 @@ bool Target::update(const armor::Armor& armor) {
             if (std::abs(angle_error) < std::abs(min_angle_error)) {
                 id = xyza_i_list[i].second;
                 min_angle_error = angle_error;
-            }
-        }
-
-        double dz = armor.target_pos.z() - position().z();
-        // int match_dz_id = armor::quantize_outpost_diff(dz);
-        double best_dz = 0;
-        double min_dz_error = std::numeric_limits<double>::max();
-        double raw_0_z = target_state_[4];
-        std::vector<double> dz_list;
-        if (dz > 0) {
-            dz_list = { 0.2, 0.1 };
-        } else {
-            dz_list = { -0.2, -0.1 };
-        }
-        if (id == 1) {
-            for (auto pdz: dz_list) {
-                auto tmp_esekf = esekf_ypd_;
-                tmp_esekf.setMeasureFunc(
-                    ypdv2armor_motion_model::Measure { id, armor_num_, pdz, outpost_2_0diff_z_ }
-                );
-                tmp_esekf.update(measurement_);
-                auto tmp_state = tmp_esekf.predict();
-                double dz_error = std::abs(tmp_state[4] - raw_0_z);
-                if (dz_error < min_dz_error) {
-                    min_dz_error = dz_error;
-                    outpost_1_0diff_z_ = pdz;
-                }
-            }
-        } else if (id == 2) {
-            for (auto pdz: dz_list) {
-                auto tmp_esekf = esekf_ypd_;
-                tmp_esekf.setMeasureFunc(
-                    ypdv2armor_motion_model::Measure { id, armor_num_, outpost_1_0diff_z_, pdz }
-                );
-                tmp_esekf.update(measurement_);
-                auto tmp_state = tmp_esekf.predict();
-                double dz_error = std::abs(tmp_state[4] - raw_0_z);
-                if (dz_error < min_dz_error) {
-                    min_dz_error = dz_error;
-                    outpost_2_0diff_z_ = pdz;
-                }
             }
         }
     }
@@ -300,12 +274,8 @@ bool Target::update(const armor::Armor& armor) {
     measurement_ = Eigen::Vector4d(ypd_y, ypd_p, ypd_d, measured_yaw);
     if (tracked_id_ != armor::ArmorNumber::OUTPOST) {
         auto tmp_esekf = esekf_ypd_;
-        tmp_esekf.setMeasureFunc(ypdv2armor_motion_model::Measure { id,
-                                                                    armor_num_,
-                                                                    outpost_1_0diff_z_,
-                                                                    outpost_2_0diff_z_ });
-        tmp_esekf.update(measurement_);
-        auto tmp_state = tmp_esekf.predict();
+        tmp_esekf.setMeasureFunc(ypdv2armor_motion_model::Measure { id, armor_num_ });
+        auto tmp_state = tmp_esekf.update(measurement_);
         if (diverged(tmp_state)) {
             WUST_WARN("target") << "This update make diverged skip!!";
             return false;
@@ -326,13 +296,8 @@ bool Target::update(const armor::Armor& armor) {
 
     last_id = id;
     update_count_++;
-    auto yu_rv2 = [this](const Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>& z) {
-        return this->computeMeasurementCovariance(z);
-    };
-    esekf_ypd_.setUpdateR(yu_rv2);
-    esekf_ypd_.setMeasureFunc(
-        ypdv2armor_motion_model::Measure { id, armor_num_, outpost_1_0diff_z_, outpost_2_0diff_z_ }
-    );
+
+    esekf_ypd_.setMeasureFunc(ypdv2armor_motion_model::Measure { id, armor_num_ });
 
     target_state_ = esekf_ypd_.update(measurement_);
 

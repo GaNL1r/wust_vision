@@ -273,6 +273,18 @@ struct Aimer::Impl {
             if (target.v_yaw() < 0 && delta_angle_list[i] > -leaving_angle)
                 return static_cast<int>(i);
         }
+
+        double min_angle = std::numeric_limits<double>::max();
+        int best_idx = -1;
+        for (int i = 0; i < armor_num; ++i) {
+            double abs_angle = std::abs(delta_angle_list[i]);
+            if (abs_angle < min_angle) {
+                min_angle = abs_angle;
+                best_idx = i;
+            }
+        }
+        return best_idx;
+
         return -1;
     }
 

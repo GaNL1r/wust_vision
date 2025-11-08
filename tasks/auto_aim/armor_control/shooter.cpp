@@ -96,11 +96,10 @@ struct Shooter::Impl {
         double yaw_factor = 1.0 * std::cos(maybe_hit[3]);
         double pitch_factor = 1.0;
 
-        shooting_range_yaw *= yaw_factor;
-        shooting_range_pitch *= pitch_factor;
         shooting_range_yaw = std::max(shooting_range_yaw, 0.5 * M_PI / 180);
         shooting_range_pitch = std::max(shooting_range_pitch, 0.5 * M_PI / 180);
-
+        shooting_range_yaw *= yaw_factor;
+        shooting_range_pitch *= pitch_factor;
         double target_yaw = angles::normalize_angle(std::atan2(dy, dx));
         double tmp_pitch = std::atan2(dz, std::sqrt(dx * dx + dy * dy));
         double target_pitch = tmp_pitch;

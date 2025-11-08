@@ -1,4 +1,4 @@
-armor_detect_backend: opencv
+armor_detect_backend: tensorrt
 max_detect_armors: 11
 use_ba: true
 
@@ -34,6 +34,7 @@ armor_tracker:
   q_r: 0.0
   q_l: 0.0
   q_h: 0.0
+  q_outpost_dz: 0.5
   yp_r: 4e-3
   dis_r_front: 0.5
   dis_r_side: 1.5
@@ -51,30 +52,30 @@ auto_aim_fsm:
   transfer_thresh: 20
 
 planner:
-  max_yaw_acc: 50
+  max_yaw_acc: 30
   #全向yaw加速度测算37
   Q_yaw: [9e6, 0]
   R_yaw: [1.5]
 
-  max_pitch_acc: 100
+  max_pitch_acc: 10
   Q_pitch: [9e6, 0]
   R_pitch: [1]
 
 aimer:
-  prediction_delay: 0.00
+  prediction_delay: -0.05
   comming_angle: 60
   leaving_angle: 20
 
 shooter:
   shooting_range_h: 0.1
-  shooting_range_w: 0.12
+  shooting_range_w: 0.15
   trajectory_offset:
     - d_max: 9
       d_min: 0
-      h_max: 1.4
+      h_max: 1.5
       h_min: -1
-      pitch_off: -0.5
-      yaw_off: -2.5
+      pitch_off: -4.5
+      yaw_off: -5.5
     - d_max: 10
       d_min: 9
       h_max: 0.4

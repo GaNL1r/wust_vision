@@ -13,6 +13,7 @@ struct TargetConfig {
     double q_r = 0;
     double q_l = 0;
     double q_h = 0;
+    double q_outpost_dz = 0.0;
     double yp_r = 4e-3;
     double dis_r_front = 0.05;
     double dis_r_side = 0.07;
@@ -56,8 +57,7 @@ public:
     double dt_;
     ypdv2armor_motion_model::RobotStateESEKF esekf_ypd_;
     TargetConfig target_config_;
-    double outpost_1_0diff_z_ = 0.0;
-    double outpost_2_0diff_z_ = 0.0;
+
     void predict(
         std::chrono::steady_clock::time_point t,
         Eigen::Vector3d self_v = Eigen::Vector3d::Zero(),
@@ -79,13 +79,6 @@ public:
         this->last_yaw_ = yaw;
         return yaw;
     }
-    std::vector<std::pair<double, int>> getOutpostArmorZ() const {
-        double z0 = target_state_[4];
-        double z1 = z0 + outpost_1_0diff_z_;
-        double z2 = z0 + outpost_2_0diff_z_;
-        return { { z0, 0 }, { z1, 1 }, { z2, 2 } };
-    }
-
     std::vector<double> getArmorYaws() const {
         std::vector<double> yaw_list;
 
@@ -138,7 +131,7 @@ public:
     }
 
     inline bool checkTargetAppear() {
-        bool appear = is_tracking && time_utils::durationSec(timestamp_, time_utils::now()) < 0.5;
+        bool appear = is_tracking && time_utils::durationSec(timestamp_, time_utils::now()) < 5.0;
         return appear;
     }
     bool diverged() const {
@@ -186,11 +179,9 @@ public:
         return { armor_x, armor_y, armor_z };
     }
     double getoutpost_armor_z(int id, const Eigen::VectorXd x) const {
-        return (id == 0) ? x[4]
-            : (id == 1)  ? x[4] + outpost_1_0diff_z_
-            : (id == 2)  ? x[4] + outpost_2_0diff_z_
-                         : x[4];
+        return (id == 0) ? x[4] : (id == 1) ? x[4] + x[9] : (id == 2) ? x[4] + x[10] : x[4];
     }
+
     Eigen::Vector3d h_armor_vxyz(const Eigen::VectorXd& x, int id) const {
         Eigen::Vector3d v_center(x[1], x[3], x[5]);
 

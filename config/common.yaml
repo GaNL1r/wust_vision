@@ -12,7 +12,7 @@ control:
   pitch_avg_windows: 20
   yaw_avg_windows: 20
   device_name: /dev/ttyACM_RMc
-  use_serial: false
+  use_serial: true
   
 logger:
   log_level: INFO
@@ -22,12 +22,12 @@ logger:
   use_simplelog: true
 
 shoot:
-  bullet_speed: 18.0
+  bullet_speed: 22.0
   controller_delay: 0.00
 
 auto_exposure:
   enable: true
-  target_brightness: 15.0
+  target_brightness: 20.0
   tolerance: 3.0
   step_gain: 15.0
   decay_step: 1.0

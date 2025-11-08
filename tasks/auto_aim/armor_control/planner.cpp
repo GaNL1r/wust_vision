@@ -210,6 +210,7 @@ Eigen::Matrix<double, 2, 1> Planner::aim(
             }
         }
     } else {
+        bool is_chosen = false;
         double coming_angle = 70.0 / 57.3, leaving_angle = 30.0 / 57.3;
         if (target.tracked_id_ != armor::ArmorNumber::OUTPOST) {
             auto cl = aimer_->getCommingLeaving();
@@ -221,12 +222,27 @@ Eigen::Matrix<double, 2, 1> Planner::aim(
                 continue;
             if (target.v_yaw() > 0 && delta_angles[i] < leaving_angle) {
                 chosen = armor_list[i].head<3>();
+                is_chosen = true;
                 break;
             }
             if (target.v_yaw() < 0 && delta_angles[i] > -leaving_angle) {
                 chosen = armor_list[i].head<3>();
+                is_chosen = true;
                 break;
             }
+        }
+        if (!is_chosen) {
+            double min_angle = std::numeric_limits<double>::max();
+            int best_idx = -1;
+            for (int i = 0; i < armor_num; ++i) {
+                double abs_angle = std::abs(delta_angles[i]);
+                if (abs_angle < min_angle) {
+                    min_angle = abs_angle;
+                    best_idx = i;
+                }
+            }
+            if (best_idx >= 0)
+                chosen = armor_list[best_idx].head<3>();
         }
     }
 

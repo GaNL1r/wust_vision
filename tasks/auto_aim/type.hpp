@@ -376,7 +376,7 @@ struct Armor {
     std::chrono::steady_clock::time_point timestamp;
     bool is_ok = false;
     bool is_none_purple = false;
-
+    int id = -1;
     std::vector<cv::Point2f>
     toPtsDebug(const cv::Mat& camera_intrinsic, const cv::Mat& camera_distortion) {
         std::vector<cv::Point2f> image_points;
@@ -441,6 +441,7 @@ struct Armors {
     int id;
     Eigen::Vector3d v;
 };
+static constexpr double outpost_v_yaw = 0.8 * M_PI;
 static constexpr double DZ_1 = 0.1;
 static constexpr double DZ_2 = -0.1;
 static constexpr double DZ_3 = 0.2;

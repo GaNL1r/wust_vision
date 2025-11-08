@@ -30,6 +30,7 @@ TrackerManager::TrackerManager(
     target_config.q_r = config_["armor_tracker"]["q_r"].as<double>();
     target_config.q_l = config_["armor_tracker"]["q_l"].as<double>();
     target_config.q_h = config_["armor_tracker"]["q_h"].as<double>();
+    target_config.q_outpost_dz = config_["armor_tracker"]["q_outpost_dz"].as<double>();
     target_config.yp_r = config_["armor_tracker"]["yp_r"].as<double>();
     target_config.dis_r_front = config_["armor_tracker"]["dis_r_front"].as<double>();
     target_config.dis_r_side = config_["armor_tracker"]["dis_r_side"].as<double>();

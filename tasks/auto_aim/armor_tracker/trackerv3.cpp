@@ -23,6 +23,7 @@ Target TrackerV3::track(const armor::Armors& armors_msg) {
     std::erase_if(armors.armors, [this](const armor::Armor& a) {
         double center_yaw = std::atan2(target_.position().y(), target_.position().x());
         bool state_check = tracker_state == TRACKING;
+        bool outpost_check = target_.tracked_id_ == armor::ArmorNumber::OUTPOST && !a.is_ok;
         bool pose_check =
             std::abs(
                 angles::normalize_angle(orientationToYaw(a.target_ori, center_yaw) - center_yaw)
@@ -158,6 +159,7 @@ bool TrackerV3::updateTarget(const armor::Armors& armors) {
     for (auto& armor: valid_armors) {
         int best_id = -1;
         double min_angle_error = 1e10;
+
         if (target_.armor_num_ > 3) {
             for (int i = 0; i < 3; i++) {
                 const auto& xyza = xyza_i_list[i].first;
@@ -177,7 +179,7 @@ bool TrackerV3::updateTarget(const armor::Armors& armors) {
                 }
             }
         } else {
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < 2; i++) {
                 const auto& xyza = xyza_i_list[i].first;
                 Eigen::Vector3d ypd = utils::xyz2ypd(xyza.head(3));
                 auto angle_error = std::abs(

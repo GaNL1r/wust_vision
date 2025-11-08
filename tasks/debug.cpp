@@ -110,6 +110,7 @@ void drawDebugArmorContent(
                     armor_data.armors.emplace_back(armor::Armor { .type = armor_target.type_,
                                                                   .pos = pos,
                                                                   .ori = ori,
+                                                                  .id = static_cast<int>(i),
                                                                   .is_ok = true });
                 }
             }
@@ -123,7 +124,7 @@ void drawDebugArmorContent(
         const auto& pos = armor_data.armors[i].pos;
         const auto& ori = armor_data.armors[i].ori;
         const auto& is_ok = armor_data.armors[i].is_ok;
-
+        const auto& id = armor_data.armors[i].id;
         cv::Scalar color;
         if (dbg.detect_color) {
             color = is_ok ? cv::Scalar(255, 0, 0) : cv::Scalar(0, 0, 255);
@@ -156,7 +157,8 @@ void drawDebugArmorContent(
                                                 fmt::format("X: {:.2f}", pos.x()),
                                                 fmt::format("Y: {:.2f}", pos.y()),
                                                 fmt::format("Z: {:.2f}", pos.z()),
-                                                fmt::format("Yaw: {:.2f}", yaw * 180.0 / M_PI) };
+                                                fmt::format("Yaw: {:.2f}", yaw * 180.0 / M_PI),
+                                                fmt::format("ID: {:d}", id) };
 
         cv::Point2f text_org = pts[0] + cv::Point2f(0, 200);
         for (int k = 0; k < info_lines.size(); ++k) {

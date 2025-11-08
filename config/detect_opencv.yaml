@@ -1,6 +1,6 @@
 armor_detect_opencv:
   light:
-    binary_thres: 100
+    binary_thres: 70
     max_angle: 40
     max_ratio: 0.6
     min_ratio: 0.01
@@ -15,4 +15,4 @@ armor_detect_opencv:
   classify:
     label_path: /home/hy/wust_vision/model/label.txt
     model_path: /home/hy/wust_vision/model/reborn_number_classifier.onnx
-    threshold: 0.7
+    threshold: 0.4

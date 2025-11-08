@@ -88,11 +88,7 @@ T normalize_angle_t(T angle) {
 
 struct Measure {
     Measure() = default;
-    explicit Measure(int id, int armor_num, double outpost_1_0diff_z, double outpost_2_0diff_z):
-        id(id),
-        armor_num(armor_num),
-        outpost_1_0diff_z(outpost_1_0diff_z),
-        outpost_2_0diff_z(outpost_2_0diff_z) {}
+    explicit Measure(int id, int armor_num): id(id), armor_num(armor_num) {}
     template<typename T>
     void operator()(const T x[X_N], T z[Z_N]) const {
         // Compute armor position
@@ -115,15 +111,10 @@ struct Measure {
     }
     template<typename T>
     T getoutpost_armor_z(const T x[X_N]) const {
-        return (id == 0) ? x[4]
-            : (id == 1)  ? x[4] + outpost_1_0diff_z
-            : (id == 2)  ? x[4] + outpost_2_0diff_z
-                         : x[4];
+        return (id == 0) ? x[4] : (id == 1) ? x[4] + x[9] : (id == 2) ? x[4] + x[10] : x[4];
     }
     int armor_num = 4;
     int id = 0;
-    double outpost_1_0diff_z = 0.0;
-    double outpost_2_0diff_z = 0.0;
 };
 
 using RobotStateEKF = kalman_hybird_lib::ExtendedKalmanFilter<X_N, Z_N, Predict, Measure>;
