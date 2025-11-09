@@ -247,6 +247,15 @@ void drawDebugArmorContent(
             0,
             0.1
         );
+        cv::putText(
+            debug_img,
+            fmt::format("V_yaw: {:.2f}", target.v_yaw()),
+            avg + cv::Point2f(0, -20),
+            cv::FONT_HERSHEY_SIMPLEX,
+            1.0,
+            cv::Scalar(50, 255, 50),
+            2
+        );
     }
 
     // =================== 状态绘制 ===================

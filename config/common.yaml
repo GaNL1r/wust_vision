@@ -27,7 +27,7 @@ shoot:
 
 auto_exposure:
   enable: true
-  target_brightness: 20.0
+  target_brightness: 15.0
   tolerance: 3.0
   step_gain: 15.0
   decay_step: 1.0

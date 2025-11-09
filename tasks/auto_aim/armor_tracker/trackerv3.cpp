@@ -30,7 +30,7 @@ Target TrackerV3::track(const armor::Armors& armors_msg) {
             ) > (max_yaw_diff_deg_ * M_PI / 180.0)
             || std::abs((a.target_pos - target_.position()).norm()) > max_dis_diff_;
 
-        return state_check && pose_check;
+        return state_check && pose_check || outpost_check;
     });
 
     std::sort(
@@ -108,7 +108,7 @@ bool TrackerV3::initTarget(const armor::Armors& armors) {
     }
     Eigen::DiagonalMatrix<double, ypdv2armor_motion_model::X_N> p0;
     if (a.number == armor::ArmorNumber::OUTPOST) {
-        p0.diagonal() << 1, 64, 1, 64, 1, 81, 0.4, 100, 1e-4, 0, 0;
+        p0.diagonal() << 1, 64, 1, 64, 1, 81, 0.4, 100, 1e-4, 0.1, 0.1;
         target_ = Target(a, target_config_, 0.2765, 3, p0);
     } else if (a.number == armor::ArmorNumber::BASE) {
         p0.diagonal() << 1, 64, 1, 64, 1, 64, 0.4, 100, 1e-4, 0, 0;
@@ -179,7 +179,7 @@ bool TrackerV3::updateTarget(const armor::Armors& armors) {
                 }
             }
         } else {
-            for (int i = 0; i < 2; i++) {
+            for (int i = 0; i < 3; i++) {
                 const auto& xyza = xyza_i_list[i].first;
                 Eigen::Vector3d ypd = utils::xyz2ypd(xyza.head(3));
                 auto angle_error = std::abs(

@@ -211,26 +211,26 @@ Eigen::Matrix<double, 2, 1> Planner::aim(
         }
     } else {
         bool is_chosen = false;
-        double coming_angle = 70.0 / 57.3, leaving_angle = 30.0 / 57.3;
-        if (target.tracked_id_ != armor::ArmorNumber::OUTPOST) {
-            auto cl = aimer_->getCommingLeaving();
-            coming_angle = cl.first / 57.3;
-            leaving_angle = cl.second / 57.3;
-        }
-        for (int i = 0; i < armor_num; ++i) {
-            if (std::abs(delta_angles[i]) > coming_angle)
-                continue;
-            if (target.v_yaw() > 0 && delta_angles[i] < leaving_angle) {
-                chosen = armor_list[i].head<3>();
-                is_chosen = true;
-                break;
-            }
-            if (target.v_yaw() < 0 && delta_angles[i] > -leaving_angle) {
-                chosen = armor_list[i].head<3>();
-                is_chosen = true;
-                break;
-            }
-        }
+        // double coming_angle = 70.0 / 57.3, leaving_angle = 30.0 / 57.3;
+        // if (target.tracked_id_ != armor::ArmorNumber::OUTPOST) {
+        //     auto cl = aimer_->getCommingLeaving();
+        //     coming_angle = cl.first / 57.3;
+        //     leaving_angle = cl.second / 57.3;
+        // }
+        // for (int i = 0; i < armor_num; ++i) {
+        //     if (std::abs(delta_angles[i]) > coming_angle)
+        //         continue;
+        //     if (target.v_yaw() > 0 && delta_angles[i] < leaving_angle) {
+        //         chosen = armor_list[i].head<3>();
+        //         is_chosen = true;
+        //         break;
+        //     }
+        //     if (target.v_yaw() < 0 && delta_angles[i] > -leaving_angle) {
+        //         chosen = armor_list[i].head<3>();
+        //         is_chosen = true;
+        //         break;
+        //     }
+        // }
         if (!is_chosen) {
             double min_angle = std::numeric_limits<double>::max();
             int best_idx = -1;

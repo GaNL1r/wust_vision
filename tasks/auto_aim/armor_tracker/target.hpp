@@ -141,17 +141,14 @@ public:
         auto r_ok = target_state[8] > 0.05 && target_state[8] < 0.5;
         auto l_ok =
             target_state[8] + target_state[9] > 0.05 && target_state[8] + target_state[9] < 0.5;
+        if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
+            l_ok = true;
+        }
         auto v_yaw_ok = std::abs(target_state[7]) < 30.0;
         Eigen::Vector3d vel = velocity();
         auto v_xyz_ok = std::abs(vel.norm()) < 10.0;
         auto pos_ok = position().norm() < 10.0 && position().norm() > 0.5;
-        bool output_ok = true;
-        if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
-            if (std::abs(target_state[7]) > 1.5 * M_PI) {
-                output_ok = false;
-            }
-        }
-        if (r_ok && l_ok && v_xyz_ok && v_yaw_ok && output_ok && pos_ok)
+        if (r_ok && l_ok && v_xyz_ok && v_yaw_ok && pos_ok)
             return false;
 
         return true;
