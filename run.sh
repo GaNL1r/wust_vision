@@ -6,7 +6,7 @@ BUILD_DIR="$WORK_DIR/build"
 CONFIG_DIR="$WORK_DIR/config"
 
 source "$WORK_DIR/env.bash"
-
+export VISION_ROOT="$WORK_DIR"
 blue="\033[1;34m"
 yellow="\033[1;33m"
 reset="\033[0m"

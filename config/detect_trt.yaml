@@ -7,8 +7,8 @@ armor_detect:
     min_light_ratio: 0.5
     min_small_center_distance: 0.05
   classify:
-    label_path: /home/hy/wust_vision/model/label.txt
-    model_path: /home/hy/wust_vision/model/reborn_number_classifier.onnx
+    label_path: ${VISION_ROOT}/model/label.txt
+    model_path: ${VISION_ROOT}/model/reborn_number_classifier.onnx
     threshold: 0.5
   light:
     binary_thres: 120
@@ -20,7 +20,7 @@ armor_detect:
     max_pts_error: 70.0
   model:
     conf_threshold: 0.2
-    model_path: /home/hy/wust_vision/model/opt-1208-001.onnx
+    model_path: ${VISION_ROOT}/model/opt-1208-001.onnx
     device_id: 0
     nms_threshold: 0.3
     top_k: 128

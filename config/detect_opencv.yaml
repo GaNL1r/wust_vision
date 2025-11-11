@@ -13,6 +13,6 @@ armor_detect_opencv:
     max_large_center_distance: 7.0
     max_angle: 30.0
   classify:
-    label_path: /home/hy/wust_vision/model/label.txt
-    model_path: /home/hy/wust_vision/model/reborn_number_classifier.onnx
+    label_path: ${VISION_ROOT}/model/label.txt
+    model_path: ${VISION_ROOT}/model/reborn_number_classifier.onnx
     threshold: 0.4

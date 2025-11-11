@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "tasks/auto_aim/armor_detect/opencv/armor_detector_opencv_wrapper.hpp"
+#include "tasks/utils.hpp"
 #include "wust_vl/common/utils/logger.hpp"
 ArmorDetectorOpencvWrapper::ArmorDetectorOpencvWrapper(const YAML::Node& config) {
     auto classify_model_path =
-        config["armor_detect_opencv"]["classify"]["model_path"].as<std::string>();
+        utils::expandEnv(config["armor_detect_opencv"]["classify"]["model_path"].as<std::string>());
     auto classify_label_path =
-        config["armor_detect_opencv"]["classify"]["label_path"].as<std::string>();
+        utils::expandEnv(config["armor_detect_opencv"]["classify"]["label_path"].as<std::string>());
     double classify_threshold = config["armor_detect_opencv"]["classify"]["threshold"].as<double>();
 
     int binary_thres = config["armor_detect_opencv"]["light"]["binary_thres"].as<int>();

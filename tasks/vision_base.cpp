@@ -32,6 +32,9 @@ VisionBase::~VisionBase() {
     WUST_MAIN("main") << "vision stop already!";
 }
 bool VisionBase::init(bool debug_mode) {
+    const char* v = std::getenv("VISION_ROOT");
+    if (v) std::cout << "[env] VISION_ROOT = " << v << "\n";
+    else std::cout << "[env] VISION_ROOT not set in this process\n";
     debug_mode_ = debug_mode;
     config_ = YAML::LoadFile(common_config_);
     config_binder_ = std::make_shared<wust_vl_utils::ConfigBinder>(common_config_);
@@ -59,7 +62,7 @@ bool VisionBase::init(bool debug_mode) {
     camera_ = std::make_unique<wust_vl_video::Camera>();
     camera_->init(camera_config);
     camera_->setFrameCallback(std::bind(&VisionBase::frameCallback, this, std::placeholders::_1));
-    const std::string camera_info_path = camera_config["camera_info_path"].as<std::string>();
+    std::string camera_info_path = utils::expandEnv(camera_config["camera_info_path"].as<std::string>());
     YAML::Node config_camera_info = YAML::LoadFile(camera_info_path);
     std::vector<double> camera_k =
         config_camera_info["camera_matrix"]["data"].as<std::vector<double>>();

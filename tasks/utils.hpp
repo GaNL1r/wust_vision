@@ -25,6 +25,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/core/eigen.hpp>
 #include <pwd.h>
+#include <regex>
 #include <wust_vl/video/image.hpp>
 #include <yaml-cpp/node/node.h>
 
@@ -573,6 +574,19 @@ inline std::string makeTimestampedFileName() {
     std::ostringstream oss;
     oss << std::put_time(&tm_now, "%Y%m%d_%H%M%S") << "_" << std::setfill('0') << std::setw(3)
         << ms.count();
-    return oss.str(); // 例如 "20251110_212532_123"
+    return oss.str(); 
 }
+
+inline std::string expandEnv(const std::string& s) {
+    std::regex env_re(R"(\$\{([^}]+)\})");
+    std::smatch match;
+    std::string result = s;
+    while (std::regex_search(result, match, env_re)) {
+        const char* env = std::getenv(match[1].str().c_str());
+        std::string val = env ? env : "";
+        result.replace(match.position(0), match.length(0), val);
+    }
+    return result;
+}
+
 } // namespace utils

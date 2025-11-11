@@ -12,18 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "armor_detector_ncnn_wrapper.hpp"
+#include "tasks/utils.hpp"
 
 ArmorDetectorNCNNWrapper::ArmorDetectorNCNNWrapper(
     const YAML::Node& config,
     bool use_armor_detect_common
 ) {
-    auto classify_model_path = config["armor_detect"]["classify"]["model_path"].as<std::string>();
-    auto classify_label_path = config["armor_detect"]["classify"]["label_path"].as<std::string>();
+    auto classify_model_path = utils::expandEnv(config["armor_detect"]["classify"]["model_path"].as<std::string>());
+    auto classify_label_path = utils::expandEnv(config["armor_detect"]["classify"]["label_path"].as<std::string>());
     double classify_threshold = config["armor_detect"]["classify"]["threshold"].as<double>();
-    const std::string model_path_param =
-        config["armor_detect"]["model"]["model_path_param"].as<std::string>();
-    const std::string model_path_bin =
-        config["armor_detect"]["model"]["model_path_bin"].as<std::string>();
+    std::string model_path_param =
+        utils::expandEnv(config["armor_detect"]["model"]["model_path_param"].as<std::string>());
+    std::string model_path_bin =
+        utils::expandEnv(config["armor_detect"]["model"]["model_path_bin"].as<std::string>());
     bool use_gpu = config["armor_detect"]["model"]["use_gpu"].as<bool>();
     int cpu_threads = config["armor_detect"]["model"]["cpu_threads"].as<int>();
     bool use_lightmode = config["armor_detect"]["model"]["use_lightmode"].as<bool>();

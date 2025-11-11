@@ -1,6 +1,6 @@
 type: hik_camera
 
-camera_info_path: "/home/hy/wust_vision/config/camera_info.yaml"
+camera_info_path: ${VISION_ROOT}/config/camera_info.yaml
 
 hik_camera:
   target_sn: DA3038891 #DA3038891

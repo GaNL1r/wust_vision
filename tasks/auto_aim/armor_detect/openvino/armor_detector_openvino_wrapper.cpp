@@ -12,15 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "tasks/auto_aim/armor_detect/openvino/armor_detector_openvino_wrapper.hpp"
+#include "tasks/utils.hpp"
 
 ArmorDetectorOpenvinoWrapper::ArmorDetectorOpenvinoWrapper(
     const YAML::Node& config,
     bool use_armor_detect_common
 ) {
-    auto classify_model_path = config["armor_detect"]["classify"]["model_path"].as<std::string>();
-    auto classify_label_path = config["armor_detect"]["classify"]["label_path"].as<std::string>();
+    auto classify_model_path = utils::expandEnv(config["armor_detect"]["classify"]["model_path"].as<std::string>());
+    auto classify_label_path = utils::expandEnv(config["armor_detect"]["classify"]["label_path"].as<std::string>());
     double classify_threshold = config["armor_detect"]["classify"]["threshold"].as<double>();
-    const std::string model_path = config["armor_detect"]["model"]["model_path"].as<std::string>();
+    std::string model_path = utils::expandEnv(config["armor_detect"]["model"]["model_path"].as<std::string>());
     auto device_type = config["armor_detect"]["model"]["device_type"].as<std::string>();
     float conf_threshold = config["armor_detect"]["model"]["conf_threshold"].as<float>();
     int top_k = config["armor_detect"]["model"]["top_k"].as<int>();
