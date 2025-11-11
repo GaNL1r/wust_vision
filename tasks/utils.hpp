@@ -557,5 +557,22 @@ inline std::vector<cv::Point2f> intersectLineRotatedRect(
 
     return intersections;
 }
+inline std::string makeTimestampedFileName() {
+    using namespace std::chrono;
+    auto now = system_clock::now();
+    auto time_t_now = system_clock::to_time_t(now);
+    auto ms = duration_cast<milliseconds>(now.time_since_epoch()) % 1000;
 
+    std::tm tm_now {};
+#if defined(_MSC_VER)
+    localtime_s(&tm_now, &time_t_now);
+#else
+    localtime_r(&time_t_now, &tm_now);
+#endif
+
+    std::ostringstream oss;
+    oss << std::put_time(&tm_now, "%Y%m%d_%H%M%S") << "_" << std::setfill('0') << std::setw(3)
+        << ms.count();
+    return oss.str(); // 例如 "20251110_212532_123"
+}
 } // namespace utils

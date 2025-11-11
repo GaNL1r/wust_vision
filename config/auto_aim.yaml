@@ -30,7 +30,7 @@ armor_tracker:
   qxyz_common: 200.0
   qyaw_common: 100.0
   qxyz_output: 10.0
-  qyaw_output: 0.2
+  qyaw_output: 0.1
   q_r: 0.0
   q_l: 0.0
   q_h: 0.0
@@ -62,7 +62,7 @@ planner:
   R_pitch: [1]
 
 aimer:
-  prediction_delay: -0.15
+  prediction_delay: -0.00
   comming_angle: 60
   leaving_angle: 20
 
@@ -76,8 +76,8 @@ shooter:
       d_min: 0
       h_max: 1.5
       h_min: -1
-      pitch_off: -5.2
-      yaw_off: -5.5
+      pitch_off: -2.0
+      yaw_off: -4.5
     - d_max: 10
       d_min: 9
       h_max: 0.4
@@ -86,7 +86,11 @@ shooter:
       yaw_off: 0
 
 trajectory_compensator:
-  compenstator_type: ideal
+  compenstator_type: rk4
   gravity: 9.8
   iteration_times: 20
   resistance: 0.092
+  rho: 1.225
+  Cd: 0.5
+  A: 0.00023
+  mass: 0.02

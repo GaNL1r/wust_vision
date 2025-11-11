@@ -108,14 +108,13 @@ Plan Planner::plan(
     plan.pitch_vel = pitch_solver_->work->x(1, MPC_HALF_HORIZON);
     plan.pitch_acc = pitch_solver_->work->u(0, MPC_HALF_HORIZON);
 
-    // fire 判定：短角差避免 ±π 跳变
-    int idx = MPC_HALF_HORIZON + 2;
-    if (idx >= MPC_HORIZON)
-        idx = MPC_HORIZON - 1;
+    // int idx = MPC_HALF_HORIZON + 2;
+    // if (idx >= MPC_HORIZON)
+    //     idx = MPC_HORIZON - 1;
 
-    double yaw_err = angles::shortest_angular_distance(traj(0, idx), yaw_solver_->work->x(0, idx));
-    double pitch_err = traj(2, idx) - pitch_solver_->work->x(0, idx);
-    plan.fire = std::hypot(yaw_err, pitch_err) < fire_thresh_;
+    // double yaw_err = angles::shortest_angular_distance(traj(0, idx), yaw_solver_->work->x(0, idx));
+    // double pitch_err = traj(2, idx) - pitch_solver_->work->x(0, idx);
+    // plan.fire = std::hypot(yaw_err, pitch_err) < fire_thresh_;
 
     return plan;
 }

@@ -1,6 +1,5 @@
-
-
 #include "vision_base.hpp"
+
 VisionBase::VisionBase(
     std::string common_config,
     std::string camera_config,
@@ -153,6 +152,28 @@ bool VisionBase::init(bool debug_mode) {
     if (auto_buff_) {
         auto_buff_->setDebug(debug_mode_);
     }
+    bool use_record = config_["record"]["use_record"].as<bool>(false);
+    if (use_record) {
+        std::string folder_path = config_["record"]["folder_path"].as<std::string>();
+        auto file_name = utils::makeTimestampedFileName();
+        std::string text_path = fmt::format("{}/{}.csv", folder_path, file_name);
+        std::string video_path = fmt::format("{}/{}.avi", folder_path, file_name);
+
+        std::filesystem::create_directory(folder_path);
+        auto rw = std::make_shared<RotateWriterCSV>(true);
+        rotate_writer_ = std::make_shared<wust_vl::Recorder<Eigen::Vector3d>>(text_path, rw);
+        auto imgw = std::make_shared<ImgWriter>(
+            video_path,
+            30,
+            cv::VideoWriter::fourcc('M', 'J', 'P', 'G')
+        );
+        img_writer_ = std::make_shared<wust_vl::Recorder<cv::Mat>>("", imgw);
+    }
+    bool use_rotate_reader = config_["record"]["use_rotate_reader"].as<bool>(false);
+    if (use_rotate_reader) {
+        std::string csv_path = config_["record"]["read_csv_path"].as<std::string>();
+        rotate_reader_ = std::make_shared<RotateReaderCSV>(csv_path);
+    }
 
     return true;
 }
@@ -166,44 +187,55 @@ void VisionBase::updateBulletSpeed(double bullet_speed) {
     bullet_speed_ = bullet_speed;
 }
 void VisionBase::serialCallback(const uint8_t* data, std::size_t len) {
-    static Averager<double> vyaw_avg(100);
     if (len != sizeof(ReceiveAimINFO)) {
         return;
     }
     try {
         std::vector<uint8_t> buf(data, data + len);
         ReceiveAimINFO aim_data = fromVector<ReceiveAimINFO>(buf);
-
-        if (std::isnan(aim_data.roll) || std::isnan(aim_data.pitch) || std::isnan(aim_data.yaw)
-            || !this->run_flag_)
-        {
-            return;
-        }
-        //detect_color_ = aim_data.detect_color;
-        double roll = -(aim_data.roll) * M_PI / 180.0;
-        double pitch = (aim_data.pitch) * M_PI / 180.0;
-        double yaw = (aim_data.yaw) * M_PI / 180.0;
-        double v_roll = aim_data.roll_vel * M_PI / 180.0;
-        double v_pitch = aim_data.pitch_vel * M_PI / 180.0;
-        double v_yaw = aim_data.yaw_vel * M_PI / 180.0;
-        vyaw_avg.add(v_yaw);
-        updateBulletSpeed(aim_data.bullet_speed);
-        double v_x = 0.0;
-        double v_y = 0.0;
-        double v_z = 0.0;
-
-        auto now = std::chrono::steady_clock::now();
-        if (motion_buffer_) {
-            Motion motion { yaw, pitch, roll, 0.0, v_pitch, v_roll, v_x, v_y, v_z };
-            motion_buffer_->push(motion, now);
-        }
-
-        writeSerialLogToJson(aim_data);
+        processAimData(aim_data);
 
     } catch (const std::exception& e) {
         std::cerr << "serialCallback exception: " << e.what() << std::endl;
     } catch (...) {
         std::cerr << "serialCallback unknown exception" << std::endl;
+    }
+}
+void VisionBase::processAimData(const ReceiveAimINFO& aim_data) {
+    static Averager<double> vyaw_avg(100);
+    if (std::isnan(aim_data.roll) || std::isnan(aim_data.pitch) || std::isnan(aim_data.yaw)
+        || !this->run_flag_)
+    {
+        return;
+    }
+    //detect_color_ = aim_data.detect_color;
+    double roll = -(aim_data.roll) * M_PI / 180.0;
+    double pitch = (aim_data.pitch) * M_PI / 180.0;
+    double yaw = (aim_data.yaw) * M_PI / 180.0;
+    double v_roll = aim_data.roll_vel * M_PI / 180.0;
+    double v_pitch = aim_data.pitch_vel * M_PI / 180.0;
+    double v_yaw = aim_data.yaw_vel * M_PI / 180.0;
+    vyaw_avg.add(v_yaw);
+    //updateBulletSpeed(aim_data.bullet_speed);
+    double v_x = 0.0;
+    double v_y = 0.0;
+    double v_z = 0.0;
+
+    auto now = std::chrono::steady_clock::now();
+    if (motion_buffer_) {
+        Motion motion { yaw, pitch, roll, 0.0, v_pitch, v_roll, v_x, v_y, v_z };
+        motion_buffer_->push(motion, now);
+    }
+
+    writeSerialLogToJson(aim_data);
+    static auto last_push_time = std::chrono::steady_clock::now();
+    auto elapsed =
+        std::chrono::duration_cast<std::chrono::milliseconds>(now - last_push_time).count();
+    if (elapsed >= 10) { // 至少间隔 10ms（100Hz）
+        if (rotate_writer_) {
+            rotate_writer_->push(Eigen::Vector3d(aim_data.yaw, aim_data.pitch, aim_data.roll));
+        }
+        last_push_time = now;
     }
 }
 double computeBrightness(const cv::Mat& frame) {
@@ -253,7 +285,9 @@ void VisionBase::frameCallback(wust_vl_video::ImageFrame& frame) {
     common_frame.src_img = std::move(frame.src_img);
     infer_running_count_++;
     autoExposureControl(common_frame.src_img);
-
+    if (img_writer_) {
+        img_writer_->push(common_frame.src_img);
+    }
     thread_pool_->enqueue([this, frame = std::move(common_frame)]() mutable {
         if (frame.src_img.data == nullptr) {
             return;
@@ -342,8 +376,8 @@ void VisionBase::timerCallback(double dt_ms) {
 
     double cmd_pitch = cmd.pitch;
     double cmd_yaw = cmd.yaw;
-    if (cmd.pitch >= 35.0) {
-        cmd_pitch = 35.0;
+    if (cmd.pitch >= 45.0) {
+        cmd_pitch = 45.0;
     }
     const double max_delta_yaw = 5.0;
     const double max_delta_pitch = 1.0;
@@ -402,9 +436,25 @@ void VisionBase::start() {
     }
     if (serial_) {
         serial_->start();
+    } else if (rotate_reader_) {
+        rotate_reader_->replay([this](const Eigen::Vector3d& ypr) {
+            ReceiveAimINFO aim_data;
+            aim_data.yaw = ypr(0);
+            aim_data.pitch = ypr(1);
+            aim_data.roll = ypr(2);
+            this->processAimData(aim_data);
+        }
+
+        );
     }
     if (debug_mode_) {
         debug_thread_ = std::thread([this]() { this->debugThread(); });
+    }
+    if (rotate_writer_) {
+        rotate_writer_->start();
+    }
+    if (img_writer_) {
+        img_writer_->start();
     }
 }
 

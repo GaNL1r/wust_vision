@@ -1,5 +1,6 @@
 #pragma once
 #include "3rdparty/backward-cpp/backward.hpp"
+#include "sinple_img_rotate_saver.hpp"
 #include "tasks/auto_aim/auto_aim.hpp"
 #include "tasks/auto_buff/auto_buff.hpp"
 #include "tasks/utils.hpp"
@@ -65,6 +66,7 @@ public:
     void debugThread();
     void autoExposureControl(const cv::Mat& frame);
     void updateBulletSpeed(double bullet_speed);
+    void processAimData(const ReceiveAimINFO& aim_data);
     std::unique_ptr<ThreadPool> thread_pool_;
     std::unique_ptr<auto_aim::AutoAim> auto_aim_;
     std::unique_ptr<auto_buff::AutoBuff> auto_buff_;
@@ -76,6 +78,9 @@ public:
     std::shared_ptr<MotionBufferGeneric<Motion, 1024>> motion_buffer_;
     std::shared_ptr<wust_vl_utils::ConfigBinder> config_binder_;
     std::shared_ptr<wust_vl_utils::ConfigBinder> auto_aim_config_binder_;
+    std::shared_ptr<wust_vl::Recorder<Eigen::Vector3d>> rotate_writer_;
+    RotateReaderCSV::RotateReaderCSVPtr rotate_reader_;
+    std::shared_ptr<wust_vl::Recorder<cv::Mat>> img_writer_;
     std::thread debug_thread_;
     YAML::Node config_;
     Eigen::Matrix3d R_camera2gimbal_;

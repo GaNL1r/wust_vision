@@ -14,15 +14,14 @@ hik_camera:
   acquisition_frame_rate_enable: true
   reverse_x: false
   reverse_y: false
-  recorder: false
-
+  
 video_player:
   fps: 60
   loop: true
   #path: /home/hy/wust_data/video/aaa.mp4
   #path: /home/hy/wust_data/video/jiao.avi
   #path: /home/hy/Z_LION_AutoAim2025/src/auto_aim_publisher/videos/sample.avi
-  #path: /home/hy/data/4k.MP4
-  path: /home/hy/rune_dl/runeA.mp4
+  path: /home/hy/wust_data/record/20251111_134416_187.avi
+  #path: /home/hy/rune_dl/runeA.mp4
   #path: /home/hy/wust_data/video/Sentry.mp4
   start_frame: 0

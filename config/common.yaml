@@ -22,7 +22,7 @@ logger:
   use_simplelog: true
 
 shoot:
-  bullet_speed: 22.0
+  bullet_speed: 21.0
   controller_delay: 0.00
 
 auto_exposure:
@@ -34,5 +34,12 @@ auto_exposure:
   exposure_min: 100.0
   exposure_max: 2500.0
   control_interval_ms: 300
+
+record:
+  use_record: false
+  folder_path: /home/hy/wust_data/record
+  use_rotate_reade: false
+  read_csv_path: 
+
 
 use_sim: true

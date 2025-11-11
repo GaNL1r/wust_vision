@@ -209,13 +209,17 @@ void Target::predict(double dt, Eigen::Vector3d self_v, bool use_lin_pre) {
         if (target_state_[8] > 0.35) {
             target_state_[8] = 0.35;
         }
-        constexpr double outpost_v_yaw_err=0.1;
-        if (target_state_[7] > armor::outpost_v_yaw + outpost_v_yaw_err) {
-            target_state_[7] = armor::outpost_v_yaw + outpost_v_yaw_err;
+        if (std::abs(target_state_[7]) > 1.5) {
+            constexpr double outpost_v_yaw_err = 0.2;
+            double lower = std::max(0.0, armor::outpost_v_yaw - outpost_v_yaw_err);
+            double upper = armor::outpost_v_yaw + outpost_v_yaw_err;
+
+            double sign = std::copysign(1.0, target_state_[7]); // 保存符号
+            double abs_val = std::abs(target_state_[7]);
+            abs_val = std::clamp(abs_val, lower, upper);
+            target_state_[7] = sign * abs_val;
         }
-        if (target_state_[7] < armor::outpost_v_yaw - outpost_v_yaw_err) {
-            target_state_[7] = armor::outpost_v_yaw - outpost_v_yaw_err;
-        }
+
         esekf_ypd_.setState(target_state_);
     }
 }
@@ -265,7 +269,8 @@ bool Target::update(const armor::Armor& a) {
             const auto& xyza = xyza_i_list[i].first;
             Eigen::Vector3d ypd = utils::xyz2ypd(xyza.head(3));
             auto angle_error =
-                std::abs(angles::normalize_angle(orientationToYaw(armor.target_ori) - xyza[3]))+ std::abs(angles::normalize_angle(utils::xyz2ypd(armor.target_pos)[0] - ypd[0]))
+                std::abs(angles::normalize_angle(orientationToYaw(armor.target_ori) - xyza[3]))
+                + std::abs(angles::normalize_angle(utils::xyz2ypd(armor.target_pos)[0] - ypd[0]))
                 + std::abs(angles::normalize_angle(utils::xyz2ypd(armor.target_pos)[1] - ypd[1]));
             if (std::abs(angle_error) < std::abs(min_angle_error)) {
                 id = xyza_i_list[i].second;

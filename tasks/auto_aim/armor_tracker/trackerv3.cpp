@@ -30,7 +30,7 @@ Target TrackerV3::track(const armor::Armors& armors_msg) {
             ) > (max_yaw_diff_deg_ * M_PI / 180.0)
             || std::abs((a.target_pos - target_.position()).norm()) > max_dis_diff_;
 
-        return state_check && pose_check || outpost_check;
+        return state_check && pose_check && outpost_check;
     });
 
     std::sort(
