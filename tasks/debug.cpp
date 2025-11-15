@@ -331,7 +331,85 @@ void drawDebugArmorContent(
         2
     );
 
-    // =================== 屏幕中心点 ===================
+    double scale = 100.0;
+    double armor_len = 0.135;
+
+    std::vector<Eigen::Vector2d> pts;
+    pts.reserve(armors.armors.size() + armor_data.armors.size());
+
+    auto collect_xy = [&](auto& list, bool use_target) {
+        for (auto& a: list)
+            pts.emplace_back(
+                use_target ? a.target_pos.x() : a.pos.x(),
+                use_target ? a.target_pos.y() : a.pos.y()
+            );
+    };
+
+    collect_xy(armors.armors, true);
+    collect_xy(armor_data.armors, false);
+
+    double max_abs_x = 1e-6, max_abs_y = 1e-6;
+    for (auto& p: pts) {
+        max_abs_x = std::max(max_abs_x, std::abs(p.x()));
+        max_abs_y = std::max(max_abs_y, std::abs(p.y()));
+    }
+
+    double margin = 40.0;
+    double cx = debug_img.cols * 0.5;
+    double cy = debug_img.rows * 0.5;
+
+    scale = std::min({ (cx - margin) / max_abs_x,
+                       (debug_img.cols - cx - margin) / max_abs_x,
+                       (cy - margin) / max_abs_y,
+                       (debug_img.rows - cy - margin) / max_abs_y,
+                       550.0 });
+
+    cv::Point2d origin(cx, cy);
+
+    auto to_img = [&](const Eigen::Vector3d& p) {
+        return cv::Point2d(origin.x + p.x() * scale, origin.y - p.y() * scale);
+    };
+
+    auto draw2dArmor = [&](const Eigen::Vector3d& pos, double yaw, const cv::Scalar& color) {
+        cv::Point2d C = to_img(pos);
+        cv::circle(debug_img, C, 3, color, -1, cv::LINE_AA);
+
+        double nx = -sin(yaw), ny = cos(yaw);
+        double half_len_px = armor_len * 0.5 * scale;
+
+        cv::Point2d P1(C.x + nx * half_len_px, C.y - ny * half_len_px);
+        cv::Point2d P2(C.x - nx * half_len_px, C.y + ny * half_len_px);
+        cv::line(debug_img, P1, P2, color, 2, cv::LINE_AA);
+    };
+
+    Eigen::Vector3d center(0, 0, 0);
+    if (!armor_data.armors.empty()) {
+        for (auto& a: armor_data.armors)
+            center += a.pos;
+        center /= armor_data.armors.size();
+    }
+
+    cv::Point2d Cc = to_img(center);
+    if (!armor_data.armors.empty())
+        cv::circle(debug_img, Cc, 5, cv::Scalar(255, 0, 0), -1, cv::LINE_AA);
+
+    for (auto& a: armors.armors)
+        draw2dArmor(a.target_pos, a.yaw, cv::Scalar(0, 255, 255));
+
+    std::vector<cv::Point2d> data_pts;
+
+    for (auto& a: armor_data.armors) {
+        double yaw = a.ori.toRotationMatrix().eulerAngles(2, 1, 0)[0];
+        draw2dArmor(a.pos, yaw, cv::Scalar(255, 255, 255));
+        data_pts.push_back(to_img(a.pos));
+    }
+
+    for (auto& pt: data_pts)
+        cv::line(debug_img, Cc, pt, cv::Scalar(180, 180, 255), 1, cv::LINE_AA);
+
+    for (auto& a: armors.armors)
+        cv::line(debug_img, Cc, to_img(a.target_pos), cv::Scalar(0, 150, 255), 1, cv::LINE_AA);
+
     cv::circle(
         debug_img,
         cv::Point2i(debug_img.cols / 2, debug_img.rows / 2),

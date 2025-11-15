@@ -1,4 +1,4 @@
-armor_detect_backend: opencv
+armor_detect_backend: tensorrt
 max_detect_armors: 11
 use_ba: true
 

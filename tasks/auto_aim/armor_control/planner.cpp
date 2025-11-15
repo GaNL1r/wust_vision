@@ -269,9 +269,9 @@ std::tuple<double, double, std::vector<Eigen::Vector4d>, AimTarget> Planner::cal
     at.host_pos = target.position();
     at.host_vel = target.velocity();
     Eigen::Vector3d euler;
-    euler.z() = M_PI / 2;
+    euler.x() = M_PI / 2;
     euler.y() = target.tracked_id_ == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
-    euler.x() = chosen_yaw;
+    euler.z() = chosen_yaw;
     Eigen::Quaterniond ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
     at.ori = ori;
     GimbalCmd cmd;
