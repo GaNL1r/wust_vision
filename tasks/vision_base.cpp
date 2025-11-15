@@ -33,8 +33,10 @@ VisionBase::~VisionBase() {
 }
 bool VisionBase::init(bool debug_mode) {
     const char* v = std::getenv("VISION_ROOT");
-    if (v) std::cout << "[env] VISION_ROOT = " << v << "\n";
-    else std::cout << "[env] VISION_ROOT not set in this process\n";
+    if (v)
+        std::cout << "[env] VISION_ROOT = " << v << "\n";
+    else
+        std::cout << "[env] VISION_ROOT not set in this process\n";
     debug_mode_ = debug_mode;
     config_ = YAML::LoadFile(common_config_);
     config_binder_ = std::make_shared<wust_vl_utils::ConfigBinder>(common_config_);
@@ -62,7 +64,8 @@ bool VisionBase::init(bool debug_mode) {
     camera_ = std::make_unique<wust_vl_video::Camera>();
     camera_->init(camera_config);
     camera_->setFrameCallback(std::bind(&VisionBase::frameCallback, this, std::placeholders::_1));
-    std::string camera_info_path = utils::expandEnv(camera_config["camera_info_path"].as<std::string>());
+    std::string camera_info_path =
+        utils::expandEnv(camera_config["camera_info_path"].as<std::string>());
     YAML::Node config_camera_info = YAML::LoadFile(camera_info_path);
     std::vector<double> camera_k =
         config_camera_info["camera_matrix"]["data"].as<std::vector<double>>();
@@ -349,9 +352,6 @@ void VisionBase::checkStateMatchMode() {
 }
 
 void VisionBase::timerCallback(double dt_ms) {
-    static double last_yaw = 0.0;
-    static double last_pitch = 0.0;
-
     if (!run_flag_) {
         return;
     }
@@ -382,26 +382,9 @@ void VisionBase::timerCallback(double dt_ms) {
     if (cmd.pitch >= 45.0) {
         cmd_pitch = 45.0;
     }
-    const double max_delta_yaw = 5.0;
-    const double max_delta_pitch = 1.0;
-    double pitch_delta = cmd_pitch - last_pitch;
-    double yaw_delta = cmd_yaw - last_yaw;
-    if (yaw_delta > 180.0)
-        yaw_delta -= 360.0;
-    if (yaw_delta < -180.0)
-        yaw_delta += 360.0;
-    if (pitch_delta > max_delta_pitch)
-        pitch_delta = max_delta_pitch;
-    if (pitch_delta < -max_delta_pitch)
-        pitch_delta = -max_delta_pitch;
-    if (yaw_delta > max_delta_yaw)
-        yaw_delta = max_delta_yaw;
-    if (yaw_delta < -max_delta_yaw)
-        yaw_delta = -max_delta_yaw;
-    yaw_avg_->add(last_yaw + yaw_delta);
-    pitch_avg_->add(last_pitch + pitch_delta);
-    last_pitch = last_pitch + pitch_delta;
-    last_yaw = last_yaw + yaw_delta;
+
+    yaw_avg_->add(cmd_yaw);
+    pitch_avg_->add(cmd_pitch);
     SendRobotCmdData send_data;
     send_data.cmd_ID = ID_ROBOT_CMD;
     if (cmd.distance > 0.5) {

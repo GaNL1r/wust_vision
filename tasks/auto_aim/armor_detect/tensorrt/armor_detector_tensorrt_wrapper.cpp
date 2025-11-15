@@ -18,10 +18,13 @@ ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(
     const YAML::Node& config,
     bool use_armor_detect_common
 ) {
-    auto classify_model_path = utils::expandEnv(config["armor_detect"]["classify"]["model_path"].as<std::string>());
-    auto classify_label_path = utils::expandEnv(config["armor_detect"]["classify"]["label_path"].as<std::string>());
+    auto classify_model_path =
+        utils::expandEnv(config["armor_detect"]["classify"]["model_path"].as<std::string>());
+    auto classify_label_path =
+        utils::expandEnv(config["armor_detect"]["classify"]["label_path"].as<std::string>());
     double classify_threshold = config["armor_detect"]["classify"]["threshold"].as<double>();
-    std::string model_path = utils::expandEnv(config["armor_detect"]["model"]["model_path"].as<std::string>());
+    std::string model_path =
+        utils::expandEnv(config["armor_detect"]["model"]["model_path"].as<std::string>());
     ArmorDetectTrt::Params params;
     params.conf_threshold = config["armor_detect"]["model"]["conf_threshold"].as<float>();
     params.nms_threshold = config["armor_detect"]["model"]["nms_threshold"].as<float>();
@@ -44,9 +47,12 @@ ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(
         expand_ratio_w = config["armor_detect"]["light"]["expand_ratio_w"].as<float>(1.1);
         expand_ratio_h = config["armor_detect"]["light"]["expand_ratio_h"].as<float>(1.1);
         max_pts_error = config["armor_detect"]["light"]["max_pts_error"].as<double>(20.0);
-        l_params = { .min_ratio = config["armor_detect"]["light"]["min_ratio"].as<double>(0.1),
-                     .max_ratio = config["armor_detect"]["light"]["max_ratio"].as<double>(3.0),
-                     .max_angle = config["armor_detect"]["light"]["max_angle"].as<double>(40) };
+        l_params = {
+            .min_ratio = config["armor_detect"]["light"]["min_ratio"].as<double>(0.1),
+            .max_ratio = config["armor_detect"]["light"]["max_ratio"].as<double>(3.0),
+            .max_angle = config["armor_detect"]["light"]["max_angle"].as<double>(40),
+            .max_angle_diff = config["armor_detect"]["light"]["max_angle_diff"].as<double>(20),
+        };
         a_params = { .min_light_ratio =
                          config["armor_detect"]["armor"]["min_light_ratio"].as<double>(1),
                      .min_small_center_distance =

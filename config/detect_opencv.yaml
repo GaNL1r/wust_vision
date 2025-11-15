@@ -2,17 +2,18 @@ armor_detect_opencv:
   light:
     binary_thres: 70
     max_angle: 40
-    max_ratio: 0.6
-    min_ratio: 0.01
+    max_ratio: 1.0
+    min_ratio: 0.0001
     color_diff_thresh: 20
+    max_angle_diff: 30.0
   armor:
     min_light_ratio: 0.8
     min_small_center_distance: 0.8
-    max_small_center_distance: 3.0
-    min_large_center_distance: 3.0
-    max_large_center_distance: 7.0
-    max_angle: 30.0
+    max_small_center_distance: 3.5
+    min_large_center_distance: 3.5
+    max_large_center_distance: 8.0
+    max_angle: 35.0
   classify:
     label_path: ${VISION_ROOT}/model/label.txt
     model_path: ${VISION_ROOT}/model/reborn_number_classifier.onnx
-    threshold: 0.4
+    threshold: 0.5

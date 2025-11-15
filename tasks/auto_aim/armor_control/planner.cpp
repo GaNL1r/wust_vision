@@ -53,13 +53,19 @@ Plan Planner::plan(
     bool aim_first = (auto_aim_fsm == AutoAimFsm::AIM_SINGLE_ARMOR);
     bool aim_center = (auto_aim_fsm == AutoAimFsm::AIM_WHOLE_CAR_CENTER);
 
-    double yaw0;
     Trajectory traj;
+    std::vector<Eigen::Vector4d> armor_list;
+    AimTarget aim_target;
+    double yaw0 = 0.0;
+
     try {
-        // aim() returns normalized radians [−π, π] for yaw & pitch
-        yaw0 = angles::normalize_angle(
-            aim(target, bullet_speed, aim_center, aim_first, self_v_yaw, dt_total)(0)
-        );
+        auto result = calaim(target, bullet_speed, aim_center, aim_first, self_v_yaw, dt_total);
+        double tmp_yaw = std::get<0>(result);
+        double tmp_pitch = std::get<1>(result);
+        armor_list = std::get<2>(result);
+        aim_target = std::get<3>(result);
+        yaw0 = angles::normalize_angle(tmp_yaw);
+
         traj = get_trajectory(
             target,
             yaw0,
@@ -108,6 +114,8 @@ Plan Planner::plan(
     plan.pitch_vel = pitch_solver_->work->x(1, MPC_HALF_HORIZON);
     plan.pitch_acc = pitch_solver_->work->u(0, MPC_HALF_HORIZON);
 
+    plan.armor_posandyaw = armor_list;
+    plan.aim_target = aim_target;
     // int idx = MPC_HALF_HORIZON + 2;
     // if (idx >= MPC_HORIZON)
     //     idx = MPC_HORIZON - 1;
@@ -159,8 +167,7 @@ void Planner::setup_pitch_solver(const YAML::Node& config) {
 
     pitch_solver_->settings->max_iter = 10;
 }
-
-Eigen::Matrix<double, 2, 1> Planner::aim(
+std::tuple<double, double, std::vector<Eigen::Vector4d>, AimTarget> Planner::calaim(
     const Target& target,
     double bullet_speed,
     bool aim_center,
@@ -203,9 +210,11 @@ Eigen::Matrix<double, 2, 1> Planner::aim(
                 if (lock_id != a && lock_id != b)
                     lock_id = (std::abs(delta_angles[a]) < std::abs(delta_angles[b])) ? a : b;
                 chosen = armor_list[lock_id].head<3>();
+                chosen_yaw = armor_list[lock_id][3];
             } else {
                 lock_id = -1;
                 chosen = armor_list[candidates[0]].head<3>();
+                chosen_yaw = armor_list[candidates[0]][3];
             }
         }
     } else {
@@ -221,11 +230,13 @@ Eigen::Matrix<double, 2, 1> Planner::aim(
         //         continue;
         //     if (target.v_yaw() > 0 && delta_angles[i] < leaving_angle) {
         //         chosen = armor_list[i].head<3>();
+        //         chosen_yaw = armor_list[i][3];
         //         is_chosen = true;
         //         break;
         //     }
         //     if (target.v_yaw() < 0 && delta_angles[i] > -leaving_angle) {
         //         chosen = armor_list[i].head<3>();
+        //         chosen_yaw = armor_list[i][3];
         //         is_chosen = true;
         //         break;
         //     }
@@ -235,13 +246,17 @@ Eigen::Matrix<double, 2, 1> Planner::aim(
             int best_idx = -1;
             for (int i = 0; i < armor_num; ++i) {
                 double abs_angle = std::abs(delta_angles[i]);
+
+                //double abs_angle = armor_list[i].head<2>().norm();
                 if (abs_angle < min_angle) {
                     min_angle = abs_angle;
                     best_idx = i;
                 }
             }
-            if (best_idx >= 0)
+            if (best_idx >= 0) {
                 chosen = armor_list[best_idx].head<3>();
+                chosen_yaw = armor_list[best_idx][3];
+            }
         }
     }
 
@@ -253,18 +268,21 @@ Eigen::Matrix<double, 2, 1> Planner::aim(
     at.valid = true;
     at.host_pos = target.position();
     at.host_vel = target.velocity();
-
+    Eigen::Vector3d euler;
+    euler.z() = M_PI / 2;
+    euler.y() = target.tracked_id_ == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
+    euler.x() = chosen_yaw;
+    Eigen::Quaterniond ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
+    at.ori = ori;
     GimbalCmd cmd;
     double control_yaw = 0.0;
     double v_yaw = 0.0;
-
-    if (aim_center) {
-        control_yaw = std::atan2(at.host_pos.y(), at.host_pos.x()) - self_v_yaw * dt;
-        v_yaw = at.calHostVYaw();
-    } else {
-        control_yaw = at.calYaw() - self_v_yaw * dt;
-        v_yaw = at.calVYaw();
-    }
+    control_yaw = at.calYaw() - self_v_yaw * dt;
+    v_yaw = at.calVYaw();
+    // if (aim_center) {
+    //     control_yaw = std::atan2(at.host_pos.y(), at.host_pos.x()) - self_v_yaw * dt;
+    //     v_yaw = at.calHostVYaw();
+    // }
 
     cmd.timestamp = std::chrono::steady_clock::now();
     cmd.distance = at.distance();
@@ -274,10 +292,25 @@ Eigen::Matrix<double, 2, 1> Planner::aim(
     cmd.v_yaw = rad2deg(v_yaw);
     cmd.aim_target = at;
     cmd.appera = true;
+    cmd.armor_posandyaw = armor_list;
 
     GimbalCmd gimbal_cmd = shooter_->shoot(cmd, bullet_speed);
     return { angles::normalize_angle(deg2rad(gimbal_cmd.yaw)),
-             angles::normalize_angle(deg2rad(gimbal_cmd.pitch)) };
+             angles::normalize_angle(deg2rad(gimbal_cmd.pitch)),
+             armor_list,
+             at };
+}
+Eigen::Matrix<double, 2, 1> Planner::aim(
+    const Target& target,
+    double bullet_speed,
+    bool aim_center,
+    bool aim_first,
+    double self_v_yaw,
+    double dt
+) {
+    auto [yaw, pitch, armor_list, at] =
+        calaim(target, bullet_speed, aim_center, aim_first, self_v_yaw, dt);
+    return Eigen::Matrix<double, 2, 1>(yaw, pitch);
 }
 
 Trajectory Planner::get_trajectory(

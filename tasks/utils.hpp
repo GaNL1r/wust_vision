@@ -574,7 +574,7 @@ inline std::string makeTimestampedFileName() {
     std::ostringstream oss;
     oss << std::put_time(&tm_now, "%Y%m%d_%H%M%S") << "_" << std::setfill('0') << std::setw(3)
         << ms.count();
-    return oss.str(); 
+    return oss.str();
 }
 
 inline std::string expandEnv(const std::string& s) {

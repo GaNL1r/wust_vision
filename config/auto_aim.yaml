@@ -1,4 +1,4 @@
-armor_detect_backend: tensorrt
+armor_detect_backend: opencv
 max_detect_armors: 11
 use_ba: true
 
@@ -27,8 +27,8 @@ armor_tracker:
   tracking_thres: 10
   max_yaw_diff_deg: 80.0
   max_dis_diff: 1.0
-  qxyz_common: 200.0
-  qyaw_common: 100.0
+  qxyz_common: 20.0
+  qyaw_common: 10.0
   qxyz_output: 10.0
   qyaw_output: 0.1
   q_r: 0.0
@@ -39,7 +39,7 @@ armor_tracker:
   dis_r_front: 0.5
   dis_r_side: 1.5
   dis2_r_ratio: 0.05
-  yaw_r_base_front: 0.08
+  yaw_r_base_front: 0.2
   yaw_r_base_side: 0.06
   yaw_r_log_ratio: 0.02
   esekf_iter_num: 20
@@ -52,12 +52,12 @@ auto_aim_fsm:
   transfer_thresh: 20
 
 planner:
-  max_yaw_acc: 30
+  max_yaw_acc: 35
   #全向yaw加速度测算37
   Q_yaw: [9e6, 0]
   R_yaw: [1.5]
 
-  max_pitch_acc: 10
+  max_pitch_acc: 100
   Q_pitch: [9e6, 0]
   R_pitch: [1]
 
@@ -67,8 +67,8 @@ aimer:
   leaving_angle: 20
 
 shooter:
-  shooting_range_h: 0.1
-  shooting_range_w: 0.13
+  shooting_range_h: 0.07
+  shooting_range_w: 0.1
   min_enable_pitch_deg: 0.25
   min_enable_yaw_deg: 0.25
   trajectory_offset:
@@ -76,7 +76,7 @@ shooter:
       d_min: 0
       h_max: 1.5
       h_min: -1
-      pitch_off: -2.0
+      pitch_off: -3.0
       yaw_off: -4.5
     - d_max: 10
       d_min: 9
@@ -86,7 +86,7 @@ shooter:
       yaw_off: 0
 
 trajectory_compensator:
-  compenstator_type: rk4
+  compenstator_type: resistance
   gravity: 9.8
   iteration_times: 20
   resistance: 0.092

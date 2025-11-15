@@ -153,6 +153,32 @@ public:
 
         return true;
     }
+    inline void clampState(Eigen::VectorXd& state) noexcept {
+        for (int i = 0; i < 3; i++) {
+            state[i] = std::clamp(state[i], -10.0, 10.0);
+        }
+
+        for (int i = 3; i < 6; i++) {
+            state[i] = std::clamp(state[i], -10.0, 10.0);
+        }
+
+        // state[6] = std::remainder(state[6], 2 * M_PI);
+        state[7] = std::clamp(state[7], -30.0, 30.0);
+        state[8] = std::clamp(state[8], 0.05, 0.5);
+        state[9] = std::clamp(state[9], -0.45, 0.45);
+
+        if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
+            state[8] = std::clamp(state[8], 0.05, 0.5);
+        }
+
+        double r_plus_l = state[8] + state[9];
+        if (r_plus_l < 0.05) {
+            state[9] = 0.05 - state[8];
+        } else if (r_plus_l > 0.5) {
+            state[9] = 0.5 - state[8];
+        }
+    }
+
     std::vector<Eigen::Vector4d> getArmorPosAndYaw() const {
         std::vector<Eigen::Vector4d> _armor_xyza_list;
 

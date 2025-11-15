@@ -322,8 +322,11 @@ ArmorDetectOpenCV::isArmor(const armor::Light& light_1, const armor::Light& ligh
     cv::Point2f diff = light_1.center - light_2.center;
     float angle = std::abs(std::atan(diff.y / diff.x)) / CV_PI * 180;
     bool angle_ok = angle < armor_params_.max_angle;
-
-    bool is_armor = light_ratio_ok && center_distance_ok && angle_ok;
+    float delta_angle = std::fabs(light_1.angle - light_2.angle);
+    if (delta_angle > 90.0f)
+        delta_angle = 180.0f - delta_angle; // 对称性补偿
+    bool parallel_ok = delta_angle < light_params_.max_angle_diff;
+    bool is_armor = light_ratio_ok && center_distance_ok && angle_ok && parallel_ok;
 
     // Judge armor type
     armor::ArmorType type;

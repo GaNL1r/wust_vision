@@ -257,13 +257,13 @@ struct AutoAim::Impl {
 
             gimbal_cmd.raw_yaw = gimbal_cmd.yaw;
             gimbal_cmd.raw_pitch = gimbal_cmd.pitch;
-
             auto plan = planner_->plan(target, shared_->bullet_speed, auto_aim_fsm_cl_.fsm_state_);
             if (plan.control) {
                 gimbal_cmd.yaw = plan.yaw / M_PI * 180.0;
                 gimbal_cmd.v_yaw = plan.yaw_vel / M_PI * 180.0;
                 gimbal_cmd.pitch = plan.pitch / M_PI * 180.0;
                 gimbal_cmd.v_pitch = plan.pitch_vel / M_PI * 180.0;
+                tmp_cmd.armor_posandyaw = plan.armor_posandyaw;
                 auto only_check_fire = shooter_->shoot(
                     tmp_cmd,
                     gimbal_cmd.yaw * M_PI / 180.0,
@@ -275,25 +275,12 @@ struct AutoAim::Impl {
                 gimbal_cmd.fire_advice = only_check_fire.fire_advice;
                 gimbal_cmd.enable_pitch_diff = only_check_fire.enable_pitch_diff;
                 gimbal_cmd.enable_yaw_diff = only_check_fire.enable_yaw_diff;
-                gimbal_cmd.target_yaw = only_check_fire.target_yaw;
-                gimbal_cmd.target_pitch = only_check_fire.target_pitch;
+                gimbal_cmd.target_yaw = plan.target_yaw / M_PI * 180.0;
+                gimbal_cmd.target_pitch = plan.target_pitch / M_PI * 180.0;
+                aim_target = plan.aim_target;
             } else {
-                // auto only_check_fire = shooter_->shoot(
-                //     tmp_cmd,
-                //     gimbal_cmd.yaw * M_PI / 180.0,
-                //     gimbal_cmd.pitch * M_PI / 180.0,
-                //     shared_->bullet_speed,
-                //     true,
-                //     last_att->data.vyaw
-                // );
-                // gimbal_cmd.fire_advice = only_check_fire.fire_advice;
-                // gimbal_cmd.enable_pitch_diff = only_check_fire.enable_pitch_diff;
-                // gimbal_cmd.enable_yaw_diff = only_check_fire.enable_yaw_diff;
-                // gimbal_cmd.target_yaw = only_check_fire.target_yaw;
-                // gimbal_cmd.target_pitch = only_check_fire.target_pitch;
                 gimbal_cmd.appera = false;
             }
-
         } else {
             gimbal_cmd.appera = false;
         }

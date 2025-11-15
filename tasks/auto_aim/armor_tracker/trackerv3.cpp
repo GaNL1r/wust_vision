@@ -74,10 +74,14 @@ Target TrackerV3::track(const armor::Armors& armors_msg) {
             lost_count_ = 0;
         }
     }
-    if (tracker_state != LOST && target_.diverged()) {
-        tracker_state = LOST;
-        WUST_WARN("tracker") << "Target diverged!";
-    }
+    // if (tracker_state != LOST && target_.diverged()) {
+    //     tracker_state = LOST;
+    //     WUST_WARN("tracker") << "Target diverged!";
+    // }
+    auto state = target_.esekf_ypd_.getState();
+    Eigen::VectorXd state_dynamic = state;
+    target_.clampState(state_dynamic);
+    target_.esekf_ypd_.setState(state_dynamic);
     if (tracker_state != LOST && target_.esekf_ypd_.isRecentlyInconsistent()) {
         tracker_state = LOST;
         WUST_WARN("tracker") << "Bad Converge Found!";

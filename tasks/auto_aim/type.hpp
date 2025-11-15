@@ -66,6 +66,7 @@ struct LightParams {
     double max_angle;
     // judge color
     int color_diff_thresh;
+    double max_angle_diff;
 };
 struct ArmorParams {
     double min_light_ratio;

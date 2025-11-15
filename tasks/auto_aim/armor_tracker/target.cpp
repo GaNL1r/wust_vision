@@ -288,15 +288,15 @@ bool Target::update(const armor::Armor& a) {
     double ypd_p = std::atan2(p.z(), std::sqrt(p.x() * p.x() + p.y() * p.y()));
     double ypd_d = std::sqrt(p.x() * p.x() + p.y() * p.y() + p.z() * p.z());
     measurement_ = Eigen::Vector4d(ypd_y, ypd_p, ypd_d, measured_yaw);
-    if (tracked_id_ != armor::ArmorNumber::OUTPOST) {
-        auto tmp_esekf = esekf_ypd_;
-        tmp_esekf.setMeasureFunc(ypdv2armor_motion_model::Measure { id, armor_num_ });
-        auto tmp_state = tmp_esekf.update(measurement_);
-        if (diverged(tmp_state)) {
-            WUST_WARN("target") << "This update make diverged skip!!";
-            return false;
-        }
-    }
+    // if (tracked_id_ != armor::ArmorNumber::OUTPOST) {
+    //     auto tmp_esekf = esekf_ypd_;
+    //     tmp_esekf.setMeasureFunc(ypdv2armor_motion_model::Measure { id, armor_num_ });
+    //     auto tmp_state = tmp_esekf.update(measurement_);
+    //     if (diverged(tmp_state)) {
+    //         WUST_WARN("target") << "This update make diverged skip!!";
+    //         return false;
+    //     }
+    // }
 
     if (id != 0)
         jumped = true;

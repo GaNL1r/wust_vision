@@ -29,6 +29,8 @@ struct Plan {
     float pitch_vel;
     float pitch_acc;
     double distance;
+    std::vector<Eigen::Vector4d> armor_posandyaw;
+    AimTarget aim_target;
 };
 
 class Planner {
@@ -68,6 +70,15 @@ private:
         bool aim_first,
         double self_v_yaw,
         double dt);
+    std::tuple<double, double, std::vector<Eigen::Vector4d>, AimTarget> calaim(
+        const Target& target,
+        double bullet_speed,
+        bool aim_center,
+        bool aim_first,
+        double self_v_yaw,
+        double dt
+    );
+
     Trajectory get_trajectory(
         Target& target,
         double yaw0,

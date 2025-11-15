@@ -27,6 +27,7 @@ ArmorDetectorOpencvWrapper::ArmorDetectorOpencvWrapper(const YAML::Node& config)
         .min_ratio = config["armor_detect_opencv"]["light"]["min_ratio"].as<double>(),
         .max_ratio = config["armor_detect_opencv"]["light"]["max_ratio"].as<double>(),
         .max_angle = config["armor_detect_opencv"]["light"]["max_angle"].as<double>(),
+        .max_angle_diff = config["armor_detect_opencv"]["light"]["max_angle_diff"].as<double>(),
         .color_diff_thresh = config["armor_detect_opencv"]["light"]["color_diff_thresh"].as<int>()
     };
     armor::ArmorParams a_params = {
