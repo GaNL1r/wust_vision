@@ -12,7 +12,7 @@ control:
   pitch_avg_windows: 20
   yaw_avg_windows: 20
   device_name: /dev/ttyACM_RMc
-  use_serial: false
+  use_serial: true
   
 logger:
   log_level: INFO

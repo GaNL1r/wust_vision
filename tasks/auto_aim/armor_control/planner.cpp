@@ -21,9 +21,7 @@ Plan Planner::plan(
     Target target,
     double bullet_speed,
     const AutoAimFsm& auto_aim_fsm,
-    double self_v_yaw,
-    double cal_dt,
-    int cal_horizon
+    double self_v_yaw
 ) {
     aim_first_idx_ = -1;
     if (bullet_speed < 10 || bullet_speed > 25)
@@ -66,17 +64,8 @@ Plan Planner::plan(
         aim_target = std::get<3>(result);
         yaw0 = angles::normalize_angle(tmp_yaw);
 
-        traj = get_trajectory(
-            target,
-            yaw0,
-            bullet_speed,
-            aim_center,
-            aim_first,
-            self_v_yaw,
-            dt_total,
-            cal_dt,
-            cal_horizon
-        );
+        traj =
+            get_trajectory(target, yaw0, bullet_speed, aim_center, aim_first, self_v_yaw, dt_total);
     } catch (const std::exception&) {
         return { false };
     }
@@ -179,13 +168,14 @@ std::tuple<double, double, std::vector<Eigen::Vector4d>, AimTarget> Planner::cal
 
     // pick nearest armor + prepare lists
     auto armor_list = target.getArmorPosAndYaw();
-    int armor_num = (int)armor_list.size();
-    Eigen::Vector3d chosen;
+    int armor_num = static_cast<int>(armor_list.size());
+
+    // default chosen = zero
+    Eigen::Vector3d chosen = Eigen::Vector3d::Zero();
     double chosen_yaw = 0.0;
-    if (armor_list.empty()) {
-        chosen = Eigen::Vector3d::Zero();
-        chosen_yaw = 0.0;
-    } else {
+
+    // if there is at least one armor, initialize chosen with first
+    if (armor_num > 0) {
         chosen = armor_list[0].head<3>();
         chosen_yaw = armor_list[0][3];
     }
@@ -194,72 +184,77 @@ std::tuple<double, double, std::vector<Eigen::Vector4d>, AimTarget> Planner::cal
     double center_yaw = std::atan2(target.position().y(), target.position().x());
     std::vector<double> delta_angles;
     delta_angles.reserve(armor_num);
-    for (int i = 0; i < armor_num; ++i)
+    for (int i = 0; i < armor_num; ++i) {
         delta_angles.push_back(angles::normalize_angle(armor_list[i][3] - center_yaw));
+    }
+
+    // helper: pick best index by minimal absolute delta angle (returns -1 if none)
+    auto pick_best_by_min_abs = [&](const std::vector<int>& idxs) -> int {
+        int best = -1;
+        double best_val = std::numeric_limits<double>::infinity();
+        for (int i: idxs) {
+            double val = std::abs(delta_angles[i]);
+            if (val < best_val) {
+                best_val = val;
+                best = i;
+            }
+        }
+        return best;
+    };
 
     // handle AIM_SINGLE_ARMOR / candidate selection
-    if (aim_first && target.tracked_id_ != armor::ArmorNumber::OUTPOST) {
+    if (aim_first && target.tracked_id_ != armor::ArmorNumber::OUTPOST && armor_num > 0) {
         std::vector<int> candidates;
-        for (int i = 0; i < armor_num; ++i)
-            if (std::abs(delta_angles[i]) <= 60.0 / 57.3)
+        for (int i = 0; i < armor_num; ++i) {
+            if (std::abs(delta_angles[i]) <= 60.0 / 57.3) // 60 degrees in radians approx
                 candidates.push_back(i);
+        }
 
         if (!candidates.empty()) {
             if (candidates.size() > 1) {
                 int a = candidates[0], b = candidates[1];
-                if (lock_id != a && lock_id != b)
+                if (lock_id != a && lock_id != b) {
                     lock_id = (std::abs(delta_angles[a]) < std::abs(delta_angles[b])) ? a : b;
-                chosen = armor_list[lock_id].head<3>();
-                chosen_yaw = armor_list[lock_id][3];
-            } else {
+                }
+                int pick = (lock_id >= 0 && lock_id < armor_num) ? lock_id
+                                                                 : pick_best_by_min_abs(candidates);
+                if (pick >= 0) {
+                    chosen = armor_list[pick].head<3>();
+                    chosen_yaw = armor_list[pick][3];
+                }
+            } else { // single candidate
                 lock_id = -1;
-                chosen = armor_list[candidates[0]].head<3>();
-                chosen_yaw = armor_list[candidates[0]][3];
+                int pick = candidates[0];
+                chosen = armor_list[pick].head<3>();
+                chosen_yaw = armor_list[pick][3];
             }
         }
-    } else {
-        bool is_chosen = false;
-        // double coming_angle = 70.0 / 57.3, leaving_angle = 30.0 / 57.3;
-        // if (target.tracked_id_ != armor::ArmorNumber::OUTPOST) {
-        //     auto cl = aimer_->getCommingLeaving();
-        //     coming_angle = cl.first / 57.3;
-        //     leaving_angle = cl.second / 57.3;
-        // }
-        // for (int i = 0; i < armor_num; ++i) {
-        //     if (std::abs(delta_angles[i]) > coming_angle)
-        //         continue;
-        //     if (target.v_yaw() > 0 && delta_angles[i] < leaving_angle) {
-        //         chosen = armor_list[i].head<3>();
-        //         chosen_yaw = armor_list[i][3];
-        //         is_chosen = true;
-        //         break;
-        //     }
-        //     if (target.v_yaw() < 0 && delta_angles[i] > -leaving_angle) {
-        //         chosen = armor_list[i].head<3>();
-        //         chosen_yaw = armor_list[i][3];
-        //         is_chosen = true;
-        //         break;
-        //     }
-        // }
-        if (!is_chosen) {
+    } else if (armor_num > 0) {
+        // default: pick armor whose yaw is closest to center yaw
+        int best_idx = pick_best_by_min_abs(std::vector<int>(/*0..armor_num-1*/));
+        if (best_idx == -1) {
+            // pick_best_by_min_abs overload above expects a vector of indices;
+            // fallback: linear search (keeps behavior identical)
             double min_angle = std::numeric_limits<double>::max();
-            int best_idx = -1;
+            int best = -1;
             for (int i = 0; i < armor_num; ++i) {
                 double abs_angle = std::abs(delta_angles[i]);
-
-                //double abs_angle = armor_list[i].head<2>().norm();
                 if (abs_angle < min_angle) {
                     min_angle = abs_angle;
-                    best_idx = i;
+                    best = i;
                 }
             }
-            if (best_idx >= 0) {
-                chosen = armor_list[best_idx].head<3>();
-                chosen_yaw = armor_list[best_idx][3];
+            if (best >= 0) {
+                chosen = armor_list[best].head<3>();
+                chosen_yaw = armor_list[best][3];
             }
+        } else {
+            chosen = armor_list[best_idx].head<3>();
+            chosen_yaw = armor_list[best_idx][3];
         }
     }
 
+    // build AimTarget
     AimTarget at;
     at.pos = chosen;
     double raw_pitch = at.calRawPitch();
@@ -268,21 +263,19 @@ std::tuple<double, double, std::vector<Eigen::Vector4d>, AimTarget> Planner::cal
     at.valid = true;
     at.host_pos = target.position();
     at.host_vel = target.velocity();
+
+    // build orientation quaternion (ZYX order)
     Eigen::Vector3d euler;
-    euler.x() = M_PI / 2;
-    euler.y() = target.tracked_id_ == armor::ArmorNumber::OUTPOST ? -0.2618 : 0.2618,
+    euler.x() = M_PI / 2.0;
+    euler.y() = (target.tracked_id_ == armor::ArmorNumber::OUTPOST) ? -0.2618 : 0.2618;
     euler.z() = chosen_yaw;
     Eigen::Quaterniond ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
     at.ori = ori;
+
+    // compute control yaw/pitch and rates
     GimbalCmd cmd;
-    double control_yaw = 0.0;
-    double v_yaw = 0.0;
-    control_yaw = at.calYaw() - self_v_yaw * dt;
-    v_yaw = at.calVYaw();
-    // if (aim_center) {
-    //     control_yaw = std::atan2(at.host_pos.y(), at.host_pos.x()) - self_v_yaw * dt;
-    //     v_yaw = at.calHostVYaw();
-    // }
+    double control_yaw = at.calYaw() - self_v_yaw * dt;
+    double v_yaw = at.calVYaw();
 
     cmd.timestamp = std::chrono::steady_clock::now();
     cmd.distance = at.distance();
@@ -295,11 +288,13 @@ std::tuple<double, double, std::vector<Eigen::Vector4d>, AimTarget> Planner::cal
     cmd.armor_posandyaw = armor_list;
 
     GimbalCmd gimbal_cmd = shooter_->shoot(cmd, bullet_speed);
+
     return { angles::normalize_angle(deg2rad(gimbal_cmd.yaw)),
              angles::normalize_angle(deg2rad(gimbal_cmd.pitch)),
              armor_list,
              at };
 }
+
 Eigen::Matrix<double, 2, 1> Planner::aim(
     const Target& target,
     double bullet_speed,
@@ -320,64 +315,69 @@ Trajectory Planner::get_trajectory(
     bool aim_center,
     bool aim_first,
     double self_v_yaw,
-    double dt,
-    double cal_dt,
-    int cal_horizon
+    double dt
 ) {
-    Eigen::Matrix<double, 4, Eigen::Dynamic> cal_traj(4, cal_horizon);
+    double yaw_rel_arr[CAL_HORIZON];
+    double yaw_vel_arr[CAL_HORIZON];
+    double pitch_arr[CAL_HORIZON];
+    double pitch_vel_arr[CAL_HORIZON];
 
     auto unwrap_continuous = [&](double prev, double cur) {
         return prev + angles::shortest_angular_distance(prev, cur);
     };
 
-    // prime predictions (center the window)
-    target.predict(-cal_dt * (cal_horizon / 2.0 + 1));
+    target.predict(-CAL_DT * (CAL_HORIZON / 2.0 + 1));
     auto last = aim(target, bullet_speed, aim_center, aim_first, self_v_yaw, dt);
-    target.predict(cal_dt);
+    target.predict(CAL_DT);
     auto cur = aim(target, bullet_speed, aim_center, aim_first, self_v_yaw, dt);
 
     double yaw_cont_last = last(0);
     double yaw_cont = unwrap_continuous(yaw_cont_last, cur(0));
 
-    for (int i = 0; i < cal_horizon; ++i) {
-        target.predict(cal_dt);
+    for (int i = 0; i < CAL_HORIZON; ++i) {
+        target.predict(CAL_DT);
         auto next = aim(target, bullet_speed, aim_center, aim_first, self_v_yaw, dt);
+
         double yaw_cont_next = unwrap_continuous(yaw_cont, next(0));
 
         double yaw_diff = yaw_cont_next - yaw_cont_last;
-        double yaw_vel = yaw_diff / (2.0 * cal_dt);
-        double pitch_vel = (next(1) - last(1)) / (2.0 * cal_dt);
-
+        double yaw_vel = yaw_diff * (0.5 / CAL_DT);
+        double pitch_vel = (next(1) - last(1)) * (0.5 / CAL_DT);
         double yaw_rel = angles::shortest_angular_distance(yaw0, yaw_cont);
-
-        cal_traj.col(i) << yaw_rel, yaw_vel, cur(1), pitch_vel;
+        yaw_rel_arr[i] = yaw_rel;
+        yaw_vel_arr[i] = yaw_vel;
+        pitch_arr[i] = cur(1);
+        pitch_vel_arr[i] = pitch_vel;
 
         last = cur;
         cur = next;
+
         yaw_cont_last = yaw_cont;
         yaw_cont = yaw_cont_next;
     }
 
-    // 插值至 MPC_HORIZON
     Trajectory mpc_traj;
+
     for (int i = 0; i < MPC_HORIZON; ++i) {
         double t = i * MPC_DT;
-        double idx_f = t / cal_dt;
-        int idx0 = std::min(static_cast<int>(idx_f), cal_horizon - 1);
-        int idx1 = std::min(idx0 + 1, cal_horizon - 1);
+        double idx_f = t / CAL_DT;
+
+        int idx0 = std::min(static_cast<int>(idx_f), CAL_HORIZON - 1);
+        int idx1 = std::min(idx0 + 1, CAL_HORIZON - 1);
         double alpha = idx_f - idx0;
 
-        double y0 = cal_traj(0, idx0);
-        double y1 = cal_traj(0, idx1);
+        double y0 = yaw_rel_arr[idx0];
+        double y1 = yaw_rel_arr[idx1];
         double ydiff = angles::shortest_angular_distance(y0, y1);
         double yaw_interp = y0 + alpha * ydiff;
 
-        double pitch_interp = cal_traj(2, idx0) + alpha * (cal_traj(2, idx1) - cal_traj(2, idx0));
-        double yaw_vel_interp = cal_traj(1, idx0) + alpha * (cal_traj(1, idx1) - cal_traj(1, idx0));
+        double yaw_vel_interp = yaw_vel_arr[idx0] + alpha * (yaw_vel_arr[idx1] - yaw_vel_arr[idx0]);
+        double pitch_interp = pitch_arr[idx0] + alpha * (pitch_arr[idx1] - pitch_arr[idx0]);
         double pitch_vel_interp =
-            cal_traj(3, idx0) + alpha * (cal_traj(3, idx1) - cal_traj(3, idx0));
+            pitch_vel_arr[idx0] + alpha * (pitch_vel_arr[idx1] - pitch_vel_arr[idx0]);
 
         mpc_traj.col(i) << yaw_interp, yaw_vel_interp, pitch_interp, pitch_vel_interp;
     }
+
     return mpc_traj;
 }

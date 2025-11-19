@@ -5,6 +5,7 @@ Aimer::Aimer(
     std::shared_ptr<TrajectoryCompensator> trajectory_compensator
 ) {
     trajectory_compensator_ = trajectory_compensator;
+    prediction_delay_ = config["prediction_delay"].as<double>();
     manual_compensator_ = std::make_unique<ManualCompensator>();
     std::vector<OffsetEntry> entries;
 

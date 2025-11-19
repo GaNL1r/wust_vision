@@ -54,6 +54,7 @@ public:
     bool is_tracking = false;
     bool is_temp_lost_ = false;
     int last_id;
+    std::vector<int> update_ids;
     RuneTargetConfig target_config_;
     std::chrono::steady_clock::time_point last_t_;
     std::chrono::steady_clock::time_point timestamp_;
@@ -91,7 +92,7 @@ public:
         return roll;
     }
     inline bool checkTargetAppear() {
-        bool appear = is_tracking && time_utils::durationSec(timestamp_, time_utils::now()) < 0.5;
+        bool appear = is_tracking && time_utils::durationSec(timestamp_, time_utils::now()) < 5.0;
         return appear;
     }
     double predictAngle(std::chrono::steady_clock::time_point t) const {
@@ -102,17 +103,17 @@ public:
         return fitter_.predictAngle(last_time_ + dt);
     }
     void predictWithFitter(std::chrono::steady_clock::time_point t) {
-        if (is_big_) {
-            double to_start = time_utils::durationSec(start_time_, t);
-            double angle = fitter_.predictAngle(to_start);
-            double speed = fitter_.predictSpeed(to_start);
-            auto state = esekf_ypd_.getState();
-            state[4] = angles::normalize_angle(angle);
-            state[5] = speed;
-            esekf_ypd_.setState(state);
-        } else {
+        // if (is_big_) {
+        //     double to_start = time_utils::durationSec(start_time_, t);
+        //     double angle = fitter_.predictAngle(to_start);
+        //     double speed = fitter_.predictSpeed(to_start);
+        //     auto state = esekf_ypd_.getState();
+        //     state[4] = angles::normalize_angle(angle);
+        //     state[5] = speed;
+        //     esekf_ypd_.setState(state);
+        // } else {
             predict(t);
-        }
+       // }
     }
     double getFitterSpd(std::chrono::steady_clock::time_point t) {
         double to_start = time_utils::durationSec(start_time_, t);
@@ -160,7 +161,7 @@ public:
         return poses;
     }
     std::pair<Eigen::Vector3d, Eigen::Quaterniond> getPose(int id) const {
-        Eigen::Vector3d euler = Eigen::Vector3d(yaw(), 0.0, -real_roll(id));
+        Eigen::Vector3d euler = Eigen::Vector3d(yaw(), 0.0, real_roll(id));
         auto q = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
         return computeBladeTipPose(centerPos(), q, id);
     }
@@ -169,11 +170,11 @@ public:
     computeBladeTipPose(const Eigen::Vector3d& center_pos, const Eigen::Quaterniond& q, int id)
         const {
         // tip 的局部坐标（沿 local X 方向）
-        Eigen::Vector3d local_tip(-0.15, 0.0, 0.65);
+        Eigen::Vector3d local_tip(-0.15, 0.0, 0.7);
 
         Eigen::Vector3d tip_pos = center_pos + q * local_tip;
 
-        Eigen::Vector3d euler = Eigen::Vector3d(yaw(), 0.0, -real_roll(id));
+        Eigen::Vector3d euler = Eigen::Vector3d(yaw(), 0.0, real_roll(id));
         return { tip_pos, utils::eulerToQuat(euler, utils::EulerOrder::ZYX) };
     }
     std::pair<Eigen::Vector3d, Eigen::Quaterniond> getHitPoint() const {

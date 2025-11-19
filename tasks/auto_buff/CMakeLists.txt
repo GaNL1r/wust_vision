@@ -27,7 +27,7 @@ target_sources(VisCore_auto_buff PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/rune_tracker/rune_tracker.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/rune_tracker/rune_target.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/rune_detector/scut_robot_detector.cpp
-    
+    ${CMAKE_CURRENT_SOURCE_DIR}/rune_detector/rune_detector.cpp
 )
 
 

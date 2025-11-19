@@ -54,11 +54,11 @@ RuneTarget::RuneTarget(
     esekf_ypd_.setWindowSize(50);
     esekf_ypd_.setRecentFailRateThreshold(0.4);
 
-    double xc = fan.target_pos.x();
-    double yc = fan.target_pos.y();
-    double zc = fan.target_pos.z();
-    double yaw = orientationToYaw(fan.target_ori);
-    double roll = orientationToRoll(fan.target_ori);
+    double xc = fan.fans.front().target_pos.x();
+    double yc = fan.fans.front().target_pos.y();
+    double zc = fan.fans.front().target_pos.z();
+    double yaw = orientationToYaw(fan.fans.front().target_ori);
+    double roll = orientationToRoll(fan.fans.front().target_ori);
     target_state_ = Eigen::VectorXd::Zero(ypdrune_motion_model::X_N);
     target_state_ << xc, yc, zc, yaw, roll, pre_v_roll;
     esekf_ypd_.setState(target_state_);
@@ -123,52 +123,69 @@ void RuneTarget::predict(double dt) {
         is_tracking = false;
     }
 }
-bool RuneTarget::update(const rune::RuneFan& fan) {
-    timestamp_ = fan.timestamp;
-
-    int id;
-    auto min_angle_error = 1e10;
-    const auto angles = getAngles();
-    for (int i = 0; i < angles.size(); i++) {
-        auto angle_error = std::abs(angles::normalize_angle(
-            angles::normalize_angle(orientationToRoll(fan.target_ori)) - angles[i]
-        ));
-        if (angle_error < min_angle_error) {
-            min_angle_error = angle_error;
-            id = i;
-        }
-    }
-    auto p = fan.target_pos;
-
-    double measured_yaw = orientationToYaw(fan.target_ori);
-    double measured_roll = orientationToRoll(fan.target_ori);
-    double ypd_y = std::atan2(p.y(), p.x());
-    ypd_y = this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
-    this->last_ypd_y = ypd_y;
-    double ypd_p = std::atan2(p.z(), std::sqrt(p.x() * p.x() + p.y() * p.y()));
-    double ypd_d = std::sqrt(p.x() * p.x() + p.y() * p.y() + p.z() * p.z());
-    measurement_ << ypd_y, ypd_p, ypd_d, measured_yaw, measured_roll;
-    auto tmp_esekf = esekf_ypd_;
-    tmp_esekf.setMeasureFunc(ypdrune_motion_model::Measure { id });
-    tmp_esekf.update(measurement_);
-    auto tmp_state = tmp_esekf.predict();
-    if (diverged(tmp_state) || std::abs(tmp_state[5] - v_roll()) > M_PI / 10) {
-        WUST_WARN("target") << "This update make diverged skip!!";
+bool RuneTarget::update(const rune::RuneFan& fans) {
+    timestamp_ = fans.timestamp;
+    if (fans.fans.empty()) {
         return false;
     }
-    last_id = id;
-    auto yu_rv2 = [this](const Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>& z) {
-        return this->computeMeasurementCovariance(z);
-    };
-    esekf_ypd_.setUpdateR(yu_rv2);
-    esekf_ypd_.setMeasureFunc(ypdrune_motion_model::Measure { id });
+    
+    update_ids.clear();
+    for (auto fan: fans.fans) {
+        int id;
+        auto min_angle_error = 1e10;
+        const auto angles = getAngles();
+        for (int i = 0; i < angles.size(); i++) {
+            auto angle_error = std::abs(angles::normalize_angle(
+                angles::normalize_angle(orientationToRoll(fan.target_ori)) - angles[i]
+            ));
+            if (angle_error < min_angle_error) {
+                min_angle_error = angle_error;
+                id = i;
+            }
+        }
+        auto p = fan.target_pos;
 
-    esekf_ypd_.update(measurement_);
-    double tostart = time_utils::durationSec(start_time_, fan.timestamp);
+        double measured_yaw = orientationToYaw(fan.target_ori);
+        double measured_roll = orientationToRoll(fan.target_ori);
+        double ypd_y = std::atan2(p.y(), p.x());
+        ypd_y = this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
+        this->last_ypd_y = ypd_y;
+        double ypd_p = std::atan2(p.z(), std::sqrt(p.x() * p.x() + p.y() * p.y()));
+        double ypd_d = std::sqrt(p.x() * p.x() + p.y() * p.y() + p.z() * p.z());
+        measurement_ << ypd_y, ypd_p, ypd_d, measured_yaw, measured_roll;
+        auto tmp_esekf = esekf_ypd_;
+        tmp_esekf.setMeasureFunc(ypdrune_motion_model::Measure { id });
+        tmp_esekf.update(measurement_);
+        auto tmp_state = tmp_esekf.predict();
+        if (diverged(tmp_state) || std::abs(tmp_state[5] - v_roll()) > M_PI / 10) {
+            WUST_WARN("target") << "This update make diverged skip!!";
+            return false;
+        }
+
+        update_ids.push_back(id);
+        auto yu_rv2 = [this](const Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>& z) {
+            return this->computeMeasurementCovariance(z);
+        };
+        esekf_ypd_.setUpdateR(yu_rv2);
+        esekf_ypd_.setMeasureFunc(ypdrune_motion_model::Measure { id });
+
+        esekf_ypd_.update(measurement_);
+        if(!is_big_)
+            last_id = id;
+    }
+    bool no_change = false;
+    // for (auto id: update_ids) {
+    //     if (id == last_id)
+    //         no_change = true;
+    // }
+    // if (!no_change&&update_ids.size()>1)
+    //     last_id = update_ids[0];
+    double tostart = time_utils::durationSec(start_time_, fans.timestamp);
     fitter_.update(tostart, v_roll());
     fitter_.setAngleRef(tostart, roll());
     fitter_.fitAsync();
     last_time_ = tostart;
+
     return true;
 }
 

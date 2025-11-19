@@ -3,7 +3,7 @@ type: hik_camera
 camera_info_path: ${VISION_ROOT}/config/camera_info.yaml
 
 hik_camera:
-  target_sn: DA1094119 #DA3038891
+  target_sn: DA3038891 #DA3038891
   acquisition_frame_rate: 250
   adc_bit_depth: Bits_8
   exposure_time: 3000
@@ -18,10 +18,11 @@ hik_camera:
 video_player:
   fps: 60
   loop: true
+  use_cvt: true
   #path: /home/hy/wust_data/video/aaa.mp4
   #path: /home/hy/wust_data/video/jiao.avi
   #path: /home/hy/Z_LION_AutoAim2025/src/auto_aim_publisher/videos/sample.avi
-  path: /home/hy/wust_data/record/20251111_134416_187.avi
-  #path: /home/hy/rune_dl/runeA.mp4
+  #path: /home/hy/wust_data/record/20251111_134416_187.avi
+  path: /home/hy/rune_dl/runeA.mp4
   #path: /home/hy/wust_data/video/Sentry.mp4
   start_frame: 0

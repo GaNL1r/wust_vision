@@ -198,6 +198,7 @@ inline int runVisionMain(int argc, char** argv) {
                         std::cerr << status.first << " is Hunging! Exiting program..." << std::endl;
                         exit_flag = true;
                         exit_code = -1;
+                        sig.requestExit();
                         break;
                     }
                 }

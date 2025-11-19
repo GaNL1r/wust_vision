@@ -17,17 +17,15 @@ rune::RuneTarget RuneTracker::track(const rune::RuneFan& fan) {
     double dt = std::chrono::duration<double>(fan.timestamp - last_time_).count();
     last_time_ = fan.timestamp;
     lost_thres_ = std::abs(static_cast<int>(lost_dt_ / dt));
-    bool pose_check = std::abs((fan.target_pos - target_.centerPos()).norm()) < max_dis_diff_
-        && fan.target_pos.norm() > 1.0;
+    // bool pose_check = std::abs((fan.target_pos - target_.centerPos()).norm()) < max_dis_diff_
+    //     && fan.target_pos.norm() > 1.0;
     bool found;
     bool ok;
     if (tracker_state == LOST) {
         found = initTarget(fan);
         ok = found;
-    } else if (pose_check) {
-        found = updateTarget(fan);
     } else {
-        found = false;
+        found = updateTarget(fan);
     }
     if (tracker_state == DETECTING) {
         if (found) {
@@ -85,7 +83,7 @@ rune::RuneTarget RuneTracker::track(const rune::RuneFan& fan) {
     return target_;
 }
 bool RuneTracker::initTarget(const rune::RuneFan& fan) {
-    if (!fan.is_valid) {
+    if (!fan.is_valid || fan.fans.empty()) {
         return false;
     }
     target_ = rune::RuneTarget(fan.is_big, fan, target_config_, pre_v_roll_);
@@ -93,9 +91,16 @@ bool RuneTracker::initTarget(const rune::RuneFan& fan) {
     return true;
 }
 bool RuneTracker::updateTarget(const rune::RuneFan& fan) {
-    if (!fan.is_valid) {
+    if (!fan.is_valid || fan.fans.empty()) {
         return false;
     }
-    target_.predict(fan.timestamp);
-    return target_.update(fan);
+    auto fan_copy = fan;
+    std::erase_if(fan_copy.fans, [this](const rune::RuneFan::Simple& f) {
+        bool pose_check = std::abs((f.target_pos - target_.centerPos()).norm()) < max_dis_diff_
+            && f.target_pos.norm() > 1.0;
+
+        return !pose_check;
+    });
+    target_.predict(fan_copy.timestamp);
+    return target_.update(fan_copy);
 }

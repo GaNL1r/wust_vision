@@ -123,109 +123,109 @@ void ScutRobotDetector::detect(
     bool debug,
     Infer* infer
 ) {
-    rune::RuneFan fan { .is_valid = false,
-                        .timestamp = frame.timestamp,
-                        .id = frame.id,
-                        .is_big = is_big };
-    if (!infer || !callback_ || !infer->detector) {
-        return;
-    }
-    if (debug) {
-        DebugTools::get()->setImage(frame.src_img);
-    }
+    // rune::RuneFan fan { .is_valid = false,
+    //                     .timestamp = frame.timestamp,
+    //                     .id = frame.id,
+    //                     .is_big = is_big };
+    // if (!infer || !callback_ || !infer->detector) {
+    //     return;
+    // }
+    // if (debug) {
+    //     DebugTools::get()->setImage(frame.src_img);
+    // }
 
-    auto t1 = std::chrono::steady_clock::now();
-    GyroData gyroData;
-    gyroData.rotation.yaw = gimbal[0];
-    gyroData.rotation.pitch = gimbal[1];
-    gyroData.rotation.roll = gimbal[2];
-    DetectorInput input;
-    DetectorOutput output;
-    input.setImage(frame.src_img);
-    input.setTick(frame.timestamp);
-    input.setGyroData(GyroData());
-    input.setColor(toScutPixChannel(frame.detect_color));
-    input.setFeatureNodes(infer->rune_groups);
-    input.setDebug(debug);
-    try {
-        infer->detector->detect(input, output);
-        infer->rune_groups = output.getFeatureNodes();
-    } catch (std::exception& e) {
-        std::cout << "detect error" << e.what() << std::endl;
-    }
+    // auto t1 = std::chrono::steady_clock::now();
+    // GyroData gyroData;
+    // gyroData.rotation.yaw = gimbal[0];
+    // gyroData.rotation.pitch = gimbal[1];
+    // gyroData.rotation.roll = gimbal[2];
+    // DetectorInput input;
+    // DetectorOutput output;
+    // input.setImage(frame.src_img);
+    // input.setTick(frame.timestamp);
+    // input.setGyroData(GyroData());
+    // input.setColor(toScutPixChannel(frame.detect_color));
+    // input.setFeatureNodes(infer->rune_groups);
+    // input.setDebug(debug);
+    // try {
+    //     infer->detector->detect(input, output);
+    //     infer->rune_groups = output.getFeatureNodes();
+    // } catch (std::exception& e) {
+    //     std::cout << "detect error" << e.what() << std::endl;
+    // }
 
-    do {
-        if (infer->rune_groups.empty())
-            break;
-        auto rune_group = RuneGroup::cast(infer->rune_groups.front());
+    // do {
+    //     if (infer->rune_groups.empty())
+    //         break;
+    //     auto rune_group = RuneGroup::cast(infer->rune_groups.front());
 
-        if (rune_group->childFeatures().empty())
-            break;
-        FeatureNode_cptr target_tracker = nullptr;
+    //     if (rune_group->childFeatures().empty())
+    //         break;
+    //     FeatureNode_cptr target_tracker = nullptr;
 
-        for (auto tracker: rune_group->getTrackers()) {
-            auto tracker_ = TrackingFeatureNode::cast(tracker);
+    //     for (auto tracker: rune_group->getTrackers()) {
+    //         auto tracker_ = TrackingFeatureNode::cast(tracker);
 
-            if (tracker_->getHistoryNodes().size() < 2)
-                continue;
-            auto type = RuneCombo::cast(tracker_->getHistoryNodes().front())->getRuneType();
-            if (type == RuneType::PENDING_STRUCK) {
-                target_tracker = tracker;
-                break;
-            }
-        }
+    //         if (tracker_->getHistoryNodes().size() < 2)
+    //             continue;
+    //         auto type = RuneCombo::cast(tracker_->getHistoryNodes().front())->getRuneType();
+    //         if (type == RuneType::PENDING_STRUCK) {
+    //             target_tracker = tracker;
+    //             break;
+    //         }
+    //     }
 
-        if (!target_tracker)
-            break;
-        if (!output.getValid()) {
-            break;
-        }
-        auto pose = output.getPnpData();
-        auto tvec = pose.tvec();
-        tvec = tvec * 0.001;
-        auto rvec = pose.rvec();
-        Eigen::Vector3d t;
-        Eigen::Quaterniond q_scut;
-        utils::pnpToEigen(rvec, tvec, t, q_scut);
+    //     if (!target_tracker)
+    //         break;
+    //     if (!output.getValid()) {
+    //         break;
+    //     }
+    //     auto pose = output.getPnpData();
+    //     auto tvec = pose.tvec();
+    //     tvec = tvec * 0.001;
+    //     auto rvec = pose.rvec();
+    //     Eigen::Vector3d t;
+    //     Eigen::Quaterniond q_scut;
+    //     utils::pnpToEigen(rvec, tvec, t, q_scut);
 
-        auto q = scutRobot2us(q_scut);
-        auto R = q.toRotationMatrix();
-        const Eigen::Matrix3d R_imu_cam = T_camera_to_odom.block<3, 3>(0, 0);
-        q = Eigen::Quaterniond(R);
-        auto pos_odom = utils::transformPosition(t, T_camera_to_odom);
-        auto q_odom = utils::transformOrientation(q, T_camera_to_odom);
+    //     auto q = scutRobot2us(q_scut);
+    //     auto R = q.toRotationMatrix();
+    //     const Eigen::Matrix3d R_imu_cam = T_camera_to_odom.block<3, 3>(0, 0);
+    //     q = Eigen::Quaterniond(R);
+    //     auto pos_odom = utils::transformPosition(t, T_camera_to_odom);
+    //     auto q_odom = utils::transformOrientation(q, T_camera_to_odom);
 
-        fan.target_pos = pos_odom;
-        fan.target_ori = q_odom;
+    //     fan.target_pos = pos_odom;
+    //     fan.target_ori = q_odom;
 
-        fan.is_valid = true;
-    } while (0);
-    auto t2 = std::chrono::steady_clock::now();
-    cv::Mat debug_img;
-    if (debug) {
-        debug_img = DebugTools::get()->getImage().clone();
-        auto debug_bin = output.getDebugImg();
-        if (debug_bin.empty()) {
-            std::cout << "debug_bin.empty()" << std::endl;
-        }
-        if (!debug_img.empty() && !debug_bin.empty()) {
-            cv::Mat color_bin;
-            if (debug_bin.channels() == 1)
-                cv::cvtColor(debug_bin, color_bin, cv::COLOR_GRAY2BGR);
-            else
-                color_bin = debug_bin;
+    //     fan.is_valid = true;
+    // } while (0);
+    // auto t2 = std::chrono::steady_clock::now();
+    // cv::Mat debug_img;
+    // if (debug) {
+    //     debug_img = DebugTools::get()->getImage().clone();
+    //     auto debug_bin = output.getDebugImg();
+    //     if (debug_bin.empty()) {
+    //         std::cout << "debug_bin.empty()" << std::endl;
+    //     }
+    //     if (!debug_img.empty() && !debug_bin.empty()) {
+    //         cv::Mat color_bin;
+    //         if (debug_bin.channels() == 1)
+    //             cv::cvtColor(debug_bin, color_bin, cv::COLOR_GRAY2BGR);
+    //         else
+    //             color_bin = debug_bin;
 
-            cv::Mat small_bin;
-            cv::resize(color_bin, small_bin, cv::Size(), 0.25, 0.25);
+    //         cv::Mat small_bin;
+    //         cv::resize(color_bin, small_bin, cv::Size(), 0.25, 0.25);
 
-            int x = debug_img.cols - small_bin.cols - 10;
-            int y = debug_img.rows - small_bin.rows - 10;
+    //         int x = debug_img.cols - small_bin.cols - 10;
+    //         int y = debug_img.rows - small_bin.rows - 10;
 
-            small_bin.copyTo(debug_img(cv::Rect(x, y, small_bin.cols, small_bin.rows)));
-        }
-    }
+    //         small_bin.copyTo(debug_img(cv::Rect(x, y, small_bin.cols, small_bin.rows)));
+    //     }
+    // }
 
-    callback_(fan, frame, debug_img);
+    // callback_(fan, frame, debug_img);
 }
 void ScutRobotDetector::pushInput(
     CommonFrame& frame,

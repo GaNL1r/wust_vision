@@ -65,7 +65,7 @@ public:
 
     // Solve the armor pose using the BA algorithm, return the optimized rotation
     Eigen::Matrix3d solveBa_R(
-        const rune::RuneFan& rune_fan,
+        const rune::RuneFan::Simple& rune_fan,
         const Eigen::Vector3d& t_camera_armor,
         const Eigen::Matrix3d& R_camera_armor,
         const Eigen::Matrix3d& R_imu_camera,

@@ -88,10 +88,12 @@ if [[ "$1" == "build" || "$1" == "rebuild" || "$1" == "run" ]]; then
         echo -e "${yellow}\n<--- Running WUST_VISION --->${reset}"
         RUN_PROGRAM="$BUILD_DIR/$2"
         ORIGINAL_ARGS=("$@")
+        set -- "${ORIGINAL_ARGS[@]}"
         shift 2
         "$RUN_PROGRAM" "$@"
-        set -- "${ORIGINAL_ARGS[@]}"
-        if [ $? -ne 0 ]; then
+        RET=$? 
+        
+        if [ $RET -ne 0 ]; then
             echo -e "${red}\n--- Program crashed, running guard.sh ---${reset}"
             pkill "$2"
             timeout=10
@@ -121,3 +123,4 @@ else
     echo -e "${yellow}No action performed.${reset}"
     exit 0
 fi
+

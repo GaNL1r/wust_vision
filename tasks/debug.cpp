@@ -354,7 +354,7 @@ void drawDebugArmorContent(
         max_abs_y = std::max(max_abs_y, std::abs(p.y()));
     }
 
-    double margin = 40.0;
+    double margin = 200.0;
     double cx = debug_img.cols * 0.5;
     double cy = debug_img.rows * 0.5;
 

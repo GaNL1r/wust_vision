@@ -1,6 +1,7 @@
 #include "auto_buff.hpp"
 #include "tasks/auto_buff/rune_control/aimer.hpp"
-#include "tasks/auto_buff/rune_detector/scut_robot_detector.hpp"
+#include "tasks/auto_buff/rune_detector/rune_detector.hpp"
+// #include "tasks/auto_buff/rune_detector/scut_robot_detector.hpp"
 #include "tasks/auto_buff/rune_optimize/ba_solver.hpp"
 #include "tasks/auto_buff/rune_tracker/rune_tracker.hpp"
 #include "tasks/utils.hpp"
@@ -9,9 +10,9 @@ namespace auto_buff {
 struct AutoBuff::Impl {
     ~Impl() {
         run_flag_ = false;
-        if (scut_detector_) {
-            scut_detector_.reset();
-        }
+        // if (scut_detector_) {
+        //     scut_detector_.reset();
+        // }
         if (processing_thread_) {
             processing_thread_->stop();
             wust_vl_concurrency::ThreadManager::instance().unregisterThread(
@@ -39,15 +40,31 @@ struct AutoBuff::Impl {
         for (int i = 0; i < 3; ++i)
             for (int j = 0; j < 3; ++j)
                 camera_matrix[i * 3 + j] = camera_info.first.at<double>(i, j);
+        ba_solver_ = std::make_unique<rune::BaSolver>(
+            camera_matrix,
+            config["rune_optimize"]["max_iter_R"].as<int>(),
+            config["rune_optimize"]["max_iter_t"].as<int>(),
+            config["rune_optimize"]["step_R"].as<int>(),
+            config["rune_optimize"]["step_t"].as<int>(),
+            config["rune_optimize"]["min_error_R"].as<double>(),
+            config["rune_optimize"]["min_error_t"].as<double>()
+        );
+        // scut_detector_ = ScutRobotDetector::make_detector(camera_info_, config, max_detect_running);
+        // scut_detector_->setCallback(std::bind(
+        //     &AutoBuff::Impl::runeDetectCallback,
+        //     this,
+        //     std::placeholders::_1,
+        //     std::placeholders::_2,
+        //     std::placeholders::_3
 
-        scut_detector_ = ScutRobotDetector::make_detector(camera_info_, config, max_detect_running);
-        scut_detector_->setCallback(std::bind(
+        // ));
+        rune_detector_ = RuneDetectorCV::make_detector();
+        rune_detector_->setCallback(std::bind(
             &AutoBuff::Impl::runeDetectCallback,
             this,
             std::placeholders::_1,
             std::placeholders::_2,
             std::placeholders::_3
-
         ));
         rune_queue_ = std::make_unique<OrderedQueue<rune::RuneFan>>(10, 500);
         rune::RuneTargetConfig rune_target_config;
@@ -70,6 +87,7 @@ struct AutoBuff::Impl {
         trajectory_compensator->resistance_ = resistance_;
         aimer_ = std::make_unique<rune::Aimer>(config["aimer"], trajectory_compensator);
         latency_averager_ = std::make_unique<Averager<double>>(100);
+
         return true;
     }
     void start() {
@@ -84,18 +102,20 @@ struct AutoBuff::Impl {
     }
     void pushInput(CommonFrame& frame, bool is_big) {
         img_recv_count_++;
+
+        rune_detector_->pushInput(frame, is_big);
+    }
+    void
+    runeDetectCallback(const rune::RuneFan& fan, const CommonFrame& frame, cv::Mat& debug_img) {
+        std::lock_guard<std::mutex> lock(callback_mutex_);
         Eigen::Vector3d v = Eigen::Vector3d::Zero();
         Eigen::Matrix3d R_gimbal2odom = Eigen::Matrix3d::Identity();
-        Eigen::Vector3d gimbal = Eigen::Vector3d::Zero();
         if (shared_->motion_buffer) {
             auto apply_motion = [&](const auto& att) {
                 v = Eigen::Vector3d(att.data.vx, att.data.vy, att.data.vz);
                 R_gimbal2odom = Eigen::AngleAxisd(att.data.yaw, Eigen::Vector3d::UnitZ())
                     * Eigen::AngleAxisd(-att.data.pitch, Eigen::Vector3d::UnitY())
                     * Eigen::AngleAxisd(att.data.roll, Eigen::Vector3d::UnitX());
-                gimbal[0] = att.data.yaw;
-                gimbal[1] = att.data.pitch;
-                gimbal[2] = att.data.roll;
             };
             auto delay = std::chrono::microseconds(
                 static_cast<int64_t>(std::round(shared_->communication_delay_μs))
@@ -110,13 +130,46 @@ struct AutoBuff::Impl {
 
         Eigen::Matrix4d T_camera_to_odom =
             utils::computeCameraToOdomTransform(R_gimbal2odom, R_camera2gimbal_, t_camera2gimbal_);
-        scut_detector_->pushInput(frame, gimbal, T_camera_to_odom, is_big, debug_mode_);
         T_camera_to_odom_ = T_camera_to_odom;
-    }
-    void
-    runeDetectCallback(const rune::RuneFan& fan, const CommonFrame& frame, cv::Mat& debug_img) {
-        std::lock_guard<std::mutex> lock(callback_mutex_);
-        rune_queue_->enqueue(fan);
+        rune::RuneFan copy_fan = fan;
+        const Eigen::Matrix3d R_imu_cam = T_camera_to_odom.block<3, 3>(0, 0);
+        for (auto& fan: copy_fan.fans) {
+            cv::Mat rvec, tvec;
+            cv::solvePnP(
+                fan.getObjs(),
+                fan.landmarks(),
+                camera_info_.first,
+                camera_info_.second,
+                rvec,
+                tvec,
+                false,
+                cv::SOLVEPNP_ITERATIVE
+            );
+            cv::Mat R_cv;
+            cv::Rodrigues(rvec, R_cv);
+            Eigen::Matrix3d R = utils::cvToEigen(R_cv);
+            Eigen::Vector3d t = utils::cvToEigen(tvec);
+            // if (ba_solver_) {
+            //     R = ba_solver_
+            //             ->solveBa_R(fan, t, R, R_imu_cam, camera_info_.first, camera_info_.second);
+            // }
+            auto euler= utils::quatToEuler(Eigen::Quaterniond(R), utils::EulerOrder::ZYX);
+            euler[0]=M_PI;
+            R = utils::eulerToQuat(euler, utils::EulerOrder::ZYX).toRotationMatrix();
+            fan.ori = Eigen::Quaterniond(R);
+            fan.pos = t;
+            Eigen::Vector3d pos_camera = fan.pos;
+            fan.target_pos = utils::transformPosition(pos_camera, T_camera_to_odom);
+
+            Eigen::Quaterniond q_camera(fan.ori.w(), fan.ori.x(), fan.ori.y(), fan.ori.z());
+            Eigen::Quaterniond q_odom = utils::transformOrientation(q_camera, T_camera_to_odom);
+            fan.target_ori = q_odom;
+            
+            //std::cout<<"euler pitch: " << euler[1] * 180.0 / M_PI << std::endl;
+            copy_fan.is_valid = true;
+        }
+
+        rune_queue_->enqueue(copy_fan);
         if (debug_mode_) {
             std::lock_guard<std::mutex> lock(dbg_mutex_);
             auto_buff_debug_.src_img = { std::move(debug_img), frame.timestamp };
@@ -244,9 +297,11 @@ struct AutoBuff::Impl {
 
     std::mutex callback_mutex_;
     //int current_id_ = 0;
-    std::unique_ptr<ScutRobotDetector> scut_detector_;
+    // std::unique_ptr<ScutRobotDetector> scut_detector_;
+    RuneDetectorCV::Ptr rune_detector_;
     std::unique_ptr<RuneTracker> rune_tracker_;
     std::unique_ptr<rune::Aimer> aimer_;
+    std::unique_ptr<rune::BaSolver> ba_solver_;
     std::string logger_ = "auto_buff";
     std::unique_ptr<OrderedQueue<rune::RuneFan>> rune_queue_;
     std::shared_ptr<wust_vl_concurrency::MonitoredThread> processing_thread_;

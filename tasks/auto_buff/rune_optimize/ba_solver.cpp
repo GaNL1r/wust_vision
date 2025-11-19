@@ -53,7 +53,7 @@ BaSolver::BaSolver(
     lm_algorithm_->setUserLambdaInit(0.1);
 }
 Eigen::Matrix3d BaSolver::solveBa_R(
-    const rune::RuneFan& rune_fan,
+    const rune::RuneFan::Simple& rune_fan,
     const Eigen::Vector3d& t_camera_armor,
     const Eigen::Matrix3d& R_camera_armor, // camera <- armor
     const Eigen::Matrix3d& R_imu_camera, // imu -> camera

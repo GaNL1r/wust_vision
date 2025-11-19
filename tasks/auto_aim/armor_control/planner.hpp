@@ -46,9 +46,7 @@ public:
         Target target,
         double bullet_speed,
         const AutoAimFsm& auto_aim_fsm,
-        double self_v_yaw = 0.0,
-        double cal_dt = CAL_DT,
-        int cal_horizon = CAL_HORIZON
+        double self_v_yaw = 0.0
     );
 
 private:
@@ -86,9 +84,7 @@ private:
         bool aim_center,
         bool aim_first,
         double self_v_yaw,
-        double dt,
-        double cal_dt = CAL_DT,
-        int cal_horizon = CAL_HORIZON
+        double dt
     );
     std::shared_ptr<Aimer> aimer_;
     std::shared_ptr<Shooter> shooter_;
