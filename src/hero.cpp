@@ -70,10 +70,8 @@ public:
         send_data.appear = false;
 
         send_data.detect_color = detect_color_;
-        double avg_pitch = pitch_avg_->average();
-        double avg_yaw = yaw_avg_->average();
-        send_data.pitch = avg_pitch;
-        send_data.yaw = avg_yaw;
+        send_data.pitch = cmd.pitch;
+        send_data.yaw = cmd.yaw;
         send_data.v_pitch = cmd.v_pitch;
         send_data.v_yaw = cmd.v_yaw;
         send_data.target_yaw = cmd.target_yaw;

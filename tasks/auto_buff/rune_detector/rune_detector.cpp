@@ -7,10 +7,9 @@ cv::Mat RuneDetectorCV::preProcess(const cv::Mat& src, bool use_red) {
     cv::cvtColor(src, bin, cv::COLOR_RGB2GRAY);
     cv::threshold(bin, bin, 120, 255, cv::THRESH_BINARY);
 
-    // 结构元素
+
     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
 
-    // 先做膨胀
     // cv::dilate(bin, bin, kernel, cv::Point(-1, -1), 1);
 
     // cv::morphologyEx(bin, bin, cv::MORPH_CLOSE, kernel, cv::Point(-1, -1), 1);
@@ -20,22 +19,22 @@ cv::Mat RuneDetectorCV::preProcess(const cv::Mat& src, bool use_red) {
 // cv::Mat RuneDetectorCV::preProcess(const cv::Mat& src, bool use_red) {
 //     cv::Mat channel, bin;
 
-//     // 1. 选择 R 或 B 通道
+//    
 //     if (use_red) {
-//         // 提取 R 通道
+//      
 //         cv::extractChannel(src, channel, 2); // 2 = R
 //     } else {
-//         // 提取 B 通道
+//      
 //         cv::extractChannel(src, channel, 0); // 0 = B
 //     }
 
-//     // 2. 阈值二值化
+//   
 //     cv::threshold(channel, bin, 50, 255, cv::THRESH_BINARY);
 
-//     // 3. 结构元素
+//   
 //     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
 
-//     // 4. 形态学处理
+//    
 //     cv::dilate(bin, bin, kernel, cv::Point(-1, -1), 1);
 //     cv::morphologyEx(bin, bin, cv::MORPH_CLOSE, kernel, cv::Point(-1, -1), 1);
 //     cv::morphologyEx(bin, bin, cv::MORPH_OPEN, kernel, cv::Point(-1, -1), 1);
@@ -357,14 +356,12 @@ inline void RuneDetectorCV::markInvalidContours(
     }
 }
 
-void RuneDetectorCV::pushInput(CommonFrame& frame,bool is_big) {
+void RuneDetectorCV::pushInput(CommonFrame& frame, bool is_big) {
     frame.id = current_id_++;
-    rune::RuneFan fan {
-        .is_valid = false,
-        .timestamp = frame.timestamp,
-        .id = frame.id,
-        .is_big = is_big
-    };
+    rune::RuneFan fan { .is_valid = false,
+                        .timestamp = frame.timestamp,
+                        .id = frame.id,
+                        .is_big = is_big };
 
     cv::Mat processed_img = preProcess(frame.src_img, frame.detect_color);
     cv::Mat debug_img;

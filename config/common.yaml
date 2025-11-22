@@ -9,8 +9,7 @@ tf:
 control:
   control_rate: 500
   communication_delay_us: 1100
-  pitch_avg_windows: 20
-  yaw_avg_windows: 20
+  pitch_avg_windows: 1
   device_name: /dev/ttyACM_RMc
   use_serial: true
   

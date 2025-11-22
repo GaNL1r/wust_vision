@@ -1,7 +1,6 @@
 #include "auto_buff.hpp"
 #include "tasks/auto_buff/rune_control/aimer.hpp"
 #include "tasks/auto_buff/rune_detector/rune_detector.hpp"
-// #include "tasks/auto_buff/rune_detector/scut_robot_detector.hpp"
 #include "tasks/auto_buff/rune_optimize/ba_solver.hpp"
 #include "tasks/auto_buff/rune_tracker/rune_tracker.hpp"
 #include "tasks/utils.hpp"
@@ -10,9 +9,6 @@ namespace auto_buff {
 struct AutoBuff::Impl {
     ~Impl() {
         run_flag_ = false;
-        // if (scut_detector_) {
-        //     scut_detector_.reset();
-        // }
         if (processing_thread_) {
             processing_thread_->stop();
             wust_vl_concurrency::ThreadManager::instance().unregisterThread(
@@ -49,15 +45,6 @@ struct AutoBuff::Impl {
             config["rune_optimize"]["min_error_R"].as<double>(),
             config["rune_optimize"]["min_error_t"].as<double>()
         );
-        // scut_detector_ = ScutRobotDetector::make_detector(camera_info_, config, max_detect_running);
-        // scut_detector_->setCallback(std::bind(
-        //     &AutoBuff::Impl::runeDetectCallback,
-        //     this,
-        //     std::placeholders::_1,
-        //     std::placeholders::_2,
-        //     std::placeholders::_3
-
-        // ));
         rune_detector_ = RuneDetectorCV::make_detector();
         rune_detector_->setCallback(std::bind(
             &AutoBuff::Impl::runeDetectCallback,
@@ -153,8 +140,8 @@ struct AutoBuff::Impl {
             //     R = ba_solver_
             //             ->solveBa_R(fan, t, R, R_imu_cam, camera_info_.first, camera_info_.second);
             // }
-            auto euler= utils::quatToEuler(Eigen::Quaterniond(R), utils::EulerOrder::ZYX);
-            euler[0]=M_PI;
+            auto euler = utils::quatToEuler(Eigen::Quaterniond(R), utils::EulerOrder::ZYX);
+            euler[0] = M_PI;
             R = utils::eulerToQuat(euler, utils::EulerOrder::ZYX).toRotationMatrix();
             fan.ori = Eigen::Quaterniond(R);
             fan.pos = t;
@@ -164,8 +151,7 @@ struct AutoBuff::Impl {
             Eigen::Quaterniond q_camera(fan.ori.w(), fan.ori.x(), fan.ori.y(), fan.ori.z());
             Eigen::Quaterniond q_odom = utils::transformOrientation(q_camera, T_camera_to_odom);
             fan.target_ori = q_odom;
-            
-            //std::cout<<"euler pitch: " << euler[1] * 180.0 / M_PI << std::endl;
+
             copy_fan.is_valid = true;
         }
 
@@ -296,8 +282,6 @@ struct AutoBuff::Impl {
     }
 
     std::mutex callback_mutex_;
-    //int current_id_ = 0;
-    // std::unique_ptr<ScutRobotDetector> scut_detector_;
     RuneDetectorCV::Ptr rune_detector_;
     std::unique_ptr<RuneTracker> rune_tracker_;
     std::unique_ptr<rune::Aimer> aimer_;

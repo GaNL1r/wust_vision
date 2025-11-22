@@ -145,9 +145,8 @@ bool VisionBase::init(bool debug_mode) {
         });
     }
 
-    double yaw_avg_windows = config_["control"]["yaw_avg_windows"].as<double>(0.0);
+
     double pitch_avg_windows = config_["control"]["pitch_avg_windows"].as<double>(0.0);
-    yaw_avg_ = std::make_unique<Averager<double>>(yaw_avg_windows);
     pitch_avg_ = std::make_unique<Averager<double>>(pitch_avg_windows);
     timer_ = std::make_unique<Timer>();
     detect_color_ = config_["detect_color"].as<int>(0);
@@ -383,7 +382,7 @@ void VisionBase::timerCallback(double dt_ms) {
         cmd_pitch = 45.0;
     }
 
-    yaw_avg_->add(cmd_yaw);
+
     pitch_avg_->add(cmd_pitch);
     SendRobotCmdData send_data;
     send_data.cmd_ID = ID_ROBOT_CMD;
@@ -395,9 +394,9 @@ void VisionBase::timerCallback(double dt_ms) {
 
     send_data.detect_color = detect_color_;
     double avg_pitch = pitch_avg_->average();
-    double avg_yaw = yaw_avg_->average();
-    send_data.pitch = avg_pitch;
-    send_data.yaw = avg_yaw;
+    double avg_yaw = cmd_yaw;
+    send_data.pitch = cmd_pitch;
+    send_data.yaw = cmd_yaw;
     send_data.v_pitch = cmd.v_pitch;
     send_data.v_yaw = cmd.v_yaw;
     send_data.target_yaw = cmd.target_yaw;

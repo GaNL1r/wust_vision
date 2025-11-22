@@ -124,7 +124,12 @@ ArmorDetectOpenCV::detect(const cv::Mat& input, int detect_color) noexcept {
 
                 if (armor.confidence < classifier_threshold_)
                     return;
-
+                if (armor.number != armor::ArmorNumber::NO1
+                    && armor.number != armor::ArmorNumber::BASE
+                    && armor.type == armor::ArmorType::LARGE)
+                {
+                    return;
+                }
                 if (corner_corrector_) {
                     corner_corrector_->correctCorners(armor, gray_img);
                 }

@@ -8,7 +8,7 @@ public:
         std::function<void(const rune::RuneFan&, const CommonFrame&, cv::Mat&)>;
     using Ptr = std::unique_ptr<RuneDetectorCV>;
     RuneDetectorCV();
-    void pushInput(CommonFrame& frame,bool is_big);
+    void pushInput(CommonFrame& frame, bool is_big);
     void setCallback(DetectorCallback callback) {
         callback_ = callback;
     }

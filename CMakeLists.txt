@@ -87,7 +87,7 @@ target_link_libraries(standard
     project_min_deps
     $<TARGET_OBJECTS:auto_aim>
     ${WUST_AUTO_AIM_LIBS}
-    $<TARGET_OBJECTS:VisCore_auto_buff>
+    $<TARGET_OBJECTS:auto_buff>
     ${WUST_AUTO_BUFF_LIBS}
     tasks_common
 )
@@ -141,7 +141,7 @@ if(ROS2_FULL_FOUND)
     project_min_deps
     $<TARGET_OBJECTS:auto_aim>
     ${WUST_AUTO_AIM_LIBS}
-    $<TARGET_OBJECTS:VisCore_auto_buff>
+    $<TARGET_OBJECTS:auto_buff>
     ${WUST_AUTO_BUFF_LIBS}
     tasks_common
     toros2
@@ -152,7 +152,7 @@ if(ROS2_FULL_FOUND)
     project_min_deps
     $<TARGET_OBJECTS:auto_aim>
     ${WUST_AUTO_AIM_LIBS}
-    $<TARGET_OBJECTS:VisCore_auto_buff>
+    $<TARGET_OBJECTS:auto_buff>
     ${WUST_AUTO_BUFF_LIBS}
     tasks_common
     toros2

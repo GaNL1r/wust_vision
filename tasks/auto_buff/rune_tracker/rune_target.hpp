@@ -112,8 +112,8 @@ public:
         //     state[5] = speed;
         //     esekf_ypd_.setState(state);
         // } else {
-            predict(t);
-       // }
+        predict(t);
+        // }
     }
     double getFitterSpd(std::chrono::steady_clock::time_point t) {
         double to_start = time_utils::durationSec(start_time_, t);

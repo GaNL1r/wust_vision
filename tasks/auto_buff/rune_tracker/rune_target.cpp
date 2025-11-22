@@ -128,7 +128,7 @@ bool RuneTarget::update(const rune::RuneFan& fans) {
     if (fans.fans.empty()) {
         return false;
     }
-    
+
     update_ids.clear();
     for (auto fan: fans.fans) {
         int id;
@@ -170,7 +170,7 @@ bool RuneTarget::update(const rune::RuneFan& fans) {
         esekf_ypd_.setMeasureFunc(ypdrune_motion_model::Measure { id });
 
         esekf_ypd_.update(measurement_);
-        if(!is_big_)
+        if (!is_big_)
             last_id = id;
     }
     bool no_change = false;
