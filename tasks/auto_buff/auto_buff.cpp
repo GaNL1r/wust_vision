@@ -45,7 +45,7 @@ struct AutoBuff::Impl {
             config["rune_optimize"]["min_error_R"].as<double>(),
             config["rune_optimize"]["min_error_t"].as<double>()
         );
-        rune_detector_ = RuneDetectorCV::make_detector();
+        rune_detector_ = RuneDetectorCV::make_detector(config["rune_detector"]);
         rune_detector_->setCallback(std::bind(
             &AutoBuff::Impl::runeDetectCallback,
             this,

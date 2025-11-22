@@ -1,6 +1,6 @@
 #include "rune_detector.hpp"
-RuneDetectorCV::RuneDetectorCV() {
-    tmp_R_ = cv::imread("/home/hy/wust_vision/R.png", cv::IMREAD_GRAYSCALE);
+RuneDetectorCV::RuneDetectorCV(const YAML::Node& node) {
+    params_.load(node);
 }
 cv::Mat RuneDetectorCV::preProcess(const cv::Mat& src, bool use_red) {
     cv::Mat bin;
@@ -49,10 +49,6 @@ inline rune::RuneCenter RuneDetectorCV::getRuneCenter(
     std::vector<bool>& used_flags
 ) {
     rune::RuneCenter result;
-    const double min_area = 100.0;
-    const double max_area = 2000.0;
-    const double ratio_tol = 0.7;
-    const double fill_ratio_min = 0.7;
 
     struct Node {
         cv::Point2f center;
@@ -69,7 +65,7 @@ inline rune::RuneCenter RuneDetectorCV::getRuneCenter(
             continue;
 
         double area = cv::contourArea(contours[i]);
-        if (area < min_area || area > max_area)
+        if (area < params_.rune_center_min_area || area > params_.rune_center_max_area)
             continue;
 
         cv::RotatedRect rr = cv::minAreaRect(contours[i]);
@@ -80,7 +76,7 @@ inline rune::RuneCenter RuneDetectorCV::getRuneCenter(
             continue;
 
         double ratio = (w > h) ? w / h : h / w;
-        if (ratio - 1.0 > ratio_tol)
+        if (ratio - 1.0 > params_.rune_center_1x1ratio_tol)
             continue;
 
         double rect_area = w * h;
@@ -88,10 +84,8 @@ inline rune::RuneCenter RuneDetectorCV::getRuneCenter(
             continue;
 
         double fill_ratio = area / rect_area;
-        if (fill_ratio < fill_ratio_min)
+        if (fill_ratio < params_.rune_center_fill_ratio_min)
             continue;
-
-        // 记录符合条件的 node
         Node n;
         n.center = rr.center;
         n.idx = i;
@@ -136,12 +130,12 @@ inline rune::RuneCenter RuneDetectorCV::getRuneCenter(
     }
 
     if (!debug_img.empty()) {
-        cv::circle(debug_img, global_center, 4, cv::Scalar(0, 255, 255), -1); // 质心（黄）
+        cv::circle(debug_img, global_center, 4, cv::Scalar(0, 255, 255), -1); 
 
         cv::Point2f pts[4];
         best_rr.points(pts);
         for (int k = 0; k < 4; k++) {
-            cv::line(debug_img, pts[k], pts[(k + 1) % 4], cv::Scalar(0, 0, 255), 2); // 红框
+            cv::line(debug_img, pts[k], pts[(k + 1) % 4], cv::Scalar(0, 0, 255), 2); 
         }
     }
 
@@ -165,10 +159,6 @@ inline std::vector<rune::RunePan> RuneDetectorCV::markRuneTarget(
     if (hierarchy.empty())
         return results;
 
-    const double MIN_AREA = 100.0;
-    const double MAX_AREA = 3000.0;
-    const double MAX_SQUARE_RATIO = 1.3;
-    const double CLUSTER_RADIUS = 70.0;
     struct Node {
         int idx;
         cv::Point2f center;
@@ -184,7 +174,7 @@ inline std::vector<rune::RunePan> RuneDetectorCV::markRuneTarget(
         const auto& cnt = contours[i];
 
         double contour_area = cv::contourArea(cnt);
-        if (contour_area < MIN_AREA || contour_area > MAX_AREA)
+        if (contour_area < params_.rune_target_min_area || contour_area > params_.rune_target_max_area)
             continue;
 
         cv::Moments m = cv::moments(cnt);
@@ -236,7 +226,7 @@ inline std::vector<rune::RunePan> RuneDetectorCV::markRuneTarget(
                     double dy = cu.y - cv.y;
                     double dist = std::sqrt(dx * dx + dy * dy);
 
-                    if (dist <= CLUSTER_RADIUS) {
+                    if (dist <= params_.rune_target_cluster_radius) {
                         cluster_id[v] = cluster_count;
                         q.push(v);
                     }
@@ -273,7 +263,7 @@ inline std::vector<rune::RunePan> RuneDetectorCV::markRuneTarget(
                 continue;
 
             double ratio = (w > h ? w / h : h / w);
-            if (ratio > MAX_SQUARE_RATIO)
+            if (ratio > params_.rune_target_max_square_ratio)
                 continue;
 
             std::vector<std::pair<double, cv::Point2f>> dist_list;
@@ -366,7 +356,6 @@ void RuneDetectorCV::pushInput(CommonFrame& frame, bool is_big) {
     cv::Mat processed_img = preProcess(frame.src_img, frame.detect_color);
     cv::Mat debug_img;
     debug_img = frame.src_img.clone();
-    //cv::cvtColor(debug_img, debug_img, cv::COLOR_GRAY2BGR);
 
     std::vector<std::vector<cv::Point>> contours;
     std::vector<cv::Vec4i> hierarchy;
