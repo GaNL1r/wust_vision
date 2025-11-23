@@ -105,7 +105,7 @@ bool VisionBase::init(bool debug_mode) {
         camera_info,
         max_infer_running_
     );
-    thread_pool_ = std::make_unique<ThreadPool>(std::thread::hardware_concurrency());
+    thread_pool_ = std::make_unique<ThreadPool>(std::thread::hardware_concurrency()*2);
     motion_buffer_ = std::make_shared<MotionBufferGeneric<Motion, 1024>>();
     double bullet_speed = config_["shoot"]["bullet_speed"].as<double>(20.0);
     double communication_delay_μs = config_["control"]["communication_delay_us"].as<double>(1000.0);
@@ -145,9 +145,7 @@ bool VisionBase::init(bool debug_mode) {
         });
     }
 
-
-    double pitch_avg_windows = config_["control"]["pitch_avg_windows"].as<double>(0.0);
-    pitch_avg_ = std::make_unique<Averager<double>>(pitch_avg_windows);
+    ;
     timer_ = std::make_unique<Timer>();
     detect_color_ = config_["detect_color"].as<int>(0);
     auto_exposure_cfg_.loadFromYaml(config_["auto_exposure"]);
@@ -288,12 +286,13 @@ void VisionBase::frameCallback(wust_vl_video::ImageFrame& frame) {
     }
     common_frame.detect_color = detect_color_;
     common_frame.src_img = std::move(frame.src_img);
-    infer_running_count_++;
+    
     autoExposureControl(common_frame.src_img);
     if (img_writer_) {
         img_writer_->push(common_frame.src_img);
     }
     thread_pool_->enqueue([this, frame = std::move(common_frame)]() mutable {
+        infer_running_count_++;
         if (frame.src_img.data == nullptr) {
             return;
         }
@@ -382,8 +381,6 @@ void VisionBase::timerCallback(double dt_ms) {
         cmd_pitch = 45.0;
     }
 
-
-    pitch_avg_->add(cmd_pitch);
     SendRobotCmdData send_data;
     send_data.cmd_ID = ID_ROBOT_CMD;
     if (cmd.distance > 0.5) {
@@ -393,8 +390,6 @@ void VisionBase::timerCallback(double dt_ms) {
     }
 
     send_data.detect_color = detect_color_;
-    double avg_pitch = pitch_avg_->average();
-    double avg_yaw = cmd_yaw;
     send_data.pitch = cmd_pitch;
     send_data.yaw = cmd_yaw;
     send_data.v_pitch = cmd.v_pitch;

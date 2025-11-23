@@ -94,9 +94,6 @@ struct AutoAim::Impl {
             std::placeholders::_2
         ));
         WUST_MAIN(logger_) << "Using Armor Detector: " << armor_detect_backend;
-        armor_pose_estimator_ = std::make_unique<ArmorPoseEstimator>(config, camera_info_);
-        bool use_ba = config_["use_ba"].as<bool>(false);
-        armor_pose_estimator_->enableBA(use_ba);
         tracker_manager_ = std::make_unique<TrackerManager>(config_, config_binder_);
         auto_aim_fsm_cl_.load(config_);
         std::string comp_type =
@@ -145,7 +142,14 @@ struct AutoAim::Impl {
     }
     void
     ArmorDetectCallback(const std::vector<armor::ArmorObject>& objs, const CommonFrame& frame) {
-        std::lock_guard<std::mutex> lock(callback_mutex_);
+        static thread_local std::unique_ptr<ArmorPoseEstimator> armor_pose_estimator_thread;
+        if (!armor_pose_estimator_thread) {
+            armor_pose_estimator_thread =
+                std::make_unique<ArmorPoseEstimator>(config_, camera_info_);
+            bool use_ba = config_["use_ba"].as<bool>(false);
+            armor_pose_estimator_thread->enableBA(use_ba);
+        }
+
         std::vector<armor::ArmorObject> sorted_objs = objs;
 
         if (sorted_objs.size() > max_detect_armors_) {
@@ -187,12 +191,14 @@ struct AutoAim::Impl {
         }
         Eigen::Matrix4d T_camera_to_odom =
             utils::computeCameraToOdomTransform(R_gimbal2odom, R_camera2gimbal_, t_camera2gimbal_);
-        armors.armors = armor_pose_estimator_->extractArmorPoses(
+
+        armors.armors = armor_pose_estimator_thread->extractArmorPoses(
             sorted_objs,
             T_camera_to_odom,
             camera_info_.first,
             camera_info_.second
         );
+
         armors.v = v;
         armors.id = frame.id;
         for (auto& armor: armors.armors) {
@@ -202,7 +208,7 @@ struct AutoAim::Impl {
         detect_finish_count_++;
         if (debug_mode_) {
             std::lock_guard<std::mutex> lock(dbg_mutex_);
-            auto_aim_debug_.src_img.img = frame.src_img.clone();
+            auto_aim_debug_.src_img.img = std::move(frame.src_img);
             auto_aim_debug_.src_img.timestamp = armors.timestamp;
             auto_aim_debug_.armors = armors;
             auto_aim_debug_.T_camera_to_odom = T_camera_to_odom;
@@ -220,8 +226,9 @@ struct AutoAim::Impl {
             std::cout << "cao" << std::endl;
             return;
         }
-        auto now = std::chrono::steady_clock::now();
+
         target = tracker_manager_->update(armors, auto_aim_fsm_cl_);
+        auto now = std::chrono::steady_clock::now();
         {
             std::lock_guard<std::mutex> lock(armor_solver_target_mutex_);
             armor_solver_target_ = target;
@@ -277,6 +284,8 @@ struct AutoAim::Impl {
                 gimbal_cmd.enable_yaw_diff = only_check_fire.enable_yaw_diff;
                 gimbal_cmd.target_yaw = plan.target_yaw / M_PI * 180.0;
                 gimbal_cmd.target_pitch = plan.target_pitch / M_PI * 180.0;
+                gimbal_cmd.raw_yaw = gimbal_cmd.target_yaw;
+                gimbal_cmd.raw_pitch = gimbal_cmd.target_pitch;
                 aim_target = plan.aim_target;
             } else {
                 gimbal_cmd.appera = false;
@@ -357,10 +366,9 @@ struct AutoAim::Impl {
         }
     }
 
-    std::mutex callback_mutex_;
+
     std::unique_ptr<ArmorDetectorBase> armor_detector_;
     std::unique_ptr<TrackerManager> tracker_manager_;
-    std::unique_ptr<ArmorPoseEstimator> armor_pose_estimator_;
     std::string logger_ = "auto_aim";
     std::unique_ptr<OrderedQueue<armor::Armors>> armor_queue_;
     std::shared_ptr<wust_vl_concurrency::MonitoredThread> processing_thread_;

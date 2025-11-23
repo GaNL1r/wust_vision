@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "tasks/auto_aim/armor_detect/armor_detect_common.hpp"
+#include "tasks/utils.hpp"
 #include "wust_vl/common/utils/timer.hpp"
 #include <execution>
 ArmorDetectCommon::ArmorDetectCommon(const ArmorDetectCommonParams& params) {
@@ -22,7 +23,11 @@ ArmorDetectCommon::ArmorDetectCommon(const ArmorDetectCommonParams& params) {
     );
     corner_corrector_ = std::make_unique<LightCornerCorrector>();
 }
-bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, armor::ArmorObject& armor) {
+bool ArmorDetectCommon::extractNetImage(
+    const cv::Mat& src,
+    const cv::Mat& gray_src,
+    armor::ArmorObject& armor
+) {
     const int light_length = 12;
     const int warp_height = 28;
     const int small_armor_width = 32;
@@ -63,12 +68,9 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, armor::ArmorObject& 
     if (litroi_color.empty())
         return false;
 
-    cv::Mat litroi_gray;
-    try {
-        cv::cvtColor(litroi_color, litroi_gray, cv::COLOR_BGR2GRAY);
-    } catch (...) {
+    cv::Mat litroi_gray = gray_src(expanded_rect);
+    if (litroi_gray.empty())
         return false;
-    }
     armor.whole_gray_img = litroi_gray;
 
     cv::Mat litroi_binary;
@@ -80,13 +82,6 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, armor::ArmorObject& 
             255,
             cv::THRESH_BINARY | cv::THRESH_OTSU
         );
-    } catch (...) {
-        return false;
-    }
-
-    cv::Mat gray_src;
-    try {
-        cv::cvtColor(src, gray_src, cv::COLOR_BGR2GRAY);
     } catch (...) {
         return false;
     }
@@ -157,19 +152,13 @@ bool ArmorDetectCommon::refineLightsFromArmorPts(armor::ArmorObject& armor) cons
         return false;
     }
 }
-std::vector<armor::Light> ArmorDetectCommon::findLights(
-    const cv::Mat& rgb_img,
-    const cv::Mat& binary_img,
-    armor::ArmorObject& armor
-) noexcept {
-    using std::vector;
-    vector<vector<cv::Point>> contours;
-    vector<cv::Vec4i> hierarchy;
+std::vector<armor::Light>
+ArmorDetectCommon::findLights(const cv::Mat& binary_img, armor::ArmorObject& armor) noexcept {
+    std::vector<std::vector<cv::Point>> contours;
+    std::vector<cv::Vec4i> hierarchy;
 
     cv::findContours(binary_img, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
-
-    vector<armor::Light> all_lights;
-
+    std::vector<armor::Light> all_lights;
     for (const auto& contour: contours) {
         if (contour.size() < 6)
             continue;
@@ -179,7 +168,6 @@ std::vector<armor::Light> ArmorDetectCommon::findLights(
             all_lights.emplace_back(light);
         }
     }
-
     std::sort(
         all_lights.begin(),
         all_lights.end(),
@@ -229,6 +217,7 @@ bool ArmorDetectCommon::isArmor(const armor::Light& light_1, const armor::Light&
 
     return is_armor;
 }
+
 std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
     const cv::Mat& src_img,
     std::vector<armor::ArmorObject>& objs_result,
@@ -243,91 +232,97 @@ std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
     if (src_img.empty()) {
         return armors;
     }
-    cv::Mat gray;
-    cv::cvtColor(src_img, gray, cv::COLOR_RGB2GRAY);
-    std::for_each(std::execution::par, objs_result.begin(), objs_result.end(), [&](auto& armor_in) {
-        armor::ArmorObject armor = armor_in;
-        // 颜色过滤
-        if (detect_color == 0 && armor.color == armor::ArmorColor::BLUE)
-            return;
-        if (detect_color == 1 && armor.color == armor::ArmorColor::RED)
-            return;
-
-        try {
-            bool ok = false;
-            if (!src_img.data) {
-                std::cout << "img data nullptr" << std::endl;
-                return;
-            }
-            if (src_img.empty()) {
-                return;
-            }
-            try {
-                ok = extractNetImage(src_img, armor);
-            } catch (const cv::Exception& e) {
-                std::cerr << "[detectNet] OpenCV exception in extractNetImage: " << e.what()
-                          << std::endl;
-                return;
-            } catch (const std::exception& e) {
-                std::cerr << "[detectNet] exception in extractNetImage: " << e.what() << std::endl;
-                return;
-            } catch (...) {
-                std::cerr << "[detectNet] unknown error in extractNetImage." << std::endl;
-                return;
-            }
-
-            if (!ok)
-                return;
-
-            // 分类
-            number_classifier_->classifyNumber(armor);
-            if (armor.confidence < params_.classifier_threshold)
-                return;
-            // 颜色过滤
-            if (armor.color == armor::ArmorColor::NONE || armor.color == armor::ArmorColor::PURPLE)
-            {
-                armor.is_ok = false;
-                std::lock_guard<std::mutex> lock(armors_mutex);
-                armors.emplace_back(armor);
-                return;
-            }
-
-            // 灯条与角点修正
-            findLights(armor.whole_rgb_img, armor.whole_binary_img, armor);
-            if (refineLightsFromArmorPts(armor)) {
-                if (isArmor(armor.lights[0], armor.lights[1])) {
-                    armor.is_ok = true;
-                    corner_corrector_->correctCorners(armor, gray);
-                }
-            }
-            if (armor.is_ok) {
-                armor.is_ok = armor.checkOkptsRight(params_.max_pts_error);
-            }
-
-            if (!armor.is_ok) {
-                auto ordered = armor.sortCorners(armor.pts);
-                armor::Light l1;
-                l1.length = cv::norm(ordered[1] - ordered[0]);
-                l1.center = (ordered[0] + ordered[1]) / 2.0;
-                armor::Light l2;
-                l2.length = cv::norm(ordered[2] - ordered[3]);
-                l2.center = (ordered[2] + ordered[3]) / 2.0;
-                if (!isArmor(l1, l2)) {
+    auto start = time_utils::now();
+    if (!objs_result.empty()) {
+        cv::Mat gray;
+        cv::cvtColor(src_img, gray, cv::COLOR_RGB2GRAY);
+        std::for_each(
+            std::execution::par_unseq,
+            objs_result.begin(),
+            objs_result.end(),
+            [&](auto& armor_in) {
+                armor::ArmorObject armor = armor_in;
+                // 颜色过滤
+                if (detect_color == 0 && armor.color == armor::ArmorColor::BLUE)
                     return;
+                if (detect_color == 1 && armor.color == armor::ArmorColor::RED)
+                    return;
+
+                try {
+                    bool ok = false;
+                    if (!src_img.data) {
+                        std::cout << "img data nullptr" << std::endl;
+                        return;
+                    }
+                    if (src_img.empty()) {
+                        return;
+                    }
+                    try {
+                        ok = extractNetImage(src_img, gray, armor);
+                    } catch (const cv::Exception& e) {
+                        std::cerr << "[detectNet] OpenCV exception in extractNetImage: " << e.what()
+                                  << std::endl;
+                        return;
+                    } catch (const std::exception& e) {
+                        std::cerr << "[detectNet] exception in extractNetImage: " << e.what()
+                                  << std::endl;
+                        return;
+                    } catch (...) {
+                        std::cerr << "[detectNet] unknown error in extractNetImage." << std::endl;
+                        return;
+                    }
+
+                    if (!ok)
+                        return;
+                    // 分类
+                    number_classifier_->classifyNumber(armor);
+                    if (armor.confidence < params_.classifier_threshold)
+                        return;
+                    // 颜色过滤
+                    if (armor.color == armor::ArmorColor::NONE
+                        || armor.color == armor::ArmorColor::PURPLE) {
+                        armor.is_ok = false;
+                        std::lock_guard<std::mutex> lock(armors_mutex);
+                        armors.emplace_back(armor);
+                        return;
+                    }
+                    // 灯条与角点修正
+                    findLights(armor.whole_binary_img, armor);
+                    if (refineLightsFromArmorPts(armor)) {
+                        if (isArmor(armor.lights[0], armor.lights[1])) {
+                            armor.is_ok = true;
+                            corner_corrector_->correctCorners(armor, gray);
+                        }
+                    }
+                    if (armor.is_ok) {
+                        armor.is_ok = armor.checkOkptsRight(params_.max_pts_error);
+                    }
+
+                    if (!armor.is_ok) {
+                        auto ordered = armor.sortCorners(armor.pts);
+                        armor::Light l1;
+                        l1.length = cv::norm(ordered[1] - ordered[0]);
+                        l1.center = (ordered[0] + ordered[1]) / 2.0;
+                        armor::Light l2;
+                        l2.length = cv::norm(ordered[2] - ordered[3]);
+                        l2.center = (ordered[2] + ordered[3]) / 2.0;
+                        if (!isArmor(l1, l2)) {
+                            return;
+                        }
+                    }
+
+                    // 存入结果
+                    {
+                        std::lock_guard<std::mutex> lock(armors_mutex);
+                        armors.emplace_back(armor);
+                    }
+
+                } catch (...) {
+                    std::cerr << "[ArmorDetectCommon::detectNet] something failed (unexpected)."
+                              << std::endl;
                 }
             }
-
-            // 存入结果
-            {
-                std::lock_guard<std::mutex> lock(armors_mutex);
-                armors.emplace_back(armor);
-            }
-
-        } catch (...) {
-            std::cerr << "[ArmorDetectCommon::detectNet] something failed (unexpected)."
-                      << std::endl;
-        }
-    });
-
+        );
+    }
     return armors;
 }

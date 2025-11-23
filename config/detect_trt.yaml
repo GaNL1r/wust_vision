@@ -17,7 +17,7 @@ armor_detect:
     max_angle: 45
     max_ratio: 0.6
     min_ratio: 0.01
-    max_pts_error: 50.0
+    max_pts_error: 70.0
     max_angle_diff: 20.0
   model:
     conf_threshold: 0.2
@@ -27,7 +27,7 @@ armor_detect:
     top_k: 128
     max_infer_running: 4
     min_free_mem_ratio: 0.1
-    use_cuda_pre: false
+    use_cuda_pre: true
     use_cuda_post: false
     log_time: false
     model_type: tup
