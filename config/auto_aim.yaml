@@ -52,12 +52,12 @@ auto_aim_fsm:
   transfer_thresh: 20
 
 planner:
-  max_yaw_acc: 35
+  max_yaw_acc: 40
   #全向yaw加速度测算37
   Q_yaw: [9e6, 0]
   R_yaw: [1.0]
 
-  max_pitch_acc: 10
+  max_pitch_acc: 100
   Q_pitch: [9e6, 0]
   R_pitch: [1]
 
@@ -71,19 +71,23 @@ shooter:
   shooting_range_w: 0.12
   min_enable_pitch_deg: 0.25
   min_enable_yaw_deg: 0.25
+  base_offset:
+      yaw: -4.5
+      pitch: -3.0
   trajectory_offset:
     - d_max: 9
       d_min: 0
       h_max: 1.5
       h_min: -1
-      pitch_off: -4.0
-      yaw_off: -4.5
+      pitch_off: -0
+      yaw_off: -0
     - d_max: 10
       d_min: 9
       h_max: 0.4
       h_min: -1
-      pitch_off: -1.3
+      pitch_off: -0
       yaw_off: 0
+
 
 trajectory_compensator:
   compenstator_type: resistance

@@ -20,6 +20,8 @@ Aimer::Aimer(
             e.yaw_off = node["yaw_off"].as<double>();
             entries.push_back(e);
         }
+        manual_compensator_->setBasePitch(config["base_offset"]["pitch"].as<double>());
+        manual_compensator_->setBaseYaw(config["base_offset"]["yaw"].as<double>());
     }
     manual_compensator_->updateMapFlow(entries);
 }

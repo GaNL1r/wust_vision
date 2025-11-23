@@ -35,18 +35,21 @@ rune_tracker:
 
 aimer:
   prediction_delay: -0.00
+  base_offset:
+      yaw: -4.5
+      pitch: -3.0
   trajectory_offset:
     - d_max: 9
       d_min: 0
-      h_max: 4.4
+      h_max: 1.5
       h_min: -1
-      pitch_off: -3.0
-      yaw_off: -4.5
+      pitch_off: -0
+      yaw_off: -0
     - d_max: 10
       d_min: 9
       h_max: 0.4
       h_min: -1
-      pitch_off: -0.0
+      pitch_off: -0
       yaw_off: 0
 
 trajectory_compensator:
