@@ -1,29 +1,24 @@
 #!/bin/bash
-sleep 5
+
+TARGET="$1"
+shift
+ARGS=("${@:3}")
+
+
+echo "[GUARD] target: $TARGET"
+echo "[GUARD] args: ${ARGS[*]}"
+echo "[GUARD] Starting monitor..."
 
 while true; do
+    echo "[GUARD] Launching program..."
+    "$TARGET" "${ARGS[@]}"
+    RET=$?
 
-    pkill $1
+    if [ $RET -eq 0 ]; then
+        echo "[GUARD] Program exited normally. Stopping guard."
+        exit 0
+    fi
 
-    # 等待进程全部退出，最多等10秒
-    timeout=10
-    while pgrep $1 > /dev/null; do
-        sleep 0.5
-        timeout=$((timeout - 1))
-        if [ $timeout -le 0 ]; then
-            echo "$1 did not exit after 10 seconds, forcing kill"
-            pkill -9 $1
-            break
-        fi
-    done
-
-    source env.bash
-    ORIGINAL_ARGS=("$@")
-    shift 1
-    $1 "$@"
-    set -- "${ORIGINAL_ARGS[@]}"
-    
+    echo "[GUARD] Crash detected, restarting in 1 second..."
     sleep 1
 done
-
-#ps -ef | grep $1
