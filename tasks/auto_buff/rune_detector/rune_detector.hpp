@@ -39,28 +39,44 @@ public:
     cv::Mat tmp_R_;
     int current_id_ = 0;
     struct Params {
-    double rune_center_min_area = 100.0;
-    double rune_center_max_area = 2000.0;
-    double rune_center_1x1ratio_tol = 0.7;
-    double rune_center_fill_ratio_min = 0.7;
+        double rune_center_min_area = 100.0;
+        double rune_center_max_area = 2000.0;
+        double rune_center_1x1ratio_tol = 0.7;
+        double rune_center_fill_ratio_min = 0.7;
 
-    double rune_target_min_area = 100.0;
-    double rune_target_max_area = 3000.0;
-    double rune_target_max_square_ratio = 1.3;
-    double rune_target_cluster_radius = 70.0;
+        double rune_target_min_area = 100.0;
+        double rune_target_max_area = 3000.0;
+        double rune_target_max_square_ratio = 1.3;
+        double rune_target_cluster_radius = 70.0;
 
-    void load(const YAML::Node& node) {
-        // center params
-        rune_center_min_area        = node["rune_center_min_area"]       ? node["rune_center_min_area"].as<double>()       : rune_center_min_area;
-        rune_center_max_area        = node["rune_center_max_area"]       ? node["rune_center_max_area"].as<double>()       : rune_center_max_area;
-        rune_center_1x1ratio_tol    = node["rune_center_1x1ratio_tol"]   ? node["rune_center_1x1ratio_tol"].as<double>()   : rune_center_1x1ratio_tol;
-        rune_center_fill_ratio_min  = node["rune_center_fill_ratio_min"] ? node["rune_center_fill_ratio_min"].as<double>() : rune_center_fill_ratio_min;
+        void load(const YAML::Node& node) {
+            // center params
+            rune_center_min_area = node["rune_center_min_area"]
+                ? node["rune_center_min_area"].as<double>()
+                : rune_center_min_area;
+            rune_center_max_area = node["rune_center_max_area"]
+                ? node["rune_center_max_area"].as<double>()
+                : rune_center_max_area;
+            rune_center_1x1ratio_tol = node["rune_center_1x1ratio_tol"]
+                ? node["rune_center_1x1ratio_tol"].as<double>()
+                : rune_center_1x1ratio_tol;
+            rune_center_fill_ratio_min = node["rune_center_fill_ratio_min"]
+                ? node["rune_center_fill_ratio_min"].as<double>()
+                : rune_center_fill_ratio_min;
 
-        // target params
-        rune_target_min_area        = node["rune_target_min_area"]       ? node["rune_target_min_area"].as<double>()       : rune_target_min_area;
-        rune_target_max_area        = node["rune_target_max_area"]       ? node["rune_target_max_area"].as<double>()       : rune_target_max_area;
-        rune_target_max_square_ratio= node["rune_target_max_square_ratio"]? node["rune_target_max_square_ratio"].as<double>(): rune_target_max_square_ratio;
-        rune_target_cluster_radius  = node["rune_target_cluster_radius"] ? node["rune_target_cluster_radius"].as<double>() : rune_target_cluster_radius;
-    }
+            // target params
+            rune_target_min_area = node["rune_target_min_area"]
+                ? node["rune_target_min_area"].as<double>()
+                : rune_target_min_area;
+            rune_target_max_area = node["rune_target_max_area"]
+                ? node["rune_target_max_area"].as<double>()
+                : rune_target_max_area;
+            rune_target_max_square_ratio = node["rune_target_max_square_ratio"]
+                ? node["rune_target_max_square_ratio"].as<double>()
+                : rune_target_max_square_ratio;
+            rune_target_cluster_radius = node["rune_target_cluster_radius"]
+                ? node["rune_target_cluster_radius"].as<double>()
+                : rune_target_cluster_radius;
+        }
     } params_;
 };

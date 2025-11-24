@@ -366,7 +366,6 @@ struct AutoAim::Impl {
         }
     }
 
-
     std::unique_ptr<ArmorDetectorBase> armor_detector_;
     std::unique_ptr<TrackerManager> tracker_manager_;
     std::string logger_ = "auto_aim";

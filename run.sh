@@ -84,17 +84,22 @@ if [[ "$1" == "build" || "$1" == "rebuild" || "$1" == "run" ]]; then
     fi
 
     # Run mode
-    if [ "$1" == "run" ]; then
+        if [ "$1" == "run" ]; then
         echo -e "${yellow}\n<--- Running WUST_VISION --->${reset}"
         RUN_PROGRAM="$BUILD_DIR/$2"
         ORIGINAL_ARGS=("$@")
-        set -- "${ORIGINAL_ARGS[@]}"
         shift 2
+
+        # 运行程序
         "$RUN_PROGRAM" "$@"
-        RET=$? 
-        
+        RET=$?
+        set -- "${ORIGINAL_ARGS[@]}"
+
+        # 如果崩溃，进入守护流程
         if [ $RET -ne 0 ]; then
             echo -e "${red}\n--- Program crashed, running guard.sh ---${reset}"
+            
+            # 杀掉残留进程
             pkill "$2"
             timeout=10
             while pgrep "$2" > /dev/null; do
@@ -107,12 +112,20 @@ if [[ "$1" == "build" || "$1" == "rebuild" || "$1" == "run" ]]; then
                 fi
             done
 
-            GUARD_SCRIPT="$(realpath "$CONFIG_DIR/guard.sh")"
-            TARGET_PATH="$(realpath "$RUN_PROGRAM")"
-            "$GUARD_SCRIPT" "$TARGET_PATH" "$@"
-            exit 1
+            # 调用守护脚本
+            GUARD_SCRIPT="$CONFIG_DIR/guard.sh"
+            TARGET_PATH="$RUN_PROGRAM"
+
+            if [ ! -f "$GUARD_SCRIPT" ]; then
+                echo -e "${red}guard.sh not found: $GUARD_SCRIPT${reset}"
+                exit 1
+            fi
+
+            echo -e "${yellow}Starting guard.sh ...${reset}"
+            exec "$GUARD_SCRIPT" "$TARGET_PATH" "$@"    # ★ 用 exec 交给守护脚本
         fi
     fi
+
 
     echo -e "${yellow}<----- OVER ----->${reset}"
 

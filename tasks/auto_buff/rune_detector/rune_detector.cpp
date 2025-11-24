@@ -7,7 +7,6 @@ cv::Mat RuneDetectorCV::preProcess(const cv::Mat& src, bool use_red) {
     cv::cvtColor(src, bin, cv::COLOR_RGB2GRAY);
     cv::threshold(bin, bin, 120, 255, cv::THRESH_BINARY);
 
-
     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
 
     // cv::dilate(bin, bin, kernel, cv::Point(-1, -1), 1);
@@ -19,22 +18,22 @@ cv::Mat RuneDetectorCV::preProcess(const cv::Mat& src, bool use_red) {
 // cv::Mat RuneDetectorCV::preProcess(const cv::Mat& src, bool use_red) {
 //     cv::Mat channel, bin;
 
-//    
+//
 //     if (use_red) {
-//      
+//
 //         cv::extractChannel(src, channel, 2); // 2 = R
 //     } else {
-//      
+//
 //         cv::extractChannel(src, channel, 0); // 0 = B
 //     }
 
-//   
+//
 //     cv::threshold(channel, bin, 50, 255, cv::THRESH_BINARY);
 
-//   
+//
 //     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
 
-//    
+//
 //     cv::dilate(bin, bin, kernel, cv::Point(-1, -1), 1);
 //     cv::morphologyEx(bin, bin, cv::MORPH_CLOSE, kernel, cv::Point(-1, -1), 1);
 //     cv::morphologyEx(bin, bin, cv::MORPH_OPEN, kernel, cv::Point(-1, -1), 1);
@@ -130,12 +129,12 @@ inline rune::RuneCenter RuneDetectorCV::getRuneCenter(
     }
 
     if (!debug_img.empty()) {
-        cv::circle(debug_img, global_center, 4, cv::Scalar(0, 255, 255), -1); 
+        cv::circle(debug_img, global_center, 4, cv::Scalar(0, 255, 255), -1);
 
         cv::Point2f pts[4];
         best_rr.points(pts);
         for (int k = 0; k < 4; k++) {
-            cv::line(debug_img, pts[k], pts[(k + 1) % 4], cv::Scalar(0, 0, 255), 2); 
+            cv::line(debug_img, pts[k], pts[(k + 1) % 4], cv::Scalar(0, 0, 255), 2);
         }
     }
 
@@ -174,7 +173,8 @@ inline std::vector<rune::RunePan> RuneDetectorCV::markRuneTarget(
         const auto& cnt = contours[i];
 
         double contour_area = cv::contourArea(cnt);
-        if (contour_area < params_.rune_target_min_area || contour_area > params_.rune_target_max_area)
+        if (contour_area < params_.rune_target_min_area
+            || contour_area > params_.rune_target_max_area)
             continue;
 
         cv::Moments m = cv::moments(cnt);

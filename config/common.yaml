@@ -22,6 +22,7 @@ logger:
 
 shoot:
   bullet_speed: 21.0
+  rate: 3
   controller_delay: 0.00
 
 auto_exposure:

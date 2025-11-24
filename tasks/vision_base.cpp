@@ -105,10 +105,12 @@ bool VisionBase::init(bool debug_mode) {
         camera_info,
         max_infer_running_
     );
-    thread_pool_ = std::make_unique<ThreadPool>(std::thread::hardware_concurrency()*2);
+    thread_pool_ = std::make_unique<ThreadPool>(std::thread::hardware_concurrency() * 2);
     motion_buffer_ = std::make_shared<MotionBufferGeneric<Motion, 1024>>();
     double bullet_speed = config_["shoot"]["bullet_speed"].as<double>(20.0);
+    shoot_rate_ = config_["shoot"]["rate"].as<int>(3);
     double communication_delay_μs = config_["control"]["communication_delay_us"].as<double>(1000.0);
+
     auto_aim_shared_ = std::make_shared<auto_aim::AutoAimShared>(
         motion_buffer_,
         bullet_speed,
@@ -286,7 +288,7 @@ void VisionBase::frameCallback(wust_vl_video::ImageFrame& frame) {
     }
     common_frame.detect_color = detect_color_;
     common_frame.src_img = std::move(frame.src_img);
-    
+
     autoExposureControl(common_frame.src_img);
     if (img_writer_) {
         img_writer_->push(common_frame.src_img);
@@ -398,7 +400,7 @@ void VisionBase::timerCallback(double dt_ms) {
     send_data.target_pitch = cmd.target_pitch;
     send_data.enable_pitch_diff = cmd.enable_pitch_diff;
     send_data.enable_yaw_diff = cmd.enable_yaw_diff;
-
+    send_data.shoot_rate = shoot_rate_;
     if (serial_) {
         serial_->write(std::move(toVector(send_data)));
     }

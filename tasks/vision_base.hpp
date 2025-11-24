@@ -96,6 +96,7 @@ public:
     int detect_color_ = 0;
     bool debug_mode_ = false;
     int use_ncnn_count_ = 0;
+    int shoot_rate_ = 3;
     std::atomic<int> infer_running_count_ { 0 };
     std::string common_config_;
     std::string camera_config_;
