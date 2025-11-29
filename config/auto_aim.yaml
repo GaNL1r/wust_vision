@@ -52,12 +52,13 @@ auto_aim_fsm:
   transfer_thresh: 20
 
 planner:
+  max_iter: 10
   max_yaw_acc: 40
   #全向yaw加速度测算37
   Q_yaw: [9e6, 0]
   R_yaw: [1.0]
 
-  max_pitch_acc: 100
+  max_pitch_acc: 25
   Q_pitch: [9e6, 0]
   R_pitch: [1]
 
@@ -67,12 +68,13 @@ aimer:
   leaving_angle: 20
 
 shooter:
+  yaw_limit: 45
   shooting_range_h: 0.1
   shooting_range_w: 0.12
   min_enable_pitch_deg: 0.25
   min_enable_yaw_deg: 0.25
   base_offset:
-      yaw: -4.5
+      yaw: -4.1
       pitch: -3.0
   trajectory_offset:
     - d_max: 9

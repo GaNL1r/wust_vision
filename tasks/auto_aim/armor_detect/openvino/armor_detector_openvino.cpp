@@ -51,14 +51,12 @@ ArmorDetectOpenVino::ArmorDetectOpenVino(
 void ArmorDetectOpenVino::init() {
     openvino_net_ = std::make_unique<ml_net::OpenvinoNet>();
     auto ppp_init_fun = [this](ov::preprocess::PrePostProcessor& ppp) {
-        // 1) 设置输入输出 tensor 的类型、布局、颜色格式等
         ppp.input()
             .tensor()
             .set_element_type(ov::element::u8)
             .set_layout("NHWC")
             .set_color_format(ov::preprocess::ColorFormat::BGR);
 
-        // 预处理管线：u8→f32、BGR→RGB
         float scale = armor_infer_->getUseNorm() ? 255.0f : 1.0f;
         ppp.input()
             .preprocess()
@@ -66,10 +64,8 @@ void ArmorDetectOpenVino::init() {
             .convert_color(ov::preprocess::ColorFormat::RGB)
             .scale({ scale });
 
-        // 告诉引擎：模型内部期望的布局是 NCHW
         ppp.input().model().set_layout("NCHW");
 
-        // 输出也要 f32
         ppp.output().tensor().set_element_type(ov::element::f32);
     };
     ml_net::OpenvinoNet::Params params;
@@ -79,7 +75,6 @@ void ArmorDetectOpenVino::init() {
                                       : ov::hint::PerformanceMode::LATENCY;
     openvino_net_->init(params, ppp_init_fun);
 
-    // 4) 生成 grid_strides、ThreadPool 等
     strides_ = { 8, 16, 32 };
     armor_infer_->generate_grids_and_stride(
         armor_infer_->getInputW(),
@@ -100,35 +95,6 @@ void ArmorDetectOpenVino::setCallback(DetectorCallback callback) {
 bool ArmorDetectOpenVino::processCallback(const CommonFrame& frame) {
     auto start = std::chrono::steady_clock::now();
     Eigen::Matrix3f transform_matrix;
-
-    // BGR->RGB, u8(0-255)->f32(0.0-1.0), HWC->NCHW
-    // note: TUP's model no need to normalize
-    // cv::Mat blob = cv::dnn::blobFromImage(
-    //     resized_img,
-    //     1.,
-    //     cv::Size(INPUT_W, INPUT_H),
-    //     cv::Scalar(0, 0, 0),
-    //     true
-    // );
-
-    // Feed blob into input
-    // auto input_port = compiled_model_->input();
-    // ov::Tensor input_tensor(
-    //     input_port.get_element_type(),
-    //     ov::Shape(std::vector<size_t> { 1, 3, INPUT_W, INPUT_H }),
-    //     blob.ptr(0)
-    // );
-
-    // // Start inference
-    // auto infer_request = compiled_model_->create_infer_request();
-    // infer_request.set_input_tensor(input_tensor);
-    // infer_request.infer();
-
-    // ov::Tensor input_tensor = ov::Tensor(
-    //     compiled_model_->input().get_element_type(),
-    //     compiled_model_->input().get_shape(),
-    //     resized_img.data
-    // );
     cv::Mat resized_img = armor_infer_->letterbox(
         frame.src_img,
         transform_matrix,
@@ -137,11 +103,11 @@ bool ArmorDetectOpenVino::processCallback(const CommonFrame& frame) {
     );
     auto input_info = openvino_net_->getInputInfo();
     auto input_tensor = ov::Tensor(input_info.first, input_info.second, resized_img.data);
-    auto output = openvino_net_->infer(input_tensor);
+    auto output = openvino_net_->infer_thread_local(input_tensor);
 
     // Process output data
     auto output_shape = output.get_shape();
-    // 3549 x 21 Matrix
+
     cv::Mat output_buffer(output_shape[1], output_shape[2], CV_32F, output.data());
 
     // Parsed variable

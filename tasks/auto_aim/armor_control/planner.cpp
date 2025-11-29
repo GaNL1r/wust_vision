@@ -13,6 +13,7 @@ Planner::Planner(
 ) {
     aimer_ = aimer;
     shooter_ = shooter;
+    max_iter_ = config["max_iter"].as<int>();
     setup_yaw_solver(config);
     setup_pitch_solver(config);
 }
@@ -24,8 +25,6 @@ Plan Planner::plan(
     double self_v_yaw
 ) {
     aim_first_idx_ = -1;
-    if (bullet_speed < 10 || bullet_speed > 25)
-        bullet_speed = 22;
 
     // pick nearest armor for initial estimate
     Eigen::Vector3d xyz;
@@ -105,13 +104,6 @@ Plan Planner::plan(
 
     plan.armor_posandyaw = armor_list;
     plan.aim_target = aim_target;
-    // int idx = MPC_HALF_HORIZON + 2;
-    // if (idx >= MPC_HORIZON)
-    //     idx = MPC_HORIZON - 1;
-
-    // double yaw_err = angles::shortest_angular_distance(traj(0, idx), yaw_solver_->work->x(0, idx));
-    // double pitch_err = traj(2, idx) - pitch_solver_->work->x(0, idx);
-    // plan.fire = std::hypot(yaw_err, pitch_err) < fire_thresh_;
 
     return plan;
 }
@@ -134,7 +126,7 @@ void Planner::setup_yaw_solver(const YAML::Node& config) {
     Eigen::MatrixXd u_max = Eigen::MatrixXd::Constant(1, MPC_HORIZON - 1, max_yaw_acc_);
     tiny_set_bound_constraints(yaw_solver_, x_min, x_max, u_min, u_max);
 
-    yaw_solver_->settings->max_iter = 10;
+    yaw_solver_->settings->max_iter = max_iter_;
 }
 
 void Planner::setup_pitch_solver(const YAML::Node& config) {
@@ -154,7 +146,7 @@ void Planner::setup_pitch_solver(const YAML::Node& config) {
     Eigen::MatrixXd u_max = Eigen::MatrixXd::Constant(1, MPC_HORIZON - 1, max_pitch_acc_);
     tiny_set_bound_constraints(pitch_solver_, x_min, x_max, u_min, u_max);
 
-    pitch_solver_->settings->max_iter = 10;
+    pitch_solver_->settings->max_iter = max_iter_;
 }
 std::tuple<double, double, std::vector<Eigen::Vector4d>, AimTarget> Planner::calaim(
     const Target& target,
@@ -230,33 +222,36 @@ std::tuple<double, double, std::vector<Eigen::Vector4d>, AimTarget> Planner::cal
             }
         }
     } else if (armor_num > 0) {
-        // default: pick armor whose yaw is closest to center yaw
-        int best_idx = pick_best_by_min_abs(std::vector<int>(/*0..armor_num-1*/));
-        if (best_idx == -1) {
-            // pick_best_by_min_abs overload above expects a vector of indices;
-            // fallback: linear search (keeps behavior identical)
-            double min_angle = std::numeric_limits<double>::max();
-            int best = -1;
-            for (int i = 0; i < armor_num; ++i) {
-                double abs_angle = std::abs(delta_angles[i]);
-                if (abs_angle < min_angle) {
-                    min_angle = abs_angle;
-                    best = i;
-                }
+        int best_idx = -1;
+        if (target.tracked_id_ != armor::ArmorNumber::OUTPOST) {
+            auto [com, lea] = aimer_->getCommingLeaving();
+            double coming_angle = com / 180.0 * M_PI;
+            double leaving_angle = lea / 180.0 * M_PI;
+            for (size_t i = 0; i < armor_num; ++i) {
+                if (std::abs(delta_angles[i]) > coming_angle)
+                    continue;
+                if (target.v_yaw() > 0 && delta_angles[i] < leaving_angle)
+                    best_idx = static_cast<int>(i);
+                if (target.v_yaw() < 0 && delta_angles[i] > -leaving_angle)
+                    best_idx = static_cast<int>(i);
             }
-            if (best >= 0) {
-                chosen = armor_list[best].head<3>();
-                chosen_yaw = armor_list[best][3];
-            }
-        } else {
-            chosen = armor_list[best_idx].head<3>();
-            chosen_yaw = armor_list[best_idx][3];
         }
+
+        if (best_idx < 0) {
+            // default: pick armor whose yaw is closest to center yaw
+            auto picks = std::vector<int>(armor_num);
+            std::iota(picks.begin(), picks.end(), 0);
+            best_idx = pick_best_by_min_abs(picks);
+        }
+
+        chosen = armor_list[best_idx].head<3>();
+        chosen_yaw = armor_list[best_idx][3];
     }
 
     // build AimTarget
     AimTarget at;
     at.pos = chosen;
+    Eigen::Vector4d chosen_and_yaw = Eigen::Vector4d(chosen.x(),chosen.y(),chosen.z(), chosen_yaw);
     double raw_pitch = at.calRawPitch();
     aimer_->compensate(at.pos, raw_pitch, bullet_speed);
     at.shoot_pitch = raw_pitch;
@@ -285,13 +280,13 @@ std::tuple<double, double, std::vector<Eigen::Vector4d>, AimTarget> Planner::cal
     cmd.v_yaw = rad2deg(v_yaw);
     cmd.aim_target = at;
     cmd.appera = true;
-    cmd.armor_posandyaw = armor_list;
+    cmd.armor_posandyaw = {chosen_and_yaw};
 
     GimbalCmd gimbal_cmd = shooter_->shoot(cmd, bullet_speed);
 
     return { angles::normalize_angle(deg2rad(gimbal_cmd.yaw)),
              angles::normalize_angle(deg2rad(gimbal_cmd.pitch)),
-             armor_list,
+             {chosen_and_yaw},
              at };
 }
 

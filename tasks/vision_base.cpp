@@ -467,7 +467,7 @@ void VisionBase::debugThread() {
             std::pair<double, double> gimbal_py;
             if (last_att) {
                 gimbal_py.first = last_att->data.pitch;
-                gimbal_py.second = last_att->data.vyaw;
+                gimbal_py.second = last_att->data.yaw;
             }
             debuglog(dbg_armor, dbg_rune, last_cmd_, gimbal_py);
             config_binder_->reload(common_config_);

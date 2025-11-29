@@ -7,11 +7,11 @@ tf:
   t_camera2gimbal:
     [0.065434347168653831, 0.10641232476052895, 0.0436106400231024]
 control:
-  control_rate: 500
+  control_rate: 300
   communication_delay_us: 1100
   pitch_avg_windows: 1
   device_name: /dev/ttyACM_RMc
-  use_serial: true
+  use_serial: false
   
 logger:
   log_level: INFO
@@ -22,7 +22,7 @@ logger:
 
 shoot:
   bullet_speed: 21.0
-  rate: 3
+  rate: 7
   controller_delay: 0.00
 
 auto_exposure:

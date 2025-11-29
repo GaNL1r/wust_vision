@@ -25,4 +25,4 @@ armor_detect:
     nms_threshold: 0.3
     top_k: 128
     model_type: tup
-    provider: CPU
+    provider: CUDA

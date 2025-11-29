@@ -8,8 +8,8 @@
 #include "tasks/auto_aim/armor_tracker/target.hpp"
 #include "tinympc/tiny_api.hpp"
 
-constexpr double MPC_DT = 0.002;
-constexpr int MPC_HALF_HORIZON = 250;
+constexpr double MPC_DT = 1.0/300.0;
+constexpr int MPC_HALF_HORIZON = 150;
 constexpr int MPC_HORIZON = MPC_HALF_HORIZON * 2;
 constexpr double CAL_DT = 0.01;
 constexpr int CAL_HALF_HORIZON = 50;
@@ -88,4 +88,5 @@ private:
     );
     std::shared_ptr<Aimer> aimer_;
     std::shared_ptr<Shooter> shooter_;
+    int max_iter_;
 };

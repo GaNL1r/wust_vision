@@ -22,8 +22,8 @@ armor_detect:
   model:
     conf_threshold: 0.2
     device_type: CPU
-    model_path: ${VISION_ROOT}/model/opt-0527-001.onnx
+    model_path: ${VISION_ROOT}/model/opt-1208-001.onnx
     nms_threshold: 0.3
     top_k: 128
-    use_throughputmode: false
+    use_throughputmode: true
     model_type: tup

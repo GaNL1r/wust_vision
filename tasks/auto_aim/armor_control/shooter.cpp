@@ -7,6 +7,8 @@ struct Shooter::Impl {
         trajectory_compensator_ = trajectory_compensator;
         shooting_range_w_ = config["shooter"]["shooting_range_w"].as<double>(0.12);
         shooting_range_h_ = config["shooter"]["shooting_range_h"].as<double>(0.12);
+        double yaw_limit_deg = config["shooter"]["yaw_limit"].as<double>(0.0);
+        yaw_limit = yaw_limit_deg / 180.0*M_PI;
         min_enable_pitch_deg_ = config["shooter"]["min_enable_pitch_deg"].as<double>(0.0);
         min_enable_yaw_deg_ = config["shooter"]["min_enable_yaw_deg"].as<double>(0.0);
         manual_compensator_ = std::make_unique<ManualCompensator>();
@@ -23,8 +25,7 @@ struct Shooter::Impl {
                 e.yaw_off = node["yaw_off"].as<double>();
                 entries.push_back(e);
             }
-            manual_compensator_->setBasePitch(config["shooter"]["base_offset"]["pitch"].as<double>()
-            );
+            manual_compensator_->setBasePitch(config["shooter"]["base_offset"]["pitch"].as<double>());
             manual_compensator_->setBaseYaw(config["shooter"]["base_offset"]["yaw"].as<double>());
         }
         manual_compensator_->updateMapFlow(entries);
@@ -98,8 +99,15 @@ struct Shooter::Impl {
         double distance = target_pos.norm();
         double shooting_range_yaw = std::abs(atan2(shooting_range_w_ / 2, distance));
         double shooting_range_pitch = std::abs(atan2(shooting_range_h_ / 2, distance));
-        double yaw_factor = 1.0 * std::cos(maybe_hit[3]);
-        double pitch_factor = 1.0;
+        double yaw_factor = 0.0;
+
+        double yaw_rad = maybe_hit[3];
+
+        if (std::abs(yaw_rad) <= yaw_limit) {
+            yaw_factor = std::cos(yaw_rad);
+        }
+
+        double pitch_factor = std::cos(15.0*M_PI / 180);
 
         shooting_range_yaw = std::max(shooting_range_yaw, min_enable_yaw_deg_ * M_PI / 180);
         shooting_range_pitch = std::max(shooting_range_pitch, min_enable_pitch_deg_ * M_PI / 180);
@@ -155,6 +163,7 @@ struct Shooter::Impl {
     double shooting_range_h_ = 0.135;
     double min_enable_yaw_deg_ = 0.5;
     double min_enable_pitch_deg_ = 0.5;
+    double yaw_limit = 60.0/180.0*M_PI;
     GimbalCmd last_cmd_;
     std::shared_ptr<TrajectoryCompensator> trajectory_compensator_;
 };
