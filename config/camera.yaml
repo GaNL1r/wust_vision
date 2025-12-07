@@ -1,4 +1,4 @@
-type: hik_camera
+type: video_player
 
 camera_info_path: ${VISION_ROOT}/config/camera_info.yaml
 
@@ -16,13 +16,13 @@ hik_camera:
   reverse_y: false
   
 video_player:
-  fps: 60
+  fps: 12
   loop: true
   use_cvt: true
   #path: /home/hy/wust_data/video/aaa.mp4
   #path: /home/hy/wust_data/video/jiao.avi
   #path: /home/hy/Z_LION_AutoAim2025/src/auto_aim_publisher/videos/sample.avi
   #path: /home/hy/wust_data/record/20251111_134416_187.avi
-  path: /home/hy/rune_dl/runeA.mp4
+  path: /home/hy/下载/sp_vision_25/records/1.avi
   #path: /home/hy/wust_data/video/Sentry.mp4
   start_frame: 0

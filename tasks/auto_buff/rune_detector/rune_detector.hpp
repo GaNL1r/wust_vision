@@ -49,6 +49,8 @@ public:
         double rune_target_max_square_ratio = 1.3;
         double rune_target_cluster_radius = 70.0;
 
+        double bin_threshold = 150.0;
+
         void load(const YAML::Node& node) {
             // center params
             rune_center_min_area = node["rune_center_min_area"]
@@ -77,6 +79,9 @@ public:
             rune_target_cluster_radius = node["rune_target_cluster_radius"]
                 ? node["rune_target_cluster_radius"].as<double>()
                 : rune_target_cluster_radius;
+
+            bin_threshold =
+                node["bin_threshold"] ? node["bin_threshold"].as<double>() : bin_threshold;
         }
     } params_;
 };

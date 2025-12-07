@@ -28,7 +28,6 @@ find_package(G2O         REQUIRED)
 find_package(Ceres       REQUIRED)
 find_package(HikSDK      REQUIRED)
 find_package(TBB         REQUIRED)
-
 if(BUILD_WITH_OPENVINO)
     find_package(OpenVINO REQUIRED COMPONENTS Runtime ONNX)
 endif()
@@ -57,7 +56,7 @@ endif()
 
 find_package(wust_vl REQUIRED)
 
-include_directories(${EIGEN3_INCLUDE_DIR} ${OpenCV_INCLUDE_DIRS})
+include_directories(${EIGEN3_INCLUDE_DIR} ${OpenCV_INCLUDE_DIRS} ${Ceres_INCLUDE_DIRS})
 
 # ------------------- 公共依赖 target -------------------
 add_library(project_min_deps INTERFACE)
@@ -79,6 +78,7 @@ target_link_libraries(project_min_deps INTERFACE
 add_subdirectory(tasks/auto_aim)
 add_subdirectory(tasks/auto_buff)
 add_subdirectory(tasks/auto_sniper)
+add_subdirectory(tasks/auto_guidance)
 add_subdirectory(tasks)
 
 # ------------------- Executables -------------------
@@ -91,7 +91,12 @@ target_link_libraries(standard
     ${WUST_AUTO_BUFF_LIBS}
     tasks_common
 )
-
+add_executable(dart src/dart.cpp)
+target_link_libraries(dart
+    project_min_deps
+    $<TARGET_OBJECTS:auto_guidance>
+    ${WUST_auto_guidance_LIBS}
+)
 add_executable(calcapture calibration/capture.cpp)
 target_link_libraries(calcapture project_min_deps)
 
@@ -101,7 +106,8 @@ target_link_libraries(calcamera project_min_deps)
 add_executable(eye_hand calibration/eye_hand.cpp)
 target_link_libraries(eye_hand project_min_deps)
 
-
+add_executable(test_usbcamera test/test_usbcamera.cpp)
+target_link_libraries(test_usbcamera project_min_deps)
 # ------------------- ROS2 -------------------
 find_package(ament_cmake QUIET)
 find_package(rclcpp QUIET)
@@ -109,6 +115,8 @@ find_package(geometry_msgs QUIET)
 find_package(std_msgs QUIET)
 find_package(tf2_ros QUIET)
 find_package(wust_interfaces QUIET)
+find_package(sensor_msgs QUIET)
+
 set(ROS2_CORE_FOUND FALSE)
 set(ROS2_FULL_FOUND FALSE)
 
@@ -128,13 +136,8 @@ endif()
 
 if(ROS2_FULL_FOUND)
   message(STATUS "ROS2 full environment found, compiling test_ros2 and sentry.")
-  include_directories(${geometry_msgs_INCLUDE_DIRS})
-  add_executable(test_ros2 test/test_ros2.cpp)
-  target_link_libraries(test_ros2
-    project_min_deps
-    toros2
-  )
-  ament_target_dependencies(test_ros2 rclcpp std_msgs geometry_msgs)
+  include_directories(${geometry_msgs_INCLUDE_DIRS} ${sensor_msgs_INCLUDE_DIRS} ${rclcpp_INCLUDE_DIRS} ${rcl_interfaces_INCLUDE_DIRS} ${tf2_ros_INCLUDE_DIRS} ${wust_interfaces_INCLUDE_DIRS} )
+
 
   add_executable(sentry src/sentry.cpp)
   target_link_libraries(sentry
@@ -159,6 +162,17 @@ if(ROS2_FULL_FOUND)
     auto_sniper
   )
   ament_target_dependencies(hero rclcpp std_msgs geometry_msgs wust_interfaces tf2_ros)
+  add_executable(sim src/sim.cpp)
+  target_link_libraries(sim
+    project_min_deps
+    $<TARGET_OBJECTS:auto_aim>
+    ${WUST_AUTO_AIM_LIBS}
+    $<TARGET_OBJECTS:auto_buff>
+    ${WUST_AUTO_BUFF_LIBS}
+    tasks_common
+    toros2
+  )
+  ament_target_dependencies(sim rclcpp std_msgs geometry_msgs  tf2_ros sensor_msgs )
   add_executable(control test/control.cpp)
   target_link_libraries(control project_min_deps toros2)
   ament_target_dependencies(control rclcpp std_msgs)

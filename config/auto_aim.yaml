@@ -33,7 +33,7 @@ armor_tracker:
   qyaw_output: 0.1
   q_r: 0.0
   q_l: 0.0
-  q_h: 0.0
+  q_h: 0.0000001
   q_outpost_dz: 0.5
   yp_r: 2e-3
   dis_r_front: 0.5

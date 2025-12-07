@@ -140,6 +140,7 @@ struct AutoAim::Impl {
             armor_detector_->pushInput(frame);
         }
     }
+
     void
     ArmorDetectCallback(const std::vector<armor::ArmorObject>& objs, const CommonFrame& frame) {
         static thread_local std::unique_ptr<ArmorPoseEstimator> armor_pose_estimator_thread;
@@ -172,12 +173,16 @@ struct AutoAim::Impl {
         armors.timestamp = frame.timestamp;
         Eigen::Vector3d v = Eigen::Vector3d::Zero();
         Eigen::Matrix3d R_gimbal2odom = Eigen::Matrix3d::Identity();
+        Eigen::Vector3d gimbal = Eigen::Vector3d::Zero();
         if (shared_->motion_buffer) {
             auto apply_motion = [&](const auto& att) {
                 v = Eigen::Vector3d(att.data.vx, att.data.vy, att.data.vz);
                 R_gimbal2odom = Eigen::AngleAxisd(att.data.yaw, Eigen::Vector3d::UnitZ())
                     * Eigen::AngleAxisd(-att.data.pitch, Eigen::Vector3d::UnitY())
                     * Eigen::AngleAxisd(att.data.roll, Eigen::Vector3d::UnitX());
+                gimbal.x() = att.data.yaw;
+                gimbal.y() = att.data.pitch;
+                gimbal.z() = att.data.roll;
             };
             auto delay = std::chrono::microseconds(
                 static_cast<int64_t>(std::round(shared_->communication_delay_μs))
@@ -189,9 +194,9 @@ struct AutoAim::Impl {
                 apply_motion(*last_att);
             }
         }
+
         Eigen::Matrix4d T_camera_to_odom =
             utils::computeCameraToOdomTransform(R_gimbal2odom, R_camera2gimbal_, t_camera2gimbal_);
-
         armors.armors = armor_pose_estimator_thread->extractArmorPoses(
             sorted_objs,
             T_camera_to_odom,
@@ -259,8 +264,15 @@ struct AutoAim::Impl {
                 aimer_->aim(target, now, shared_->bullet_speed, auto_aim_fsm_cl_.fsm_state_);
             aim_target = tmp_cmd.aim_target;
             auto last_att = shared_->motion_buffer->get_last();
-            gimbal_cmd =
-                shooter_->shoot(tmp_cmd, 0, 0, shared_->bullet_speed, true, last_att->data.vyaw);
+            gimbal_cmd = shooter_->shoot(
+                tmp_cmd,
+                0,
+                0,
+                shared_->bullet_speed,
+                true,
+                auto_aim_fsm_cl_.fsm_state_,
+                last_att->data.vyaw
+            );
 
             gimbal_cmd.raw_yaw = gimbal_cmd.yaw;
             gimbal_cmd.raw_pitch = gimbal_cmd.pitch;
@@ -277,6 +289,7 @@ struct AutoAim::Impl {
                     gimbal_cmd.pitch * M_PI / 180.0,
                     shared_->bullet_speed,
                     true,
+                    auto_aim_fsm_cl_.fsm_state_,
                     last_att->data.vyaw
                 );
                 gimbal_cmd.fire_advice = only_check_fire.fire_advice;

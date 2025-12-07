@@ -152,7 +152,7 @@ bool RuneTarget::update(const rune::RuneFan& fans) {
         this->last_ypd_y = ypd_y;
         double ypd_p = std::atan2(p.z(), std::sqrt(p.x() * p.x() + p.y() * p.y()));
         double ypd_d = std::sqrt(p.x() * p.x() + p.y() * p.y() + p.z() * p.z());
-        measurement_ << ypd_y, ypd_p, ypd_d, measured_yaw, measured_roll;
+        measurement_ << ypd_y, ypd_p, ypd_d, ypd_y, measured_roll;
         auto tmp_esekf = esekf_ypd_;
         tmp_esekf.setMeasureFunc(ypdrune_motion_model::Measure { id });
         tmp_esekf.update(measurement_);

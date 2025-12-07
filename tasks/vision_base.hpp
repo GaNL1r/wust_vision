@@ -1,5 +1,6 @@
 #pragma once
 #include "3rdparty/backward-cpp/backward.hpp"
+#include "main_base.hpp"
 #include "sinple_img_rotate_saver.hpp"
 #include "tasks/auto_aim/auto_aim.hpp"
 #include "tasks/auto_buff/auto_buff.hpp"
@@ -92,7 +93,7 @@ public:
     double bullet_speed_;
     int attack_mode_;
     int max_infer_running_;
-    bool run_flag_ = true;
+    bool run_flag_ = false;
     int detect_color_ = 0;
     bool debug_mode_ = false;
     int use_ncnn_count_ = 0;
@@ -140,92 +141,3 @@ public:
         }
     } auto_exposure_cfg_;
 };
-template<typename T>
-concept VisionLike = requires(T v) {
-    {
-        v.init(std::declval<bool>())
-        } -> std::same_as<bool>;
-    {
-        v.start()
-        } -> std::same_as<void>;
-    {
-        v.checkStateMatchMode()
-        } -> std::same_as<void>;
-};
-
-template<VisionLike T>
-inline int runVisionMain(int argc, char** argv) {
-    bool debug = false;
-    if (argc > 1) {
-        std::string firstArg = argv[1];
-        debug = (firstArg == "true" || firstArg == "1");
-        std::cout << "debug: " << firstArg << std::endl;
-    }
-    std::set_terminate([]() {
-        std::cerr << "Uncaught exception, terminating program.\n";
-        if (auto e = std::current_exception()) {
-            try {
-                std::rethrow_exception(e);
-            } catch (const std::exception& ex) {
-                std::cerr << "Exception: " << ex.what() << std::endl;
-            } catch (...) {
-                std::cerr << "Unknown exception" << std::endl;
-            }
-        }
-        std::abort();
-    });
-
-    try {
-        int exit_code = 0;
-
-        {
-            T v;
-            v.init(debug);
-            v.start();
-
-            SignalHandler sig;
-            sig.start([&] {});
-
-            bool exit_flag = false;
-
-            while (!sig.shouldExit() && !exit_flag) {
-                wust_vl_concurrency::ThreadManager::instance().printStatus();
-                auto all_status =
-                    wust_vl_concurrency::ThreadManager::instance().getAllThreadStatuses();
-                v.checkStateMatchMode();
-
-                for (auto& status: all_status) {
-                    if (status.second == wust_vl_concurrency::MonitoredThread::Status::Hung) {
-                        std::cerr << status.first << " is Hunging! Exiting program..." << std::endl;
-                        exit_flag = true;
-                        exit_code = -1;
-                        sig.requestExit();
-                        break;
-                    }
-                }
-                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-            }
-        }
-
-        std::cout << "Exiting program..." << std::endl;
-        return exit_code;
-
-    } catch (const std::exception& e) {
-        std::cerr << "Caught exception in main: " << e.what() << "\n";
-        throw;
-        return -1;
-    } catch (...) {
-        std::cerr << "Unknown exception caught in main!\n";
-        return -1;
-    }
-}
-
-#define VISION_MAIN(VISION_TYPE) \
-    int main(int argc, char** argv) { \
-        return runVisionMain<VISION_TYPE>(argc, argv); \
-    }
-
-#define ENABLE_BACKWARD() \
-    namespace backward { \
-        static backward::SignalHandling sh; \
-    }

@@ -8,7 +8,7 @@ struct Shooter::Impl {
         shooting_range_w_ = config["shooter"]["shooting_range_w"].as<double>(0.12);
         shooting_range_h_ = config["shooter"]["shooting_range_h"].as<double>(0.12);
         double yaw_limit_deg = config["shooter"]["yaw_limit"].as<double>(0.0);
-        yaw_limit = yaw_limit_deg / 180.0*M_PI;
+        yaw_limit = yaw_limit_deg / 180.0 * M_PI;
         min_enable_pitch_deg_ = config["shooter"]["min_enable_pitch_deg"].as<double>(0.0);
         min_enable_yaw_deg_ = config["shooter"]["min_enable_yaw_deg"].as<double>(0.0);
         manual_compensator_ = std::make_unique<ManualCompensator>();
@@ -25,7 +25,8 @@ struct Shooter::Impl {
                 e.yaw_off = node["yaw_off"].as<double>();
                 entries.push_back(e);
             }
-            manual_compensator_->setBasePitch(config["shooter"]["base_offset"]["pitch"].as<double>());
+            manual_compensator_->setBasePitch(config["shooter"]["base_offset"]["pitch"].as<double>()
+            );
             manual_compensator_->setBaseYaw(config["shooter"]["base_offset"]["yaw"].as<double>());
         }
         manual_compensator_->updateMapFlow(entries);
@@ -37,6 +38,7 @@ struct Shooter::Impl {
         const double current_pitch,
         const double bullet_speed,
         bool use_off_fire,
+        const AutoAimFsm& auto_aim_fsm,
         double gun_yaw_speed
     ) {
         GimbalCmd gimbal_cmd = cmd;
@@ -60,6 +62,7 @@ struct Shooter::Impl {
                 current_yaw,
                 current_pitch,
                 bullet_speed,
+                auto_aim_fsm,
                 use_off_fire,
                 gun_yaw_speed
             );
@@ -88,6 +91,7 @@ struct Shooter::Impl {
         const double current_yaw,
         const double current_pitch,
         const double bullet_speed,
+        const AutoAimFsm& auto_aim_fsm,
         bool use_off_fire,
         double gun_yaw_speed = 0.0
     ) {
@@ -102,12 +106,15 @@ struct Shooter::Impl {
         double yaw_factor = 0.0;
 
         double yaw_rad = maybe_hit[3];
-
-        if (std::abs(yaw_rad) <= yaw_limit) {
+        if (auto_aim_fsm != AutoAimFsm::AIM_SINGLE_ARMOR) {
+            if (std::abs(yaw_rad) <= yaw_limit) {
+                yaw_factor = std::cos(yaw_rad);
+            }
+        } else {
             yaw_factor = std::cos(yaw_rad);
         }
 
-        double pitch_factor = std::cos(15.0*M_PI / 180);
+        double pitch_factor = std::cos(15.0 * M_PI / 180);
 
         shooting_range_yaw = std::max(shooting_range_yaw, min_enable_yaw_deg_ * M_PI / 180);
         shooting_range_pitch = std::max(shooting_range_pitch, min_enable_pitch_deg_ * M_PI / 180);
@@ -163,7 +170,7 @@ struct Shooter::Impl {
     double shooting_range_h_ = 0.135;
     double min_enable_yaw_deg_ = 0.5;
     double min_enable_pitch_deg_ = 0.5;
-    double yaw_limit = 60.0/180.0*M_PI;
+    double yaw_limit = 60.0 / 180.0 * M_PI;
     GimbalCmd last_cmd_;
     std::shared_ptr<TrajectoryCompensator> trajectory_compensator_;
 };
@@ -183,11 +190,20 @@ GimbalCmd Shooter::shoot(
     const double current_pitch,
     const double bullet_speed,
     bool use_off_fire,
+    const AutoAimFsm& auto_aim_fsm,
     double gun_yaw_speed
 ) {
-    return _impl->shoot(cmd, current_yaw, current_pitch, bullet_speed, use_off_fire, gun_yaw_speed);
+    return _impl->shoot(
+        cmd,
+        current_yaw,
+        current_pitch,
+        bullet_speed,
+        use_off_fire,
+        auto_aim_fsm,
+        gun_yaw_speed
+    );
 }
 
 GimbalCmd Shooter::shoot(const GimbalCmd& cmd, const double bullet_speed) {
-    return _impl->shoot(cmd, 0, 0, bullet_speed, false, 0.0);
+    return _impl->shoot(cmd, 0, 0, bullet_speed, false, AutoAimFsm::AIM_WHOLE_CAR_ARMOR, 0.0);
 }

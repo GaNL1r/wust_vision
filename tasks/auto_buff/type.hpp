@@ -196,7 +196,7 @@ struct RuneFan {
             { 0.0f, -RUNE_PAN_REAL_DIS / 2.0f, RUNE_R2PANCENTER - RUNE_PAN_REAL_DIS / 2.0f }, // P2
             { 0.0f, RUNE_PAN_REAL_DIS / 2.0f, RUNE_R2PANCENTER - RUNE_PAN_REAL_DIS / 2.0f }, // P3
             { 0.0f, RUNE_PAN_REAL_DIS / 2.0f, RUNE_R2PANCENTER + RUNE_PAN_REAL_DIS / 2.0f }, // P4
-            //{ 0.0f, 0.0f, RUNE_R2PANCENTER } // P5
+            { 0.0f, 0.0f, RUNE_R2PANCENTER } // P5
         };
         Eigen::Vector3d pos;
         Eigen::Quaterniond ori;

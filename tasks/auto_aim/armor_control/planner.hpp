@@ -8,11 +8,11 @@
 #include "tasks/auto_aim/armor_tracker/target.hpp"
 #include "tinympc/tiny_api.hpp"
 
-constexpr double MPC_DT = 1.0/300.0;
-constexpr int MPC_HALF_HORIZON = 150;
+constexpr double MPC_DT = 1.0 / 200.0;
+constexpr int MPC_HALF_HORIZON = 200;
 constexpr int MPC_HORIZON = MPC_HALF_HORIZON * 2;
 constexpr double CAL_DT = 0.01;
-constexpr int CAL_HALF_HORIZON = 50;
+constexpr int CAL_HALF_HORIZON = 100;
 constexpr int CAL_HORIZON = CAL_HALF_HORIZON * 2;
 
 using Trajectory = Eigen::Matrix<double, 4, MPC_HORIZON>; // yaw, yaw_vel, pitch, pitch_vel
@@ -55,7 +55,6 @@ private:
     double fire_thresh_;
     double low_speed_delay_time_, high_speed_delay_time_, decision_speed_;
     double max_yaw_acc_, max_pitch_acc_;
-    int aim_first_idx_;
     TinySolver* yaw_solver_;
     TinySolver* pitch_solver_;
 
@@ -76,7 +75,7 @@ private:
         double self_v_yaw,
         double dt
     );
-
+    std::pair<Eigen::Vector3d, double> selectArmor(const Target& target, bool aim_first);
     Trajectory get_trajectory(
         Target& target,
         double yaw0,

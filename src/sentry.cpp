@@ -9,13 +9,11 @@ class vision: public VisionBase {
 public:
     vision(): VisionBase(COMMON_CONFIG, CAMERA_CONFIG, AUTO_AIM_CONFIG, AUTO_BUFF_CONFIG) {}
     ~vision() {
-        VisionBase::~VisionBase();
+        run_flag_ = false;
         if (sim_thread_.joinable()) {
             sim_thread_.join();
         }
-        if (ros2_) {
-            ros2_.reset();
-        }
+        rclcpp::shutdown();
     }
     bool init(bool debug_mode) {
         VisionBase::init(debug_mode);
@@ -36,6 +34,7 @@ public:
         );
         return true;
     }
+
     void start() {
         VisionBase::start();
         ros2_->start();

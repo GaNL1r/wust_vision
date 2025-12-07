@@ -161,7 +161,7 @@ public:
         return poses;
     }
     std::pair<Eigen::Vector3d, Eigen::Quaterniond> getPose(int id) const {
-        Eigen::Vector3d euler = Eigen::Vector3d(yaw(), 0.0, real_roll(id));
+        Eigen::Vector3d euler = Eigen::Vector3d(yaw(), 0.0, -real_roll(id));
         auto q = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
         return computeBladeTipPose(centerPos(), q, id);
     }
@@ -174,7 +174,7 @@ public:
 
         Eigen::Vector3d tip_pos = center_pos + q * local_tip;
 
-        Eigen::Vector3d euler = Eigen::Vector3d(yaw(), 0.0, real_roll(id));
+        Eigen::Vector3d euler = Eigen::Vector3d(yaw(), 0.0, -real_roll(id));
         return { tip_pos, utils::eulerToQuat(euler, utils::EulerOrder::ZYX) };
     }
     std::pair<Eigen::Vector3d, Eigen::Quaterniond> getHitPoint() const {

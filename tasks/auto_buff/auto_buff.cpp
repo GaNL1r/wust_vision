@@ -140,9 +140,9 @@ struct AutoBuff::Impl {
             //     R = ba_solver_
             //             ->solveBa_R(fan, t, R, R_imu_cam, camera_info_.first, camera_info_.second);
             // }
-            auto euler = utils::quatToEuler(Eigen::Quaterniond(R), utils::EulerOrder::ZYX);
-            euler[0] = M_PI;
-            R = utils::eulerToQuat(euler, utils::EulerOrder::ZYX).toRotationMatrix();
+            // auto euler = utils::quatToEuler(Eigen::Quaterniond(R), utils::EulerOrder::ZYX);
+            // euler[0] = M_PI;
+            // R = utils::eulerToQuat(euler, utils::EulerOrder::ZYX).toRotationMatrix();
             fan.ori = Eigen::Quaterniond(R);
             fan.pos = t;
             Eigen::Vector3d pos_camera = fan.pos;

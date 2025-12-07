@@ -6,7 +6,7 @@ add_library(toros2 STATIC)
 target_sources(toros2 PRIVATE 
   ${CMAKE_CURRENT_SOURCE_DIR}/ros2.cpp
 )
-
+include_directories(${rclcpp_INCLUDE_DIRS} ${tf2_ros_INCLUDE_DIRS} )
 # 关键：用 ament_target_dependencies 来引入依赖
 ament_target_dependencies(toros2
   rclcpp

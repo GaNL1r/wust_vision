@@ -5,7 +5,7 @@ RuneDetectorCV::RuneDetectorCV(const YAML::Node& node) {
 cv::Mat RuneDetectorCV::preProcess(const cv::Mat& src, bool use_red) {
     cv::Mat bin;
     cv::cvtColor(src, bin, cv::COLOR_RGB2GRAY);
-    cv::threshold(bin, bin, 120, 255, cv::THRESH_BINARY);
+    cv::threshold(bin, bin, params_.bin_threshold, 255, cv::THRESH_BINARY);
 
     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
 
@@ -377,7 +377,7 @@ void RuneDetectorCV::pushInput(CommonFrame& frame, bool is_big) {
             for (auto& pt: rune_pan.corners) {
                 simple.points2d.push_back(pt);
             }
-            //simple.points2d.push_back(rune_pan.center);
+            simple.points2d.push_back(rune_pan.center);
             fan.fans.push_back(simple);
         }
         if (!debug_img.empty())
@@ -385,7 +385,7 @@ void RuneDetectorCV::pushInput(CommonFrame& frame, bool is_big) {
     }
 
     if (callback_) {
-        //cv::Mat img_copy = processed_img.clone();
+        // cv::Mat img_copy = processed_img.clone();
         callback_(fan, frame, debug_img);
     }
 }

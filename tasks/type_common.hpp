@@ -15,7 +15,7 @@
 #define CAMERA_CONFIG "config/camera.yaml"
 #define AUTO_AIM_CONFIG "config/auto_aim.yaml"
 #define AUTO_BUFF_CONFIG "config/auto_buff.yaml"
-
+#define AUTO_GUIDANCE_CONFIG "config/auto_guidance.yaml"
 struct CommonFrame {
     cv::Mat src_img;
     std::chrono::steady_clock::time_point timestamp;

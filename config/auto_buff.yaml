@@ -1,14 +1,16 @@
 rune_detector:
-  rune_center_min_area: 100
+  rune_center_min_area: 10
   rune_center_max_area: 2000
   rune_center_1x1ratio_tol: 0.7
-  rune_center_fill_ratio_min: 0.7
+  rune_center_fill_ratio_min: 0.3
 
   rune_target_min_area: 100
   rune_target_max_area: 3000
   rune_target_max_square_ratio: 1.3
   rune_target_cluster_radius: 70
 
+  bin_threshold: 70
+  
 
 
 rune_optimize:

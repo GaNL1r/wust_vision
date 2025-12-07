@@ -9,15 +9,12 @@ class vision: public VisionBase {
 public:
     vision(): VisionBase(COMMON_CONFIG, CAMERA_CONFIG, AUTO_AIM_CONFIG, AUTO_BUFF_CONFIG) {}
     ~vision() {
-        VisionBase::~VisionBase();
-        auto node = Ros2Context::get_node();
         rclcpp::shutdown();
-        node->shutdown();
-        Ros2Context::shutdown();
     }
     bool init(bool debug_mode) {
         VisionBase::init(debug_mode);
         rclcpp::init(0, nullptr);
+        ros2_ = std::make_shared<Ros2Node>("vison_node");
         auto_sniper_ = std::make_unique<auto_sniper::AutoSniper>();
         auto auto_sniper_config = YAML::LoadFile(AUTO_SNIPER_CONFIG);
         auto_sniper_->init(auto_sniper_config);
@@ -33,12 +30,10 @@ public:
         }
     }
     inline Eigen::Vector3d getPointFromMap() {
-        auto ros_node = Ros2Context::get_node();
-
         geometry_msgs::msg::TransformStamped tf;
 
-        if (!ros_node->lookup_transform("map", shoot_frame_, tf)) {
-            RCLCPP_WARN(ros_node->get_logger(), "TF lookup failed, not publishing goal");
+        if (!ros2_->lookup_transform("map", shoot_frame_, tf)) {
+            RCLCPP_WARN(ros2_->get_logger(), "TF lookup failed, not publishing goal");
             return Eigen::Vector3d();
         }
 
@@ -86,5 +81,6 @@ public:
 
     std::unique_ptr<auto_sniper::AutoSniper> auto_sniper_;
     std::string shoot_frame_ = "base_footprint";
+    std::shared_ptr<Ros2Node> ros2_;
 };
 VISION_MAIN(vision)

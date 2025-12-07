@@ -23,6 +23,7 @@ VisionBase::~VisionBase() {
     if (debug_thread_.joinable()) {
         debug_thread_.join();
     }
+    thread_pool_->waitUntilEmpty();
 
 #ifdef USE_NCNN
     if (use_ncnn_count_ > 0) {
@@ -147,7 +148,6 @@ bool VisionBase::init(bool debug_mode) {
         });
     }
 
-    ;
     timer_ = std::make_unique<Timer>();
     detect_color_ = config_["detect_color"].as<int>(0);
     auto_exposure_cfg_.loadFromYaml(config_["auto_exposure"]);
@@ -385,6 +385,10 @@ void VisionBase::timerCallback(double dt_ms) {
 
     SendRobotCmdData send_data;
     send_data.cmd_ID = ID_ROBOT_CMD;
+    send_data.time_stamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                               std::chrono::steady_clock::now().time_since_epoch()
+    )
+                               .count();
     if (cmd.distance > 0.5) {
         send_data.appear = cmd.appera;
     } else {

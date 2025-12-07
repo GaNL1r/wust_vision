@@ -141,20 +141,6 @@ inline int formArmorNumber(ArmorNumber number) {
             return 8;
     }
 }
-// inline int retypetotracker(ArmorNumber a) {
-//     static const std::unordered_map<ArmorNumber, int> map = {
-//         { ArmorNumber::SENTRY, 4 },  { ArmorNumber::NO1, 2 },  { ArmorNumber::NO2, 3 },
-//         { ArmorNumber::NO3, 4 },     { ArmorNumber::NO4, 5 },  { ArmorNumber::NO5, 9 },
-//         { ArmorNumber::OUTPOST, 6 }, { ArmorNumber::BASE, 7 }, { ArmorNumber::UNKNOWN, -1 }
-//     };
-
-//     auto it = map.find(a);
-//     if (it != map.end())
-//         return it->second;
-
-//     std::cerr << "[retypetotracker] Invalid ArmorNumber: " << static_cast<int>(a) << std::endl;
-//     return -1;
-// }
 inline std::string armorNumberToString(ArmorNumber num) {
     switch (num) {
         case ArmorNumber::SENTRY:

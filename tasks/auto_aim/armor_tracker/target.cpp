@@ -316,6 +316,6 @@ bool Target::update(const armor::Armor& a) {
     esekf_ypd_.setMeasureFunc(ypdv2armor_motion_model::Measure { id, armor_num_ });
 
     target_state_ = esekf_ypd_.update(measurement_);
-
+    last_t_ = timestamp_;
     return true;
 }
