@@ -24,10 +24,10 @@ armor_tracker:
   lost_time_thres: 2.0
   tracking_thres: 10
   max_yaw_diff_deg: 90.0
-  max_dis_diff: 1.0
+  max_dis_diff: 3.0
   match_gate: 5
   qxyz_common: 200.0
-  qyaw_common: 10.0
+  qyaw_common: 50.0
   qxyz_output: 10.0
   qyaw_output: 0.1
   q_r: 0.0

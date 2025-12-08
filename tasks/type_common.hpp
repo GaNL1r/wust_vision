@@ -21,6 +21,8 @@ struct CommonFrame {
     std::chrono::steady_clock::time_point timestamp;
     int id;
     int detect_color;
+    cv::Rect expanded;
+    cv::Point2f offset = cv::Point2f(0, 0);
 };
 enum class EnemyColor {
     RED = 0,

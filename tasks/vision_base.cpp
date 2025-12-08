@@ -288,7 +288,8 @@ void VisionBase::frameCallback(wust_vl_video::ImageFrame& frame) {
     }
     common_frame.detect_color = detect_color_;
     common_frame.src_img = std::move(frame.src_img);
-
+    common_frame.expanded = cv::Rect(0, 0, common_frame.src_img.cols, common_frame.src_img.rows);
+    common_frame.offset = cv::Point2f(0, 0);
     autoExposureControl(common_frame.src_img);
     if (img_writer_) {
         img_writer_->push(common_frame.src_img);

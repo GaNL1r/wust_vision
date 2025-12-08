@@ -166,9 +166,10 @@ ArmorDetectOpenCV::findLights(const cv::Mat& img, const cv::Mat& binary_img) noe
             if (std::abs(sum_r - sum_b) / static_cast<int>(contour.size())
                 > light_params_.color_diff_thresh) {
                 light.color = sum_r > sum_b ? 0 : 1; // 0=红, 1=蓝
+                lights.emplace_back(light);
             }
 
-            lights.emplace_back(light);
+            
         }
     }
     std::sort(lights.begin(), lights.end(), [](const armor::Light& l1, const armor::Light& l2) {
@@ -358,7 +359,8 @@ void ArmorDetectOpenCV::topts(armor::ArmorObject& armor) {
 void ArmorDetectOpenCV::pushInput(CommonFrame& frame) {
     frame.id = current_id_++;
     std::vector<armor::ArmorObject> objs_result;
-    objs_result = detect(frame.src_img, frame.detect_color);
+    auto roi = frame.src_img(frame.expanded);
+    objs_result = detect(roi, frame.detect_color);
 
     if (this->infer_callback_) {
         this->infer_callback_(objs_result, frame);

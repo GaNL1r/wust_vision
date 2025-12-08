@@ -316,6 +316,14 @@ struct ArmorObject {
             }
         }
     }
+    void addOffset(const cv::Point2f& offset) {
+        for (auto& pt: pts) {
+            pt += offset;
+        }
+        for (auto& l: lights) {
+            l.addOffset(offset);
+        }
+    }
     ArmorObject(const Light& l1, const Light& l2) {
         pts.resize(4);
         if (l1.center.x < l2.center.x) {

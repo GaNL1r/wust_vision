@@ -16,6 +16,7 @@ struct DebugArmor {
     Eigen::Matrix4d T_camera_to_odom;
     std::vector<armor::ArmorObject> armor_objs;
     int detect_color = 0;
+    cv::Rect expanded;
 };
 struct DebugRune {
     imgframe src_img;
@@ -31,6 +32,7 @@ struct DebugRune {
     double pre_angle;
     double fitter_v;
     double obs_v;
+    cv::Rect expanded;
 };
 struct DebugLogs {
     std::vector<double> time_log;

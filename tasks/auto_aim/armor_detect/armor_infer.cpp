@@ -427,8 +427,8 @@ std::vector<armor::ArmorObject> ArmorInfer::postProcessAT(
         int cls = combined % AT_NUM_CLASSES;
 
         armor::ArmorObject obj {};
-        obj.number = armor::ArmorNumber(cls);
-        obj.color = armor::ArmorColor(color);
+        obj.number = armor::ArmorNumber::NO3;
+        obj.color = armor::ArmorColor::BLUE;
         obj.prob = best_score;
 
         // 关键点起始位置

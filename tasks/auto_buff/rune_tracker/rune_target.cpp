@@ -24,29 +24,37 @@ RuneTarget::RuneTarget(
     esekf_ypd_ = ypdrune_motion_model::RuneESKF(f, h, u_q, u_r, p0);
     esekf_ypd_.setResidualFunc([](const Eigen::VectorXd& z, const Eigen::VectorXd& z_pred) {
         Eigen::VectorXd r = z - z_pred;
-        r[0] = angles::shortest_angular_distance(z_pred[0], z[0]); // yaw
-        r[3] = angles::shortest_angular_distance(z_pred[3], z[3]); // ori_yaw
-        r[4] = angles::shortest_angular_distance(z_pred[4], z[4]); // ori_roll
-        return r;
-    });
-    esekf_ypd_.setResidualFunc([](const Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>& z_pred,
-                                  const Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>& z) {
-        Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1> r = z - z_pred;
-        r[0] = angles::shortest_angular_distance(z_pred[0], z[0]); // yaw
-        r[3] = angles::shortest_angular_distance(z_pred[3], z[3]); // ori_yaw
-        r[4] = angles::shortest_angular_distance(z_pred[4], z[4]);
+        r[(int)ypdrune_motion_model::Mean::YPD_Y] = angles::shortest_angular_distance(
+            z_pred[(int)ypdrune_motion_model::Mean::YPD_Y],
+            z[(int)ypdrune_motion_model::Mean::YPD_Y]
+        ); // yaw
+        r[(int)ypdrune_motion_model::Mean::ORI_YAW] = angles::shortest_angular_distance(
+            z_pred[(int)ypdrune_motion_model::Mean::ORI_YAW],
+            z[(int)ypdrune_motion_model::Mean::ORI_YAW]
+        ); // ori_yaw
+        r[(int)ypdrune_motion_model::Mean::ORI_ROLL] = angles::shortest_angular_distance(
+            z_pred[(int)ypdrune_motion_model::Mean::ORI_ROLL],
+            z[(int)ypdrune_motion_model::Mean::ORI_ROLL]
+        ); // ori_roll
         return r;
     });
     esekf_ypd_.setIterationNum(target_config_.esekf_iter_num);
     esekf_ypd_.setInjectFunc([](const Eigen::Matrix<double, ypdrune_motion_model::X_N, 1>& delta,
                                 Eigen::Matrix<double, ypdrune_motion_model::X_N, 1>& nominal) {
         for (int i = 0; i < ypdrune_motion_model::X_N; i++) {
-            if (i == 3 || i == 4)
+            if (i == (int)ypdrune_motion_model::Mean::ORI_YAW
+                || i == (int)ypdrune_motion_model::Mean::ORI_ROLL)
                 continue;
             nominal[i] += delta[i];
         }
-        nominal[3] = angles::normalize_angle(nominal[3] + delta[3]);
-        nominal[4] = angles::normalize_angle(nominal[4] + delta[4]);
+        nominal[(int)ypdrune_motion_model::Mean::ORI_YAW] = angles::normalize_angle(
+            nominal[(int)ypdrune_motion_model::Mean::ORI_YAW]
+            + delta[(int)ypdrune_motion_model::Mean::ORI_YAW]
+        );
+        nominal[(int)ypdrune_motion_model::Mean::ORI_ROLL] = angles::normalize_angle(
+            nominal[(int)ypdrune_motion_model::Mean::ORI_ROLL]
+            + delta[(int)ypdrune_motion_model::Mean::ORI_ROLL]
+        );
     });
     esekf_ypd_.setNisThreshold(9.488);
     esekf_ypd_.setNeesThreshold(9.488);

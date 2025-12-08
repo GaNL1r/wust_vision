@@ -4,7 +4,7 @@ RuneTracker::RuneTracker(const YAML::Node& config) {
     tracker_state = LOST;
     target_ = rune::RuneTarget();
     tracking_thres_ = config["tracking_thres"].as<int>();
-    lost_thres_ = config["lost_time_thres"].as<double>();
+    lost_dt_ = config["lost_time_thres"].as<double>();
     max_dis_diff_ = config["max_dis_diff"].as<double>();
     target_config_.loadFromYaml(config);
 }

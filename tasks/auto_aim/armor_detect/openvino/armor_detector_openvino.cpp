@@ -95,8 +95,9 @@ void ArmorDetectOpenVino::setCallback(DetectorCallback callback) {
 bool ArmorDetectOpenVino::processCallback(const CommonFrame& frame) {
     auto start = std::chrono::steady_clock::now();
     Eigen::Matrix3f transform_matrix;
+    auto roi = frame.src_img(frame.expanded);
     cv::Mat resized_img = armor_infer_->letterbox(
-        frame.src_img,
+        roi,
         transform_matrix,
         armor_infer_->getInputW(),
         armor_infer_->getInputH()
@@ -114,8 +115,8 @@ bool ArmorDetectOpenVino::processCallback(const CommonFrame& frame) {
     auto objs_result = armor_infer_->postProcess(output_buffer, transform_matrix, grid_strides_);
 
     std::vector<armor::ArmorObject> armors;
-    if (use_armor_detect_common_ && frame.src_img.data != nullptr) {
-        armors = armor_detect_common_->detectNet(frame.src_img, objs_result, frame.detect_color);
+    if (use_armor_detect_common_ && roi.data != nullptr) {
+        armors = armor_detect_common_->detectNet(roi, objs_result, frame.detect_color);
         // Call callback function
         if (this->infer_callback_) {
             this->infer_callback_(armors, frame);

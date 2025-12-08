@@ -137,6 +137,18 @@ struct AutoAim::Impl {
     }
     void pushInput(CommonFrame& frame) {
         img_recv_count_++;
+        if (armor_solver_target_.checkTargetAppear()) {
+            auto bbox = armor_solver_target_.expanded(
+                T_camera_to_odom_,
+                camera_info_.first,
+                camera_info_.second,
+                frame.src_img.size()
+            );
+            if (bbox.area() > 100) {
+                frame.expanded = bbox;
+                frame.offset = cv::Point2f(bbox.x, bbox.y);
+            }
+        }
         if (armor_detector_) {
             armor_detector_->pushInput(frame);
         }
@@ -161,7 +173,9 @@ struct AutoAim::Impl {
 
             sorted_objs.resize(max_detect_armors_);
         }
-
+        for (auto& obj: sorted_objs) {
+            obj.addOffset(frame.offset);
+        }
         armor::Armors armors;
         armors.timestamp = frame.timestamp;
         Eigen::Vector3d v = Eigen::Vector3d::Zero();
@@ -188,11 +202,11 @@ struct AutoAim::Impl {
             }
         }
 
-        Eigen::Matrix4d T_camera_to_odom =
+        T_camera_to_odom_ =
             utils::computeCameraToOdomTransform(R_gimbal2odom, R_camera2gimbal_, t_camera2gimbal_);
         armors.armors = armor_pose_estimator_->extractArmorPoses(
             sorted_objs,
-            T_camera_to_odom,
+            T_camera_to_odom_,
             camera_info_.first,
             camera_info_.second
         );
@@ -209,9 +223,10 @@ struct AutoAim::Impl {
             auto_aim_debug_.src_img.img = std::move(frame.src_img);
             auto_aim_debug_.src_img.timestamp = armors.timestamp;
             auto_aim_debug_.armors = armors;
-            auto_aim_debug_.T_camera_to_odom = T_camera_to_odom;
+            auto_aim_debug_.T_camera_to_odom = T_camera_to_odom_;
             auto_aim_debug_.detect_color = frame.detect_color;
-            auto_aim_debug_.armor_objs = objs;
+            auto_aim_debug_.armor_objs = sorted_objs;
+            auto_aim_debug_.expanded = frame.expanded;
         }
     }
     void armorsCallback(const armor::Armors& armors) {
@@ -404,6 +419,7 @@ struct AutoAim::Impl {
     YAML::Node config_;
     std::shared_ptr<wust_vl_utils::ConfigBinder> config_binder_;
     std::shared_ptr<AutoAimShared> shared_;
+    Eigen::Matrix4d T_camera_to_odom_;
     void setShared(std::shared_ptr<AutoAimShared> shared) {
         shared_ = shared;
     }

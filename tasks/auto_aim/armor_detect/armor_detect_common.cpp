@@ -153,7 +153,7 @@ bool ArmorDetectCommon::refineLightsFromArmorPts(armor::ArmorObject& armor) cons
     }
 }
 std::vector<armor::Light>
-ArmorDetectCommon::findLights(const cv::Mat& binary_img, armor::ArmorObject& armor) noexcept {
+ArmorDetectCommon::findLights(const cv::Mat& color_img,const cv::Mat& binary_img, armor::ArmorObject& armor) noexcept {
     std::vector<std::vector<cv::Point>> contours;
     std::vector<cv::Vec4i> hierarchy;
 
@@ -165,7 +165,20 @@ ArmorDetectCommon::findLights(const cv::Mat& binary_img, armor::ArmorObject& arm
 
         auto light = armor::Light(contour);
         if (isLight(light)) {
-            all_lights.emplace_back(light);
+            int sum_r = 0, sum_b = 0;
+            for (const auto& point: contour) {
+                const cv::Vec3b* row_ptr = color_img.ptr<cv::Vec3b>(point.y);
+                const cv::Vec3b& pixel = row_ptr[point.x];
+                sum_r += pixel[0];
+                sum_b += pixel[2];
+            }
+
+            if (std::abs(sum_r - sum_b) / static_cast<int>(contour.size())
+                > params_.light_params.color_diff_thresh) {
+                light.color = sum_r > sum_b ? 0 : 1; // 0=红, 1=蓝
+                all_lights.emplace_back(light);
+            }
+            
         }
     }
     std::sort(
@@ -212,7 +225,7 @@ bool ArmorDetectCommon::isArmor(const armor::Light& light_1, const armor::Light&
     cv::Point2f diff = light_1.center - light_2.center;
     float angle = std::abs(std::atan(diff.y / diff.x)) / CV_PI * 180;
     bool angle_ok = angle < params_.armor_params.max_angle;
-
+    bool color_ok = light_1.color == light_2.color;
     bool is_armor = light_ratio_ok && center_distance_ok && angle_ok;
 
     return is_armor;
@@ -287,7 +300,7 @@ std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
                         return;
                     }
                     // 灯条与角点修正
-                    findLights(armor.whole_binary_img, armor);
+                    findLights(armor.whole_rgb_img,armor.whole_binary_img, armor);
                     if (refineLightsFromArmorPts(armor)) {
                         if (isArmor(armor.lights[0], armor.lights[1])) {
                             armor.is_ok = true;

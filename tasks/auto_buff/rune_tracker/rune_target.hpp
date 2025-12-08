@@ -106,8 +106,8 @@ public:
             double angle = fitter_.predictAngle(to_start);
             double speed = fitter_.predictSpeed(to_start);
             auto state = esekf_ypd_.getState();
-            state[4] = angles::normalize_angle(angle);
-            state[5] = speed;
+            state[(int)ypdrune_motion_model::State::ROLL] = angles::normalize_angle(angle);
+            state[(int)ypdrune_motion_model::State::VROLL] = speed;
             esekf_ypd_.setState(state);
         } else {
             predict(t);
@@ -119,12 +119,16 @@ public:
     }
 
     Eigen::Vector3d centerPos() const {
-        return { target_state_(0), target_state_(1), target_state_(2) };
+        return { target_state_((int)ypdrune_motion_model::State::CX),
+                 target_state_((int)ypdrune_motion_model::State::CY),
+                 target_state_((int)ypdrune_motion_model::State::CZ) };
     }
     std::vector<double> getAngles() {
         std::vector<double> angles;
         for (int i = 0; i < 5; i++) {
-            auto angle = angles::normalize_angle(target_state_[4] + i * 2 * M_PI / 5);
+            auto angle = angles::normalize_angle(
+                target_state_[(int)ypdrune_motion_model::State::ROLL] + i * 2 * M_PI / 5
+            );
             angles.push_back(angle);
         }
         return angles;
@@ -136,7 +140,7 @@ public:
         return false;
     }
     double roll() const {
-        return target_state_[4];
+        return target_state_[(int)ypdrune_motion_model::State::ROLL];
     }
     double curr_roll() const {
         return roll() + last_id * 2 * M_PI / 5;
@@ -145,10 +149,10 @@ public:
         return roll() + id * 2 * M_PI / 5;
     }
     double yaw() const {
-        return target_state_[3];
+        return target_state_[(int)ypdrune_motion_model::State::YAW];
     }
     double v_roll() const {
-        return target_state_[5];
+        return target_state_[(int)ypdrune_motion_model::State::VROLL];
     }
     std::vector<std::pair<int, rune::RuneFan::Simple>>
     match(const std::vector<rune::RuneFan::Simple>& fans) {
@@ -169,10 +173,14 @@ public:
                 measure.h(target_state_, z_pred);
 
                 ypdrune_motion_model::VecZ nu = meas_list[j] - z_pred;
-                nu[0] = angles::normalize_angle(nu[0]);
-                nu[1] = angles::normalize_angle(nu[1]);
-                nu[3] = angles::normalize_angle(nu[3]);
-                nu[4] = angles::normalize_angle(nu[4]);
+                nu[(int)ypdrune_motion_model::Mean::YPD_Y] =
+                    angles::normalize_angle(nu[(int)ypdrune_motion_model::Mean::YPD_Y]);
+                nu[(int)ypdrune_motion_model::Mean::YPD_P] =
+                    angles::normalize_angle(nu[(int)ypdrune_motion_model::Mean::YPD_P]);
+                nu[(int)ypdrune_motion_model::Mean::ORI_YAW] =
+                    angles::normalize_angle(nu[(int)ypdrune_motion_model::Mean::ORI_YAW]);
+                nu[(int)ypdrune_motion_model::Mean::ORI_ROLL] =
+                    angles::normalize_angle(nu[(int)ypdrune_motion_model::Mean::ORI_ROLL]);
                 auto R = computeMeasurementCovariance(z_pred);
                 auto Rinv = R.inverse();
 

@@ -29,6 +29,23 @@ enum class MotionModel {
 constexpr int X_N = 11, Z_N = 4;
 using VecZ = Eigen::Matrix<double, Z_N, 1>;
 using VecX = Eigen::Matrix<double, X_N, 1>;
+enum class Mean : uint8_t { YPD_Y = 0, YPD_P = 1, YPD_D = 2, ORI_YAW = 3, Z_N = 4 };
+enum class State : uint8_t {
+    CX = 0,
+    VCX = 1,
+    CY = 2,
+    VCY = 3,
+    CZ = 4,
+    VCZ = 5,
+    YAW = 6,
+    VYAW = 7,
+    R = 8,
+    L = 9,
+    H = 10,
+    outpost01DZ = 9,
+    outpost02DZ = 10,
+    X_N = 11
+};
 struct Predict {
     Predict() = default;
     explicit Predict(
@@ -53,27 +70,27 @@ struct Predict {
         // v_xyz
         if (model == MotionModel::CONSTANT_VEL_ROT || model == MotionModel::CONSTANT_VELOCITY) {
             // linear velocity
-            x1[0] += x0[1] * T(dt);
-            x1[2] += x0[3] * T(dt);
-            x1[4] += x0[5] * T(dt);
+            x1[(int)State::CX] += x0[(int)State::VCX] * T(dt);
+            x1[(int)State::CY] += x0[(int)State::VCY] * T(dt);
+            x1[(int)State::CZ] += x0[(int)State::VCZ] * T(dt);
         } else {
             // no velocity
-            x1[1] *= T(0.);
-            x1[3] *= T(0.);
-            x1[5] *= T(0.);
+            x1[(int)State::VCX] *= T(0.);
+            x1[(int)State::VCY] *= T(0.);
+            x1[(int)State::VCZ] *= T(0.);
         }
 
-        x1[0] -= T(vrx) * T(dt);
-        x1[2] -= T(vry) * T(dt);
-        x1[4] -= T(vrz) * T(dt);
+        x1[(int)State::CX] -= T(vrx) * T(dt);
+        x1[(int)State::CY] -= T(vry) * T(dt);
+        x1[(int)State::CZ] -= T(vrz) * T(dt);
 
         // v_yaw
         if (model == MotionModel::CONSTANT_VEL_ROT || model == MotionModel::CONSTANT_ROTATION) {
             // angular velocity
-            x1[6] += x0[7] * T(dt);
+            x1[(int)State::YAW] += x0[(int)State::VYAW] * T(dt);
         } else {
             // no rotation
-            x1[7] *= T(0.);
+            x1[(int)State::VYAW] *= T(0.);
         }
     }
 
@@ -93,26 +110,31 @@ struct Measure {
     template<typename T>
     void operator()(const T x[X_N], T z[Z_N]) const {
         // Compute armor position
-        T angle = normalize_angle_t(x[6] + id * 2 * M_PI / armor_num);
+        T angle = normalize_angle_t(x[(int)State::YAW] + id * 2 * M_PI / armor_num);
         auto outpost = armor_num == 3;
         auto use_l_h = (armor_num == 4) && (id == 1 || id == 3);
-        T r = (use_l_h) ? x[8] + x[9] : x[8];
-        T armor_x = x[0] - ceres::cos(angle) * r;
-        T armor_y = x[2] - ceres::sin(angle) * r;
-        T armor_z = (outpost) ? getoutpost_armor_z(x) : (use_l_h) ? x[4] + x[10] : x[4];
+        T r = (use_l_h) ? x[(int)State::R] + x[(int)State::L] : x[(int)State::R];
+        T armor_x = x[(int)State::CX] - ceres::cos(angle) * r;
+        T armor_y = x[(int)State::CY] - ceres::sin(angle) * r;
+        T armor_z = (outpost) ? getoutpost_armor_z(x)
+            : (use_l_h)       ? x[(int)State::CZ] + x[(int)State::H]
+                              : x[(int)State::CZ];
 
         T xy_dist = ceres::sqrt(armor_x * armor_x + armor_y * armor_y);
         T dist = ceres::sqrt(xy_dist * xy_dist + armor_z * armor_z);
 
         // Observation model
-        z[0] = ceres::atan2(armor_y, armor_x); // yaw
-        z[1] = ceres::atan2(armor_z, xy_dist); // pitch
-        z[2] = dist; // distance
-        z[3] = normalize_angle_t(x[6] + id * 2 * M_PI / armor_num); // orientation_yaw
+        z[(int)Mean::YPD_Y] = ceres::atan2(armor_y, armor_x); // yaw
+        z[(int)Mean::YPD_P] = ceres::atan2(armor_z, xy_dist); // pitch
+        z[(int)Mean::YPD_D] = dist; // distance
+        z[(int)Mean::ORI_YAW] = angle; // orientation_yaw
     }
     template<typename T>
     T getoutpost_armor_z(const T x[X_N]) const {
-        return (id == 0) ? x[4] : (id == 1) ? x[4] + x[9] : (id == 2) ? x[4] + x[10] : x[4];
+        return (id == 0) ? x[(int)State::CZ]
+            : (id == 1)  ? x[(int)State::CZ] + x[(int)State::outpost01DZ]
+            : (id == 2)  ? x[(int)State::CZ] + x[(int)State::outpost02DZ]
+                         : x[(int)State::CZ];
     }
     void h(const VecX& x, VecZ& z) const {
         assert(x.size() == X_N);

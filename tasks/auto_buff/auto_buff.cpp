@@ -139,6 +139,7 @@ struct AutoBuff::Impl {
             std::lock_guard<std::mutex> lock(dbg_mutex_);
             auto_buff_debug_.src_img = { std::move(debug_img), frame.timestamp };
             auto_buff_debug_.T_camera_to_odom = T_camera_to_odom_;
+            auto_buff_debug_.expanded = frame.expanded;
         }
 
         detect_finish_count_++;

@@ -3,7 +3,7 @@ TrackerV3::TrackerV3(const YAML::Node& config) {
     tracker_state = LOST;
     target_ = Target();
     tracking_thres_ = config["armor_tracker"]["tracking_thres"].as<int>(5);
-    lost_thres_ = config["armor_tracker"]["lost_time_thres"].as<double>();
+    lost_dt_ = config["armor_tracker"]["lost_time_thres"].as<double>();
     max_yaw_diff_deg_ = config["armor_tracker"]["max_yaw_diff_deg"].as<double>(80.0);
     max_dis_diff_ = config["armor_tracker"]["max_dis_diff"].as<double>(0.5);
     target_config_.loadConfig(config["armor_tracker"]);
@@ -70,16 +70,10 @@ Target TrackerV3::track(const armor::Armors& armors_msg) {
             lost_count_ = 0;
         }
     }
-    // if (tracker_state != LOST && target_.diverged()) {
-    //     tracker_state = LOST;
-    //     WUST_WARN("tracker") << "Target diverged!";
-    // }
-    auto state = target_.esekf_ypd_.getState();
-    Eigen::VectorXd state_dynamic = state;
-    target_.clampState(state_dynamic);
-    target_.esekf_ypd_.setState(state_dynamic);
-    if (tracker_state != LOST && target_.esekf_ypd_.isRecentlyInconsistent()) {
-        tracker_state = LOST;
+    if ((target_.esekf_ypd_.isRecentlyInconsistent() || target_.diverged())
+        && tracker_state != LOST) {
+        initTarget(armors);
+        tracker_state = TRACKING;
         WUST_WARN("tracker") << "Bad Converge Found!";
     }
     if (tracker_state == LOST || tracker_state == DETECTING) {
@@ -144,7 +138,7 @@ bool TrackerV3::updateTarget(const armor::Armors& armors) {
         } else {
             is_none_purple_count_ = 0;
         }
-        if (is_none_purple_count_ > 100) {
+        if (is_none_purple_count_ > 100 && armor.is_none_purple) {
             continue;
         }
         if (target_.update(std::make_pair(id, armor))) {

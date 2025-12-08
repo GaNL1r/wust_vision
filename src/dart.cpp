@@ -126,7 +126,9 @@ public:
             return;
         }
         common_frame.src_img = std::move(frame.src_img);
-
+        common_frame.expanded =
+            cv::Rect(0, 0, common_frame.src_img.cols, common_frame.src_img.rows);
+        common_frame.offset = cv::Point2f(0, 0);
         thread_pool_->enqueue([this, frame = std::move(common_frame)]() mutable {
             infer_running_count_++;
             if (frame.src_img.data == nullptr) {

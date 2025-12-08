@@ -149,8 +149,9 @@ bool ArmorDetectNCNN::processCallback(const CommonFrame& frame) {
     // ncnn::Mat in =
     //     ncnn::Mat::from_pixels(resized_img.data, ncnn::Mat::PIXEL_BGR2RGB, INPUT_W, INPUT_H);
     Eigen::Matrix3f transform_matrix;
+    auto roi = frame.src_img(frame.expanded);
     ncnn::Mat in = letterbox_to_ncnn(
-        frame.src_img,
+        roi,
         transform_matrix,
         armor_infer_->getInputW(),
         armor_infer_->getInputH(),
@@ -165,7 +166,7 @@ bool ArmorDetectNCNN::processCallback(const CommonFrame& frame) {
     auto objs_result = armor_infer_->postProcess(output_buffer, transform_matrix, grid_strides_);
     std::vector<armor::ArmorObject> armors;
     if (use_armor_detect_common_) {
-        armors = armor_detect_common_->detectNet(frame.src_img, objs_result, frame.detect_color);
+        armors = armor_detect_common_->detectNet(roi, objs_result, frame.detect_color);
         // Call callback function
         if (this->infer_callback_) {
             this->infer_callback_(armors, frame);

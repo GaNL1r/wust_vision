@@ -16,6 +16,10 @@ void drawDebugArmorContent(
     auto target = dbg.target;
     auto aim_target = dbg.aim_target;
     auto armor_objs = dbg.armor_objs;
+    cv::Rect img_rect(0, 0, debug_img.cols, debug_img.rows);
+    cv::Rect roi = dbg.expanded & img_rect;
+    cv::rectangle(debug_img, roi, cv::Scalar(0, 255, 0), 2);
+
     static const int next_indices[] = { 2, 0, 3, 1 };
 
     // =================== 绘制装甲板 ===================
@@ -435,6 +439,10 @@ void drawDebugRuneContent(
     const auto& debug_text = dbg.debug_text;
     auto aim_target = dbg.aim_target;
     auto rune = dbg.power_rune;
+    cv::Rect img_rect(0, 0, debug_img.cols, debug_img.rows);
+    cv::Rect roi = dbg.expanded & img_rect;
+    cv::rectangle(debug_img, roi, cv::Scalar(0, 255, 0), 2);
+
     std::string latency_str = fmt::format("Latency: {:.2f}ms", dbg.latency_ms);
     cv::putText(
         debug_img,

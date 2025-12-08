@@ -247,17 +247,14 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
     Eigen::Matrix3f transform_matrix;
     std::vector<armor::ArmorObject> objs_tmp, objs_result;
     void* input_tensor_ptr;
+    auto roi = frame.src_img(frame.expanded);
     if (infer->cuda_infer && params_.use_cuda_pre) {
-        input_tensor_ptr = infer->cuda_infer->preprocess(
-            frame.src_img.data,
-            frame.src_img.cols,
-            frame.src_img.rows,
-            transform_matrix,
-            trt_net_->getStream()
-        );
+        input_tensor_ptr =
+            infer->cuda_infer
+                ->preprocess(roi.data, roi.cols, roi.rows, transform_matrix, trt_net_->getStream());
     } else {
         cv::Mat resized_img = armor_infer_->letterbox(
-            frame.src_img,
+            roi,
             transform_matrix,
             armor_infer_->getInputW(),
             armor_infer_->getInputH()
@@ -303,7 +300,7 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
     infer_pool_->release(infer);
     std::vector<armor::ArmorObject> armors;
     if (use_armor_detect_common_) {
-        armors = armor_detect_common_->detectNet(frame.src_img, objs_result, frame.detect_color);
+        armors = armor_detect_common_->detectNet(roi, objs_result, frame.detect_color);
         // Call callback function
         if (this->infer_callback_) {
             this->infer_callback_(armors, frame);

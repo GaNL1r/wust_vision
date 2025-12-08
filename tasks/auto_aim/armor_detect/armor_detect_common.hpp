@@ -33,7 +33,7 @@ public:
     ArmorDetectCommon(const ArmorDetectCommonParams& params);
 
     std::vector<armor::Light>
-    findLights(const cv::Mat& binary_img, armor::ArmorObject& armor) noexcept;
+    findLights(const cv::Mat& color_img,const cv::Mat& binary_img, armor::ArmorObject& armor) noexcept;
 
     bool isLight(const armor::Light& possible_light) noexcept;
     bool isArmor(const armor::Light& light_1, const armor::Light& light_2) noexcept;
