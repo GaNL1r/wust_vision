@@ -20,7 +20,10 @@
 #include "yaml-cpp/yaml.h"
 #include <iostream>
 
-ArmorPoseEstimator::ArmorPoseEstimator(YAML::Node config, std::pair<cv::Mat, cv::Mat> camera_info) {
+ArmorPoseEstimator::ArmorPoseEstimator(
+    const YAML::Node& config,
+    std::pair<cv::Mat, cv::Mat> camera_info
+) {
     pnp_solver_ = std::make_unique<PnPSolver>();
     pnp_solver_->setObjectPoints(
         "small",
@@ -30,25 +33,9 @@ ArmorPoseEstimator::ArmorPoseEstimator(YAML::Node config, std::pair<cv::Mat, cv:
         "large",
         armor::ArmorObject::buildObjectPoints<cv::Point3f>(LARGE_ARMOR_WIDTH, LARGE_ARMOR_HEIGHT)
     );
-
-    std::array<double, 9> camera_matrix;
-    //auto camera_info = gobal::stringanything.get_value<std::pair<cv::Mat, cv::Mat>>("camera_info");
-    CV_Assert(camera_info.first.rows == 3 && camera_info.first.cols == 3);
-    CV_Assert(camera_info.first.type() == CV_64F);
-
-    for (int i = 0; i < 3; ++i)
-        for (int j = 0; j < 3; ++j)
-            camera_matrix[i * 3 + j] = camera_info.first.at<double>(i, j);
-
-    ba_solver_ = std::make_unique<BaSolver>(
-        camera_matrix,
-        config["armor_optimize"]["max_iter_R"].as<int>(),
-        config["armor_optimize"]["max_iter_t"].as<int>(),
-        config["armor_optimize"]["step_R"].as<int>(),
-        config["armor_optimize"]["step_t"].as<int>(),
-        config["armor_optimize"]["min_error_R"].as<double>(),
-        config["armor_optimize"]["min_error_t"].as<double>()
-    );
+    if (config["armor_optimize"]["enable"].as<bool>()) {
+        ba_solver_ = std::make_unique<BaSolver>(config["armor_optimize"], camera_info.first);
+    }
     distance_fix_a2_ = config["armor_optimize"]["distance_fix_a2"].as<double>();
 
     R_gimbal_camera_ = Eigen::Matrix3d::Identity();
@@ -123,11 +110,9 @@ std::vector<armor::Armor> ArmorPoseEstimator::extractArmorPoses(
 
         double roll_deg =
             utils::matrixToEuler(R_gimbal_camera_ * R, utils::EulerOrder::ZXY)[0] * 180 / M_PI;
-        if (use_ba_ && ba_solver_) {
+        if (ba_solver_) {
             Eigen::Matrix3d R0 = R;
-            R = ba_solver_
-                    ->solveBa_R(a, t, R, R_imu_cam, type, camera_intrinsic, camera_distortion);
-            t = ba_solver_->solveBa_t(a, t, R0, R_imu_cam, type);
+            R = ba_solver_->solveBa_R(a, t, R, R_imu_cam, type);
         }
 
         armors_msg.push_back(makeArmorMsg(a, t, R));

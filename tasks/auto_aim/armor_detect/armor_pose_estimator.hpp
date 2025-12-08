@@ -32,7 +32,7 @@
 
 class ArmorPoseEstimator {
 public:
-    explicit ArmorPoseEstimator(YAML::Node config, std::pair<cv::Mat, cv::Mat> camera_info);
+    explicit ArmorPoseEstimator(const YAML::Node& config, std::pair<cv::Mat, cv::Mat> camera_info);
 
     std::vector<armor::Armor> extractArmorPoses(
         const std::vector<armor::ArmorObject>& armors,
@@ -41,9 +41,6 @@ public:
         const cv::Mat& camera_distortion
     );
 
-    void enableBA(bool enable) {
-        use_ba_ = enable;
-    }
     std::unique_ptr<BaSolver> ba_solver_;
     double distance_fix_a2_ = 0;
 
@@ -58,8 +55,6 @@ private:
         const cv::Mat& camera_intrinsic,
         const cv::Mat& camera_distortion
     ) const;
-
-    bool use_ba_;
 
     Eigen::Matrix3d R_gimbal_camera_;
 

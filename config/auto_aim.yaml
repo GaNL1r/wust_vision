@@ -1,6 +1,6 @@
 armor_detect_backend: tensorrt
 max_detect_armors: 11
-use_ba: true
+
 
 armor_map:
   SENTRY: 4
@@ -14,21 +14,20 @@ armor_map:
   UNKNOWN: -1
 
 armor_optimize:
-  max_iter_R: 300
-  max_iter_t: 1000
-  step_R: 30
-  step_t: 100
-  min_error_R: 0.7
-  min_error_t: 0.5
-  distance_fix_a2: 0.00
+  enable: true
+  mode: ceres
+  ceres_max_iter: 40
+  golden_search_side_deg: 60
+  distance_fix_a2: 0.0
 
 armor_tracker:
   lost_time_thres: 2.0
   tracking_thres: 10
-  max_yaw_diff_deg: 70.0
+  max_yaw_diff_deg: 90.0
   max_dis_diff: 1.0
+  match_gate: 5
   qxyz_common: 200.0
-  qyaw_common: 100.0
+  qyaw_common: 10.0
   qxyz_output: 10.0
   qyaw_output: 0.1
   q_r: 0.0

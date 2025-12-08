@@ -21,6 +21,26 @@ struct TargetConfig {
     double yaw_r_base_front = 0.09;
     double yaw_r_base_side = 0.09;
     double yaw_r_log_ratio = 0.005;
+    double match_gate = 10;
+    void loadConfig(const YAML::Node& node) {
+        esekf_iter_num = node["esekf_iter_num"].as<int>();
+        qyaw_common = node["qyaw_common"].as<double>();
+        qxyz_common = node["qxyz_common"].as<double>();
+        qxyz_output = node["qxyz_output"].as<double>();
+        qyaw_output = node["qyaw_output"].as<double>();
+        q_l = node["q_l"].as<double>();
+        q_h = node["q_h"].as<double>();
+        q_r = node["q_r"].as<double>();
+        q_outpost_dz = node["q_outpost_dz"].as<double>();
+        yp_r = node["yp_r"].as<double>();
+        dis_r_front = node["dis_r_front"].as<double>();
+        dis_r_side = node["dis_r_side"].as<double>();
+        dis2_r_ratio = node["dis2_r_ratio"].as<double>();
+        yaw_r_base_front = node["yaw_r_base_front"].as<double>();
+        yaw_r_base_side = node["yaw_r_base_side"].as<double>();
+        yaw_r_log_ratio = node["yaw_r_log_ratio"].as<double>();
+        match_gate = node["match_gate"].as<double>();
+    }
 };
 class Target {
 public:
@@ -35,9 +55,9 @@ public:
     );
     armor::ArmorNumber tracked_id_;
     std::string type_;
-    Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1> measurement_ =
+    ypdv2armor_motion_model::VecZ measurement_ =
         Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>::Zero();
-    Eigen::Matrix<double, ypdv2armor_motion_model::X_N, 1> target_state_ =
+    ypdv2armor_motion_model::VecX target_state_ =
         Eigen::Matrix<double, ypdv2armor_motion_model::X_N, 1>::Zero();
 
     double radius_pre_;
@@ -60,12 +80,10 @@ public:
 
     void predict(
         std::chrono::steady_clock::time_point t,
-        Eigen::Vector3d self_v = Eigen::Vector3d::Zero(),
-        bool use_lin_pre = false
+        Eigen::Vector3d self_v = Eigen::Vector3d::Zero()
     );
-    void
-    predict(double dt, Eigen::Vector3d self_v = Eigen::Vector3d::Zero(), bool use_lin_pre = false);
-    bool update(const armor::Armor& armor);
+    void predict(double dt, Eigen::Vector3d self_v = Eigen::Vector3d::Zero());
+    bool update(const std::pair<int, armor::Armor>& armor);
     Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, ypdv2armor_motion_model::Z_N>
     computeMeasurementCovariance(const Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>& z
     ) const;
@@ -114,6 +132,71 @@ public:
         }
         return armor_velocities;
     }
+    std::vector<std::pair<int, armor::Armor>> match(const std::vector<armor::Armor>& armors) {
+        std::vector<std::pair<int, armor::Armor>> result;
+        const int n_obs = static_cast<int>(armors.size());
+        const int armors_num = armor_num_;
+        const double GATE = target_config_.match_gate;
+        const double max_cost = 1e9;
+        std::vector<std::vector<double>> cost(n_obs, std::vector<double>(armors_num, max_cost + 1));
+        std::vector<ypdv2armor_motion_model::VecZ> meas_list(n_obs);
+        for (int j = 0; j < n_obs; ++j) {
+            meas_list[j] = getmean(armors[j]);
+        }
+        for (int j = 0; j < n_obs; ++j) {
+            for (int id = 0; id < armors_num; ++id) {
+                ypdv2armor_motion_model::Measure measure(id, armors_num);
+                ypdv2armor_motion_model::VecZ z_pred;
+                measure.h(target_state_, z_pred);
+
+                ypdv2armor_motion_model::VecZ nu = meas_list[j] - z_pred;
+                nu[0] = angles::normalize_angle(nu[0]);
+                nu[1] = angles::normalize_angle(nu[1]);
+                nu[3] = angles::normalize_angle(nu[3]);
+                auto R = computeMeasurementCovariance(z_pred);
+                auto Rinv = R.inverse();
+
+                double d2 = (nu.transpose() * Rinv * nu)(0, 0);
+
+                // 门控
+                if (std::isfinite(d2) && d2 < GATE) {
+                    cost[j][id] = d2;
+                }
+            }
+        }
+        std::vector<bool> used_obs(n_obs, false);
+        std::vector<bool> used_id(armors_num, false);
+
+        while (true) {
+            double best = max_cost;
+            int best_j = -1;
+            int best_id = -1;
+
+            for (int j = 0; j < n_obs; ++j) {
+                if (used_obs[j])
+                    continue;
+                for (int id = 0; id < armors_num; ++id) {
+                    if (used_id[id])
+                        continue;
+                    if (cost[j][id] < best) {
+                        best = cost[j][id];
+                        best_j = j;
+                        best_id = id;
+                    }
+                }
+            }
+
+            if (best_j < 0 || best_id < 0) {
+                break;
+            }
+
+            used_obs[best_j] = true;
+            used_id[best_id] = true;
+            result.push_back(std::make_pair(best_id, armors[best_j]));
+        }
+        return result;
+    }
+
     double yaw() const {
         return target_state_(6);
     }
@@ -177,6 +260,7 @@ public:
         } else if (r_plus_l > 0.5) {
             state[9] = 0.5 - state[8];
         }
+        esekf_ypd_.setState(state);
     }
 
     std::vector<Eigen::Vector4d> getArmorPosAndYaw() const {
@@ -219,5 +303,16 @@ public:
 
         Eigen::Vector3d v_rot = omega.cross(p);
         return v_center + v_rot;
+    }
+    Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1> getmean(const armor::Armor& a) {
+        auto p = a.target_pos;
+        double measured_yaw = orientationToYaw(a.target_ori);
+        double ypd_y = std::atan2(p.y(), p.x());
+        ypd_y = this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
+        this->last_ypd_y = ypd_y;
+        double ypd_p = std::atan2(p.z(), std::sqrt(p.x() * p.x() + p.y() * p.y()));
+        double ypd_d = std::sqrt(p.x() * p.x() + p.y() * p.y() + p.z() * p.z());
+
+        return Eigen::Vector4d(ypd_y, ypd_p, ypd_d, measured_yaw);
     }
 };

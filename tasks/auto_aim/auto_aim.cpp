@@ -94,6 +94,7 @@ struct AutoAim::Impl {
             std::placeholders::_2
         ));
         WUST_MAIN(logger_) << "Using Armor Detector: " << armor_detect_backend;
+        armor_pose_estimator_ = std::make_unique<ArmorPoseEstimator>(config_, camera_info_);
         tracker_manager_ = std::make_unique<TrackerManager>(config_, config_binder_);
         auto_aim_fsm_cl_.load(config_);
         std::string comp_type =
@@ -143,14 +144,6 @@ struct AutoAim::Impl {
 
     void
     ArmorDetectCallback(const std::vector<armor::ArmorObject>& objs, const CommonFrame& frame) {
-        static thread_local std::unique_ptr<ArmorPoseEstimator> armor_pose_estimator_thread;
-        if (!armor_pose_estimator_thread) {
-            armor_pose_estimator_thread =
-                std::make_unique<ArmorPoseEstimator>(config_, camera_info_);
-            bool use_ba = config_["use_ba"].as<bool>(false);
-            armor_pose_estimator_thread->enableBA(use_ba);
-        }
-
         std::vector<armor::ArmorObject> sorted_objs = objs;
 
         if (sorted_objs.size() > max_detect_armors_) {
@@ -197,7 +190,7 @@ struct AutoAim::Impl {
 
         Eigen::Matrix4d T_camera_to_odom =
             utils::computeCameraToOdomTransform(R_gimbal2odom, R_camera2gimbal_, t_camera2gimbal_);
-        armors.armors = armor_pose_estimator_thread->extractArmorPoses(
+        armors.armors = armor_pose_estimator_->extractArmorPoses(
             sorted_objs,
             T_camera_to_odom,
             camera_info_.first,
@@ -388,6 +381,7 @@ struct AutoAim::Impl {
     std::shared_ptr<Aimer> aimer_;
     std::shared_ptr<Shooter> shooter_;
     std::unique_ptr<Planner> planner_;
+    std::unique_ptr<ArmorPoseEstimator> armor_pose_estimator_;
     AutoAimFsmController auto_aim_fsm_cl_;
     GimbalCmd last_cmd_;
     int max_detect_armors_;

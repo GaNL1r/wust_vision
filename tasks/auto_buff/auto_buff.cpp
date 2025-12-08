@@ -28,23 +28,11 @@ struct AutoBuff::Impl {
         R_camera2gimbal_ = R_camera2gimbal;
         t_camera2gimbal_ = t_camera2gimbal;
         camera_info_ = camera_info;
+        if (config["rune_optimize"]["enable"].as<bool>()) {
+            ba_solver_ =
+                std::make_unique<rune::BaSolver>(config["rune_optimize"], camera_info.first);
+        }
 
-        std::array<double, 9> camera_matrix;
-        CV_Assert(camera_info.first.rows == 3 && camera_info.first.cols == 3);
-        CV_Assert(camera_info.first.type() == CV_64F);
-
-        for (int i = 0; i < 3; ++i)
-            for (int j = 0; j < 3; ++j)
-                camera_matrix[i * 3 + j] = camera_info.first.at<double>(i, j);
-        ba_solver_ = std::make_unique<rune::BaSolver>(
-            camera_matrix,
-            config["rune_optimize"]["max_iter_R"].as<int>(),
-            config["rune_optimize"]["max_iter_t"].as<int>(),
-            config["rune_optimize"]["step_R"].as<int>(),
-            config["rune_optimize"]["step_t"].as<int>(),
-            config["rune_optimize"]["min_error_R"].as<double>(),
-            config["rune_optimize"]["min_error_t"].as<double>()
-        );
         rune_detector_ = RuneDetectorCV::make_detector(config["rune_detector"]);
         rune_detector_->setCallback(std::bind(
             &AutoBuff::Impl::runeDetectCallback,
@@ -57,12 +45,7 @@ struct AutoBuff::Impl {
         rune::RuneTargetConfig rune_target_config;
         rune_target_config.loadFromYaml(config["rune_tracker"]);
 
-        rune_tracker_ = std::make_unique<RuneTracker>(
-            config["rune_tracker"]["tracking_thres"].as<int>(),
-            config["rune_tracker"]["lost_time_thres"].as<double>(),
-            config["rune_tracker"]["max_dis_diff"].as<double>(),
-            rune_target_config
-        );
+        rune_tracker_ = std::make_unique<RuneTracker>(config["rune_tracker"]);
         std::string comp_type =
             config["trajectory_compensator"]["compenstator_type"].as<std::string>("ideal");
         double gravity_ = config["trajectory_compensator"]["gravity"].as<double>(10.0);
@@ -136,13 +119,9 @@ struct AutoBuff::Impl {
             cv::Rodrigues(rvec, R_cv);
             Eigen::Matrix3d R = utils::cvToEigen(R_cv);
             Eigen::Vector3d t = utils::cvToEigen(tvec);
-            // if (ba_solver_) {
-            //     R = ba_solver_
-            //             ->solveBa_R(fan, t, R, R_imu_cam, camera_info_.first, camera_info_.second);
-            // }
-            // auto euler = utils::quatToEuler(Eigen::Quaterniond(R), utils::EulerOrder::ZYX);
-            // euler[0] = M_PI;
-            // R = utils::eulerToQuat(euler, utils::EulerOrder::ZYX).toRotationMatrix();
+            if (ba_solver_) {
+                R = ba_solver_->solveBa_R(fan, t, R, R_imu_cam);
+            }
             fan.ori = Eigen::Quaterniond(R);
             fan.pos = t;
             Eigen::Vector3d pos_camera = fan.pos;

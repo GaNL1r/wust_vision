@@ -18,7 +18,7 @@ if(BUILD_WITH_ORT)
   list(APPEND BUILD_LIBS ${Ort_LIB})
 endif()
 add_subdirectory(armor_control/tinympc)
-list(APPEND BUILD_LIBS tinympcstatic TBB::tbb ${G2O_LIBRARIES} g2o_solver_dense ${CERES_LIBRARIES})
+list(APPEND BUILD_LIBS tinympcstatic TBB::tbb  ${CERES_LIBRARIES})
 
 add_library(auto_aim OBJECT)
 
@@ -45,7 +45,6 @@ target_sources(auto_aim PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/trackerv3.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/target.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_optimize/ba_solver.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/armor_optimize/graph_optimizer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/opencv/armor_detector_opencv_wrapper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/opencv/armor_detector_opencv.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/armor_detect_common.cpp

@@ -6,7 +6,7 @@
 #include "tasks/type_common.hpp"
 namespace armor_infer {
 
-enum class Mode { TUP, RP, SPV8 };
+enum class Mode { TUP, RP, SPV8, AT };
 inline Mode modeFromString(const std::string& mode) {
     if (mode == "tup" || mode == "TUP")
         return Mode::TUP;
@@ -14,6 +14,8 @@ inline Mode modeFromString(const std::string& mode) {
         return Mode::RP;
     else if (mode == "spv8" || mode == "SPV8")
         return Mode::SPV8;
+    else if (mode == "at" || mode == "AT")
+        return Mode::AT;
     else
         return Mode::TUP;
 }
@@ -90,7 +92,11 @@ private:
         const Eigen::Matrix<float, 3, 3>& transform_matrix,
         const std::vector<GridAndStride>& grid_strides
     ) const;
-
+    std::vector<armor::ArmorObject> postProcessAT(
+        const cv::Mat& output_buffer,
+        const Eigen::Matrix<float, 3, 3>& transform_matrix,
+        const std::vector<GridAndStride>& grid_strides
+    ) const;
     // internal helpers
     static void nms_merge_sorted_bboxes(
         std::vector<armor::ArmorObject>& faceobjects,

@@ -22,22 +22,13 @@
 #include <tuple>
 #include <vector>
 // 3rd party
-#include <Eigen/Core>
 #include <Eigen/Dense>
+#include <ceres/autodiff_cost_function.h>
+#include <ceres/jet.h>
+#include <ceres/loss_function.h>
+#include <ceres/problem.h>
 #include <opencv2/core.hpp>
-#include <sophus/so3.hpp>
-
-// g2o
-#include <g2o/core/base_multi_edge.h>
-#include <g2o/core/base_vertex.h>
-#include <g2o/core/optimization_algorithm.h>
-#include <g2o/core/optimization_algorithm_factory.h>
-#include <g2o/core/optimization_algorithm_levenberg.h>
-#include <g2o/core/robust_kernel.h>
-#include <g2o/core/sparse_optimizer.h>
 // project
-#include "graph_optimizer.hpp"
-#include "tasks/auto_aim/type.hpp"
 #include "tasks/auto_buff/type.hpp"
 namespace rune {
 inline double normalizeAngleaa(double angle) {
@@ -52,38 +43,116 @@ inline double normalizeAngleaa(double angle) {
 // the Yaw angle)
 class BaSolver {
 public:
-    BaSolver(
-        std::array<double, 9>& camera_matrix,
-        int max_iter_R,
-        int max_iter_t,
-        int step_R,
-        int step_t,
-        double min_error_R,
-        double min_error_t
-    );
+    BaSolver(const YAML::Node& config, const cv::Mat& camera_matrix);
     ~BaSolver() = default;
+    struct Params {
+        enum class OptMode : int {
+            GOLDEN = 0,
+            CERES = 1
 
+        } mode;
+        OptMode fromString(const std::string& mode) {
+            if (mode == "golden" || mode == "GOLDEN") {
+                return OptMode::GOLDEN;
+            } else if (mode == "ceres" || mode == "CERES") {
+                return OptMode::CERES;
+            } else {
+                return OptMode::GOLDEN;
+            }
+        }
+        int ceres_max_iter = 40;
+        int golden_search_side_deg = 60;
+        void load(const YAML::Node& node) {
+            mode = fromString(node["mode"].as<std::string>());
+            ceres_max_iter = node["ceres_max_iter"].as<int>();
+            golden_search_side_deg = node["golden_search_side_deg"].as<int>();
+        }
+    } params_;
     // Solve the armor pose using the BA algorithm, return the optimized rotation
     Eigen::Matrix3d solveBa_R(
         const rune::RuneFan::Simple& rune_fan,
         const Eigen::Vector3d& t_camera_armor,
         const Eigen::Matrix3d& R_camera_armor,
-        const Eigen::Matrix3d& R_imu_camera,
-        const cv::Mat& camera_matrix,
-        const cv::Mat& distort_coeffs
+        const Eigen::Matrix3d& R_imu_camera
     ) noexcept;
-    int max_iter_R_;
-    int max_iter_t_;
-    int step_R_;
-    int step_t_;
-    double min_error_R_;
-    double min_error_t_;
+
+    double ceresRoll(
+        double init,
+        const std::vector<Eigen::Vector3d>& obj,
+        const std::vector<cv::Point2f>& lm,
+        const Eigen::Matrix3d& Rci,
+        double pitch,
+        double yaw,
+        const Eigen::Vector3d& t,
+        const Eigen::Matrix3d& K
+    );
+    double goldenRoll(
+        double init,
+        const std::vector<Eigen::Vector3d>& obj,
+        const std::vector<cv::Point2f>& lm,
+        const Eigen::Matrix3d& Rci,
+        double pitch,
+        double yaw,
+        const Eigen::Vector3d& t,
+        const Eigen::Matrix3d& K
+    );
 
 private:
     Eigen::Matrix3d K_;
-    g2o::SparseOptimizer optimizer_;
-    g2o::OptimizationAlgorithmProperty solver_property_;
-    g2o::OptimizationAlgorithmLevenberg* lm_algorithm_;
+};
+struct RollProjectionError {
+    RollProjectionError(
+        const Eigen::Vector2d& uv,
+        const Eigen::Vector3d& pt_3d,
+        const Eigen::Matrix3d& Rci,
+        double pitch,
+        double yaw,
+        const Eigen::Vector3d& t,
+        const Eigen::Matrix3d& K
+    ):
+        uv_(uv),
+        pt3_(pt_3d),
+        Rci_(Rci),
+        pitch_(pitch),
+        yaw_(yaw),
+        t_(t),
+        K_(K) {}
+
+    template<typename T>
+    bool operator()(const T* const roll, T* residuals) const {
+        Eigen::Matrix<T, 3, 3> R_roll;
+        R_roll << T(1), T(0), T(0), T(0), ceres::cos(*roll), -ceres::sin(*roll), T(0),
+            ceres::sin(*roll), ceres::cos(*roll);
+
+        // yaw 和 pitch 常量
+        T cy = ceres::cos(T(yaw_)), sy = ceres::sin(T(yaw_));
+        Eigen::Matrix<T, 3, 3> R_yaw;
+        R_yaw << cy, T(0), sy, T(0), T(1), T(0), -sy, T(0), cy;
+
+        T cp = ceres::cos(T(pitch_)), sp = ceres::sin(T(pitch_));
+        Eigen::Matrix<T, 3, 3> R_pitch;
+        // Note: consistent with your previous Rpitch = exp([0, pitch, 0])
+        R_pitch << cp, T(0), sp, T(0), T(1), T(0), -sp, T(0), cp;
+
+        // R = Rci * R_yaw * R_pitch
+        Eigen::Matrix<T, 3, 3> R = Rci_.cast<T>() * R_yaw * R_pitch;
+
+        Eigen::Matrix<T, 3, 1> Pc = R * pt3_.cast<T>() + t_.cast<T>();
+        // project (assumes fx == K(0,0), fy == K(1,1), cx, cy)
+        T u = T(K_(0, 0)) * Pc.x() / Pc.z() + T(K_(0, 2));
+        T v = T(K_(1, 1)) * Pc.y() / Pc.z() + T(K_(1, 2));
+
+        residuals[0] = u - T(uv_(0));
+        residuals[1] = v - T(uv_(1));
+        return true;
+    }
+
+    const Eigen::Vector2d uv_;
+    const Eigen::Vector3d pt3_;
+    const Eigen::Matrix3d Rci_;
+    const double pitch_, yaw_;
+    const Eigen::Vector3d t_;
+    const Eigen::Matrix3d K_;
 };
 
 } // namespace rune

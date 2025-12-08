@@ -21,7 +21,8 @@
 namespace ypdrune_motion_model {
 
 constexpr int X_N = 6, Z_N = 5;
-
+using VecZ = Eigen::Matrix<double, Z_N, 1>;
+using VecX = Eigen::Matrix<double, X_N, 1>;
 struct Predict {
     Predict() = default;
     explicit Predict(double dt): dt(dt) {}
@@ -53,6 +54,11 @@ struct Measure {
         z[2] = dist; // distance
         z[3] = x[3]; // orientation_yaw
         z[4] = normalize_angle_t(x[4] + id * 2 * M_PI / 5); // roll
+    }
+    void h(const VecX& x, VecZ& z) const {
+        assert(x.size() == X_N);
+        assert(z.size() == Z_N);
+        operator()(x.data(), z.data());
     }
     int id = 0;
 };

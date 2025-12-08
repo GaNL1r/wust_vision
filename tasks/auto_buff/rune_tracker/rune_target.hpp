@@ -15,6 +15,7 @@ struct RuneTargetConfig {
     double dis_r = 0.05;
     double yaw_r = 0.1;
     double roll_r = 0.1;
+    double match_gate = 10;
 
     // 从 YAML::Node 加载配置
     void loadFromYaml(const YAML::Node& node) {
@@ -34,6 +35,8 @@ struct RuneTargetConfig {
             yaw_r = node["yaw_r"].as<double>();
         if (node["roll_r"])
             roll_r = node["roll_r"].as<double>();
+        if (node["match_gate"])
+            match_gate = node["match_gate"].as<double>();
     }
 };
 class RuneTarget {
@@ -152,7 +155,88 @@ public:
     double v_roll() const {
         return target_state_[5];
     }
+    std::vector<std::pair<int, rune::RuneFan::Simple>>
+    match(const std::vector<rune::RuneFan::Simple>& fans) {
+        std::vector<std::pair<int, rune::RuneFan::Simple>> result;
+        const int n_obs = (int)(fans.size());
+        const int armors_num = 5;
+        const double GATE = target_config_.match_gate;
+        const double max_cost = 1e9;
+        std::vector<std::vector<double>> cost(n_obs, std::vector<double>(armors_num, max_cost + 1));
+        std::vector<ypdrune_motion_model::VecZ> meas_list(n_obs);
+        for (int j = 0; j < n_obs; ++j) {
+            meas_list[j] = getmean(fans[j]);
+        }
+        for (int j = 0; j < n_obs; ++j) {
+            for (int id = 0; id < armors_num; ++id) {
+                ypdrune_motion_model::Measure measure(id);
+                ypdrune_motion_model::VecZ z_pred;
+                measure.h(target_state_, z_pred);
 
+                ypdrune_motion_model::VecZ nu = meas_list[j] - z_pred;
+                nu[0] = angles::normalize_angle(nu[0]);
+                nu[1] = angles::normalize_angle(nu[1]);
+                nu[3] = angles::normalize_angle(nu[3]);
+                nu[4] = angles::normalize_angle(nu[4]);
+                auto R = computeMeasurementCovariance(z_pred);
+                auto Rinv = R.inverse();
+
+                double d2 = (nu.transpose() * Rinv * nu)(0, 0);
+
+                // 门控
+                if (std::isfinite(d2) && d2 < GATE) {
+                    cost[j][id] = d2;
+                }
+            }
+        }
+        std::vector<bool> used_obs(n_obs, false);
+        std::vector<bool> used_id(armors_num, false);
+
+        while (true) {
+            double best = max_cost;
+            int best_j = -1;
+            int best_id = -1;
+
+            for (int j = 0; j < n_obs; ++j) {
+                if (used_obs[j])
+                    continue;
+                for (int id = 0; id < armors_num; ++id) {
+                    if (used_id[id])
+                        continue;
+                    if (cost[j][id] < best) {
+                        best = cost[j][id];
+                        best_j = j;
+                        best_id = id;
+                    }
+                }
+            }
+
+            if (best_j < 0 || best_id < 0) {
+                break;
+            }
+
+            used_obs[best_j] = true;
+            used_id[best_id] = true;
+            result.push_back(std::make_pair(best_id, fans[best_j]));
+        }
+
+        // for (auto fan: fans) {
+        //     int id;
+        //     auto min_angle_error = 1e10;
+        //     const auto angles = getAngles();
+        //     for (int i = 0; i < angles.size(); i++) {
+        //         auto angle_error = std::abs(angles::normalize_angle(
+        //             angles::normalize_angle(orientationToRoll(fan.target_ori)) - angles[i]
+        //         ));
+        //         if (angle_error < min_angle_error) {
+        //             min_angle_error = angle_error;
+        //             id = i;
+        //         }
+        //     }
+        //     result.push_back(std::make_pair(id, fan));
+        // }
+        return result;
+    }
     std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>> getAllPose() const {
         std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>> poses;
         for (int i = 0; i < 5; i++) {
@@ -161,7 +245,7 @@ public:
         return poses;
     }
     std::pair<Eigen::Vector3d, Eigen::Quaterniond> getPose(int id) const {
-        Eigen::Vector3d euler = Eigen::Vector3d(yaw(), 0.0, -real_roll(id));
+        Eigen::Vector3d euler = Eigen::Vector3d(yaw(), 0.0, real_roll(id));
         auto q = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
         return computeBladeTipPose(centerPos(), q, id);
     }
@@ -174,7 +258,7 @@ public:
 
         Eigen::Vector3d tip_pos = center_pos + q * local_tip;
 
-        Eigen::Vector3d euler = Eigen::Vector3d(yaw(), 0.0, -real_roll(id));
+        Eigen::Vector3d euler = Eigen::Vector3d(yaw(), 0.0, real_roll(id));
         return { tip_pos, utils::eulerToQuat(euler, utils::EulerOrder::ZYX) };
     }
     std::pair<Eigen::Vector3d, Eigen::Quaterniond> getHitPoint() const {
@@ -198,6 +282,20 @@ public:
         }
         power_rune.hit_id = last_id;
         return power_rune;
+    }
+    Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1> getmean(const rune::RuneFan::Simple& fan) {
+        auto p = fan.target_pos;
+
+        double measured_yaw = orientationToYaw(fan.target_ori);
+        double measured_roll = orientationToRoll(fan.target_ori);
+        double ypd_y = std::atan2(p.y(), p.x());
+        ypd_y = this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
+        this->last_ypd_y = ypd_y;
+        double ypd_p = std::atan2(p.z(), std::sqrt(p.x() * p.x() + p.y() * p.y()));
+        double ypd_d = std::sqrt(p.x() * p.x() + p.y() * p.y() + p.z() * p.z());
+        Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1> measure;
+        measure << ypd_y, ypd_p, ypd_d, measured_yaw, measured_roll;
+        return measure;
     }
 };
 } // namespace rune

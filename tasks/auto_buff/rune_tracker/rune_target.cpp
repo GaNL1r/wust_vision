@@ -130,38 +130,18 @@ bool RuneTarget::update(const rune::RuneFan& fans) {
     }
 
     update_ids.clear();
-    for (auto fan: fans.fans) {
-        int id;
-        auto min_angle_error = 1e10;
-        const auto angles = getAngles();
-        for (int i = 0; i < angles.size(); i++) {
-            auto angle_error = std::abs(angles::normalize_angle(
-                angles::normalize_angle(orientationToRoll(fan.target_ori)) - angles[i]
-            ));
-            if (angle_error < min_angle_error) {
-                min_angle_error = angle_error;
-                id = i;
-            }
-        }
-        auto p = fan.target_pos;
-
-        double measured_yaw = orientationToYaw(fan.target_ori);
-        double measured_roll = orientationToRoll(fan.target_ori);
-        double ypd_y = std::atan2(p.y(), p.x());
-        ypd_y = this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
-        this->last_ypd_y = ypd_y;
-        double ypd_p = std::atan2(p.z(), std::sqrt(p.x() * p.x() + p.y() * p.y()));
-        double ypd_d = std::sqrt(p.x() * p.x() + p.y() * p.y() + p.z() * p.z());
-        measurement_ << ypd_y, ypd_p, ypd_d, ypd_y, measured_roll;
+    auto matched = match(fans.fans);
+    bool has_match = false;
+    for (auto [id, fan]: matched) {
+        measurement_ = getmean(fan);
         auto tmp_esekf = esekf_ypd_;
         tmp_esekf.setMeasureFunc(ypdrune_motion_model::Measure { id });
         tmp_esekf.update(measurement_);
-        auto tmp_state = tmp_esekf.predict();
-        if (diverged(tmp_state) || std::abs(tmp_state[5] - v_roll()) > M_PI / 10) {
-            WUST_WARN("target") << "This update make diverged skip!!";
-            return false;
-        }
-
+        // auto tmp_state = tmp_esekf.predict();
+        // if (diverged(tmp_state) || std::abs(tmp_state[5] - v_roll()) > M_PI / 10) {
+        //     WUST_WARN("target") << "This update make diverged skip!!";
+        //     continue;
+        // }
         update_ids.push_back(id);
         auto yu_rv2 = [this](const Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>& z) {
             return this->computeMeasurementCovariance(z);
@@ -172,6 +152,7 @@ bool RuneTarget::update(const rune::RuneFan& fans) {
         esekf_ypd_.update(measurement_);
         if (!is_big_)
             last_id = id;
+        has_match = true;
     }
     bool no_change = false;
     // for (auto id: update_ids) {
@@ -186,7 +167,7 @@ bool RuneTarget::update(const rune::RuneFan& fans) {
     fitter_.fitAsync();
     last_time_ = tostart;
 
-    return true;
+    return has_match;
 }
 
 } // namespace rune

@@ -14,18 +14,16 @@ rune_detector:
 
 
 rune_optimize:
-  max_iter_R: 300
-  max_iter_t: 1000
-  step_R: 30
-  step_t: 100
-  min_error_R: 0.7
-  min_error_t: 0.5
-  distance_fix_a2: 0.00
+  enable: true
+  mode: golden
+  ceres_max_iter: 40
+  golden_search_side_deg: 60
 
 rune_tracker:
   lost_time_thres: 2.0
   tracking_thres: 10
   max_dis_diff: 1.0
+  match_gate: 15.0
   esekf_iter_num: 2
   q_roll: 10.0
   q_xyz: 0.5
@@ -34,6 +32,7 @@ rune_tracker:
   dis_r: 0.05
   yaw_r: 0.1
   roll_r: 0.2
+
 
 aimer:
   prediction_delay: -0.00

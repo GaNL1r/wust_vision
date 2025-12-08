@@ -2,12 +2,7 @@
 #include "rune_target.hpp"
 class RuneTracker {
 public:
-    RuneTracker(
-        int tracking_thres,
-        double lost_dt,
-        double max_dis_diff,
-        const rune::RuneTargetConfig& target_config
-    );
+    RuneTracker(const YAML::Node& config);
     rune::RuneTarget track(const rune::RuneFan& fan);
     bool initTarget(const rune::RuneFan& fan);
     bool updateTarget(const rune::RuneFan& fan);

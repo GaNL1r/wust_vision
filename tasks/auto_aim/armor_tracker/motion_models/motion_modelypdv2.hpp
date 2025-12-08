@@ -27,7 +27,8 @@ enum class MotionModel {
 
 // X_N: state dimension, Z_N: measurement dimension
 constexpr int X_N = 11, Z_N = 4;
-
+using VecZ = Eigen::Matrix<double, Z_N, 1>;
+using VecX = Eigen::Matrix<double, X_N, 1>;
 struct Predict {
     Predict() = default;
     explicit Predict(
@@ -113,6 +114,12 @@ struct Measure {
     T getoutpost_armor_z(const T x[X_N]) const {
         return (id == 0) ? x[4] : (id == 1) ? x[4] + x[9] : (id == 2) ? x[4] + x[10] : x[4];
     }
+    void h(const VecX& x, VecZ& z) const {
+        assert(x.size() == X_N);
+        assert(z.size() == Z_N);
+        operator()(x.data(), z.data());
+    }
+
     int armor_num = 4;
     int id = 0;
 };

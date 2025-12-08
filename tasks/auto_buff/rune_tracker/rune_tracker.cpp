@@ -1,17 +1,12 @@
 #include "rune_tracker.hpp"
 
-RuneTracker::RuneTracker(
-    int tracking_thres,
-    double lost_dt,
-    double max_dis_diff,
-    const rune::RuneTargetConfig& target_config
-):
-    tracking_thres_(tracking_thres),
-    lost_dt_(lost_dt),
-    max_dis_diff_(max_dis_diff),
-    target_config_(target_config) {
+RuneTracker::RuneTracker(const YAML::Node& config) {
     tracker_state = LOST;
     target_ = rune::RuneTarget();
+    tracking_thres_ = config["tracking_thres"].as<int>();
+    lost_thres_ = config["lost_time_thres"].as<double>();
+    max_dis_diff_ = config["max_dis_diff"].as<double>();
+    target_config_.loadFromYaml(config);
 }
 rune::RuneTarget RuneTracker::track(const rune::RuneFan& fan) {
     double dt = std::chrono::duration<double>(fan.timestamp - last_time_).count();

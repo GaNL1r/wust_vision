@@ -27,7 +27,7 @@ armor_detect:
     top_k: 128
     max_infer_running: 4
     min_free_mem_ratio: 0.1
-    use_cuda_pre: true
+    use_cuda_pre: false
     use_cuda_post: false
     log_time: false
     model_type: tup

@@ -18,34 +18,7 @@ TrackerManager::TrackerManager(
     const YAML::Node& config_,
     std::shared_ptr<wust_vl_utils::ConfigBinder> config_binder
 ) {
-    double tracking_thres = config_["armor_tracker"]["tracking_thres"].as<int>(5);
-    double lost_time_thres = config_["armor_tracker"]["lost_time_thres"].as<double>();
-    double max_yaw_diff_deg = config_["armor_tracker"]["max_yaw_diff_deg"].as<double>(80.0);
-    double max_dis_diff = config_["armor_tracker"]["max_dis_diff"].as<double>(0.5);
-    TargetConfig target_config;
-    target_config.qxyz_common = config_["armor_tracker"]["qxyz_common"].as<double>();
-    target_config.qyaw_common = config_["armor_tracker"]["qyaw_common"].as<double>();
-    target_config.qxyz_output = config_["armor_tracker"]["qxyz_output"].as<double>();
-    target_config.qyaw_output = config_["armor_tracker"]["qyaw_output"].as<double>();
-    target_config.q_r = config_["armor_tracker"]["q_r"].as<double>();
-    target_config.q_l = config_["armor_tracker"]["q_l"].as<double>();
-    target_config.q_h = config_["armor_tracker"]["q_h"].as<double>();
-    target_config.q_outpost_dz = config_["armor_tracker"]["q_outpost_dz"].as<double>();
-    target_config.yp_r = config_["armor_tracker"]["yp_r"].as<double>();
-    target_config.dis_r_front = config_["armor_tracker"]["dis_r_front"].as<double>();
-    target_config.dis_r_side = config_["armor_tracker"]["dis_r_side"].as<double>();
-    target_config.dis2_r_ratio = config_["armor_tracker"]["dis2_r_ratio"].as<double>();
-    target_config.yaw_r_base_front = config_["armor_tracker"]["yaw_r_base_front"].as<double>();
-    target_config.yaw_r_base_side = config_["armor_tracker"]["yaw_r_base_side"].as<double>();
-    target_config.yaw_r_log_ratio = config_["armor_tracker"]["yaw_r_log_ratio"].as<double>();
-    target_config.esekf_iter_num = config_["armor_tracker"]["esekf_iter_num"].as<int>(2);
-    tracker_v3_ = std::make_unique<TrackerV3>(
-        tracking_thres,
-        lost_time_thres,
-        max_yaw_diff_deg,
-        max_dis_diff,
-        target_config
-    );
+    tracker_v3_ = std::make_unique<TrackerV3>(config_);
 }
 
 Target TrackerManager::update(const armor::Armors& armors, AutoAimFsmController& auto_aim_fsm_cl) {

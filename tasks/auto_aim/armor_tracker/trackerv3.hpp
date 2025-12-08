@@ -3,13 +3,7 @@
 #include "target.hpp"
 class TrackerV3 {
 public:
-    TrackerV3(
-        int tracking_thres,
-        double lost_dt,
-        double max_yaw_diff_deg,
-        double max_dis_diff,
-        const TargetConfig& target_config
-    );
+    TrackerV3(const YAML::Node& config);
     Target track(const armor::Armors& armors_msg);
     enum State {
         LOST,

@@ -1,83 +1,155 @@
 #include "ba_solver.hpp"
 // std
+
+#include <ceres/solver.h>
 #include <iostream>
 #include <memory>
-// g2o
-#include <g2o/core/robust_kernel.h>
-#include <g2o/core/robust_kernel_factory.h>
-#include <g2o/core/robust_kernel_impl.h>
-#include <g2o/types/slam3d/types_slam3d.h>
-// 3rd party
-#include <Eigen/Core>
-#include <opencv2/core/eigen.hpp>
-#include <sophus/se3.hpp>
-#include <sophus/so3.hpp>
 // project
-#include "graph_optimizer.hpp"
 #include "tasks/utils.hpp"
-#include "wust_vl/common/utils/logger.hpp"
 namespace rune {
-G2O_USE_OPTIMIZATION_LIBRARY(dense)
+BaSolver::BaSolver(const YAML::Node& config, const cv::Mat& camera_matrix) {
+    cv::cv2eigen(camera_matrix, K_);
+}
+double reprojectionErrorRoll(
+    double roll,
+    const std::vector<Eigen::Vector3d>& obj,
+    const std::vector<cv::Point2f>& lm,
+    const Eigen::Matrix3d& Rci,
+    double pitch,
+    double yaw,
+    const Eigen::Vector3d& t,
+    const Eigen::Matrix3d& K
+) {
+    const double fx = K(0, 0), fy = K(1, 1), cx = K(0, 2), cy = K(1, 2);
 
-BaSolver::BaSolver(
-    std::array<double, 9>& camera_matrix,
-    int max_iter_R,
-    int max_iter_t,
-    int step_R,
-    int step_t,
-    double min_error_R,
-    double min_error_t
-):
-    max_iter_R_(max_iter_R),
-    max_iter_t_(max_iter_t),
-    step_R_(step_R),
-    step_t_(step_t),
-    min_error_R_(min_error_R),
-    min_error_t_(min_error_t) {
-    K_ = Eigen::Matrix3d::Identity();
-    K_(0, 0) = camera_matrix[0];
-    K_(1, 1) = camera_matrix[4];
-    K_(0, 2) = camera_matrix[2];
-    K_(1, 2) = camera_matrix[5];
+    // R_roll
+    double cr = std::cos(roll);
+    double sr = std::sin(roll);
+    Eigen::Matrix3d R_roll;
+    R_roll << 1, 0, 0, 0, cr, -sr, 0, sr, cr;
 
-    // Optimization information
-    optimizer_.setVerbose(false);
-    // Optimization method
-    optimizer_.setAlgorithm(
-        g2o::OptimizationAlgorithmFactory::instance()->construct("lm_dense", solver_property_)
-    );
-    // Initial step size
-    lm_algorithm_ = dynamic_cast<g2o::OptimizationAlgorithmLevenberg*>(
-        const_cast<g2o::OptimizationAlgorithm*>(optimizer_.algorithm())
-    );
-    lm_algorithm_->setUserLambdaInit(0.1);
+    // R_yaw
+    double cyaw = std::cos(yaw);
+    double syaw = std::sin(yaw);
+    Eigen::Matrix3d R_yaw;
+    R_yaw << cyaw, 0, syaw, 0, 1, 0, -syaw, 0, cyaw;
+
+    // R_pitch
+    double cp = std::cos(pitch);
+    double sp = std::sin(pitch);
+    Eigen::Matrix3d R_pitch;
+    R_pitch << cp, 0, sp, 0, 1, 0, -sp, 0, cp;
+
+    Eigen::Matrix3d R = Rci * R_yaw * R_roll * R_pitch;
+
+    double mse = 0.0;
+    int N = obj.size();
+    constexpr double INF = std::numeric_limits<double>::infinity();
+
+    for (int i = 0; i < N; i++) {
+        Eigen::Vector3d Pc = R * obj[i] + t;
+        if (Pc.z() < 1e-6)
+            return INF;
+
+        double u = fx * (Pc.x() / Pc.z()) + cx;
+        double v = fy * (Pc.y() / Pc.z()) + cy;
+
+        double du = u - lm[i].x;
+        double dv = v - lm[i].y;
+
+        mse += du * du + dv * dv;
+    }
+    return mse / N;
+}
+
+double BaSolver::goldenRoll(
+    double init,
+    const std::vector<Eigen::Vector3d>& obj,
+    const std::vector<cv::Point2f>& lm,
+    const Eigen::Matrix3d& Rci,
+    double pitch,
+    double yaw,
+    const Eigen::Vector3d& t,
+    const Eigen::Matrix3d& K
+) {
+    constexpr double phi = 1.618033988749894848; // golden ratio
+    double l = init - params_.golden_search_side_deg * M_PI / 180.0;
+    double r = init + params_.golden_search_side_deg * M_PI / 180.0;
+
+    double r1 = r - (r - l) / phi;
+    double r2 = l + (r - l) / phi;
+
+    double f1 = reprojectionErrorRoll(r1, obj, lm, Rci, pitch, yaw, t, K);
+    double f2 = reprojectionErrorRoll(r2, obj, lm, Rci, pitch, yaw, t, K);
+
+    while (r - l > 0.0001) { // 约 0.0057 度
+        if (f1 < f2) {
+            r = r2;
+            r2 = r1;
+            f2 = f1;
+            r1 = r - (r - l) / phi;
+            f1 = reprojectionErrorRoll(r1, obj, lm, Rci, pitch, yaw, t, K);
+        } else {
+            l = r1;
+            r1 = r2;
+            f1 = f2;
+            r2 = l + (r - l) / phi;
+            f2 = reprojectionErrorRoll(r2, obj, lm, Rci, pitch, yaw, t, K);
+        }
+    }
+
+    return 0.5 * (l + r); // final best roll
+}
+
+double BaSolver::ceresRoll(
+    double init,
+    const std::vector<Eigen::Vector3d>& obj,
+    const std::vector<cv::Point2f>& lm,
+    const Eigen::Matrix3d& Rci,
+    double pitch,
+    double yaw,
+    const Eigen::Vector3d& t,
+    const Eigen::Matrix3d& K
+) {
+    double roll = init;
+    ceres::Problem problem;
+
+    for (size_t i = 0; i < obj.size(); ++i) {
+        ceres::CostFunction* costFn =
+            new ceres::AutoDiffCostFunction<RollProjectionError, 2, 1>(new RollProjectionError(
+                Eigen::Vector2d(lm[i].x, lm[i].y),
+                obj[i],
+                Rci,
+                pitch,
+                yaw,
+                t,
+                K_
+            ));
+
+        problem.AddResidualBlock(costFn, new ceres::HuberLoss(3.0), &roll);
+    }
+
+    ceres::Solver::Options options;
+    options.max_num_iterations = params_.ceres_max_iter;
+    options.linear_solver_type = ceres::DENSE_QR;
+    ceres::Solver::Summary summary;
+    ceres::Solve(options, &problem, &summary);
+
+    return roll;
 }
 Eigen::Matrix3d BaSolver::solveBa_R(
     const rune::RuneFan::Simple& rune_fan,
     const Eigen::Vector3d& t_camera_armor,
-    const Eigen::Matrix3d& R_camera_armor, // camera <- armor
-    const Eigen::Matrix3d& R_imu_camera, // imu -> camera
-    const cv::Mat& camera_matrix,
-    const cv::Mat& distort_coeffs
+    const Eigen::Matrix3d& R_camera_armor,
+    const Eigen::Matrix3d& R_imu_camera
 ) noexcept {
-    optimizer_.clear();
-
-    // 坐标系变换
     Eigen::Matrix3d R_imu_armor = R_imu_camera * R_camera_armor;
-    Sophus::SO3d R_camera_imu(R_imu_camera.transpose());
-
-    // --- roll 初值估计 ---
+    Eigen::Matrix3d R_camera_imu = R_imu_camera.transpose();
     double initial_roll = std::atan2(R_imu_armor(2, 1), R_imu_armor(2, 2));
-
-    // 固定 pitch
-    double fixed_pitch = 0.0;
-    Sophus::SO3d R_pitch = Sophus::SO3d::exp(Eigen::Vector3d(0, fixed_pitch, 0));
-
-    // 固定 yaw
-    double fixed_yaw = std::atan2(R_imu_armor(1, 0), R_imu_armor(0, 0));
-    Sophus::SO3d R_yaw = Sophus::SO3d::exp(Eigen::Vector3d(0, 0, fixed_yaw));
-
-    // 构建 3D 角点
+    double roll = initial_roll;
+    Eigen::Vector3d t_imu_armor = R_camera_imu * t_camera_armor;
+    double yaw = std::atan2(t_imu_armor.y(), t_imu_armor.x());
+    double pitch = 0;
     auto cv_points = rune_fan.getObjs();
     std::vector<Eigen::Vector3d> object_points;
     object_points.reserve(cv_points.size());
@@ -85,58 +157,34 @@ Eigen::Matrix3d BaSolver::solveBa_R(
         object_points.emplace_back(p.x, p.y, p.z);
     }
     const auto& landmarks = rune_fan.landmarks();
-
-    size_t id_counter = 0;
-    // 添加 roll 顶点
-    auto* v_roll = new VertexRoll();
-    v_roll->setId(id_counter++);
-    v_roll->setEstimate(initial_roll);
-    optimizer_.addVertex(v_roll);
-
-    // 添加投影边
-    for (size_t i = 0; i < object_points.size(); ++i) {
-        auto* v_pt = new g2o::VertexPointXYZ();
-        v_pt->setId(id_counter++);
-        v_pt->setEstimate(object_points[i]);
-        v_pt->setFixed(true);
-        optimizer_.addVertex(v_pt);
-
-        auto* edge = new EdgeProjectionWithRoll(R_camera_imu, R_pitch, t_camera_armor, K_);
-        edge->setId(id_counter++);
-        edge->setVertex(0, v_roll);
-        edge->setVertex(1, v_pt);
-        edge->setMeasurement(Eigen::Vector2d(landmarks[i].x, landmarks[i].y));
-        edge->setInformation(Eigen::Matrix2d::Identity());
-        edge->setRobustKernel(new g2o::RobustKernelHuber);
-        optimizer_.addEdge(edge);
-    }
-    // 优化
-    optimizer_.initializeOptimization();
-    int numEdges = optimizer_.edges().size();
-    auto computeRMS = [&]() { return std::sqrt(optimizer_.chi2() / numEdges); };
-
-    for (int k = 0; k < max_iter_R_ / step_R_; ++k) {
-        optimizer_.optimize(step_R_);
-        double rms = computeRMS();
-        if (rms < min_error_R_)
-            break;
+    if (params_.mode == Params::OptMode::CERES) {
+        roll =
+            ceresRoll(roll, object_points, landmarks, R_camera_imu, pitch, yaw, t_camera_armor, K_);
+    } else if (params_.mode == Params::OptMode::GOLDEN) {
+        roll = goldenRoll(
+            roll,
+            object_points,
+            landmarks,
+            R_camera_imu,
+            pitch,
+            yaw,
+            t_camera_armor,
+            K_
+        );
     }
 
-    double roll_opt = v_roll->estimate();
-    if (!std::isfinite(roll_opt)) {
-        std::cerr << "[BaSolver] Roll is invalid after g2o optimization. Reset to 0.\n";
-        roll_opt = 0.0;
-    }
+    double cr = cos(roll), sr = sin(roll);
+    Eigen::Matrix3d R_roll;
+    R_roll << 1, 0, 0, 0, cr, -sr, 0, sr, cr;
 
-    Sophus::SO3d R_roll = Sophus::SO3d::exp(Eigen::Vector3d(roll_opt, 0, 0));
+    double cyaw = cos(yaw), syaw = sin(yaw);
+    Eigen::Matrix3d R_yaw;
+    R_yaw << cyaw, 0, syaw, 0, 1, 0, -syaw, 0, cyaw;
 
-    Eigen::Matrix3d R_final = (R_camera_imu * R_yaw * R_roll * R_pitch).matrix();
-    if (!R_final.allFinite()) {
-        std::cerr << "[BaSolver] R_final contains invalid elements, return identity\n";
-        return Eigen::Matrix3d::Identity();
-    }
+    Eigen::Matrix3d R_pitch;
+    R_pitch << 1, 0, 0, 0, 1, 0, 0, 0, 1;
 
-    return R_final;
+    return R_camera_imu * R_yaw * R_roll * R_pitch;
 }
 
 } // namespace rune

@@ -316,7 +316,6 @@ std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
                         std::lock_guard<std::mutex> lock(armors_mutex);
                         armors.emplace_back(armor);
                     }
-
                 } catch (...) {
                     std::cerr << "[ArmorDetectCommon::detectNet] something failed (unexpected)."
                               << std::endl;

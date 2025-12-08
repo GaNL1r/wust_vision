@@ -1,18 +1,12 @@
 #include "trackerv3.hpp"
-TrackerV3::TrackerV3(
-    int tracking_thres,
-    double lost_dt,
-    double max_yaw_diff_deg,
-    double max_dis_diff,
-    const TargetConfig& target_config
-):
-    tracking_thres_(tracking_thres),
-    lost_dt_(lost_dt),
-    max_yaw_diff_deg_(max_yaw_diff_deg),
-    max_dis_diff_(max_dis_diff),
-    target_config_(target_config) {
+TrackerV3::TrackerV3(const YAML::Node& config) {
     tracker_state = LOST;
     target_ = Target();
+    tracking_thres_ = config["armor_tracker"]["tracking_thres"].as<int>(5);
+    lost_thres_ = config["armor_tracker"]["lost_time_thres"].as<double>();
+    max_yaw_diff_deg_ = config["armor_tracker"]["max_yaw_diff_deg"].as<double>(80.0);
+    max_dis_diff_ = config["armor_tracker"]["max_dis_diff"].as<double>(0.5);
+    target_config_.loadConfig(config["armor_tracker"]);
 }
 Target TrackerV3::track(const armor::Armors& armors_msg) {
     double dt = std::chrono::duration<double>(armors_msg.timestamp - last_time_).count();
@@ -131,7 +125,8 @@ bool TrackerV3::updateTarget(const armor::Armors& armors) {
         return false;
     }
     int found_count = 0;
-    target_.predict(armors.timestamp, armors.v, false);
+    target_.predict(armors.timestamp, armors.v);
+
     std::vector<armor::Armor> valid_armors;
     for (const auto& armor: armors.armors) {
         if (!armor::isSameTarget(armor.number, target_.tracked_id_))
@@ -142,77 +137,8 @@ bool TrackerV3::updateTarget(const armor::Armors& armors) {
     if (found_count == 0)
         return false;
     found_count = 0;
-    const std::vector<Eigen::Vector4d>& xyza_list = target_.getArmorPosAndYaw();
-
-    std::vector<std::pair<Eigen::Vector4d, int>> xyza_i_list;
-    for (int i = 0; i < target_.armor_num_; i++) {
-        xyza_i_list.push_back({ xyza_list[i], i });
-    }
-
-    std::sort(
-        xyza_i_list.begin(),
-        xyza_i_list.end(),
-        [](const std::pair<Eigen::Vector4d, int>& a, const std::pair<Eigen::Vector4d, int>& b) {
-            Eigen::Vector3d ypd1 = utils::xyz2ypd(a.first.head(3));
-            Eigen::Vector3d ypd2 = utils::xyz2ypd(b.first.head(3));
-            return ypd1[2] < ypd2[2];
-        }
-    );
-
-    // key: xyza_index, value: pair<armor*, error>
-    std::unordered_map<int, std::pair<armor::Armor*, double>> xyza_best_map;
-
-    for (auto& armor: valid_armors) {
-        int best_id = -1;
-        double min_angle_error = 1e10;
-
-        if (target_.armor_num_ > 3) {
-            for (int i = 0; i < 3; i++) {
-                const auto& xyza = xyza_i_list[i].first;
-                Eigen::Vector3d ypd = utils::xyz2ypd(xyza.head(3));
-
-                double angle_error = std::abs(angles::normalize_angle(
-                                         target_.orientationToYaw(armor.target_ori) - xyza[3]
-                                     ))
-                    + std::abs(angles::normalize_angle(utils::xyz2ypd(armor.target_pos)[0] - ypd[0])
-                    )
-                    + std::abs(angles::normalize_angle(utils::xyz2ypd(armor.target_pos)[1] - ypd[1])
-                    );
-
-                if (angle_error < min_angle_error) {
-                    min_angle_error = angle_error;
-                    best_id = xyza_i_list[i].second;
-                }
-            }
-        } else {
-            for (int i = 0; i < 3; i++) {
-                const auto& xyza = xyza_i_list[i].first;
-                Eigen::Vector3d ypd = utils::xyz2ypd(xyza.head(3));
-                auto angle_error = std::abs(
-                    angles::normalize_angle(target_.orientationToYaw(armor.target_ori) - xyza[3])
-                );
-                if (std::abs(angle_error) < std::abs(min_angle_error)) {
-                    best_id = xyza_i_list[i].second;
-                    min_angle_error = angle_error;
-                }
-            }
-        }
-
-        if (best_id >= 0) {
-            auto it = xyza_best_map.find(best_id);
-            if (it == xyza_best_map.end() || min_angle_error < it->second.second) {
-                xyza_best_map[best_id] = { &armor, min_angle_error };
-            }
-        }
-    }
-
-    std::vector<armor::Armor> filtered_armors;
-    for (auto& kv: xyza_best_map) {
-        filtered_armors.push_back(*(kv.second.first));
-    }
-    for (auto& armor: filtered_armors) {
-        if (!armor::isSameTarget(armor.number, target_.tracked_id_))
-            continue;
+    auto matched_armors = target_.match(valid_armors);
+    for (auto [id, armor]: matched_armors) {
         if (armor.is_none_purple) {
             is_none_purple_count_++;
         } else {
@@ -221,7 +147,7 @@ bool TrackerV3::updateTarget(const armor::Armors& armors) {
         if (is_none_purple_count_ > 100) {
             continue;
         }
-        if (target_.update(armor)) {
+        if (target_.update(std::make_pair(id, armor))) {
             found_count++;
         }
     }
