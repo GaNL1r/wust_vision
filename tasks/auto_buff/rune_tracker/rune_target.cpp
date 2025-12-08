@@ -1,12 +1,11 @@
 #include "rune_target.hpp"
 namespace rune {
 RuneTarget::RuneTarget(
-    bool is_big,
     const rune::RuneFan& fan,
     const RuneTargetConfig& target_config,
     double pre_v_roll
 ) {
-    is_big_ = is_big;
+    is_big_ = false;
     start_time_ = fan.timestamp;
     target_config_ = target_config;
     auto f = ypdrune_motion_model::Predict(0.005);
@@ -134,14 +133,6 @@ bool RuneTarget::update(const rune::RuneFan& fans) {
     bool has_match = false;
     for (auto [id, fan]: matched) {
         measurement_ = getmean(fan);
-        auto tmp_esekf = esekf_ypd_;
-        tmp_esekf.setMeasureFunc(ypdrune_motion_model::Measure { id });
-        tmp_esekf.update(measurement_);
-        // auto tmp_state = tmp_esekf.predict();
-        // if (diverged(tmp_state) || std::abs(tmp_state[5] - v_roll()) > M_PI / 10) {
-        //     WUST_WARN("target") << "This update make diverged skip!!";
-        //     continue;
-        // }
         update_ids.push_back(id);
         auto yu_rv2 = [this](const Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>& z) {
             return this->computeMeasurementCovariance(z);
@@ -155,12 +146,14 @@ bool RuneTarget::update(const rune::RuneFan& fans) {
         has_match = true;
     }
     bool no_change = false;
-    // for (auto id: update_ids) {
-    //     if (id == last_id)
-    //         no_change = true;
-    // }
-    // if (!no_change&&update_ids.size()>1)
-    //     last_id = update_ids[0];
+    for (auto id: update_ids) {
+        if (id == last_id)
+            no_change = true;
+    }
+    if (!no_change && update_ids.size() > 1)
+        last_id = update_ids[0];
+    if (update_ids.size() > 1)
+        is_big_ = true;
     double tostart = time_utils::durationSec(start_time_, fans.timestamp);
     fitter_.update(tostart, v_roll());
     fitter_.setAngleRef(tostart, roll());

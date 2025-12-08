@@ -43,12 +43,7 @@ class RuneTarget {
 public:
     RuneTarget() = default;
     RuneTarget& operator=(const RuneTarget&) = default;
-    RuneTarget(
-        bool is_big,
-        const rune::RuneFan& fan,
-        const RuneTargetConfig& target_config,
-        double pre_v_roll
-    );
+    RuneTarget(const rune::RuneFan& fan, const RuneTargetConfig& target_config, double pre_v_roll);
     bool is_big_ = false;
     double last_yaw_ = 0;
     double last_ypd_y = 0;
@@ -106,17 +101,17 @@ public:
         return fitter_.predictAngle(last_time_ + dt);
     }
     void predictWithFitter(std::chrono::steady_clock::time_point t) {
-        // if (is_big_) {
-        //     double to_start = time_utils::durationSec(start_time_, t);
-        //     double angle = fitter_.predictAngle(to_start);
-        //     double speed = fitter_.predictSpeed(to_start);
-        //     auto state = esekf_ypd_.getState();
-        //     state[4] = angles::normalize_angle(angle);
-        //     state[5] = speed;
-        //     esekf_ypd_.setState(state);
-        // } else {
-        predict(t);
-        // }
+        if (is_big_) {
+            double to_start = time_utils::durationSec(start_time_, t);
+            double angle = fitter_.predictAngle(to_start);
+            double speed = fitter_.predictSpeed(to_start);
+            auto state = esekf_ypd_.getState();
+            state[4] = angles::normalize_angle(angle);
+            state[5] = speed;
+            esekf_ypd_.setState(state);
+        } else {
+            predict(t);
+        }
     }
     double getFitterSpd(std::chrono::steady_clock::time_point t) {
         double to_start = time_utils::durationSec(start_time_, t);

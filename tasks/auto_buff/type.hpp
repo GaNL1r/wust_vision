@@ -189,6 +189,11 @@ struct RuneFan {
     bool is_big = false;
     std::chrono::steady_clock::time_point timestamp;
     struct Simple {
+        std::vector<double> angle_diffs = { 0,
+                                            2 * M_PI / 5,
+                                            2 * M_PI / 5 * 2,
+                                            2 * M_PI / 5 * 3,
+                                            2 * M_PI / 5 * 4 };
         std::vector<cv::Point2f> points2d;
         std::vector<cv::Point3f> points3d = {
             { 0.0f, 0.0f, 0.0f }, // P0
@@ -198,10 +203,57 @@ struct RuneFan {
             { 0.0f, -RUNE_PAN_REAL_DIS / 2.0f, RUNE_R2PANCENTER + RUNE_PAN_REAL_DIS / 2.0f }, // P4
             { 0.0f, 0.0f, RUNE_R2PANCENTER } // P5
         };
+        inline cv::Point3f rotateX(const cv::Point3f& p, double roll) {
+            double c = std::cos(roll);
+            double s = std::sin(roll);
+            return { p.x, float(p.y * c - p.z * s), float(p.y * s + p.z * c) };
+        }
+        inline double normalizeAngle0to2pi(double a) {
+            a = std::fmod(a, 2 * M_PI);
+            if (a < 0)
+                a += 2 * M_PI;
+            return a;
+        }
+
         Eigen::Vector3d pos;
         Eigen::Quaterniond ori;
         Eigen::Vector3d target_pos;
         Eigen::Quaterniond target_ori;
+        void addOther(const Simple& other) {
+            auto l1 = points2d[0] - points2d[5];
+            auto l2 = other.points2d[0] - other.points2d[5];
+            float a1 = std::atan2(l1.y, l1.x);
+            float a2 = std::atan2(l2.y, l2.x);
+
+            float d = a1 - a2;
+            d = normalizeAngle0to2pi(d);
+
+            int id = 0;
+            double min_err = 1e9;
+            for (int i = 0; i < angle_diffs.size(); i++) {
+                double err = std::abs(angle_diffs[i] - d);
+                if (err < min_err) {
+                    min_err = err;
+                    id = i;
+                }
+            }
+
+            if (id < 1) {
+                return;
+            }
+            points2d.push_back(other.points2d[1]);
+            points2d.push_back(other.points2d[2]);
+            points2d.push_back(other.points2d[3]);
+            points2d.push_back(other.points2d[4]);
+            // ---------- 计算 roll 差 ----------
+            double roll = -angle_diffs[id];
+
+            // ---------- 旋转后的 3D 点加入 ----------
+            points3d.push_back(rotateX(points3d[1], roll));
+            points3d.push_back(rotateX(points3d[2], roll));
+            points3d.push_back(rotateX(points3d[3], roll));
+            points3d.push_back(rotateX(points3d[4], roll));
+        }
         std::vector<cv::Point2f> landmarks() const {
             return points2d;
         }

@@ -142,7 +142,7 @@ GimbalCmd Aimer::aim(
         true,
         0
     );
-    cmd.fire_advice = std::get<0>(check);
+    cmd.fire_advice = true;
     cmd.enable_yaw_diff = std::get<1>(check);
     cmd.enable_pitch_diff = std::get<2>(check);
     cmd.target_yaw = std::get<3>(check);

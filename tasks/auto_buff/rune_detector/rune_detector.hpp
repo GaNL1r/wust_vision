@@ -38,6 +38,15 @@ public:
     DetectorCallback callback_;
     cv::Mat tmp_R_;
     int current_id_ = 0;
+    cv::Point2f last_center = cv::Point2f(720, 540);
+    float search_half_size = 100.0f;
+    float SEARCH_MIN = 100.0f;
+    float SEARCH_MAX = 800.0f;
+    float SEARCH_MIN_REAL = 20.0f;
+    inline bool inSearchROI(const cv::Point2f& pt, const cv::Point2f& center, float half_size) {
+        return fabs(pt.x - center.x) <= half_size && fabs(pt.y - center.y) <= half_size;
+    }
+
     struct Params {
         double rune_center_min_area = 100.0;
         double rune_center_max_area = 2000.0;

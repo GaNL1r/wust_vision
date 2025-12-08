@@ -147,7 +147,7 @@ Eigen::Matrix3d BaSolver::solveBa_R(
     Eigen::Matrix3d R_camera_imu = R_imu_camera.transpose();
     double initial_roll = std::atan2(R_imu_armor(2, 1), R_imu_armor(2, 2));
     double roll = initial_roll;
-    Eigen::Vector3d t_imu_armor = R_camera_imu * t_camera_armor;
+    Eigen::Vector3d t_imu_armor = R_imu_camera * t_camera_armor;
     double yaw = std::atan2(t_imu_armor.y(), t_imu_armor.x());
     double pitch = 0;
     auto cv_points = rune_fan.getObjs();

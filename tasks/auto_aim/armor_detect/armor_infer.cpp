@@ -376,12 +376,12 @@ std::vector<armor::ArmorObject> ArmorInfer::postProcessAT(
     }
 
     // 正确：dims = 行，每条预测维度；anchors = 列，anchor 数量
-    const int dims    = output_buffer.rows;
+    const int dims = output_buffer.rows;
     const int anchors = output_buffer.cols;
 
-    constexpr int nkpt    = 4;  // 四点装甲板
+    constexpr int nkpt = 4; // 四点装甲板
     constexpr int kpt_dim = 2;
-    constexpr int nk      = nkpt * kpt_dim;   // 8
+    constexpr int nk = nkpt * kpt_dim; // 8
 
     const int num_cls = dims - 4 - nk;
     if (num_cls <= 0) {
@@ -392,7 +392,7 @@ std::vector<armor::ArmorObject> ArmorInfer::postProcessAT(
     auto map_point = [&](float x, float y) -> cv::Point2f {
         Eigen::Vector3f pt(x, y, 1.f);
         Eigen::Vector3f tr = transform_matrix * pt;
-        return {tr(0), tr(1)};
+        return { tr(0), tr(1) };
     };
 
     // 每个 anchor 对应一列
@@ -400,8 +400,8 @@ std::vector<armor::ArmorObject> ArmorInfer::postProcessAT(
         // 使用 (row, col) 访问，第 col=a 是当前 anchor
         float cx = output_buffer.at<float>(0, a);
         float cy = output_buffer.at<float>(1, a);
-        float w  = output_buffer.at<float>(2, a);
-        float h  = output_buffer.at<float>(3, a);
+        float w = output_buffer.at<float>(2, a);
+        float h = output_buffer.at<float>(3, a);
 
         if (!(std::isfinite(cx) && std::isfinite(cy) && std::isfinite(w) && std::isfinite(h)))
             continue;
@@ -410,12 +410,12 @@ std::vector<armor::ArmorObject> ArmorInfer::postProcessAT(
 
         // 取得最大类别
         float best_score = 0.f;
-        int best_idx     = -1;
+        int best_idx = -1;
         for (int c = 0; c < num_cls; ++c) {
             float sc = output_buffer.at<float>(4 + c, a);
             if (sc > best_score) {
                 best_score = sc;
-                best_idx   = c;
+                best_idx = c;
             }
         }
         if (best_idx < 0 || best_score < conf_threshold_)
@@ -423,20 +423,20 @@ std::vector<armor::ArmorObject> ArmorInfer::postProcessAT(
 
         // 映射成 color + id
         int combined = best_idx;
-        int color    = combined / AT_NUM_CLASSES;
-        int cls      = combined % AT_NUM_CLASSES;
+        int color = combined / AT_NUM_CLASSES;
+        int cls = combined % AT_NUM_CLASSES;
 
-        armor::ArmorObject obj{};
+        armor::ArmorObject obj {};
         obj.number = armor::ArmorNumber(cls);
-        obj.color  = armor::ArmorColor(color);
-        obj.prob   = best_score;
+        obj.color = armor::ArmorColor(color);
+        obj.prob = best_score;
 
         // 关键点起始位置
         const int kp_base = 4 + num_cls;
 
         obj.pts.reserve(nkpt);
         for (int k = 0; k < nkpt; ++k) {
-            float kx = output_buffer.at<float>(kp_base + 2 * k,     a);
+            float kx = output_buffer.at<float>(kp_base + 2 * k, a);
             float ky = output_buffer.at<float>(kp_base + 2 * k + 1, a);
             obj.pts.push_back(map_point(kx, ky));
         }
@@ -449,7 +449,6 @@ std::vector<armor::ArmorObject> ArmorInfer::postProcessAT(
     return topKAndNms(output_objs, top_k_, nms_threshold_);
 }
 
-
 std::vector<armor::ArmorObject> ArmorInfer::postProcess(
     const cv::Mat& output_buffer,
     const Eigen::Matrix<float, 3, 3>& transform_matrix,
@@ -461,7 +460,7 @@ std::vector<armor::ArmorObject> ArmorInfer::postProcess(
         return postProcessSPV8(output_buffer, transform_matrix, grid_strides);
     } else if (mode_ == Mode::AT) {
         return postProcessAT(output_buffer, transform_matrix, grid_strides);
-    }else if (mode_ == Mode::RP) {
+    } else if (mode_ == Mode::RP) {
         return postProcessRP(output_buffer, transform_matrix, grid_strides);
     }
 }
