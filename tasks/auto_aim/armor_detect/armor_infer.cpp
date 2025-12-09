@@ -66,49 +66,6 @@ void ArmorInfer::generate_grids_and_stride(
     }
 }
 
-cv::Mat ArmorInfer::letterbox(
-    const cv::Mat& img,
-    Eigen::Matrix3f& transform_matrix,
-    const int new_shape_w,
-    const int new_shape_h
-) {
-    int img_h = img.rows;
-    int img_w = img.cols;
-
-    // new_shape expected as {new_w, new_h}
-    float scale = std::min(new_shape_h * 1.0f / img_h, new_shape_w * 1.0f / img_w);
-    int resize_h = static_cast<int>(round(img_h * scale));
-    int resize_w = static_cast<int>(round(img_w * scale));
-
-    int pad_h = new_shape_h - resize_h;
-    int pad_w = new_shape_w - resize_w;
-
-    cv::Mat resized_img;
-    cv::resize(img, resized_img, cv::Size(resize_w, resize_h));
-
-    float half_h = pad_h * 1.0f / 2;
-    float half_w = pad_w * 1.0f / 2;
-
-    int top = static_cast<int>(round(half_h - 0.1f));
-    int bottom = static_cast<int>(round(half_h + 0.1f));
-    int left = static_cast<int>(round(half_w - 0.1f));
-    int right = static_cast<int>(round(half_w + 0.1f));
-
-    transform_matrix << 1.0f / scale, 0, -half_w / scale, 0, 1.0f / scale, -half_h / scale, 0, 0, 1;
-
-    cv::copyMakeBorder(
-        resized_img,
-        resized_img,
-        top,
-        bottom,
-        left,
-        right,
-        cv::BORDER_CONSTANT,
-        cv::Scalar(114, 114, 114)
-    );
-    return resized_img;
-}
-
 inline double ArmorInfer::sigmoid(double x) {
     if (x > 0)
         return 1.0 / (1.0 + std::exp(-x));
@@ -231,8 +188,8 @@ std::vector<armor::ArmorObject> ArmorInfer::postProcessTUP(
 
         Eigen::Matrix<float, 3, 4> apex_norm;
         apex_norm << x1, x2, x3, x4, y1, y2, y3, y4, 1, 1, 1, 1;
-        Eigen::Matrix<float, 3, 4> apex_dst = transform_matrix * apex_norm;
-
+        Eigen::Matrix<float, 3, 4> apex_dst = apex_norm;
+        // Eigen::Matrix<float, 3, 4> apex_dst =transform_matrix* apex_norm;
         armor::ArmorObject obj;
         obj.pts.resize(4);
         obj.pts[0] = cv::Point2f(apex_dst(0, 0), apex_dst(1, 0));
@@ -282,8 +239,8 @@ std::vector<armor::ArmorObject> ArmorInfer::postProcessRP(
         Eigen::Matrix<float, 3, 4> pts_norm;
         pts_norm << x1, x2, x3, x4, y1, y2, y3, y4, 1, 1, 1, 1;
 
-        Eigen::Matrix<float, 3, 4> pts_trans = transform_matrix * pts_norm;
-
+        // Eigen::Matrix<float, 3, 4> pts_trans = transform_matrix * pts_norm;
+        Eigen::Matrix<float, 3, 4> pts_trans = pts_norm;
         armor::ArmorObject obj;
         obj.pts.resize(4);
         for (int k = 0; k < 4; ++k) {
@@ -347,8 +304,8 @@ std::vector<armor::ArmorObject> ArmorInfer::postProcessSPV8(
         Eigen::Matrix<float, 3, 4> pts_norm;
         pts_norm << x1, x2, x3, x4, y1, y2, y3, y4, 1, 1, 1, 1;
 
-        Eigen::Matrix<float, 3, 4> pts_trans = transform_matrix * pts_norm;
-
+        // Eigen::Matrix<float, 3, 4> pts_trans = transform_matrix * pts_norm;
+        Eigen::Matrix<float, 3, 4> pts_trans = pts_norm;
         armor::ArmorObject obj;
         obj.pts.resize(4);
         for (int i = 0; i < 4; i++) {
@@ -391,7 +348,8 @@ std::vector<armor::ArmorObject> ArmorInfer::postProcessAT(
 
     auto map_point = [&](float x, float y) -> cv::Point2f {
         Eigen::Vector3f pt(x, y, 1.f);
-        Eigen::Vector3f tr = transform_matrix * pt;
+        // Eigen::Vector3f tr = transform_matrix * pt;
+        Eigen::Vector3f tr = pt;
         return { tr(0), tr(1) };
     };
 

@@ -304,6 +304,77 @@ float* CudaInfer::preprocess(
     CUDA_CHECK(cudaGetLastError());
     return d_nchw_;
 }
+float* CudaInfer::preprocess(
+    const unsigned char* input_bgr_host,
+    int img_w,
+    int img_h,
+    int host_step, // <--- 新增：输入 Mat 的 step
+    Eigen::Matrix3f& tf_matrix,
+    cudaStream_t stream
+) {
+    if (!isInitialized()) {
+        throw std::runtime_error("CudaInfer not initialized properly.");
+    }
+
+    if (!input_bgr_host || !d_nchw_) {
+        fprintf(stderr, "[Error] Null pointer in preprocess input\n");
+        return nullptr;
+    }
+
+    // === resize + padding params ===
+    float scale = fminf((float)INPUT_W / img_w, (float)INPUT_H / img_h);
+    int rw = round(img_w * scale);
+    int rh = round(img_h * scale);
+    int pad_l = (INPUT_W - rw) / 2;
+    int pad_t = (INPUT_H - rh) / 2;
+
+    tf_matrix << 1.f / scale, 0, -pad_l / scale, 0, 1.f / scale, -pad_t / scale, 0, 0, 1;
+
+    // ===== Allocate pitched GPU buffer when needed =====
+    size_t desiredPitchBytes = img_w * 3; // one row's data in BGR
+    if (!d_input_bgr_pitched_ || input_pitch_bytes_ < desiredPitchBytes) {
+        if (d_input_bgr_pitched_)
+            cudaFree(d_input_bgr_pitched_);
+        CUDA_CHECK(cudaMallocPitch(
+            (void**)&d_input_bgr_pitched_,
+            &input_pitch_bytes_,
+            desiredPitchBytes,
+            img_h
+        ));
+    }
+
+    // ===== Async copy Host->Device WITH stride support =====
+    CUDA_CHECK(cudaMemcpy2DAsync(
+        d_input_bgr_pitched_, // dst
+        input_pitch_bytes_, // dst pitch
+        input_bgr_host, // src pointer
+        host_step, // src pitch
+        desiredPitchBytes, // width to copy (bytes)
+        img_h, // rows
+        cudaMemcpyHostToDevice,
+        stream
+    ));
+
+    // ===== Launch CUDA kernel =====
+    dim3 threads(TILE_W, TILE_H);
+    dim3 blocks((INPUT_W + TILE_W - 1) / TILE_W, (INPUT_H + TILE_H - 1) / TILE_H);
+
+    letterbox_kernel_pitched<<<blocks, threads, 0, stream>>>(
+        d_input_bgr_pitched_,
+        input_pitch_bytes_,
+        img_w,
+        img_h,
+        d_nchw_,
+        INPUT_W,
+        INPUT_H,
+        scale,
+        pad_t,
+        pad_l
+    );
+
+    CUDA_CHECK(cudaGetLastError());
+    return d_nchw_;
+}
 
 std::vector<GPUArmorObject> CudaInfer::postprocess(
     const float* output,

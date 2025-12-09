@@ -140,6 +140,14 @@ void ArmorDetectNCNN::init(int device_id) {
     );
 }
 
+cv::Mat ncnnMatToCvMat(const ncnn::Mat& m) {
+    cv::Mat img(m.h, m.w, CV_8UC3);
+    // m 已经是 RGB float/uint8，无论是否 pack=4, 都能正确转换
+    m.to_pixels(img.data, ncnn::Mat::PIXEL_RGB2BGR);
+
+    return img;
+}
+
 void ArmorDetectNCNN::setCallback(DetectorCallback callback) {
     infer_callback_ = callback;
 }
@@ -151,13 +159,14 @@ bool ArmorDetectNCNN::processCallback(const CommonFrame& frame) {
     Eigen::Matrix3f transform_matrix;
     auto roi = frame.src_img(frame.expanded);
     ncnn::Mat in = letterbox_to_ncnn(
-        roi,
+        roi.clone(),
         transform_matrix,
         armor_infer_->getInputW(),
         armor_infer_->getInputH(),
         armor_infer_->getUseNorm()
     );
-
+    cv::Mat resized_img = ncnnMatToCvMat(in);
+    ;
     auto out = ncnn_net_->infer(in);
 
     cv::Mat output_buffer(out.h, out.w, CV_32F, out.data);
@@ -166,7 +175,8 @@ bool ArmorDetectNCNN::processCallback(const CommonFrame& frame) {
     auto objs_result = armor_infer_->postProcess(output_buffer, transform_matrix, grid_strides_);
     std::vector<armor::ArmorObject> armors;
     if (use_armor_detect_common_) {
-        armors = armor_detect_common_->detectNet(roi, objs_result, frame.detect_color);
+        armors = armor_detect_common_
+                     ->detectNet(resized_img, objs_result, transform_matrix, frame.detect_color);
         // Call callback function
         if (this->infer_callback_) {
             this->infer_callback_(armors, frame);
@@ -180,6 +190,7 @@ bool ArmorDetectNCNN::processCallback(const CommonFrame& frame) {
             } else if (detect_color == 1 && obj.color == armor::ArmorColor::RED) {
                 continue;
             }
+            obj.transform(transform_matrix);
             armors.push_back(obj);
         }
         if (this->infer_callback_) {

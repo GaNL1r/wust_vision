@@ -32,8 +32,11 @@ class ArmorDetectCommon {
 public:
     ArmorDetectCommon(const ArmorDetectCommonParams& params);
 
-    std::vector<armor::Light>
-    findLights(const cv::Mat& color_img,const cv::Mat& binary_img, armor::ArmorObject& armor) noexcept;
+    std::vector<armor::Light> findLights(
+        const cv::Mat& color_img,
+        const cv::Mat& binary_img,
+        armor::ArmorObject& armor
+    ) noexcept;
 
     bool isLight(const armor::Light& possible_light) noexcept;
     bool isArmor(const armor::Light& light_1, const armor::Light& light_2) noexcept;
@@ -41,6 +44,7 @@ public:
     std::vector<armor::ArmorObject> detectNet(
         const cv::Mat& src_img,
         std::vector<armor::ArmorObject>& objs_result,
+        Eigen::Matrix3f transform_matrix,
         int detect_color
     );
     bool extractNetImage(const cv::Mat& src, const cv::Mat& gray_src, armor::ArmorObject& armor);

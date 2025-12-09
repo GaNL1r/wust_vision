@@ -47,13 +47,13 @@ ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(
         expand_ratio_w = config["armor_detect"]["light"]["expand_ratio_w"].as<float>(1.1);
         expand_ratio_h = config["armor_detect"]["light"]["expand_ratio_h"].as<float>(1.1);
         max_pts_error = config["armor_detect"]["light"]["max_pts_error"].as<double>(20.0);
-        l_params = {
-            .min_ratio = config["armor_detect"]["light"]["min_ratio"].as<double>(0.1),
-            .max_ratio = config["armor_detect"]["light"]["max_ratio"].as<double>(3.0),
-            .max_angle = config["armor_detect"]["light"]["max_angle"].as<double>(40),
-            .max_angle_diff = config["armor_detect"]["light"]["max_angle_diff"].as<double>(20),
-            .color_diff_thresh = config["armor_detect"]["light"]["color_diff_thresh"].as<int>()
-        };
+        l_params = { .min_ratio = config["armor_detect"]["light"]["min_ratio"].as<double>(0.1),
+                     .max_ratio = config["armor_detect"]["light"]["max_ratio"].as<double>(3.0),
+                     .max_angle = config["armor_detect"]["light"]["max_angle"].as<double>(40),
+                     .max_angle_diff =
+                         config["armor_detect"]["light"]["max_angle_diff"].as<double>(20),
+                     .color_diff_thresh =
+                         config["armor_detect"]["light"]["color_diff_thresh"].as<int>() };
         a_params = { .min_light_ratio =
                          config["armor_detect"]["armor"]["min_light_ratio"].as<double>(1),
                      .min_small_center_distance =

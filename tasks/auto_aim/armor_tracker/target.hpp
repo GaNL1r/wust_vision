@@ -84,7 +84,7 @@ public:
         const cv::Mat& camera_intrinsic,
         const cv::Mat& camera_distortion,
         const cv::Size& image_size
-    ) ;
+    );
     void predict(
         std::chrono::steady_clock::time_point t,
         Eigen::Vector3d self_v = Eigen::Vector3d::Zero()
@@ -166,7 +166,8 @@ public:
     }
 
     inline bool checkTargetAppear() {
-        bool appear = is_tracking && time_utils::durationSec(timestamp_, time_utils::now()) < 5.0;
+        bool appear = is_tracking
+            && time_utils::durationSec(timestamp_, time_utils::now()) < target_config_.lost_dt;
         return appear;
     }
     bool diverged() const {

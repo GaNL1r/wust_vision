@@ -137,18 +137,18 @@ struct AutoAim::Impl {
     }
     void pushInput(CommonFrame& frame) {
         img_recv_count_++;
-        if (armor_solver_target_.checkTargetAppear()) {
-            auto bbox = armor_solver_target_.expanded(
-                T_camera_to_odom_,
-                camera_info_.first,
-                camera_info_.second,
-                frame.src_img.size()
-            );
-            if (bbox.area() > 100) {
-                frame.expanded = bbox;
-                frame.offset = cv::Point2f(bbox.x, bbox.y);
-            }
+
+        auto bbox = armor_solver_target_.expanded(
+            T_camera_to_odom_,
+            camera_info_.first,
+            camera_info_.second,
+            frame.src_img.size()
+        );
+        if (bbox.area() > 100) {
+            frame.expanded = bbox;
+            frame.offset = cv::Point2f(bbox.x, bbox.y);
         }
+
         if (armor_detector_) {
             armor_detector_->pushInput(frame);
         }

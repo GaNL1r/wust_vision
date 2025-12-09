@@ -81,7 +81,14 @@ public:
         Eigen::Matrix3f& tf_matrix,
         cudaStream_t stream
     );
-
+    float* preprocess(
+        const unsigned char* input_bgr_host,
+        int img_w,
+        int img_h,
+        int host_step, // <--- 新增：输入 Mat 的 step
+        Eigen::Matrix3f& tf_matrix,
+        cudaStream_t stream
+    );
     /// 后处理：decode + TopK + NMS
     /// @param  output          device 侧模型原始输出
     /// @param  N               网格总点数
@@ -129,6 +136,8 @@ private:
     size_t buf_image_bytes_;
     int buf_max_N_;
     size_t grid_count_;
+    unsigned char* d_input_bgr_pitched_ = nullptr; // GPU pitched BGR buffer
+    size_t input_pitch_bytes_ = 0;
 };
 
 } // namespace armor_cuda_infer

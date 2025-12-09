@@ -66,6 +66,8 @@ bool ArmorDetectOnnxRuntime::processCallback(const CommonFrame& frame) {
         armor_infer_->getInputW(),
         armor_infer_->getInputH()
     );
+    cv::imshow("resized_img", resized_img);
+    cv::waitKey(1);
     float scale = armor_infer_->getUseNorm() ? 1.0f / 255.0f : 1.0f;
     cv::Mat blob = cv::dnn::blobFromImage(
         resized_img,
@@ -87,7 +89,8 @@ bool ArmorDetectOnnxRuntime::processCallback(const CommonFrame& frame) {
     objs_result = armor_infer_->postProcess(output_buffer, transform_matrix, grid_strides_);
     std::vector<armor::ArmorObject> armors;
     if (use_armor_detect_common_) {
-        armors = armor_detect_common_->detectNet(roi, objs_result, frame.detect_color);
+        armors = armor_detect_common_
+                     ->detectNet(resized_img, objs_result, transform_matrix, frame.detect_color);
         // Call callback function
         if (this->infer_callback_) {
             this->infer_callback_(armors, frame);
@@ -101,6 +104,7 @@ bool ArmorDetectOnnxRuntime::processCallback(const CommonFrame& frame) {
             } else if (detect_color == 1 && obj.color == armor::ArmorColor::RED) {
                 continue;
             }
+            obj.transform(transform_matrix);
             armors.push_back(obj);
         }
         if (this->infer_callback_) {

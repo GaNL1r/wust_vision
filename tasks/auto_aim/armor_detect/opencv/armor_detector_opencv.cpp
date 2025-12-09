@@ -33,10 +33,10 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 // project
+#include "tasks/auto_aim/armor_detect/armor_infer.hpp"
 #include "wust_vl/common/utils/logger.hpp"
 #include "wust_vl/common/utils/timer.hpp"
 #include <fmt/core.h>
-
 ArmorDetectOpenCV::ArmorDetectOpenCV(
     const std::string& classify_model_path,
     const std::string& classify_label_path,
@@ -168,8 +168,6 @@ ArmorDetectOpenCV::findLights(const cv::Mat& img, const cv::Mat& binary_img) noe
                 light.color = sum_r > sum_b ? 0 : 1; // 0=红, 1=蓝
                 lights.emplace_back(light);
             }
-
-            
         }
     }
     std::sort(lights.begin(), lights.end(), [](const armor::Light& l1, const armor::Light& l2) {
@@ -356,11 +354,39 @@ void ArmorDetectOpenCV::topts(armor::ArmorObject& armor) {
     armor.pts[2] = armor.lights[1].bottom;
     armor.pts[3] = armor.lights[1].top;
 }
+bool isRoiScaleLarger(const cv::Mat& frame, const cv::Rect& roi, int model_w, int model_h) {
+    float scale_full = std::min(model_w / float(frame.cols), model_h / float(frame.rows));
+
+    float scale_roi = std::min(model_w / float(roi.width), model_h / float(roi.height));
+
+    return scale_roi > scale_full; // true = ROI 放大倍率更高
+}
+bool isUpscaled(const cv::Rect& roi, int model_w, int model_h) {
+    float scale = std::min(model_w / float(roi.width), model_h / float(roi.height));
+
+    return scale > 1.0f;
+}
+
 void ArmorDetectOpenCV::pushInput(CommonFrame& frame) {
     frame.id = current_id_++;
     std::vector<armor::ArmorObject> objs_result;
     auto roi = frame.src_img(frame.expanded);
-    objs_result = detect(roi, frame.detect_color);
+    bool is_up = isUpscaled(frame.expanded, target_width_, target_height_);
+    if (is_up) {
+        Eigen::Matrix3f transform_matrix;
+        auto resized = armor_infer::ArmorInfer::letterbox(
+            roi,
+            transform_matrix,
+            target_width_,
+            target_height_
+        );
+        objs_result = detect(resized, frame.detect_color);
+        for (auto& obj: objs_result) {
+            obj.transform(transform_matrix);
+        }
+    } else {
+        objs_result = detect(roi, frame.detect_color);
+    }
 
     if (this->infer_callback_) {
         this->infer_callback_(objs_result, frame);

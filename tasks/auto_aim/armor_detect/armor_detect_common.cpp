@@ -152,8 +152,11 @@ bool ArmorDetectCommon::refineLightsFromArmorPts(armor::ArmorObject& armor) cons
         return false;
     }
 }
-std::vector<armor::Light>
-ArmorDetectCommon::findLights(const cv::Mat& color_img,const cv::Mat& binary_img, armor::ArmorObject& armor) noexcept {
+std::vector<armor::Light> ArmorDetectCommon::findLights(
+    const cv::Mat& color_img,
+    const cv::Mat& binary_img,
+    armor::ArmorObject& armor
+) noexcept {
     std::vector<std::vector<cv::Point>> contours;
     std::vector<cv::Vec4i> hierarchy;
 
@@ -174,11 +177,11 @@ ArmorDetectCommon::findLights(const cv::Mat& color_img,const cv::Mat& binary_img
             }
 
             if (std::abs(sum_r - sum_b) / static_cast<int>(contour.size())
-                > params_.light_params.color_diff_thresh) {
+                > params_.light_params.color_diff_thresh)
+            {
                 light.color = sum_r > sum_b ? 0 : 1; // 0=红, 1=蓝
                 all_lights.emplace_back(light);
             }
-            
         }
     }
     std::sort(
@@ -234,6 +237,7 @@ bool ArmorDetectCommon::isArmor(const armor::Light& light_1, const armor::Light&
 std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
     const cv::Mat& src_img,
     std::vector<armor::ArmorObject>& objs_result,
+    Eigen::Matrix3f transform_matrix,
     int detect_color
 ) {
     std::vector<armor::ArmorObject> armors;
@@ -296,17 +300,19 @@ std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
                         || armor.color == armor::ArmorColor::PURPLE) {
                         armor.is_ok = false;
                         std::lock_guard<std::mutex> lock(armors_mutex);
+                        armor.transform(transform_matrix);
                         armors.emplace_back(armor);
                         return;
                     }
                     // 灯条与角点修正
-                    findLights(armor.whole_rgb_img,armor.whole_binary_img, armor);
+                    findLights(armor.whole_rgb_img, armor.whole_binary_img, armor);
                     if (refineLightsFromArmorPts(armor)) {
                         if (isArmor(armor.lights[0], armor.lights[1])) {
                             armor.is_ok = true;
                             corner_corrector_->correctCorners(armor, gray);
                         }
                     }
+
                     if (armor.is_ok) {
                         armor.is_ok = armor.checkOkptsRight(params_.max_pts_error);
                     }
@@ -323,7 +329,7 @@ std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
                             return;
                         }
                     }
-
+                    armor.transform(transform_matrix);
                     // 存入结果
                     {
                         std::lock_guard<std::mutex> lock(armors_mutex);

@@ -49,6 +49,27 @@ struct Light: public cv::RotatedRect {
         top += offset;
         bottom += offset;
     }
+    void transform(const Eigen::Matrix<float, 3, 3>& transform_matrix) {
+        auto map_point = [&](float x, float y) -> cv::Point2f {
+            Eigen::Vector3f pt(x, y, 1.f);
+            Eigen::Vector3f tr = transform_matrix * pt;
+            return { tr(0), tr(1) };
+        };
+        top = map_point(top.x, top.y);
+        bottom = map_point(bottom.x, bottom.y);
+        length = cv::norm(top - bottom);
+        cv::Point2f p[4];
+        this->points(p);
+
+        width = cv::norm(map_point(p[0].x, p[0].y) - map_point(p[1].x, p[1].y));
+
+        // axis = (top - bottom) / cv::norm(top - bottom);
+
+        tilt_angle =
+            std::atan2(std::abs(top.x - bottom.x), std::abs(top.y - bottom.y)) / CV_PI * 180.0f;
+        axis = map_point(axis.x, axis.y);
+        center = map_point(center.x, center.y);
+    }
 
     cv::Point2f top, bottom;
     int color = 0;
@@ -322,6 +343,19 @@ struct ArmorObject {
         }
         for (auto& l: lights) {
             l.addOffset(offset);
+        }
+    }
+    void transform(const Eigen::Matrix<float, 3, 3>& transform_matrix) {
+        for (auto& l: lights) {
+            l.transform(transform_matrix);
+        }
+        auto map_point = [&](float x, float y) -> cv::Point2f {
+            Eigen::Vector3f pt(x, y, 1.f);
+            Eigen::Vector3f tr = transform_matrix * pt;
+            return { tr(0), tr(1) };
+        };
+        for (auto& pt: pts) {
+            pt = map_point(pt.x, pt.y);
         }
     }
     ArmorObject(const Light& l1, const Light& l2) {

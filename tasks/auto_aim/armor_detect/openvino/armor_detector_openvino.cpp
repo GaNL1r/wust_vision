@@ -116,7 +116,8 @@ bool ArmorDetectOpenVino::processCallback(const CommonFrame& frame) {
 
     std::vector<armor::ArmorObject> armors;
     if (use_armor_detect_common_ && roi.data != nullptr) {
-        armors = armor_detect_common_->detectNet(roi, objs_result, frame.detect_color);
+        armors = armor_detect_common_
+                     ->detectNet(resized_img, objs_result, transform_matrix, frame.detect_color);
         // Call callback function
         if (this->infer_callback_) {
             this->infer_callback_(armors, frame);
@@ -130,6 +131,7 @@ bool ArmorDetectOpenVino::processCallback(const CommonFrame& frame) {
             } else if (detect_color == 1 && obj.color == armor::ArmorColor::RED) {
                 continue;
             }
+            obj.transform(transform_matrix);
             armors.push_back(obj);
         }
         if (this->infer_callback_) {

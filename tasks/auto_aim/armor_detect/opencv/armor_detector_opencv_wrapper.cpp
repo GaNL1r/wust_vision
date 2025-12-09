@@ -51,6 +51,8 @@ ArmorDetectorOpencvWrapper::ArmorDetectorOpencvWrapper(const YAML::Node& config)
         l_params,
         a_params
     );
+    detector_->target_height_ = config["armor_detect_opencv"]["target_height"].as<int>();
+    detector_->target_width_ = config["armor_detect_opencv"]["target_width"].as<int>();
 }
 
 ArmorDetectorOpencvWrapper::~ArmorDetectorOpencvWrapper() = default;

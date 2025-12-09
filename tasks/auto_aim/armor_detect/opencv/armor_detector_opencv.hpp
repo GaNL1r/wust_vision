@@ -65,6 +65,8 @@ public:
     std::unique_ptr<LightCornerCorrector> corner_corrector_;
 
     double classifier_threshold_ = 0.5;
+    int target_width_ = 416;
+    int target_height_ = 416;
 
 private:
     bool isLight(const armor::Light& possible_light) noexcept;

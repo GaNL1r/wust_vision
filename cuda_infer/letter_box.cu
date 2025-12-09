@@ -191,3 +191,51 @@ cudaTextureObject_t createTextureObject(float4* d_img, int width, int height) {
     cudaCreateTextureObject(&texObj, &resDesc, &texDesc, nullptr);
     return texObj;
 }
+extern "C" __global__ void letterbox_kernel_pitched(
+    const unsigned char* __restrict__ d_input_bgr,
+    size_t input_pitch_bytes,
+    int src_w,
+    int src_h,
+    float* __restrict__ d_nchw, // output: float, but storing 0-255
+    int OUT_W,
+    int OUT_H,
+    float scale,
+    int pad_t,
+    int pad_l
+) {
+    int out_x = blockIdx.x * blockDim.x + threadIdx.x;
+    int out_y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (out_x >= OUT_W || out_y >= OUT_H)
+        return;
+
+    float src_x_f = (out_x - pad_l) / scale;
+    float src_y_f = (out_y - pad_t) / scale;
+
+    int out_index_base = out_y * OUT_W + out_x;
+
+    // pad value: 128 (not normalized)
+    float b = 128.0f;
+    float g = 128.0f;
+    float r = 128.0f;
+
+    if (src_x_f >= 0.0f && src_x_f < src_w && src_y_f >= 0.0f && src_y_f < src_h) {
+        int sx = (int)(src_x_f + 0.5f);
+        int sy = (int)(src_y_f + 0.5f);
+
+        sx = max(0, min(sx, src_w - 1));
+        sy = max(0, min(sy, src_h - 1));
+
+        const unsigned char* row_ptr =
+            (const unsigned char*)((const char*)d_input_bgr + sy * input_pitch_bytes);
+
+        int idx = sx * 3;
+        b = (float)row_ptr[idx + 0]; // 0–255
+        g = (float)row_ptr[idx + 1];
+        r = (float)row_ptr[idx + 2];
+    }
+
+    int channel_size = OUT_W * OUT_H;
+    d_nchw[0 * channel_size + out_index_base] = r;
+    d_nchw[1 * channel_size + out_index_base] = g;
+    d_nchw[2 * channel_size + out_index_base] = b;
+}

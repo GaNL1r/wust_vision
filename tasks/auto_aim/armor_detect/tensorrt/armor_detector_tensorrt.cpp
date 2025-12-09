@@ -241,19 +241,60 @@ static void buildCpuResult(
         objs_result.push_back(std::move(obj));
     }
 }
+cv::Mat tensorToMat(void* gpu_ptr, int W, int H, cudaStream_t stream) {
+    int chw = 3 * W * H;
+    std::vector<float> cpu_data(chw);
+
+    // 必须同步，防止拷贝未完成数据
+    cudaStreamSynchronize(stream);
+
+    cudaMemcpy(cpu_data.data(), gpu_ptr, chw * sizeof(float), cudaMemcpyDeviceToHost);
+    cv::Mat mat(H, W, CV_32FC3);
+    int channel_size = W * H;
+
+    float* ptr = (float*)mat.data;
+
+    for (int c = 0; c < 3; c++) {
+        float* src = cpu_data.data() + c * channel_size;
+        float* dst = ptr + c; // channel offset
+        for (int i = 0; i < channel_size; i++) {
+            *dst = src[i];
+            dst += 3;
+        }
+    }
+
+    mat.convertTo(mat, CV_8UC3);
+    return mat;
+}
+
 // 推理函数
 bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
     auto t0 = time_utils::now();
     Eigen::Matrix3f transform_matrix;
     std::vector<armor::ArmorObject> objs_tmp, objs_result;
     void* input_tensor_ptr;
-    auto roi = frame.src_img(frame.expanded);
+    cv::Mat roi = frame.src_img(frame.expanded);
+
+    cv::Mat resized_img;
     if (infer->cuda_infer && params_.use_cuda_pre) {
-        input_tensor_ptr =
-            infer->cuda_infer
-                ->preprocess(roi.data, roi.cols, roi.rows, transform_matrix, trt_net_->getStream());
+        input_tensor_ptr = infer->cuda_infer->preprocess(
+            roi.data,
+            roi.cols,
+            roi.rows,
+            roi.step,
+            transform_matrix,
+            trt_net_->getStream()
+        );
+
+        resized_img = tensorToMat(
+            input_tensor_ptr,
+            armor_infer_->getInputW(),
+            armor_infer_->getInputH(),
+            trt_net_->getStream()
+        );
+
     } else {
-        cv::Mat resized_img = armor_infer_->letterbox(
+        resized_img = armor_infer_->letterbox(
             roi,
             transform_matrix,
             armor_infer_->getInputW(),
@@ -300,7 +341,8 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
     infer_pool_->release(infer);
     std::vector<armor::ArmorObject> armors;
     if (use_armor_detect_common_) {
-        armors = armor_detect_common_->detectNet(roi, objs_result, frame.detect_color);
+        armors = armor_detect_common_
+                     ->detectNet(resized_img, objs_result, transform_matrix, frame.detect_color);
         // Call callback function
         if (this->infer_callback_) {
             this->infer_callback_(armors, frame);
@@ -314,6 +356,7 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
             } else if (detect_color == 1 && obj.color == armor::ArmorColor::RED) {
                 continue;
             }
+            obj.transform(transform_matrix);
             armors.push_back(obj);
         }
         if (this->infer_callback_) {
