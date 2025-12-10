@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
 set(CMAKE_UNITY_BUILD ON)
-
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 set(CMAKE_BUILD_TYPE "Release")
 message(STATUS "--------------------CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}--------------------")
 
@@ -96,14 +96,6 @@ target_link_libraries(dart
     $<TARGET_OBJECTS:auto_guidance>
     ${WUST_auto_guidance_LIBS}
 )
-add_executable(calcapture calibration/capture.cpp)
-target_link_libraries(calcapture project_min_deps)
-
-add_executable(calcamera calibration/calcamera.cpp)
-target_link_libraries(calcamera project_min_deps)
-
-add_executable(eye_hand calibration/eye_hand.cpp)
-target_link_libraries(eye_hand project_min_deps)
 
 add_executable(test_usbcamera test/test_usbcamera.cpp)
 target_link_libraries(test_usbcamera project_min_deps)

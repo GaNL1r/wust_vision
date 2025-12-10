@@ -4,6 +4,7 @@
 WORK_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="$WORK_DIR/build"
 CONFIG_DIR="$WORK_DIR/config"
+BIN_DIR="$WORK_DIR/bin"
 
 source "$WORK_DIR/env.bash"
 export VISION_ROOT="$WORK_DIR"
@@ -16,8 +17,8 @@ red="\033[1;31m"
 chmod 666 /dev/shm/debug_frame
 
 # 清理并建立符号链接
-rm -rf "$BUILD_DIR/config"
-ln -sf "$CONFIG_DIR" "$BUILD_DIR/config"
+rm -rf "$BIN_DIR/config"
+ln -sf "$CONFIG_DIR" "$BIN_DIR/config"
 ln -sf "$WORK_DIR/env.bash" "$BUILD_DIR/env.bash"
 
 # rebuild 时清理 build（增加确认）
@@ -86,7 +87,7 @@ if [[ "$1" == "build" || "$1" == "rebuild" || "$1" == "run" ]]; then
     # Run mode
         if [ "$1" == "run" ]; then
         echo -e "${yellow}\n<--- Running WUST_VISION --->${reset}"
-        RUN_PROGRAM="$BUILD_DIR/$2"
+        RUN_PROGRAM="$BIN_DIR/$2"
         ORIGINAL_ARGS=("$@")
         shift 2
 

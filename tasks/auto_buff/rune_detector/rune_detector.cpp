@@ -355,6 +355,7 @@ inline void RuneDetectorCV::markInvalidContours(
     cv::Mat& debug_img,
     const std::vector<std::vector<cv::Point>>& contours,
     std::vector<bool>& used_flags,
+    const cv::Rect& valid_rect,
     bool filter_red,
     double diff_thresh
 ) {
@@ -389,15 +390,17 @@ inline void RuneDetectorCV::markInvalidContours(
             if (is_blue)
                 invalid = true;
         }
+        cv::Rect inter = r & valid_rect;
+        bool inside_region = (inter.area() > 0);
 
-        used_flags[i] = !invalid;
+        used_flags[i] = !invalid||!inside_region;
 
         if (!used_flags[i]) {
             if (!debug_img.empty())
                 cv::drawContours(debug_img, contours, i, cv::Scalar(255, 0, 0), 2);
         }
     }
-}
+} 
 
 void RuneDetectorCV::pushInput(CommonFrame& frame, bool is_big) {
     frame.id = current_id_++;
@@ -416,7 +419,7 @@ void RuneDetectorCV::pushInput(CommonFrame& frame, bool is_big) {
     cv::findContours(processed_img, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
     std::vector<bool> used_flags;
     used_flags.assign(contours.size(), false);
-    markInvalidContours(frame.src_img, debug_img, contours, used_flags, frame.detect_color);
+    markInvalidContours(frame.src_img, debug_img, contours, used_flags,frame.expanded, frame.detect_color);
     auto rune_center = getRuneCenter(contours, hierarchy, debug_img, used_flags);
     std::vector<rune::RunePan> rune_pans = markRuneTarget(contours, hierarchy, used_flags);
     double avg_pan_area = 0.0;

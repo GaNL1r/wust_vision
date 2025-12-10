@@ -24,4 +24,5 @@ __pycache__
 
 *.pdf
 
-tasks/auto_buff/rune_detector/rm_vision_core
+
+bin

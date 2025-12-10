@@ -18,7 +18,7 @@ void drawDebugArmorContent(
     auto armor_objs = dbg.armor_objs;
     cv::Rect img_rect(0, 0, debug_img.cols, debug_img.rows);
     cv::Rect roi = dbg.expanded & img_rect;
-    cv::rectangle(debug_img, roi, cv::Scalar(0, 255, 0), 2);
+    cv::rectangle(debug_img, roi, cv::Scalar(255, 255, 255), 2);
 
     static const int next_indices[] = { 2, 0, 3, 1 };
 
@@ -421,6 +421,7 @@ void drawDebugArmorContent(
         cv::Scalar(255, 255, 255),
         2
     );
+
 }
 static cv::Point2f normalize(const cv::Point2f& v) {
     float norm = std::sqrt(v.x * v.x + v.y * v.y);

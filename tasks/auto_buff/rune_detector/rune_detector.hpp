@@ -29,6 +29,7 @@ public:
         cv::Mat& debug_img,
         const std::vector<std::vector<cv::Point>>& contours,
         std::vector<bool>& used_flags,
+        const cv::Rect& valid_rect,
         bool filter_red = true,
         double diff_thresh = 40.0
     );

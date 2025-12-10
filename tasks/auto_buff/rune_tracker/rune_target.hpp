@@ -16,7 +16,7 @@ struct RuneTargetConfig {
     double yaw_r = 0.1;
     double roll_r = 0.1;
     double match_gate = 10;
-
+    double lost_dt=0.5;
     // 从 YAML::Node 加载配置
     void loadFromYaml(const YAML::Node& node) {
         if (node["esekf_iter_num"])
@@ -37,6 +37,8 @@ struct RuneTargetConfig {
             roll_r = node["roll_r"].as<double>();
         if (node["match_gate"])
             match_gate = node["match_gate"].as<double>();
+        if (node["lost_time_thres"])
+            lost_dt = node["lost_time_thres"].as<double>();
     }
 };
 class RuneTarget {
@@ -65,6 +67,12 @@ public:
         Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>::Zero();
     Eigen::Matrix<double, ypdrune_motion_model::X_N, 1> target_state_ =
         Eigen::Matrix<double, ypdrune_motion_model::X_N, 1>::Zero();
+        cv::Rect expanded(
+        Eigen::Matrix4d T_camera_to_odom,
+        const cv::Mat& camera_intrinsic,
+        const cv::Mat& camera_distortion,
+        const cv::Size& image_size
+    );
     bool update(const rune::RuneFan& fan);
     void predict(std::chrono::steady_clock::time_point t);
     void predict(double dt);
@@ -90,7 +98,7 @@ public:
         return roll;
     }
     inline bool checkTargetAppear() {
-        bool appear = is_tracking && time_utils::durationSec(timestamp_, time_utils::now()) < 5.0;
+        bool appear = is_tracking && time_utils::durationSec(timestamp_, time_utils::now()) <target_config_.lost_dt;
         return appear;
     }
     double predictAngle(std::chrono::steady_clock::time_point t) const {

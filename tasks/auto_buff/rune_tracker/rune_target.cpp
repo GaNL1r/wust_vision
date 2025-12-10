@@ -22,7 +22,7 @@ RuneTarget::RuneTarget(
     Eigen::DiagonalMatrix<double, ypdrune_motion_model::X_N> p0;
     p0.setIdentity();
     esekf_ypd_ = ypdrune_motion_model::RuneESKF(f, h, u_q, u_r, p0);
-    esekf_ypd_.setResidualFunc([](const Eigen::VectorXd& z, const Eigen::VectorXd& z_pred) {
+    esekf_ypd_.setResidualFunc([](const Eigen::VectorXd& z_pred, const Eigen::VectorXd& z) {
         Eigen::VectorXd r = z - z_pred;
         r[(int)ypdrune_motion_model::Mean::YPD_Y] = angles::shortest_angular_distance(
             z_pred[(int)ypdrune_motion_model::Mean::YPD_Y],
@@ -170,5 +170,75 @@ bool RuneTarget::update(const rune::RuneFan& fans) {
 
     return has_match;
 }
+cv::Rect RuneTarget::expanded(
+    Eigen::Matrix4d T_camera_to_odom,
+    const cv::Mat& camera_intrinsic,
+    const cv::Mat& camera_distortion,
+    const cv::Size& image_size
+) {
+    if (!is_inited
+        || time_utils::durationSec(timestamp_, time_utils::now()) > target_config_.lost_dt) {
+        return cv::Rect(0, 0, 0, 0);
+    }
 
+    const float car_box_half = 1.0;
+
+    static std::vector<cv::Point3f> CAR_BOX;
+    CAR_BOX = { { 0, car_box_half, -car_box_half },
+                { 0, -car_box_half, -car_box_half },
+                { 0, -car_box_half, car_box_half },
+                { 0, car_box_half, car_box_half } };
+
+    Eigen::Matrix4d T_odom_to_camera = T_camera_to_odom.inverse();
+    Eigen::Vector4d pos_odom(centerPos().x(), centerPos().y(), centerPos().z(), 1.0);
+    Eigen::Vector4d pos_cam = T_odom_to_camera * pos_odom;
+
+    if (pos_cam.z() <= 0.2) {
+        return cv::Rect(0, 0, 0, 0);
+    }
+
+    cv::Mat tvec = (cv::Mat_<double>(3, 1) << pos_cam.x(), pos_cam.y(), pos_cam.z());
+
+    Eigen::Vector3d euler;
+    euler.z() = M_PI / 2.0;
+    euler.y() = 0;
+    euler.x() = std::atan2(pos_odom.y(), pos_odom.x());
+
+    Eigen::Quaterniond ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
+    auto target_ori = utils::transformOrientation(ori, T_odom_to_camera);
+    Eigen::Matrix3d tf_rot = target_ori.toRotationMatrix();
+
+    cv::Mat rot_mat =
+        (cv::Mat_<double>(3, 3) << tf_rot(0, 0),
+         tf_rot(0, 1),
+         tf_rot(0, 2),
+         tf_rot(1, 0),
+         tf_rot(1, 1),
+         tf_rot(1, 2),
+         tf_rot(2, 0),
+         tf_rot(2, 1),
+         tf_rot(2, 2));
+
+    cv::Mat rvec;
+    cv::Rodrigues(rot_mat, rvec);
+
+    std::vector<cv::Point2f> pts_2d;
+    cv::projectPoints(CAR_BOX, rvec, tvec, camera_intrinsic, camera_distortion, pts_2d);
+
+    cv::Rect rect = cv::boundingRect(pts_2d);
+
+    cv::Rect img_rect(0, 0, image_size.width, image_size.height);
+    if ((rect & img_rect).area() <= 0) {
+        return cv::Rect(0, 0, 0, 0);
+    }
+
+    int cx = rect.x + rect.width / 2;
+    int cy = rect.y + rect.height / 2;
+    int side = std::max(rect.width, rect.height);
+
+    cv::Rect square(cx - side / 2, cy - side / 2, side, side);
+    square &= img_rect;
+
+    return square;
+}
 } // namespace rune

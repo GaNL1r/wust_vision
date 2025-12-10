@@ -72,7 +72,16 @@ struct AutoBuff::Impl {
     }
     void pushInput(CommonFrame& frame, bool is_big) {
         img_recv_count_++;
-
+        auto bbox = rune_target_.expanded(
+            T_camera_to_odom_,
+            camera_info_.first,
+            camera_info_.second,
+            frame.src_img.size()
+        );
+        if (bbox.area() > 100) {
+            frame.expanded = bbox;
+            frame.offset = cv::Point2f(bbox.x, bbox.y);
+        }
         rune_detector_->pushInput(frame, is_big);
     }
     void
