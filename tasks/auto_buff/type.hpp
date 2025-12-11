@@ -30,12 +30,15 @@ public:
     bool is_valid = false;
     bool has_refer = false;
 
-    void draw(cv::Mat& img) const {
+    void draw(cv::Mat& img,const cv::Point2f& offset) const {
         if (!is_valid || corners.size() < 3)
             return;
 
         std::vector<cv::Point2f> sorted_corners = corners;
-
+        for(auto &pt: sorted_corners)
+        {
+            pt += offset;
+        }
         // 画边
         for (size_t i = 0; i < sorted_corners.size(); ++i) {
             cv::line(
@@ -290,6 +293,13 @@ struct RuneFan {
         }
     };
     std::vector<Simple> fans;
+    void addOffset(const cv::Point2f& offset) {
+        for (auto& fan: fans) {
+            for (auto& point: fan.points2d) {
+                point += offset;
+            }
+        }
+    }
 };
 static std::vector<cv::Point3f> FAN_BLOCK = {
     { -0.05f, -0.20f, -0.15f }, // 0: 左下前

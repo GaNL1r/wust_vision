@@ -16,7 +16,7 @@ struct RuneTargetConfig {
     double yaw_r = 0.1;
     double roll_r = 0.1;
     double match_gate = 10;
-    double lost_dt=0.5;
+    double lost_dt = 0.5;
     // 从 YAML::Node 加载配置
     void loadFromYaml(const YAML::Node& node) {
         if (node["esekf_iter_num"])
@@ -67,7 +67,7 @@ public:
         Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>::Zero();
     Eigen::Matrix<double, ypdrune_motion_model::X_N, 1> target_state_ =
         Eigen::Matrix<double, ypdrune_motion_model::X_N, 1>::Zero();
-        cv::Rect expanded(
+    cv::Rect expanded(
         Eigen::Matrix4d T_camera_to_odom,
         const cv::Mat& camera_intrinsic,
         const cv::Mat& camera_distortion,
@@ -98,7 +98,8 @@ public:
         return roll;
     }
     inline bool checkTargetAppear() {
-        bool appear = is_tracking && time_utils::durationSec(timestamp_, time_utils::now()) <target_config_.lost_dt;
+        bool appear = is_tracking
+            && time_utils::durationSec(timestamp_, time_utils::now()) < target_config_.lost_dt;
         return appear;
     }
     double predictAngle(std::chrono::steady_clock::time_point t) const {

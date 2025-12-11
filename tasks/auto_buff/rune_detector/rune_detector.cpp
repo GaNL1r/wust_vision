@@ -44,20 +44,12 @@ cv::Mat RuneDetectorCV::preProcess(const cv::Mat& src, bool use_red) {
 inline rune::RuneCenter RuneDetectorCV::getRuneCenter(
     const std::vector<std::vector<cv::Point>>& contours,
     const std::vector<cv::Vec4i>& hierarchy,
+    cv::Size image_size,
+    cv::Point2f offset,
     cv::Mat& debug_img,
     std::vector<bool>& used_flags
 ) {
     rune::RuneCenter result;
-
-    auto inSearchROI = [](const cv::Point2f& pt, const cv::Point2f& ctr, float half) {
-        return fabs(pt.x - ctr.x) <= half && fabs(pt.y - ctr.y) <= half;
-    };
-
-    if (!debug_img.empty() && last_center.x > 0 && last_center.y > 0) {
-        cv::Point2f tl(last_center.x - search_half_size, last_center.y - search_half_size);
-        cv::Point2f br(last_center.x + search_half_size, last_center.y + search_half_size);
-        cv::rectangle(debug_img, tl, br, cv::Scalar(255, 0, 0), 2); // 蓝色 ROI
-    }
 
     struct Node {
         cv::Point2f center;
@@ -66,7 +58,6 @@ inline rune::RuneCenter RuneDetectorCV::getRuneCenter(
     };
 
     std::vector<Node> nodes;
-    nodes.reserve(20);
 
     for (int i = 0; i < contours.size(); i++) {
         if (used_flags[i])
@@ -74,27 +65,18 @@ inline rune::RuneCenter RuneDetectorCV::getRuneCenter(
         if (hierarchy[i][3] != -1)
             continue;
 
-        if (contours[i].empty())
-            continue;
-
-        cv::RotatedRect rr = cv::minAreaRect(contours[i]);
-        cv::Point2f center = rr.center;
-
-        if (last_center.x > 0 && last_center.y > 0) {
-            if (!inSearchROI(center, last_center, search_half_size))
-                continue;
-        }
-
         double area = cv::contourArea(contours[i]);
         if (area < params_.rune_center_min_area || area > params_.rune_center_max_area)
             continue;
 
+        cv::RotatedRect rr = cv::minAreaRect(contours[i]);
         float w = rr.size.width;
         float h = rr.size.height;
+
         if (w < 5 || h < 5)
             continue;
 
-        double ratio = (w > h) ? w / h : h / w;
+        double ratio = (w > h ? w / h : h / w);
         if (ratio - 1.0 > params_.rune_center_1x1ratio_tol)
             continue;
 
@@ -106,50 +88,36 @@ inline rune::RuneCenter RuneDetectorCV::getRuneCenter(
         if (fill_ratio < params_.rune_center_fill_ratio_min)
             continue;
 
-        nodes.push_back({ center, i, rr });
+        nodes.push_back({ rr.center, i, rr });
 
+        // debug 绿色框
         if (!debug_img.empty()) {
             cv::Point2f pts[4];
             rr.points(pts);
-            for (int k = 0; k < 4; k++)
-                cv::line(debug_img, pts[k], pts[(k + 1) % 4], cv::Scalar(0, 255, 0), 2);
+            for (int k = 0; k < 4; k++) {
+                cv::line(debug_img, pts[k]+offset, pts[(k + 1) % 4]+offset, cv::Scalar(0, 255, 0), 2);
+            }
         }
     }
 
-    if (nodes.empty()) {
-        search_half_size += 50;
-        if (search_half_size > SEARCH_MAX)
-            search_half_size = SEARCH_MAX;
-
+    if (nodes.empty())
         return result;
-    }
 
-    cv::Point2f global_center(0, 0);
-    for (auto& n: nodes) {
-        global_center.x += n.center.x;
-        global_center.y += n.center.y;
-    }
-    global_center.x /= nodes.size();
-    global_center.y /= nodes.size();
+
+    cv::Point2f img_center(
+        image_size.width * 0.5f,
+        image_size.height * 0.5f
+    );
+
 
     double best_dist = 1e18;
-    cv::RotatedRect best_rr;
     int best_idx = -1;
+    cv::RotatedRect best_rr;
 
-    for (auto& n: nodes) {
-        double dx, dy, dist2;
-
-        // ---- 优先使用 ROI 中心（last_center） ----
-        if (last_center.x > 0 && last_center.y > 0) {
-            dx = n.center.x - last_center.x;
-            dy = n.center.y - last_center.y;
-        } else {
-            // ---- 第一帧或没有上一次数据 → fallback 到原来 global_center ----
-            dx = n.center.x - global_center.x;
-            dy = n.center.y - global_center.y;
-        }
-
-        dist2 = dx * dx + dy * dy;
+    for (auto& n : nodes) {
+        double dx = n.center.x - img_center.x;
+        double dy = n.center.y - img_center.y;
+        double dist2 = dx * dx + dy * dy;
 
         if (dist2 < best_dist) {
             best_dist = dist2;
@@ -158,41 +126,20 @@ inline rune::RuneCenter RuneDetectorCV::getRuneCenter(
         }
     }
 
+ 
     if (!debug_img.empty()) {
-        cv::circle(debug_img, global_center, 4, cv::Scalar(0, 255, 255), -1);
+        cv::circle(debug_img, img_center+offset, 5, cv::Scalar(0, 255, 255), -1); // 图像中心
 
         cv::Point2f pts[4];
         best_rr.points(pts);
-        for (int k = 0; k < 4; k++)
-            cv::line(debug_img, pts[k], pts[(k + 1) % 4], cv::Scalar(0, 0, 255), 2);
+        for (int k = 0; k < 4; k++) {
+            cv::line(debug_img, pts[k]+offset, pts[(k + 1) % 4]+offset, cv::Scalar(0, 0, 255), 2);
+        }
     }
 
-    if (best_idx != -1) {
-        last_center = best_rr.center;
-        cv::Rect2f br = best_rr.boundingRect();
-
-        float bbox_half = std::max(br.width, br.height) * 0.5f;
-        SEARCH_MIN = bbox_half * 2.0f;
-
-        if (SEARCH_MIN < SEARCH_MIN_REAL)
-            SEARCH_MIN = SEARCH_MIN_REAL;
-
-        search_half_size -= 30;
-        if (search_half_size < SEARCH_MIN)
-            search_half_size = SEARCH_MIN;
-
-        if (search_half_size > SEARCH_MAX)
-            search_half_size = SEARCH_MAX;
-
-        return rune::RuneCenter(best_rr);
-    }
-
-    search_half_size += 50;
-    if (search_half_size > SEARCH_MAX)
-        search_half_size = SEARCH_MAX;
-
-    return result;
+    return rune::RuneCenter(best_rr);
 }
+
 
 inline int findTopParent(int idx, const std::vector<cv::Vec4i>& hierarchy) {
     int p = hierarchy[idx][3]; // parent
@@ -393,14 +340,13 @@ inline void RuneDetectorCV::markInvalidContours(
         cv::Rect inter = r & valid_rect;
         bool inside_region = (inter.area() > 0);
 
-        used_flags[i] = !invalid||!inside_region;
+        used_flags[i] = !invalid || !inside_region;
 
         if (!used_flags[i]) {
-            if (!debug_img.empty())
-                cv::drawContours(debug_img, contours, i, cv::Scalar(255, 0, 0), 2);
+            if (!debug_img.empty()) cv::drawContours(debug_img, contours, i, cv::Scalar(255, 0, 0), 2); 
         }
     }
-} 
+}
 
 void RuneDetectorCV::pushInput(CommonFrame& frame, bool is_big) {
     frame.id = current_id_++;
@@ -408,8 +354,8 @@ void RuneDetectorCV::pushInput(CommonFrame& frame, bool is_big) {
                         .timestamp = frame.timestamp,
                         .id = frame.id,
                         .is_big = is_big };
-
-    cv::Mat processed_img = preProcess(frame.src_img, frame.detect_color);
+    cv::Mat roi = frame.src_img(frame.expanded);
+    cv::Mat processed_img = preProcess(roi, frame.detect_color);
     cv::Mat debug_img;
     debug_img = frame.src_img.clone();
 
@@ -419,8 +365,16 @@ void RuneDetectorCV::pushInput(CommonFrame& frame, bool is_big) {
     cv::findContours(processed_img, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
     std::vector<bool> used_flags;
     used_flags.assign(contours.size(), false);
-    markInvalidContours(frame.src_img, debug_img, contours, used_flags,frame.expanded, frame.detect_color);
-    auto rune_center = getRuneCenter(contours, hierarchy, debug_img, used_flags);
+    markInvalidContours(
+        roi,
+        debug_img,
+        contours,
+        used_flags,
+        cv::Rect(0, 0, roi.cols, roi.rows),
+        frame.detect_color,
+        params_.color_diff_threshold
+    );
+    auto rune_center = getRuneCenter(contours, hierarchy,roi.size(),frame.offset, debug_img, used_flags);
     std::vector<rune::RunePan> rune_pans = markRuneTarget(contours, hierarchy, used_flags);
     double avg_pan_area = 0.0;
     for (auto& rune_pan: rune_pans) {
@@ -437,7 +391,7 @@ void RuneDetectorCV::pushInput(CommonFrame& frame, bool is_big) {
             fan.fans.push_back(simple);
         }
         if (!debug_img.empty())
-            rune_pan.draw(debug_img);
+            rune_pan.draw(debug_img,frame.offset);
     }
     rune::RuneFan tmp = fan;
     for (int i = 0; i < tmp.fans.size(); i++) {
@@ -448,7 +402,7 @@ void RuneDetectorCV::pushInput(CommonFrame& frame, bool is_big) {
             fan.fans[i].addOther(tmp.fans[j]);
         }
     }
-
+    fan.addOffset(frame.offset);
     if (callback_) {
         // cv::Mat img_copy = processed_img.clone();
         callback_(fan, frame, debug_img);

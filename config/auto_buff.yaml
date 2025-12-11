@@ -10,7 +10,7 @@ rune_detector:
   rune_target_cluster_radius: 70
 
   bin_threshold: 70
-  
+  color_diff_threshold: 40
 
 
 rune_optimize:

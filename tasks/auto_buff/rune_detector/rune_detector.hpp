@@ -16,6 +16,8 @@ public:
     inline rune::RuneCenter getRuneCenter(
         const std::vector<std::vector<cv::Point>>& contours,
         const std::vector<cv::Vec4i>& hierarchy,
+        cv::Size image_size,
+        cv::Point2f offset,
         cv::Mat& debug_img,
         std::vector<bool>& used_flags
     );
@@ -39,11 +41,6 @@ public:
     DetectorCallback callback_;
     cv::Mat tmp_R_;
     int current_id_ = 0;
-    cv::Point2f last_center = cv::Point2f(720, 540);
-    float search_half_size = 100.0f;
-    float SEARCH_MIN = 100.0f;
-    float SEARCH_MAX = 800.0f;
-    float SEARCH_MIN_REAL = 20.0f;
     inline bool inSearchROI(const cv::Point2f& pt, const cv::Point2f& center, float half_size) {
         return fabs(pt.x - center.x) <= half_size && fabs(pt.y - center.y) <= half_size;
     }
@@ -60,6 +57,7 @@ public:
         double rune_target_cluster_radius = 70.0;
 
         double bin_threshold = 150.0;
+        double color_diff_threshold = 40.0;
 
         void load(const YAML::Node& node) {
             // center params
@@ -92,6 +90,10 @@ public:
 
             bin_threshold =
                 node["bin_threshold"] ? node["bin_threshold"].as<double>() : bin_threshold;
+
+            color_diff_threshold = node["color_diff_threshold"]
+                ? node["color_diff_threshold"].as<double>()
+                : color_diff_threshold;
         }
     } params_;
 };

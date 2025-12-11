@@ -421,7 +421,6 @@ void drawDebugArmorContent(
         cv::Scalar(255, 255, 255),
         2
     );
-
 }
 static cv::Point2f normalize(const cv::Point2f& v) {
     float norm = std::sqrt(v.x * v.x + v.y * v.y);
