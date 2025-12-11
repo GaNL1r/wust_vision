@@ -5,6 +5,7 @@
 #include <opencv2/opencv.hpp>
 #include <optional>
 #include <shared_mutex>
+#include <yaml-cpp/yaml.h>
 
 #define OPENVINO_CONFIG "config/detect_openvino.yaml"
 #define TENSORRT_CONFIG "config/detect_trt.yaml"
@@ -290,4 +291,42 @@ struct GimbalCmd {
     bool appera = false;
     std::vector<Eigen::Vector4d> armor_posandyaw;
     AimTarget aim_target;
+};
+
+struct AutoExposureCfg {
+    bool enable = false;
+    double target_brightness = 20.0;
+    double tolerance = 5.0;
+    double step_gain = 10.0;
+    double decay_step = 1.0;
+    double exposure_min = 100.0;
+    double exposure_max = 2500.0;
+    double control_interval_ms = 300;
+
+    // 成员函数：从 YAML 加载配置
+    bool loadFromYaml(const YAML::Node& root) {
+        try {
+            if (root["enable"])
+                enable = root["enable"].as<bool>();
+            if (root["target_brightness"])
+                target_brightness = root["target_brightness"].as<double>();
+            if (root["tolerance"])
+                tolerance = root["tolerance"].as<double>();
+            if (root["step_gain"])
+                step_gain = root["step_gain"].as<double>();
+            if (root["decay_step"])
+                decay_step = root["decay_step"].as<double>();
+            if (root["exposure_min"])
+                exposure_min = root["exposure_min"].as<double>();
+            if (root["exposure_max"])
+                exposure_max = root["exposure_max"].as<double>();
+            if (root["control_interval_ms"])
+                control_interval_ms = root["control_interval_ms"].as<double>();
+
+            return true;
+        } catch (const YAML::Exception& e) {
+            std::cerr << "加载 YAML 配置失败: " << e.what() << std::endl;
+            return false;
+        }
+    }
 };

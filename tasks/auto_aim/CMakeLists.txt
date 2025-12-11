@@ -18,7 +18,7 @@ if(BUILD_WITH_ORT)
   list(APPEND BUILD_LIBS ${Ort_LIB})
 endif()
 add_subdirectory(armor_control/tinympc)
-list(APPEND BUILD_LIBS tinympcstatic TBB::tbb  ${CERES_LIBRARIES})
+list(APPEND BUILD_LIBS tinympcstatic TBB::tbb  ${CERES_LIBRARIES} ${WUST_VL_LIBS})
 
 add_library(auto_aim OBJECT)
 
@@ -53,7 +53,10 @@ target_sources(auto_aim PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/light_corner_corrector.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/number_classifier.cpp
 )
-
+target_include_directories(auto_aim PUBLIC
+    ${WUST_VL_INCLUDE_DIRS}
+    ${HikSDK_INCLUDE_DIR}
+)
 
 if(BUILD_WITH_OPENVINO)
     target_sources(auto_aim PRIVATE

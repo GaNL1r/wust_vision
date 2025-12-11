@@ -4,6 +4,7 @@
 #include "tasks/auto_buff/rune_optimize/ba_solver.hpp"
 #include "tasks/auto_buff/rune_tracker/rune_tracker.hpp"
 #include "tasks/utils.hpp"
+#include "wust_vl/video/camera.hpp"
 namespace auto_buff {
 
 struct AutoBuff::Impl {
@@ -57,7 +58,7 @@ struct AutoBuff::Impl {
         trajectory_compensator->resistance_ = resistance_;
         aimer_ = std::make_unique<rune::Aimer>(config["aimer"], trajectory_compensator);
         latency_averager_ = std::make_unique<Averager<double>>(100);
-
+        auto_exposure_cfg_.loadFromYaml(config_["auto_exposure"]);
         return true;
     }
     void start() {
@@ -82,6 +83,7 @@ struct AutoBuff::Impl {
             frame.expanded = bbox;
             frame.offset = cv::Point2f(bbox.x, bbox.y);
         }
+        expanded_ = frame.expanded;
         rune_detector_->pushInput(frame, is_big);
     }
     void
@@ -269,7 +271,38 @@ struct AutoBuff::Impl {
             last_stat_time_steady_ = now;
         }
     }
+    void autoExposureControl(const cv::Mat& frame, std::shared_ptr<wust_vl_video::Camera> camera) {
+        if (!auto_exposure_cfg_.enable||frame.empty()||frame(expanded_).empty()) {
+            return;
+        }
+        if (expanded_.area() < 100) {
+            return;
+        }
+        static auto last_update = std::chrono::steady_clock::now();
 
+        auto now = std::chrono::steady_clock::now();
+        double elapsed_ms =
+            std::chrono::duration_cast<std::chrono::milliseconds>(now - last_update).count();
+
+        if (elapsed_ms >= auto_exposure_cfg_.control_interval_ms) {
+            double brightness = utils::computeBrightness(frame(expanded_));
+            double diff = brightness - auto_exposure_cfg_.target_brightness;
+            const double exposure_min = auto_exposure_cfg_.exposure_min;
+            const double exposure_max = auto_exposure_cfg_.exposure_max;
+            double exposure_time = camera->getHikExposureTime();
+            if (fabs(diff) > auto_exposure_cfg_.tolerance && exposure_time > 0.0) {
+                exposure_time -= diff * auto_exposure_cfg_.step_gain;
+            } else {
+                exposure_time -= auto_exposure_cfg_.decay_step;
+            }
+            if (exposure_time < exposure_min)
+                exposure_time = exposure_min;
+            if (exposure_time > exposure_max)
+                exposure_time = exposure_max;
+            camera->setHikExposureTime(exposure_time);
+            last_update = now;
+        }
+    }
     std::mutex callback_mutex_;
     RuneDetectorCV::Ptr rune_detector_;
     std::unique_ptr<RuneTracker> rune_tracker_;
@@ -278,6 +311,8 @@ struct AutoBuff::Impl {
     std::string logger_ = "auto_buff";
     std::unique_ptr<OrderedQueue<rune::RuneFan>> rune_queue_;
     std::shared_ptr<wust_vl_concurrency::MonitoredThread> processing_thread_;
+    AutoExposureCfg auto_exposure_cfg_;
+    cv::Rect expanded_;
     rune::RuneTarget rune_target_;
     std::mutex rune_target_mutex_;
     bool run_flag_ = false;
@@ -354,5 +389,11 @@ void AutoBuff::processingWait() {
 }
 void AutoBuff::processingUp() {
     _impl->processing_thread_->resume();
+}
+void AutoBuff::autoExposureControl(
+    const cv::Mat& frame,
+    std::shared_ptr<wust_vl_video::Camera> camera
+) {
+    _impl->autoExposureControl(frame, camera);
 }
 } // namespace auto_buff

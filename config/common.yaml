@@ -25,15 +25,6 @@ shoot:
   rate: 7
   controller_delay: 0.00
 
-auto_exposure:
-  enable: true
-  target_brightness: 15.0
-  tolerance: 3.0
-  step_gain: 15.0
-  decay_step: 1.0
-  exposure_min: 100.0
-  exposure_max: 2500.0
-  control_interval_ms: 300
 
 record:
   use_record: false

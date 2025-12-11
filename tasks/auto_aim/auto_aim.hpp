@@ -7,6 +7,7 @@
 #include "wust_vl/common/concurrency/queues.hpp"
 #include "wust_vl/common/utils/config_binder.hpp"
 #include "wust_vl/common/utils/timer.hpp"
+#include "wust_vl/video/camera.hpp"
 #include "yaml-cpp/yaml.h"
 namespace auto_aim {
 struct AutoAimShared {
@@ -44,6 +45,7 @@ public:
     bool isActive();
     void processingWait();
     void processingUp();
+    void autoExposureControl(const cv::Mat& frame, std::shared_ptr<wust_vl_video::Camera> camera);
     struct Impl;
     std::unique_ptr<Impl> _impl;
 };

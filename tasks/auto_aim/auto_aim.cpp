@@ -4,6 +4,7 @@
 #include "tasks/auto_aim/armor_control/shooter.hpp"
 #include "tasks/utils.hpp"
 #include "wust_vl/common/concurrency/queues.hpp"
+#include "wust_vl/video/camera.hpp"
 namespace auto_aim {
 struct AutoAim::Impl {
     ~Impl() {
@@ -122,6 +123,7 @@ struct AutoAim::Impl {
         max_detect_armors_ = config_["max_detect_armors"].as<int>(10);
         armor_queue_ = std::make_unique<OrderedQueue<armor::Armors>>(10, 500);
         latency_averager_ = std::make_unique<Averager<double>>(100);
+        auto_exposure_cfg_.loadFromYaml(config_["auto_exposure"]);
         return true;
     }
     void start() {
@@ -148,6 +150,7 @@ struct AutoAim::Impl {
             frame.expanded = bbox;
             frame.offset = cv::Point2f(bbox.x, bbox.y);
         }
+        expanded_ = frame.expanded;
 
         if (armor_detector_) {
             armor_detector_->pushInput(frame);
@@ -375,7 +378,6 @@ struct AutoAim::Impl {
                                << ", Found: " << tracker_manager_->tracker_v3_->found_count_
                                << ", Found_ratio: " << found_ratio;
 
-            //camera_->setHikExposureTime(exposure_time);
             img_recv_count_ = 0;
             detect_finish_count_ = 0;
             fire_count_ = 0;
@@ -386,7 +388,41 @@ struct AutoAim::Impl {
             last_stat_time_steady_ = now;
         }
     }
+    void autoExposureControl(const cv::Mat& frame, std::shared_ptr<wust_vl_video::Camera> camera) {
+        if (!auto_exposure_cfg_.enable || frame.empty() || frame(expanded_).empty()) {
+            return;
+        }
+        if (expanded_.area() < 100) {
+            return;
+        }
 
+        static auto last_update = std::chrono::steady_clock::now();
+
+        auto now = std::chrono::steady_clock::now();
+        double elapsed_ms =
+            std::chrono::duration_cast<std::chrono::milliseconds>(now - last_update).count();
+
+        if (elapsed_ms >= auto_exposure_cfg_.control_interval_ms) {
+            double brightness = utils::computeBrightness(frame(expanded_));
+
+            double diff = brightness - auto_exposure_cfg_.target_brightness;
+            const double exposure_min = auto_exposure_cfg_.exposure_min;
+            const double exposure_max = auto_exposure_cfg_.exposure_max;
+            double exposure_time = camera->getHikExposureTime();
+            if (fabs(diff) > auto_exposure_cfg_.tolerance && exposure_time > 0.0) {
+                exposure_time -= diff * auto_exposure_cfg_.step_gain;
+            } else {
+                exposure_time -= auto_exposure_cfg_.decay_step;
+            }
+            if (exposure_time < exposure_min)
+                exposure_time = exposure_min;
+            if (exposure_time > exposure_max)
+                exposure_time = exposure_max;
+            camera->setHikExposureTime(exposure_time);
+            
+            last_update = now;
+        }
+    }
     std::unique_ptr<ArmorDetectorBase> armor_detector_;
     std::unique_ptr<TrackerManager> tracker_manager_;
     std::string logger_ = "auto_aim";
@@ -398,6 +434,8 @@ struct AutoAim::Impl {
     std::unique_ptr<Planner> planner_;
     std::unique_ptr<ArmorPoseEstimator> armor_pose_estimator_;
     AutoAimFsmController auto_aim_fsm_cl_;
+    AutoExposureCfg auto_exposure_cfg_;
+    cv::Rect expanded_;
     GimbalCmd last_cmd_;
     int max_detect_armors_;
     bool run_flag_ = false;
@@ -476,5 +514,11 @@ void AutoAim::processingWait() {
 }
 void AutoAim::processingUp() {
     _impl->processing_thread_->resume();
+}
+void AutoAim::autoExposureControl(
+    const cv::Mat& frame,
+    std::shared_ptr<wust_vl_video::Camera> camera
+) {
+    _impl->autoExposureControl(frame, camera);
 }
 } // namespace auto_aim

@@ -30,13 +30,12 @@ public:
     bool is_valid = false;
     bool has_refer = false;
 
-    void draw(cv::Mat& img,const cv::Point2f& offset) const {
+    void draw(cv::Mat& img, const cv::Point2f& offset) const {
         if (!is_valid || corners.size() < 3)
             return;
 
         std::vector<cv::Point2f> sorted_corners = corners;
-        for(auto &pt: sorted_corners)
-        {
+        for (auto& pt: sorted_corners) {
             pt += offset;
         }
         // 画边

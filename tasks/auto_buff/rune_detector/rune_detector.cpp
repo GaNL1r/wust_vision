@@ -95,7 +95,13 @@ inline rune::RuneCenter RuneDetectorCV::getRuneCenter(
             cv::Point2f pts[4];
             rr.points(pts);
             for (int k = 0; k < 4; k++) {
-                cv::line(debug_img, pts[k]+offset, pts[(k + 1) % 4]+offset, cv::Scalar(0, 255, 0), 2);
+                cv::line(
+                    debug_img,
+                    pts[k] + offset,
+                    pts[(k + 1) % 4] + offset,
+                    cv::Scalar(0, 255, 0),
+                    2
+                );
             }
         }
     }
@@ -103,18 +109,13 @@ inline rune::RuneCenter RuneDetectorCV::getRuneCenter(
     if (nodes.empty())
         return result;
 
-
-    cv::Point2f img_center(
-        image_size.width * 0.5f,
-        image_size.height * 0.5f
-    );
-
+    cv::Point2f img_center(image_size.width * 0.5f, image_size.height * 0.5f);
 
     double best_dist = 1e18;
     int best_idx = -1;
     cv::RotatedRect best_rr;
 
-    for (auto& n : nodes) {
+    for (auto& n: nodes) {
         double dx = n.center.x - img_center.x;
         double dy = n.center.y - img_center.y;
         double dist2 = dx * dx + dy * dy;
@@ -126,20 +127,24 @@ inline rune::RuneCenter RuneDetectorCV::getRuneCenter(
         }
     }
 
- 
     if (!debug_img.empty()) {
-        cv::circle(debug_img, img_center+offset, 5, cv::Scalar(0, 255, 255), -1); // 图像中心
+        cv::circle(debug_img, img_center + offset, 5, cv::Scalar(0, 255, 255), -1); // 图像中心
 
         cv::Point2f pts[4];
         best_rr.points(pts);
         for (int k = 0; k < 4; k++) {
-            cv::line(debug_img, pts[k]+offset, pts[(k + 1) % 4]+offset, cv::Scalar(0, 0, 255), 2);
+            cv::line(
+                debug_img,
+                pts[k] + offset,
+                pts[(k + 1) % 4] + offset,
+                cv::Scalar(0, 0, 255),
+                2
+            );
         }
     }
 
     return rune::RuneCenter(best_rr);
 }
-
 
 inline int findTopParent(int idx, const std::vector<cv::Vec4i>& hierarchy) {
     int p = hierarchy[idx][3]; // parent
@@ -343,7 +348,8 @@ inline void RuneDetectorCV::markInvalidContours(
         used_flags[i] = !invalid || !inside_region;
 
         if (!used_flags[i]) {
-            if (!debug_img.empty()) cv::drawContours(debug_img, contours, i, cv::Scalar(255, 0, 0), 2); 
+            if (!debug_img.empty())
+                cv::drawContours(debug_img, contours, i, cv::Scalar(255, 0, 0), 2);
         }
     }
 }
@@ -374,7 +380,8 @@ void RuneDetectorCV::pushInput(CommonFrame& frame, bool is_big) {
         frame.detect_color,
         params_.color_diff_threshold
     );
-    auto rune_center = getRuneCenter(contours, hierarchy,roi.size(),frame.offset, debug_img, used_flags);
+    auto rune_center =
+        getRuneCenter(contours, hierarchy, roi.size(), frame.offset, debug_img, used_flags);
     std::vector<rune::RunePan> rune_pans = markRuneTarget(contours, hierarchy, used_flags);
     double avg_pan_area = 0.0;
     for (auto& rune_pan: rune_pans) {
@@ -391,7 +398,7 @@ void RuneDetectorCV::pushInput(CommonFrame& frame, bool is_big) {
             fan.fans.push_back(simple);
         }
         if (!debug_img.empty())
-            rune_pan.draw(debug_img,frame.offset);
+            rune_pan.draw(debug_img, frame.offset);
     }
     rune::RuneFan tmp = fan;
     for (int i = 0; i < tmp.fans.size(); i++) {

@@ -588,5 +588,9 @@ inline std::string expandEnv(const std::string& s) {
     }
     return result;
 }
-
+inline double computeBrightness(const cv::Mat& frame) {
+    cv::Mat gray;
+    cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+    return cv::mean(gray)[0];
+}
 } // namespace utils

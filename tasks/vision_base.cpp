@@ -62,7 +62,7 @@ bool VisionBase::init(bool debug_mode) {
     R_camera2gimbal_ = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(R_vec.data());
 
     YAML::Node camera_config = YAML::LoadFile(camera_config_);
-    camera_ = std::make_unique<wust_vl_video::Camera>();
+    camera_ = std::make_shared<wust_vl_video::Camera>();
     camera_->init(camera_config);
     camera_->setFrameCallback(std::bind(&VisionBase::frameCallback, this, std::placeholders::_1));
     std::string camera_info_path =
@@ -150,7 +150,7 @@ bool VisionBase::init(bool debug_mode) {
 
     timer_ = std::make_unique<Timer>();
     detect_color_ = config_["detect_color"].as<int>(0);
-    auto_exposure_cfg_.loadFromYaml(config_["auto_exposure"]);
+
     if (auto_aim_) {
         auto_aim_->setDebug(debug_mode_);
     }
@@ -243,38 +243,22 @@ void VisionBase::processAimData(const ReceiveAimINFO& aim_data) {
         last_push_time = now;
     }
 }
-double computeBrightness(const cv::Mat& frame) {
-    cv::Mat gray;
-    cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
-    return cv::mean(gray)[0];
-}
+
 void VisionBase::autoExposureControl(const cv::Mat& frame) {
-    if (!auto_exposure_cfg_.enable) {
-        return;
-    }
-    static auto last_update = std::chrono::steady_clock::now();
-
-    auto now = std::chrono::steady_clock::now();
-    double elapsed_ms =
-        std::chrono::duration_cast<std::chrono::milliseconds>(now - last_update).count();
-
-    if (elapsed_ms >= auto_exposure_cfg_.control_interval_ms) {
-        double brightness = computeBrightness(frame);
-        double diff = brightness - auto_exposure_cfg_.target_brightness;
-        const double exposure_min = auto_exposure_cfg_.exposure_min;
-        const double exposure_max = auto_exposure_cfg_.exposure_max;
-        double exposure_time = camera_->getHikExposureTime();
-        if (fabs(diff) > auto_exposure_cfg_.tolerance && exposure_time > 0.0) {
-            exposure_time -= diff * auto_exposure_cfg_.step_gain;
-        } else {
-            exposure_time -= auto_exposure_cfg_.decay_step;
-        }
-        if (exposure_time < exposure_min)
-            exposure_time = exposure_min;
-        if (exposure_time > exposure_max)
-            exposure_time = exposure_max;
-        camera_->setHikExposureTime(exposure_time);
-        last_update = now;
+    AttackMode mode = toAttackMode(attack_mode_);
+    switch (mode) {
+        case AttackMode::ARMOR: {
+            auto_aim_->autoExposureControl(frame, camera_);
+        } break;
+        case AttackMode::SMALL_RUNE: {
+            auto_buff_->autoExposureControl(frame, camera_);
+        } break;
+        case AttackMode::BIG_RUNE: {
+            auto_buff_->autoExposureControl(frame, camera_);
+        } break;
+        case AttackMode::UNKNOWN: {
+            auto_aim_->autoExposureControl(frame, camera_);
+        } break;
     }
 }
 void VisionBase::frameCallback(wust_vl_video::ImageFrame& frame) {
