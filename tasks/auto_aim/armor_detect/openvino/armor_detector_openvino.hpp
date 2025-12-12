@@ -14,16 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #pragma once
-#include "eigen3/Eigen/Dense"
-#include "fmt/color.h"
-#include "fmt/core.h"
-#include "fmt/printf.h"
-#include "opencv2/opencv.hpp"
-#include "openvino/openvino.hpp"
 #include "tasks/auto_aim/armor_detect/armor_detect_common.hpp"
 #include "tasks/auto_aim/armor_detect/armor_infer.hpp"
-#include "wust_vl/common/concurrency/ThreadPool.h"
-#include "wust_vl/common/utils/logger.hpp"
 #include "wust_vl/ml_net/openvino/openvino_net.hpp"
 #include <filesystem>
 class ArmorDetectOpenVino {

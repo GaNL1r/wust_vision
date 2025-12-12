@@ -1,6 +1,6 @@
 #pragma once
 #include "tasks/auto_aim/armor_tracker/target.hpp"
-#include "tasks/auto_aim/armor_tracker/tracker.hpp"
+#include "tasks/auto_aim/auto_aim_fsm.hpp"
 #include "tasks/auto_aim/type.hpp"
 #include "tasks/auto_buff/rune_tracker/rune_target.hpp"
 #include "tasks/auto_buff/type.hpp"

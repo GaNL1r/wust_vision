@@ -1,6 +1,5 @@
 #pragma once
 #include "tasks/auto_guidance/guidance_detector/detector_base.hpp"
-#include "wust_vl/common/utils/logger.hpp"
 
 namespace auto_guidance {
 class GuidanceDetectorOpenCV: public detector_base {

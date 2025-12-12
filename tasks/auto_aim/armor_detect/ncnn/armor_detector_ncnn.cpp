@@ -1,6 +1,4 @@
 #include "tasks/auto_aim/armor_detect/ncnn/armor_detector_ncnn.hpp"
-#include "tasks/auto_aim/armor_detect/armor_infer.hpp"
-#include "wust_vl/common/utils/logger.hpp"
 #include <ncnn/simpleomp.h>
 static ncnn::Mat letterbox_to_ncnn(
     const cv::Mat& img,

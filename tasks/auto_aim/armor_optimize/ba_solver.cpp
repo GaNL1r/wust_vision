@@ -16,16 +16,8 @@
 // limitations under the License.
 
 #include "ba_solver.hpp"
-// std
-#include <iostream>
-#include <memory>
-
-// 3rd party
-#include <Eigen/Core>
 #include <opencv2/core/eigen.hpp>
-// project
-#include "tasks/utils.hpp"
-#include "wust_vl/common/utils/logger.hpp"
+
 
 BaSolver::BaSolver(const YAML::Node& config, const cv::Mat& camera_matrix) {
     cv::cv2eigen(camera_matrix, K_);

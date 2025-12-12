@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "tracker_manager.hpp"
-#include "tasks/auto_aim/type.hpp"
-#include "tasks/utils.hpp"
+
 TrackerManager::TrackerManager(
     const YAML::Node& config_,
     std::shared_ptr<wust_vl_utils::ConfigBinder> config_binder

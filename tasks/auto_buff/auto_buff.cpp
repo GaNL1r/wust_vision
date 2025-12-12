@@ -272,7 +272,7 @@ struct AutoBuff::Impl {
         }
     }
     void autoExposureControl(const cv::Mat& frame, std::shared_ptr<wust_vl_video::Camera> camera) {
-        if (!auto_exposure_cfg_.enable||frame.empty()||frame(expanded_).empty()) {
+        if (!auto_exposure_cfg_.enable || frame.empty() || frame(expanded_).empty()) {
             return;
         }
         if (expanded_.area() < 100) {

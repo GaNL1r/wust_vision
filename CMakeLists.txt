@@ -4,8 +4,17 @@ project(wust_vision LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
 set(CMAKE_UNITY_BUILD ON)
+set(CMAKE_UNITY_BUILD_BATCH_SIZE 16) 
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON) 
+add_compile_options(
+    -O3              
+    -march=native     
+    -mtune=native
+    -ffast-math       
+    -funroll-loops  
+)
+add_link_options(-O3 -flto)  
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 set(CMAKE_BUILD_TYPE "Release")
 message(STATUS "--------------------CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}--------------------")
@@ -26,7 +35,6 @@ find_package(fmt         REQUIRED)
 find_package(yaml-cpp    REQUIRED)
 find_package(Ceres       REQUIRED)
 find_package(HikSDK      REQUIRED)
-find_package(TBB         REQUIRED)
 if(BUILD_WITH_OPENVINO)
     find_package(OpenVINO REQUIRED COMPONENTS Runtime ONNX)
 endif()
@@ -93,8 +101,10 @@ target_link_libraries(standard
 add_executable(dart src/dart.cpp)
 target_link_libraries(dart
     project_min_deps
+    yaml-cpp
     $<TARGET_OBJECTS:auto_guidance>
     ${WUST_auto_guidance_LIBS}
+    
 )
 
 add_executable(test_usbcamera test/test_usbcamera.cpp)
@@ -128,7 +138,6 @@ endif()
 if(ROS2_FULL_FOUND)
   message(STATUS "ROS2 full environment found, compiling test_ros2 and sentry.")
   include_directories(${geometry_msgs_INCLUDE_DIRS} ${sensor_msgs_INCLUDE_DIRS} ${rclcpp_INCLUDE_DIRS} ${rcl_interfaces_INCLUDE_DIRS} ${tf2_ros_INCLUDE_DIRS} ${wust_interfaces_INCLUDE_DIRS} )
-
 
   add_executable(sentry src/sentry.cpp)
   target_link_libraries(sentry

@@ -1,14 +1,10 @@
 #pragma once
-#include "tasks/auto_aim/armor_detect/armor_pose_estimator.hpp"
-#include "tasks/auto_aim/armor_detect/detector_factory.hpp"
-#include "tasks/auto_aim/armor_tracker/tracker_manager.hpp"
+
 #include "tasks/debug.hpp"
 #include "tasks/type_common.hpp"
-#include "wust_vl/common/concurrency/queues.hpp"
 #include "wust_vl/common/utils/config_binder.hpp"
-#include "wust_vl/common/utils/timer.hpp"
 #include "wust_vl/video/camera.hpp"
-#include "yaml-cpp/yaml.h"
+
 namespace auto_aim {
 struct AutoAimShared {
     std::shared_ptr<MotionBufferGeneric<Motion, 1024>> motion_buffer;

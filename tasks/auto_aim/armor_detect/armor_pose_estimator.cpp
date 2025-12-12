@@ -14,11 +14,8 @@
 // limitations under the License.
 
 #include "armor_pose_estimator.hpp"
-
 #include "tasks/utils.hpp"
 #include "wust_vl/common/utils/logger.hpp"
-#include "yaml-cpp/yaml.h"
-#include <iostream>
 
 ArmorPoseEstimator::ArmorPoseEstimator(
     const YAML::Node& config,

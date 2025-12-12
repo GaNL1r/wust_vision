@@ -1,6 +1,4 @@
 #include "target.hpp"
-#include "wust_vl/common/utils/math.hpp"
-#include <wust_vl/common/utils/timer.hpp>
 Target::Target() {
     target_state_ = Eigen::VectorXd::Zero(ypdv2armor_motion_model::X_N);
 }

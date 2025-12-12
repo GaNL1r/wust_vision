@@ -14,7 +14,6 @@
 #pragma once
 #include "tasks/auto_aim/type.hpp"
 #include "tasks/type_common.hpp"
-#include <opencv2/core/mat.hpp>
 
 class ArmorDetectorBase {
 public:

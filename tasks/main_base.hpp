@@ -48,6 +48,7 @@ inline int runVisionMain(int argc, char** argv) {
         {
             T v;
             v.init(debug);
+            std::cout << "Starting program..." << std::endl;
             v.start();
 
             SignalHandler sig;

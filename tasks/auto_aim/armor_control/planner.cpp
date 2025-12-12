@@ -1,5 +1,6 @@
 #include "planner.hpp"
 #include <wust_vl/common/utils/timer.hpp>
+
 inline double rad2deg(double r) {
     return r / M_PI * 180.0;
 }

@@ -1,7 +1,6 @@
 #pragma once
 #include "tasks/auto_guidance/guidance_detector/detector_base.hpp"
 #include "tasks/auto_guidance/guidance_detector/green_light_infer.hpp"
-#include "wust_vl/common/utils/logger.hpp"
 #include "wust_vl/ml_net/openvino/openvino_net.hpp"
 namespace auto_guidance {
 class GuidanceDetectorOpenVino: public detector_base {

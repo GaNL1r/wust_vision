@@ -1,6 +1,5 @@
 #include "guidance_target.hpp"
-#include <opencv2/tracking.hpp>
-#include <wust_vl/common/utils/timer.hpp>
+
 
 namespace auto_guidance {
 GuidanceTarget::GuidanceTarget() {

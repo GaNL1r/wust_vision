@@ -111,11 +111,13 @@ void drawDebugArmorContent(
                                                                                           : 0.2618;
                     euler.x() = armors_posandyaw[i][3];
                     Eigen::Quaterniond ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
-                    armor_data.armors.emplace_back(armor::Armor { .type = armor_target.type_,
-                                                                  .pos = pos,
-                                                                  .ori = ori,
-                                                                  .id = static_cast<int>(i),
-                                                                  .is_ok = true });
+                    armor_data.armors.emplace_back(armor::Armor {
+                        .type = armor_target.type_,
+                        .pos = pos,
+                        .ori = ori,
+                        .is_ok = true,
+                        .id = (int)(i),
+                    });
                 }
             }
         }

@@ -1,5 +1,4 @@
 #!/bin/bash
-# 基于脚本路径的构建与运行脚本（完全不依赖 cd）
 
 WORK_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="$WORK_DIR/build"
@@ -40,8 +39,9 @@ fi
 # --- 主逻辑区 ---
 if [[ "$1" == "build" || "$1" == "rebuild" || "$1" == "run" ]]; then
 
-    echo -e "${yellow}<--- Start CMake --->${reset}"
+    echo -e "${yellow}<--- Start CMake (Ninja) --->${reset}"
     cmake -S "$WORK_DIR" -B "$BUILD_DIR" \
+      -G Ninja \
       -DCMAKE_EXPORT_COMPILE_COMMANDS=YES \
       -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang \
       -DCMAKE_BUILD_TYPE=Release \
@@ -52,11 +52,10 @@ if [[ "$1" == "build" || "$1" == "rebuild" || "$1" == "run" ]]; then
         exit 1
     fi
 
-    echo -e "${yellow}\n<--- Start Make --->${reset}"
-    max_threads=$(grep -c "processor" /proc/cpuinfo)
-    make -C "$BUILD_DIR" -j "$max_threads"
+    echo -e "${yellow}\n<--- Start Ninja Build --->${reset}"
+    ninja -C "$BUILD_DIR"
     if [ $? -ne 0 ]; then
-        echo -e "${red}\n--- Make Failed ---${reset}"
+        echo -e "${red}\n--- Ninja Build Failed ---${reset}"
         exit 1
     fi
 
@@ -85,13 +84,12 @@ if [[ "$1" == "build" || "$1" == "rebuild" || "$1" == "run" ]]; then
     fi
 
     # Run mode
-        if [ "$1" == "run" ]; then
+    if [ "$1" == "run" ]; then
         echo -e "${yellow}\n<--- Running WUST_VISION --->${reset}"
         RUN_PROGRAM="$BIN_DIR/$2"
         ORIGINAL_ARGS=("$@")
         shift 2
 
-        # 运行程序
         "$RUN_PROGRAM" "$@"
         RET=$?
         set -- "${ORIGINAL_ARGS[@]}"
@@ -100,7 +98,6 @@ if [[ "$1" == "build" || "$1" == "rebuild" || "$1" == "run" ]]; then
         if [ $RET -ne 0 ]; then
             echo -e "${red}\n--- Program crashed, running guard.sh ---${reset}"
             
-            # 杀掉残留进程
             pkill "$2"
             timeout=10
             while pgrep "$2" > /dev/null; do
@@ -113,7 +110,6 @@ if [[ "$1" == "build" || "$1" == "rebuild" || "$1" == "run" ]]; then
                 fi
             done
 
-            # 调用守护脚本
             GUARD_SCRIPT="$CONFIG_DIR/guard.sh"
             TARGET_PATH="$RUN_PROGRAM"
 
@@ -123,18 +119,15 @@ if [[ "$1" == "build" || "$1" == "rebuild" || "$1" == "run" ]]; then
             fi
 
             echo -e "${yellow}Starting guard.sh ...${reset}"
-            exec "$GUARD_SCRIPT" "$TARGET_PATH" "$@"    # ★ 用 exec 交给守护脚本
+            exec "$GUARD_SCRIPT" "$TARGET_PATH" "$@"
         fi
     fi
-
 
     echo -e "${yellow}<----- OVER ----->${reset}"
 
 else
-    # ⚠️ 参数不符合选项时发出警告提示但不执行任何操作
     echo -e "${yellow}Warning:${reset} Invalid argument '$1'."
     echo -e "${yellow}Usage:${reset} $0 {build|rebuild|run <program> [args...]}"
     echo -e "${yellow}No action performed.${reset}"
     exit 0
 fi
-

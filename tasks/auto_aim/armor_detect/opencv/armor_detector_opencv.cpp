@@ -19,24 +19,7 @@
 // limitations under the License.
 
 #include "tasks/auto_aim/armor_detect/opencv/armor_detector_opencv.hpp"
-// std
-#include <algorithm>
-#include <cmath>
-#include <execution>
-#include <iostream>
-#include <vector>
-// OpenCV
-#include <opencv2/core.hpp>
-#include <opencv2/core/base.hpp>
-#include <opencv2/core/mat.hpp>
-#include <opencv2/core/types.hpp>
-#include <opencv2/highgui.hpp>
-#include <opencv2/imgproc.hpp>
-// project
 #include "tasks/auto_aim/armor_detect/armor_infer.hpp"
-#include "wust_vl/common/utils/logger.hpp"
-#include "wust_vl/common/utils/timer.hpp"
-#include <fmt/core.h>
 ArmorDetectOpenCV::ArmorDetectOpenCV(
     const std::string& classify_model_path,
     const std::string& classify_label_path,
@@ -57,6 +40,7 @@ std::vector<armor::ArmorObject>
 ArmorDetectOpenCV::detect(const cv::Mat& input, int detect_color) noexcept {
     if (input.empty())
         return {};
+
     std::vector<armor::Light> lights_;
 
     cv::Mat binary_img, gray_img;
@@ -64,45 +48,40 @@ ArmorDetectOpenCV::detect(const cv::Mat& input, int detect_color) noexcept {
     lights_ = findLights(input, binary_img);
     std::vector<armor::ArmorObject> armors = matchLights(lights_, detect_color);
     std::vector<armor::ArmorObject> valid_armors;
-    std::mutex valid_mutex;
 
-    std::for_each(
-        std::execution::par_unseq,
-        armors.begin(),
-        armors.end(),
-        [this, &input, gray_img, &valid_armors, &valid_mutex](armor::ArmorObject& armor) {
-            try {
-                armor.number_img = extractNumber(gray_img, armor);
-                if (armor.number_img.empty())
-                    return;
+    for (auto& armor : armors) {
+        try {
+            armor.number_img = extractNumber(gray_img, armor);
+            if (armor.number_img.empty())
+                continue;
 
-                if (!number_classifier_->classifyNumber(armor))
-                    return;
+            if (!number_classifier_->classifyNumber(armor))
+                continue;
 
-                if (armor.confidence < classifier_threshold_)
-                    return;
-                if (armor.number != armor::ArmorNumber::NO1
-                    && armor.number != armor::ArmorNumber::BASE
-                    && armor.type == armor::ArmorType::LARGE)
-                {
-                    return;
-                }
-                if (corner_corrector_) {
-                    corner_corrector_->correctCorners(armor, gray_img);
-                }
-                {
-                    std::lock_guard<std::mutex> lock(valid_mutex);
-                    valid_armors.push_back(armor);
-                }
+            if (armor.confidence < classifier_threshold_)
+                continue;
 
-            } catch (const std::exception& e) {
-                std::cerr << "[detect] Exception: " << e.what() << std::endl;
+            if (armor.number != armor::ArmorNumber::NO1
+                && armor.number != armor::ArmorNumber::BASE
+                && armor.type == armor::ArmorType::LARGE)
+            {
+                continue;
             }
+
+            if (corner_corrector_) {
+                corner_corrector_->correctCorners(armor, gray_img);
+            }
+
+            valid_armors.push_back(armor);
+
+        } catch (const std::exception& e) {
+            std::cerr << "[detect] Exception: " << e.what() << std::endl;
         }
-    );
+    }
 
     return valid_armors;
 }
+
 
 std::tuple<cv::Mat, cv::Mat> ArmorDetectOpenCV::preprocessImage(const cv::Mat& img) noexcept {
     cv::Mat gray_img;

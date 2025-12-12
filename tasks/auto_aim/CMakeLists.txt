@@ -7,7 +7,7 @@ if(BUILD_WITH_OPENVINO)
 endif()
 if(BUILD_WITH_TRT)
   list(APPEND BUILD_DEFINITIONS USE_TRT)
-  list(APPEND BUILD_LIBS TensorRT::TensorRT CUDA::cudart /home/hy/TensorRT-10.6.0.26/lib/libnvonnxparser.so cuda_infer)
+  list(APPEND BUILD_LIBS TensorRT::TensorRT TensorRT::nvonnxparser  CUDA::cudart  cuda_infer)
 endif()
 if(BUILD_WITH_NCNN)
   list(APPEND BUILD_DEFINITIONS USE_NCNN)
@@ -18,7 +18,7 @@ if(BUILD_WITH_ORT)
   list(APPEND BUILD_LIBS ${Ort_LIB})
 endif()
 add_subdirectory(armor_control/tinympc)
-list(APPEND BUILD_LIBS tinympcstatic TBB::tbb  ${CERES_LIBRARIES} ${WUST_VL_LIBS})
+list(APPEND BUILD_LIBS tinympcstatic   ${CERES_LIBRARIES} ${WUST_VL_LIBS})
 
 add_library(auto_aim OBJECT)
 
@@ -37,11 +37,7 @@ target_sources(auto_aim PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_control/aimer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_control/shooter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_control/planner.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/one_ca_tracker.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/one_tracker.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/tracker_manager.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/tracker.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/trackerv2.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/trackerv3.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/target.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_optimize/ba_solver.cpp

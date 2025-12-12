@@ -4,7 +4,6 @@
 #include <atomic>
 #include <ceres/ceres.h>
 #include <cmath>
-#include <future>
 #include <iostream>
 #include <limits>
 #include <mutex>

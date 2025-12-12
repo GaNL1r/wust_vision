@@ -1,10 +1,7 @@
 #pragma once
-#include "3rdparty/angles.h"
-#include "auto_aim_fsm.hpp"
 #include "tasks/type_common.hpp"
 #include <array>
 #include <numeric>
-#include <opencv2/opencv.hpp>
 #include <yaml-cpp/yaml.h>
 constexpr double SMALL_ARMOR_WIDTH = 133.0 / 1000.0; // 135
 constexpr double SMALL_ARMOR_HEIGHT = 50.0 / 1000.0; // 55

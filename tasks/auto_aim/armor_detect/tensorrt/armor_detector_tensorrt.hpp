@@ -15,19 +15,10 @@
 
 #pragma once
 
-#include <memory>
-#include <string>
-#include <vector>
-
-#include "Eigen/Dense"
 #include "cuda_infer/armor_infer.hpp"
-#include "opencv2/opencv.hpp"
 #include "tasks/auto_aim/armor_detect/armor_detect_common.hpp"
 #include "tasks/auto_aim/armor_detect/armor_infer.hpp"
-#include "tasks/auto_aim/armor_detect/light_corner_corrector.hpp"
-#include "wust_vl/common/concurrency/ThreadPool.h"
 #include "wust_vl/common/concurrency/adaptive_resource_pool.hpp"
-#include "wust_vl/common/utils/logger.hpp"
 #include "wust_vl/ml_net/tensorrt/tensorrt_net.hpp"
 class ArmorDetectTrt {
 public:

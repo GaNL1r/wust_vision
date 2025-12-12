@@ -15,10 +15,6 @@
 
 #include "tasks/auto_aim/armor_detect/openvino/armor_detector_openvino.hpp"
 #include "tasks/auto_aim/armor_detect/armor_infer.hpp"
-#include "wust_vl/common/utils/logger.hpp"
-#include "wust_vl/common/utils/timer.hpp"
-#include <functional>
-#include <opencv2/highgui.hpp>
 
 ArmorDetectOpenVino::ArmorDetectOpenVino(
     std::string model_type,

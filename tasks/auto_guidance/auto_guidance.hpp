@@ -1,7 +1,6 @@
 #pragma once
 #include "debug.hpp"
 #include "tasks/type_common.hpp"
-#include "yaml-cpp/yaml.h"
 namespace auto_guidance {
 class AutoGuidance {
 public:

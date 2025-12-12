@@ -13,16 +13,10 @@
 // limitations under the License.
 
 #pragma once
-#include "3rdparty/angles.h"
-#include "tasks/auto_aim/armor_tracker/motion_models/acc_model.hpp"
-#include "tasks/auto_aim/armor_tracker/one_ca_tracker.hpp"
-#include "tasks/auto_aim/armor_tracker/one_tracker.hpp"
-#include "tasks/auto_aim/armor_tracker/tracker.hpp"
 #include "tasks/auto_aim/armor_tracker/trackerv3.hpp"
 #include "tasks/auto_aim/type.hpp"
-#include "trackerv2.hpp"
 #include "wust_vl/common/utils/config_binder.hpp"
-#include "yaml-cpp/yaml.h"
+#include "tasks/auto_aim/auto_aim_fsm.hpp"
 class TrackerManager {
 public:
     explicit TrackerManager(
@@ -32,8 +26,6 @@ public:
     Target update(const armor::Armors& armors, AutoAimFsmController& auto_aim_fsm_cl);
     Target updateTracker(const armor::Armors& armors);
     std::unique_ptr<TrackerV3> tracker_v3_;
-    int track_one_num_;
-    std::vector<std::unique_ptr<OneTracker>> one_trackers_;
 
     std::chrono::steady_clock::time_point last_time_;
     std::shared_ptr<wust_vl_utils::ConfigBinder> config_binder_;

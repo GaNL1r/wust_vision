@@ -1,10 +1,7 @@
 #pragma once
 #include "tasks/debug.hpp"
 #include "tasks/type_common.hpp"
-#include "wust_vl/common/concurrency/queues.hpp"
-#include "wust_vl/common/utils/timer.hpp"
 #include "wust_vl/video/camera.hpp"
-#include "yaml-cpp/yaml.h"
 
 namespace auto_buff {
 struct AutoBuffShared {

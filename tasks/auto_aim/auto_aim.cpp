@@ -2,6 +2,9 @@
 #include "tasks/auto_aim/armor_control/aimer.hpp"
 #include "tasks/auto_aim/armor_control/planner.hpp"
 #include "tasks/auto_aim/armor_control/shooter.hpp"
+#include "tasks/auto_aim/armor_detect/armor_pose_estimator.hpp"
+#include "tasks/auto_aim/armor_detect/detector_factory.hpp"
+#include "tasks/auto_aim/armor_tracker/tracker_manager.hpp"
 #include "tasks/utils.hpp"
 #include "wust_vl/common/concurrency/queues.hpp"
 #include "wust_vl/video/camera.hpp"
@@ -409,7 +412,7 @@ struct AutoAim::Impl {
             const double exposure_min = auto_exposure_cfg_.exposure_min;
             const double exposure_max = auto_exposure_cfg_.exposure_max;
             double exposure_time = camera->getHikExposureTime();
-            if (fabs(diff) > auto_exposure_cfg_.tolerance && exposure_time > 0.0) {
+            if (std::fabs(diff) > auto_exposure_cfg_.tolerance && exposure_time > 0.0) {
                 exposure_time -= diff * auto_exposure_cfg_.step_gain;
             } else {
                 exposure_time -= auto_exposure_cfg_.decay_step;
@@ -419,7 +422,7 @@ struct AutoAim::Impl {
             if (exposure_time > exposure_max)
                 exposure_time = exposure_max;
             camera->setHikExposureTime(exposure_time);
-            
+
             last_update = now;
         }
     }

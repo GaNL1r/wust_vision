@@ -1,7 +1,6 @@
 #include "aimer.hpp"
 #include "tasks/utils.hpp"
 #include <wust_vl/common/utils/timer.hpp>
-#include <wust_vl/common/utils/trajectory_compensator.hpp>
 struct Aimer::Impl {
     void
     init(const YAML::Node& config, std::shared_ptr<TrajectoryCompensator> trajectory_compensator) {

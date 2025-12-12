@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Eigen/Dense"
-#include "opencv2/opencv.hpp"
 #include "tasks/auto_aim/type.hpp"
 #include "tasks/type_common.hpp"
 namespace armor_infer {

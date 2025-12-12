@@ -87,7 +87,7 @@ bool VisionBase::init(bool debug_mode) {
 
     YAML::Node auto_aim_config = YAML::LoadFile(auto_aim_config_);
     auto_aim_config_binder_ = std::make_shared<wust_vl_utils::ConfigBinder>(auto_aim_config_);
-    auto_aim_ = std::make_unique<auto_aim::AutoAim>();
+    auto_aim_ = std::make_shared<auto_aim::AutoAim>();
     auto_aim_->init(
         auto_aim_config,
         use_ncnn_count_,
@@ -97,7 +97,7 @@ bool VisionBase::init(bool debug_mode) {
         auto_aim_config_binder_
     );
     YAML::Node auto_buff_config = YAML::LoadFile(auto_buff_config_);
-    auto_buff_ = std::make_unique<auto_buff::AutoBuff>();
+    auto_buff_ = std::make_shared<auto_buff::AutoBuff>();
     auto_buff_->init(
         auto_buff_config,
         use_ncnn_count_,

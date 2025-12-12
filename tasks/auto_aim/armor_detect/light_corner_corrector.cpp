@@ -15,12 +15,6 @@
 // limitations under the License.
 
 #include "tasks/auto_aim/armor_detect/light_corner_corrector.hpp"
-#include "wust_vl/common/utils/logger.hpp"
-
-#include <cmath>
-#include <iostream>
-#include <numeric>
-#include <ostream>
 void LightCornerCorrector::correctCorners(
     armor::ArmorObject& armor,
     const cv::Mat& gray_img

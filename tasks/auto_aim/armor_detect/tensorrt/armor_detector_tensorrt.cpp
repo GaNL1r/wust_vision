@@ -14,14 +14,12 @@
 // limitations under the License.
 
 #include "tasks/auto_aim/armor_detect/tensorrt/armor_detector_tensorrt.hpp"
-#include "NvOnnxParser.h"
 #include "cuda_runtime_api.h"
 #include "tasks/auto_aim/armor_detect/armor_infer.hpp"
 #include "wust_vl/common/utils/logger.hpp"
 #include "wust_vl/common/utils/timer.hpp"
 #include <cuda.h>
 #include <device_launch_parameters.h>
-#include <fstream>
 #define TRT_ASSERT(expr) \
     do { \
         if (!(expr)) { \

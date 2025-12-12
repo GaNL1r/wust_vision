@@ -1,10 +1,5 @@
 #include "ba_solver.hpp"
-// std
-
 #include <ceres/solver.h>
-#include <iostream>
-#include <memory>
-// project
 #include "tasks/utils.hpp"
 namespace rune {
 BaSolver::BaSolver(const YAML::Node& config, const cv::Mat& camera_matrix) {

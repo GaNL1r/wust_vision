@@ -12,19 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #pragma once
-#include "Eigen/Dense"
-#include "fmt/color.h"
-#include "fmt/core.h"
-#include "fmt/printf.h"
-#include "opencv2/opencv.hpp"
 #include "tasks/auto_aim/armor_detect/armor_detect_common.hpp"
 #include "tasks/auto_aim/armor_detect/armor_infer.hpp"
 #include "tasks/type_common.hpp"
-#include "wust_vl/common/concurrency/ThreadPool.h"
-#include "wust_vl/common/utils/logger.hpp"
 #include "wust_vl/ml_net/onnxruntime/onnxruntime_net.hpp"
 #include <filesystem>
-#include <onnxruntime_cxx_api.h>
 class ArmorDetectOnnxRuntime {
 public:
     using DetectorCallback =

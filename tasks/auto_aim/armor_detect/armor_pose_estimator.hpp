@@ -14,21 +14,9 @@
 // limitations under the License.
 
 #pragma once
-
-// std
-#include <array>
-#include <memory>
-#include <vector>
-// OpenCV
-#include <opencv2/opencv.hpp>
-// Eigen
-#include <Eigen/Dense>
-// project
 #include "tasks/auto_aim/armor_optimize/ba_solver.hpp"
-
 #include "tasks/auto_aim/type.hpp"
 #include "wust_vl/algorithm/pnp_solver.hpp"
-#include "yaml-cpp/yaml.h"
 
 class ArmorPoseEstimator {
 public:

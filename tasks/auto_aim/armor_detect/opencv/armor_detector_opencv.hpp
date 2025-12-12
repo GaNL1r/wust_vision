@@ -18,15 +18,6 @@
 // limitations under the License.
 
 #pragma once
-
-// std
-#include <cmath>
-#include <string>
-#include <vector>
-// third party
-#include <opencv2/core.hpp>
-#include <opencv2/core/types.hpp>
-// project
 #include "tasks/auto_aim/armor_detect/light_corner_corrector.hpp"
 #include "tasks/auto_aim/armor_detect/number_classifier.hpp"
 #include "tasks/type_common.hpp"

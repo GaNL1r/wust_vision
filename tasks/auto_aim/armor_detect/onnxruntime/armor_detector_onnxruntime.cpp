@@ -1,11 +1,5 @@
 #include "armor_detector_onnxruntime.hpp"
-#include "Eigen/Dense"
 #include "tasks/auto_aim/armor_detect/armor_infer.hpp"
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <opencv2/opencv.hpp>
-
 ArmorDetectOnnxRuntime::ArmorDetectOnnxRuntime(
     std::string provider,
     std::string model_type,

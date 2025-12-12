@@ -1,8 +1,5 @@
 #pragma once
 #include <Eigen/Dense>
-#include <list>
-#include <optional>
-
 #include "aimer.hpp"
 #include "shooter.hpp"
 #include "tasks/auto_aim/armor_tracker/target.hpp"

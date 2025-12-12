@@ -16,20 +16,11 @@
 // limitations under the License.
 
 #pragma once
-// std
-#include <array>
-#include <cstddef>
-#include <tuple>
-#include <vector>
-// 3rd party
-#include <Eigen/Dense>
 #include <ceres/autodiff_cost_function.h>
 #include <ceres/local_parameterization.h>
 #include <ceres/loss_function.h>
 #include <ceres/problem.h>
 #include <ceres/solver.h>
-#include <opencv2/core.hpp>
-// project
 #include "tasks/auto_aim/type.hpp"
 // BA algorithm based Optimizer for the armor pose estimation (Particularly for
 // the Yaw angle)

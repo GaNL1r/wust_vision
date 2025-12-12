@@ -7,7 +7,7 @@ if(BUILD_WITH_OPENVINO)
 endif()
 
 
-
+list(APPEND BUILD_LIBS  yaml-cpp)
 
 add_library(auto_guidance OBJECT)
 if(BUILD_WITH_OPENVINO)
