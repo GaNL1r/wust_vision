@@ -27,14 +27,12 @@ struct AutoAim::Impl {
         int& use_detect_ncnn_count,
         const Eigen::Matrix3d& R_camera2gimbal,
         const Eigen::Vector3d& t_camera2gimbal,
-        const std::pair<cv::Mat, cv::Mat>& camera_info,
-        std::shared_ptr<wust_vl_utils::ConfigBinder> config_binder
+        const std::pair<cv::Mat, cv::Mat>& camera_info
     ) {
         config_ = config;
         R_camera2gimbal_ = R_camera2gimbal;
         t_camera2gimbal_ = t_camera2gimbal;
         camera_info_ = camera_info;
-        config_binder_ = config_binder;
 
         std::string armor_detect_backend = config_["armor_detect_backend"].as<std::string>("");
         auto isBackendEnabled = [&use_detect_ncnn_count](const std::string& backend) -> bool {
@@ -474,16 +472,14 @@ bool AutoAim::init(
     int& use_detect_ncnn_count,
     const Eigen::Matrix3d& R_camera2gimbal,
     const Eigen::Vector3d& t_camera2gimbal,
-    const std::pair<cv::Mat, cv::Mat>& camera_info,
-    std::shared_ptr<wust_vl_utils::ConfigBinder> config_binder
+    const std::pair<cv::Mat, cv::Mat>& camera_info
 ) {
     return _impl->init(
         config,
         use_detect_ncnn_count,
         R_camera2gimbal,
         t_camera2gimbal,
-        camera_info,
-        config_binder
+        camera_info
     );
 }
 void AutoAim::start() {

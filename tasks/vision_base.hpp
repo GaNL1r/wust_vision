@@ -38,8 +38,6 @@ public:
     std::shared_ptr<auto_aim::AutoAimShared> auto_aim_shared_;
     std::shared_ptr<auto_buff::AutoBuffShared> auto_buff_shared_;
     std::shared_ptr<MotionBufferGeneric<Motion, 1024>> motion_buffer_;
-    std::shared_ptr<wust_vl_utils::ConfigBinder> config_binder_;
-    std::shared_ptr<wust_vl_utils::ConfigBinder> auto_aim_config_binder_;
     std::shared_ptr<wust_vl::Recorder<Eigen::Vector3d>> rotate_writer_;
     RotateReaderCSV::RotateReaderCSVPtr rotate_reader_;
     std::shared_ptr<wust_vl::Recorder<cv::Mat>> img_writer_;

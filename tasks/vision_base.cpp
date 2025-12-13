@@ -40,14 +40,14 @@ bool VisionBase::init(bool debug_mode) {
         std::cout << "[env] VISION_ROOT not set in this process\n";
     debug_mode_ = debug_mode;
     config_ = YAML::LoadFile(common_config_);
-    config_binder_ = std::make_shared<wust_vl_utils::ConfigBinder>(common_config_);
+
     std::string log_level_ = config_["logger"]["log_level"].as<std::string>("INFO");
     std::string log_path_ = config_["logger"]["log_path"].as<std::string>("wust_log");
     bool use_logcli = config_["logger"]["use_logcli"].as<bool>();
     bool use_logfile = config_["logger"]["use_logfile"].as<bool>();
     bool use_simplelog = config_["logger"]["use_simplelog"].as<bool>();
     initLogger(log_level_, log_path_, use_logcli, use_logfile, use_simplelog);
-    bindConfig(config_binder_, { "max_infer_running" }, &max_infer_running_);
+    max_infer_running_ = config_["max_infer_running"].as<int>(1);
     attack_mode_ = config_["attack_mode"].as<int>();
     auto t_vec = config_["tf"]["t_camera2gimbal"].as<std::vector<double>>();
     if (t_vec.size() != 3) {
@@ -86,15 +86,13 @@ bool VisionBase::init(bool debug_mode) {
     camera_info_ = camera_info;
 
     YAML::Node auto_aim_config = YAML::LoadFile(auto_aim_config_);
-    auto_aim_config_binder_ = std::make_shared<wust_vl_utils::ConfigBinder>(auto_aim_config_);
     auto_aim_ = std::make_shared<auto_aim::AutoAim>();
     auto_aim_->init(
         auto_aim_config,
         use_ncnn_count_,
         R_camera2gimbal_,
         t_camera2gimbal_,
-        camera_info,
-        auto_aim_config_binder_
+        camera_info
     );
     YAML::Node auto_buff_config = YAML::LoadFile(auto_buff_config_);
     auto_buff_ = std::make_shared<auto_buff::AutoBuff>();
@@ -435,8 +433,6 @@ void VisionBase::debugThread() {
                 gimbal_py.second = last_att->data.yaw;
             }
             debuglog(dbg_armor, dbg_rune, last_cmd_, gimbal_py);
-            config_binder_->reload(common_config_);
-            auto_aim_config_binder_->reload(auto_aim_config_);
         } catch (std::exception& e) {
             std::cout << "debug thread error: " << e.what() << std::endl;
         }
