@@ -1,5 +1,5 @@
 max_infer_running: 6
-detect_color: 1
+detect_color: 0
 attack_mode: 0
 
 tf:

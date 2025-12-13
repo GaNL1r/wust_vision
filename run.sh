@@ -90,6 +90,7 @@ if [[ "$1" == "build" || "$1" == "rebuild" || "$1" == "run" ]]; then
         ORIGINAL_ARGS=("$@")
         shift 2
 
+
         "$RUN_PROGRAM" "$@"
         RET=$?
         set -- "${ORIGINAL_ARGS[@]}"
