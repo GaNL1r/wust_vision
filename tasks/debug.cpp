@@ -1026,9 +1026,9 @@ void debuglog(
         last_cmd_ = gimbal_cmd;
     }
 
-    // 控制长度不超过 1000
+    // 控制长度不超过 100
     auto trim = [](std::vector<double>& v) {
-        if (v.size() > 1000)
+        if (v.size() > 100)
             v.erase(v.begin());
     };
 

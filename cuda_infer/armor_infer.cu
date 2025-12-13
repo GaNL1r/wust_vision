@@ -153,7 +153,6 @@ float* CudaInfer::preprocess_pitched(
         return nullptr;
     }
 
-    // === resize + padding params ===
     float scale = fminf((float)input_w_ / img_w, (float)input_h_ / img_h);
     int rw = round(img_w * scale);
     int rh = round(img_h * scale);

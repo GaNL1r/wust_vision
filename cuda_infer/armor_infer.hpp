@@ -41,12 +41,11 @@ public:
     );
 
 private:
-    // 禁用拷贝
     CudaInfer(const CudaInfer&) = delete;
     CudaInfer& operator=(const CudaInfer&) = delete;
-    unsigned char* d_input_bgr_ = nullptr; // 原始 BGR
-    float* d_nchw_ = nullptr; // letterbox 后的 NCHW
-    unsigned char* d_input_bgr_pitched_ = nullptr; // GPU pitched BGR buffer
+    unsigned char* d_input_bgr_ = nullptr;
+    float* d_nchw_ = nullptr;
+    unsigned char* d_input_bgr_pitched_ = nullptr;
     size_t input_pitch_bytes_ = 0;
     int input_w_;
     int input_h_;

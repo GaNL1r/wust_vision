@@ -4,13 +4,12 @@
 #include "tasks/auto_aim/armor_tracker/target.hpp"
 #include "tinympc/tiny_api.hpp"
 #include <Eigen/Dense>
-
-constexpr double MPC_DT = 1.0 / 200.0;
-constexpr int MPC_HALF_HORIZON = 200;
-constexpr int MPC_HORIZON = MPC_HALF_HORIZON * 2;
-constexpr double CAL_DT = 0.01;
-constexpr int CAL_HALF_HORIZON = 100;
-constexpr int CAL_HORIZON = CAL_HALF_HORIZON * 2;
+constexpr int MPC_HORIZON = 300;
+constexpr double MPC_DT = 1.0 / MPC_HORIZON;
+constexpr int MPC_HALF_HORIZON = MPC_HORIZON / 2;
+constexpr int CAL_HORIZON = 100;
+constexpr double CAL_DT = 1.0 / CAL_HORIZON;
+constexpr int CAL_HALF_HORIZON = CAL_HORIZON / 2;
 
 using Trajectory = Eigen::Matrix<double, 4, MPC_HORIZON>; // yaw, yaw_vel, pitch, pitch_vel
 
@@ -85,4 +84,5 @@ private:
     std::shared_ptr<Aimer> aimer_;
     std::shared_ptr<Shooter> shooter_;
     int max_iter_;
+
 };

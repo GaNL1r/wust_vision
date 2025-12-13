@@ -45,6 +45,7 @@ Eigen::Vector4d getStateAtTime(const Trajectory& traj, double t) {
     return (1.0 - alpha) * traj.col(i0) + alpha * traj.col(i1);
 }
 
+
 Plan Planner::plan(
     Target target,
     double bullet_speed,
@@ -127,6 +128,7 @@ Plan Planner::plan(
 
     return plan;
 }
+
 
 void Planner::setup_yaw_solver(const YAML::Node& config) {
     max_yaw_acc_ = config["max_yaw_acc"].as<double>();

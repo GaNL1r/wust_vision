@@ -1,3 +1,14 @@
+const UPDATE_HZ = 100;
+const UPDATE_INTERVAL_MS = 1000 / UPDATE_HZ;
+
+let updateTimer = null;
+
+function startUpdateLoop() {
+  if (updateTimer) return;
+  updateTimer = setInterval(fetchDataAndUpdateCharts, UPDATE_INTERVAL_MS);
+}
+startUpdateLoop();
+
 const chartMap = {
   raw_yaw: { label: "Raw Yaw" },
   raw_pitch: { label: "Raw Pitch" },
@@ -37,10 +48,10 @@ const commonChartOptions = {
   },
   elements: {
     line: {
-      tension: 0, // 直线折角
+      tension: 0,
     },
     point: {
-      radius: 0, // 折点不可见
+      radius: 0,
       hoverRadius: 0,
     },
   },
@@ -55,17 +66,15 @@ const commonChartOptions = {
       titleFont: {
         size: 12,
         family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-        weight: "normal",
-        color: "#a0dce6",
       },
       bodyFont: {
         size: 16,
         family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
         weight: "bold",
-        color: "#00bcd4",
       },
       callbacks: {
-        title: (context) => `时间: ${context[0].label}`,
+        // 🚫 不使用 x label，避免 undefined
+        title: () => "",
         label: (context) => `值: ${context.parsed.y.toFixed(3)}`,
       },
     },
@@ -81,15 +90,7 @@ const commonChartOptions = {
   },
   scales: {
     x: {
-      title: { display: true, text: "Time" },
-      ticks: {
-        color: "#00bcd4",
-        font: {
-          size: 14,
-          family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-        },
-      },
-      grid: { color: "#2f3241" },
+      display: false,   // ✅ 关键：彻底关闭 X 轴显示
     },
     y: {
       title: { display: true, text: "Value" },
