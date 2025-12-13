@@ -193,49 +193,68 @@ cudaTextureObject_t createTextureObject(float4* d_img, int width, int height) {
 }
 extern "C" __global__ void letterbox_kernel_pitched(
     const unsigned char* __restrict__ d_input_bgr,
-    size_t input_pitch_bytes,
+    size_t pitch,
     int src_w,
     int src_h,
-    float* __restrict__ d_nchw, // output: float, but storing 0-255
+    float* __restrict__ d_nchw,
     int OUT_W,
     int OUT_H,
     float scale,
     int pad_t,
     int pad_l
 ) {
-    int out_x = blockIdx.x * blockDim.x + threadIdx.x;
-    int out_y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (out_x >= OUT_W || out_y >= OUT_H)
+    int ox = blockIdx.x * blockDim.x + threadIdx.x;
+    int oy = blockIdx.y * blockDim.y + threadIdx.y;
+    if (ox >= OUT_W || oy >= OUT_H)
         return;
 
-    float src_x_f = (out_x - pad_l) / scale;
-    float src_y_f = (out_y - pad_t) / scale;
+    // === inverse mapping ===
+    float fx = (ox - pad_l) / scale;
+    float fy = (oy - pad_t) / scale;
 
-    int out_index_base = out_y * OUT_W + out_x;
+    int out_idx = oy * OUT_W + ox;
+    int plane = OUT_W * OUT_H;
 
-    // pad value: 128 (not normalized)
-    float b = 128.0f;
-    float g = 128.0f;
-    float r = 128.0f;
+    // padding color
+    float r = 114.f, g = 114.f, b = 114.f;
 
-    if (src_x_f >= 0.0f && src_x_f < src_w && src_y_f >= 0.0f && src_y_f < src_h) {
-        int sx = (int)(src_x_f + 0.5f);
-        int sy = (int)(src_y_f + 0.5f);
+    if (fx >= 0.f && fy >= 0.f && fx < src_w - 1 && fy < src_h - 1) {
+        int x0 = (int)fx;
+        int y0 = (int)fy;
+        int x1 = x0 + 1;
+        int y1 = y0 + 1;
 
-        sx = max(0, min(sx, src_w - 1));
-        sy = max(0, min(sy, src_h - 1));
+        float dx = fx - x0;
+        float dy = fy - y0;
+        float dx1 = 1.f - dx;
+        float dy1 = 1.f - dy;
 
-        const unsigned char* row_ptr =
-            (const unsigned char*)((const char*)d_input_bgr + sy * input_pitch_bytes);
+        // row pointers (pitch-safe)
+        const unsigned char* row0 = (const unsigned char*)((const char*)d_input_bgr + y0 * pitch);
+        const unsigned char* row1 = (const unsigned char*)((const char*)d_input_bgr + y1 * pitch);
 
-        int idx = sx * 3;
-        b = (float)row_ptr[idx + 0]; // 0–255
-        g = (float)row_ptr[idx + 1];
-        r = (float)row_ptr[idx + 2];
+        int i00 = x0 * 3;
+        int i01 = x1 * 3;
+
+        // load 4 pixels (BGR)
+        float b00 = row0[i00 + 0], g00 = row0[i00 + 1], r00 = row0[i00 + 2];
+        float b01 = row0[i01 + 0], g01 = row0[i01 + 1], r01 = row0[i01 + 2];
+        float b10 = row1[i00 + 0], g10 = row1[i00 + 1], r10 = row1[i00 + 2];
+        float b11 = row1[i01 + 0], g11 = row1[i01 + 1], r11 = row1[i01 + 2];
+
+        // bilinear interpolation
+        float w00 = dx1 * dy1;
+        float w01 = dx * dy1;
+        float w10 = dx1 * dy;
+        float w11 = dx * dy;
+
+        r = r00 * w00 + r01 * w01 + r10 * w10 + r11 * w11;
+        g = g00 * w00 + g01 * w01 + g10 * w10 + g11 * w11;
+        b = b00 * w00 + b01 * w01 + b10 * w10 + b11 * w11;
     }
 
-    int channel_size = OUT_W * OUT_H;
-    d_nchw[0 * channel_size + out_index_base] = r;
-    d_nchw[1 * channel_size + out_index_base] = g;
-    d_nchw[2 * channel_size + out_index_base] = b;
+    // NCHW (RGB)
+    d_nchw[out_idx + 0 * plane] = r;
+    d_nchw[out_idx + 1 * plane] = g;
+    d_nchw[out_idx + 2 * plane] = b;
 }

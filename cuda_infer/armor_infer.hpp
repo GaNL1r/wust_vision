@@ -6,74 +6,24 @@
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
 #include <iostream>
+#include <opencv2/core/mat.hpp>
 #include <vector>
 
 namespace armor_cuda_infer {
 
-struct GPUGridAndStride {
-    int grid0, grid1, stride;
-};
-
-struct GPUArmorObject {
-    float x[16];
-    float y[16];
-    float confidence;
-    int color_id;
-    int number_id;
-    int valid;
-    int num_pts;
-
-    __host__ __device__ GPUArmorObject() {
-        for (int i = 0; i < 16; ++i) {
-            x[i] = 0.0f;
-            y[i] = 0.0f;
-        }
-        confidence = 0.0f;
-        color_id = 0;
-        number_id = 0;
-        valid = 0;
-        num_pts = 0;
-    }
-};
-
-// 用于 thrust::sort 的比较器
-struct ConfidenceComparator {
-    __host__ __device__ bool operator()(const GPUArmorObject& a, const GPUArmorObject& b) const {
-        if (!a.valid && b.valid)
-            return false;
-        if (a.valid && !b.valid)
-            return true;
-        return a.confidence > b.confidence;
-    }
-};
-
-GPUGridAndStride* init_grid_strides_on_gpu(
-    int input_w,
-    int input_h,
-    const std::vector<int>& strides,
-    size_t& device_grid_count
-);
+cv::Mat tensorToMat(float* d_nchw, int W, int H, cudaStream_t stream);
 
 class CudaInfer {
 public:
     CudaInfer();
     ~CudaInfer() noexcept;
 
-    /// 一次性申请所有 GPU 资源
-    void init(GPUGridAndStride* grid_strides, size_t img_bytes, int max_N, size_t grid_count);
-
-    /// 释放所有 GPU 资源
+    void init(int max_src_w, int max_src_h, int input_w, int input_h);
     void release();
     bool isInitialized() const {
-        return d_input_bgr_ && d_nchw_ && d_tf_ && d_objs_ && d_grid_strides_;
+        return d_input_bgr_ && d_nchw_ && d_input_bgr_pitched_;
     }
 
-    /// 预处理：letterbox + NCHW 转存
-    /// @param  input_bgr_host  host 侧 BGR 图数据
-    /// @param  img_w, img_h    原图宽高
-    /// @param  output_nchw     返回 device 侧 NCHW 缓冲指针
-    /// @param  tf_matrix       输出逆变换矩阵，用于后处理映射
-    /// @param  stream          CUDA stream
     float* preprocess(
         const unsigned char* input_bgr_host,
         int img_w,
@@ -81,46 +31,13 @@ public:
         Eigen::Matrix3f& tf_matrix,
         cudaStream_t stream
     );
-    float* preprocess(
+    float* preprocess_pitched(
         const unsigned char* input_bgr_host,
         int img_w,
         int img_h,
-        int host_step, // <--- 新增：输入 Mat 的 step
+        int host_step,
         Eigen::Matrix3f& tf_matrix,
         cudaStream_t stream
-    );
-    /// 后处理：decode + TopK + NMS
-    /// @param  output          device 侧模型原始输出
-    /// @param  N               网格总点数
-    /// @param  tf_matrix       preprocess 返回的逆变换矩阵
-    /// @param  grid_strides    device 侧 grid+stride 数组
-    /// @param  conf_th         置信度阈值
-    /// @param  nms_th          NMS 阈值
-    /// @param  top_k           保留前 K
-    /// @return                  Host vector of valid detections
-    std::vector<GPUArmorObject> postprocess(
-        const float* output,
-        int N,
-        const Eigen::Matrix3f& tf_matrix,
-        float conf_th,
-        float nms_th,
-        int top_k
-    );
-
-    std::vector<GPUArmorObject> process_trt(
-        nvinfer1::IExecutionContext* context,
-        void* device_buffers[2],
-        int input_idx_,
-        int output_idx_,
-        const unsigned char* input_bgr_host,
-        int img_w,
-        int img_h,
-        Eigen::Matrix3f& tf_matrix,
-        cudaStream_t stream,
-        int N,
-        float conf_th,
-        float nms_th,
-        int top_k
     );
 
 private:
@@ -129,15 +46,9 @@ private:
     CudaInfer& operator=(const CudaInfer&) = delete;
     unsigned char* d_input_bgr_ = nullptr; // 原始 BGR
     float* d_nchw_ = nullptr; // letterbox 后的 NCHW
-    GPUArmorObject* d_objs_ = nullptr; // decode & sort 输出
-    float* d_tf_ = nullptr; // 3×3 逆变换矩阵
-    GPUGridAndStride* d_grid_strides_;
-    // 缓冲大小
-    size_t buf_image_bytes_;
-    int buf_max_N_;
-    size_t grid_count_;
     unsigned char* d_input_bgr_pitched_ = nullptr; // GPU pitched BGR buffer
     size_t input_pitch_bytes_ = 0;
+    int input_w_;
+    int input_h_;
 };
-
 } // namespace armor_cuda_infer

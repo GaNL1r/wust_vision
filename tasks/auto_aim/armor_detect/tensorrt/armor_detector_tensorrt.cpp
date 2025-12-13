@@ -12,32 +12,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #include "tasks/auto_aim/armor_detect/tensorrt/armor_detector_tensorrt.hpp"
-#include "cuda_runtime_api.h"
 #include "tasks/auto_aim/armor_detect/armor_infer.hpp"
 #include "tasks/utils.hpp"
 #include "wust_vl/common/utils/logger.hpp"
 #include "wust_vl/common/utils/timer.hpp"
-#include <cuda.h>
-#include <device_launch_parameters.h>
-#define TRT_ASSERT(expr) \
-    do { \
-        if (!(expr)) { \
-            fmt::print(fmt::fg(fmt::color::red), "assert fail: '" #expr "'"); \
-            exit(-1); \
-        } \
-    } while (0)
-#define CUDA_CHECK(call) \
-    do { \
-        cudaError_t err = call; \
-        if (err != cudaSuccess) { \
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << " at " << __FILE__ << ":" \
-                      << __LINE__ << std::endl; \
-            return nullptr; \
-        } \
-    } while (0)
 
+static constexpr int MAX_SRC_IMG_W = 1440;
+static constexpr int MAX_SRC_IMG_H = 1080;
 // 构造函数：初始化参数并构建引擎
 ArmorDetectTrt::ArmorDetectTrt(
     std::string model_type,
@@ -81,22 +63,13 @@ ArmorDetectTrt::ArmorDetectTrt(
             auto infer = std::make_unique<Infer>();
             auto ctx = trt_net_->getAContext();
             infer->context = std::unique_ptr<nvinfer1::IExecutionContext>(ctx);
-            // 初始化 CUDA 推理
-            if (params_.use_cuda_pre || params_.use_cuda_post) {
+            if (params_.use_cuda_pre) {
                 infer->cuda_infer = std::make_unique<armor_cuda_infer::CudaInfer>();
-                size_t max_input_img = 1440 * 1080 * 3;
-                size_t num_grid_strides = 0;
-                auto* device_grid_strides = armor_cuda_infer::init_grid_strides_on_gpu(
-                    armor_infer_->getInputW(),
-                    armor_infer_->getInputH(),
-                    strides_,
-                    num_grid_strides
-                );
                 infer->cuda_infer->init(
-                    device_grid_strides,
-                    max_input_img,
-                    grid_strides_.size(),
-                    num_grid_strides
+                    MAX_SRC_IMG_W,
+                    MAX_SRC_IMG_H,
+                    armor_infer_->getInputW(),
+                    armor_infer_->getInputH()
                 );
             }
             if (!infer->context) {
@@ -104,7 +77,7 @@ ArmorDetectTrt::ArmorDetectTrt(
                                   << " index:" << i;
                 continue;
             }
-            if ((params_.use_cuda_pre || params_.use_cuda_post) && !infer->cuda_infer) {
+            if (params_.use_cuda_pre && !infer->cuda_infer) {
                 WUST_ERROR("TRT") << "create infer failed, missing cuda_infer"
                                   << " index:" << i;
                 continue;
@@ -138,24 +111,20 @@ ArmorDetectTrt::ArmorDetectTrt(
         auto infer = std::make_unique<Infer>();
         auto ctx = trt_net_->getAContext();
         infer->context = std::unique_ptr<nvinfer1::IExecutionContext>(ctx);
-        if (params_.use_cuda_pre || params_.use_cuda_post) {
+        if (params_.use_cuda_pre) {
             infer->cuda_infer = std::make_unique<armor_cuda_infer::CudaInfer>();
-            size_t max_input_img = 1440 * 1080 * 3;
-            size_t num_grid_strides = 0;
-            auto* device_grid_strides = armor_cuda_infer::init_grid_strides_on_gpu(
+            infer->cuda_infer->init(
+                MAX_SRC_IMG_W,
+                MAX_SRC_IMG_H,
                 armor_infer_->getInputW(),
-                armor_infer_->getInputH(),
-                strides_,
-                num_grid_strides
+                armor_infer_->getInputH()
             );
-            infer->cuda_infer
-                ->init(device_grid_strides, max_input_img, grid_strides_.size(), num_grid_strides);
         }
         if (!infer->context) {
             WUST_ERROR("TRT") << "create infer failed, missing context";
             return nullptr;
         }
-        if ((params_.use_cuda_pre || params_.use_cuda_post) && !infer->cuda_infer) {
+        if ((params_.use_cuda_pre) && !infer->cuda_infer) {
             WUST_ERROR("TRT") << "create infer failed, missing cuda_infer";
             return nullptr;
         }
@@ -208,64 +177,6 @@ ArmorDetectTrt::~ArmorDetectTrt() {
 void ArmorDetectTrt::setCallback(DetectorCallback callback) {
     infer_callback_ = callback;
 }
-static void buildCpuResult(
-    const std::vector<armor_cuda_infer::GPUArmorObject>& host_results,
-    std::vector<armor::ArmorObject>& objs_result
-) {
-    for (const auto& gobj: host_results) {
-        if (gobj.valid == 0)
-            continue;
-
-        armor::ArmorObject obj;
-        obj.prob = gobj.confidence;
-        obj.color = static_cast<armor::ArmorColor>(gobj.color_id);
-        obj.number = static_cast<armor::ArmorNumber>(gobj.number_id);
-
-        int n = std::max(4, gobj.num_pts); // 防止 num_pts 没填（兼容性）
-        cv::Point2f avg_pts[4] = {};
-
-        for (int i = 0; i < n; ++i) {
-            int idx = i % 4;
-            avg_pts[idx].x += gobj.x[i];
-            avg_pts[idx].y += gobj.y[i];
-        }
-
-        obj.pts.resize(4);
-        for (int i = 0; i < 4; ++i) {
-            obj.pts[i].x = avg_pts[i].x / (n / 4.0f);
-            obj.pts[i].y = avg_pts[i].y / (n / 4.0f);
-        }
-
-        obj.box = cv::boundingRect(obj.pts);
-        objs_result.push_back(std::move(obj));
-    }
-}
-cv::Mat tensorToMat(void* gpu_ptr, int W, int H, cudaStream_t stream) {
-    int chw = 3 * W * H;
-    std::vector<float> cpu_data(chw);
-
-    // 必须同步，防止拷贝未完成数据
-    cudaStreamSynchronize(stream);
-
-    cudaMemcpy(cpu_data.data(), gpu_ptr, chw * sizeof(float), cudaMemcpyDeviceToHost);
-    cv::Mat mat(H, W, CV_32FC3);
-    int channel_size = W * H;
-
-    float* ptr = (float*)mat.data;
-
-    for (int c = 0; c < 3; c++) {
-        float* src = cpu_data.data() + c * channel_size;
-        float* dst = ptr + c; // channel offset
-        for (int i = 0; i < channel_size; i++) {
-            *dst = src[i];
-            dst += 3;
-        }
-    }
-
-    mat.convertTo(mat, CV_8UC3);
-    return mat;
-}
-
 // 推理函数
 bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
     auto t0 = time_utils::now();
@@ -276,22 +187,21 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
 
     cv::Mat resized_img;
     if (infer->cuda_infer && params_.use_cuda_pre) {
-        input_tensor_ptr = infer->cuda_infer->preprocess(
-            roi.data,
-            roi.cols,
-            roi.rows,
-            roi.step,
-            transform_matrix,
-            trt_net_->getStream()
-        );
-
-        resized_img = tensorToMat(
-            input_tensor_ptr,
+        input_tensor_ptr =
+            infer->cuda_infer->preprocess_pitched( //支持不连续内存,无需拷贝后输入可直接传roi的指针
+                roi.data,
+                roi.cols,
+                roi.rows,
+                roi.step,
+                transform_matrix,
+                trt_net_->getStream()
+            );
+        resized_img = armor_cuda_infer::tensorToMat( //nchw_float_to_hwc_uchar
+            (float*)input_tensor_ptr,
             armor_infer_->getInputW(),
             armor_infer_->getInputH(),
             trt_net_->getStream()
         );
-
     } else {
         resized_img = utils::letterbox(
             roi,
@@ -315,20 +225,8 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
         trt_net_->infer(input_tensor_ptr, infer->context.get());
     }
     auto t2 = time_utils::now();
-    if (infer->cuda_infer && params_.use_cuda_post) {
-        auto host_results = infer->cuda_infer->postprocess(
-            (float*)trt_net_->getDeviceOutput(),
-            grid_strides_.size(),
-            transform_matrix,
-            params_.conf_threshold,
-            params_.nms_threshold,
-            params_.top_k
-        );
-        buildCpuResult(host_results, objs_result);
-    } else {
-        cv::Mat output_mat(output_dims_.d[1], output_dims_.d[2], CV_32F, trt_net_->output2Host());
-        objs_result = armor_infer_->postProcess(output_mat, transform_matrix, grid_strides_);
-    }
+    cv::Mat output_mat(output_dims_.d[1], output_dims_.d[2], CV_32F, trt_net_->output2Host());
+    objs_result = armor_infer_->postProcess(output_mat, transform_matrix, grid_strides_);
     auto t3 = time_utils::now();
     if (params_.log_time) {
         WUST_INFO("TRT") << std::fixed << std::setprecision(3) << "pre "

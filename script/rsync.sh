@@ -20,6 +20,7 @@ rsync -avz \
     --exclude='.vscode/' \
     --exclude='bin/' \
     --exclude='build/' \
+    --exclude='model/' \
     --exclude='CMakeLists.txt' \
     "${WORK_DIR}/" \
     "${REMOTE_USER}@${REMOTE_IP}:${TARGET_PATH}/"

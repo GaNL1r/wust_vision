@@ -7,6 +7,7 @@
 #include <cuda_runtime.h>
 #include <iostream>
 #include <opencv2/core/hal/interface.h>
+#include <opencv2/core/mat.hpp>
 #include <thrust/device_ptr.h>
 #include <thrust/sort.h>
 #include <vector>
@@ -51,11 +52,11 @@ __global__ void letterbox_kernel_uchar_textureless(
     int pad_l
 );
 extern "C" __global__ void letterbox_kernel_pitched(
-    const unsigned char* __restrict__ d_input_bgr, // device pointer (pitch in bytes)
-    size_t input_pitch_bytes, // pitch in bytes for input (device)
+    const unsigned char* __restrict__ d_input_bgr,
+    size_t pitch,
     int src_w,
     int src_h,
-    float* __restrict__ d_nchw, // output NCHW float (3*OUT_H*OUT_W)
+    float* __restrict__ d_nchw,
     int OUT_W,
     int OUT_H,
     float scale,

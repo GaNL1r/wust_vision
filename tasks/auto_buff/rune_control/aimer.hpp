@@ -1,6 +1,7 @@
 #pragma once
 #include "tasks/auto_buff/rune_tracker/rune_target.hpp"
 #include "tasks/type_common.hpp"
+#include "wust_vl/common/utils/manual_compensator.hpp"
 #include <wust_vl/common/utils/trajectory_compensator.hpp>
 namespace rune {
 class Aimer {

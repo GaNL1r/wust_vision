@@ -19,15 +19,10 @@
 #include "tasks/auto_aim/type.hpp"
 #include "tasks/type_common.hpp"
 #include "wust_vl/common/utils/logger.hpp"
-#include "wust_vl/common/utils/manual_compensator.hpp"
-#include <Eigen/Dense>
-#include <opencv2/calib3d.hpp>
-#include <opencv2/core.hpp>
+#include "wust_vl/video/image.hpp"
 #include <opencv2/core/eigen.hpp>
 #include <pwd.h>
 #include <regex>
-#include <wust_vl/video/image.hpp>
-#include <yaml-cpp/node/node.h>
 
 // util functions
 namespace utils {
@@ -333,9 +328,6 @@ inline cv::Point2f computeCenter(const std::vector<cv::Point2f>& points) {
 }
 inline bool isStateValid(const Eigen::VectorXd& state) {
     return state.allFinite(); // 所有元素都不是 NaN 或 Inf
-}
-inline double ratio(const auto& point) {
-    return atan2(point.y, point.x);
 }
 inline Eigen::Matrix4d computeCameraToOdomTransform(
     const Eigen::Matrix3d& R_gimbal2odom,
