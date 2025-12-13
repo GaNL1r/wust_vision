@@ -164,7 +164,7 @@ bool ArmorDetectNCNN::processCallback(const CommonFrame& frame) {
         armor_infer_->getUseNorm()
     );
     cv::Mat resized_img = ncnnMatToCvMat(in);
-    ;
+
     auto out = ncnn_net_->infer(in);
 
     cv::Mat output_buffer(out.h, out.w, CV_32F, out.data);

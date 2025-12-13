@@ -1,4 +1,5 @@
 #include "rune_detector.hpp"
+#include "tasks/utils.hpp"
 RuneDetectorCV::RuneDetectorCV(const YAML::Node& node) {
     params_.load(node);
 }
@@ -46,11 +47,22 @@ inline rune::RuneCenter RuneDetectorCV::getRuneCenter(
     const std::vector<cv::Vec4i>& hierarchy,
     cv::Size image_size,
     cv::Point2f offset,
+    const Eigen::Matrix<float, 3, 3>& transform_matrix,
+    bool is_up,
     cv::Mat& debug_img,
     std::vector<bool>& used_flags
 ) {
     rune::RuneCenter result;
-
+    auto map_point = [&](float x, float y) -> cv::Point2f {
+        Eigen::Vector3f pt(x, y, 1.f);
+        Eigen::Vector3f tr;
+        if (is_up) {
+            tr = transform_matrix * pt;
+        } else {
+            tr = pt;
+        }
+        return { tr(0), tr(1) };
+    };
     struct Node {
         cv::Point2f center;
         int idx;
@@ -94,14 +106,12 @@ inline rune::RuneCenter RuneDetectorCV::getRuneCenter(
         if (!debug_img.empty()) {
             cv::Point2f pts[4];
             rr.points(pts);
+            for (size_t k = 0; k < 4; k++) {
+                pts[k] = map_point(pts[k].x, pts[k].y);
+                pts[k] += offset;
+            }
             for (int k = 0; k < 4; k++) {
-                cv::line(
-                    debug_img,
-                    pts[k] + offset,
-                    pts[(k + 1) % 4] + offset,
-                    cv::Scalar(0, 255, 0),
-                    2
-                );
+                cv::line(debug_img, pts[k], pts[(k + 1) % 4], cv::Scalar(0, 255, 0), 2);
             }
         }
     }
@@ -128,18 +138,22 @@ inline rune::RuneCenter RuneDetectorCV::getRuneCenter(
     }
 
     if (!debug_img.empty()) {
-        cv::circle(debug_img, img_center + offset, 5, cv::Scalar(0, 255, 255), -1); // 图像中心
+        cv::circle(
+            debug_img,
+            map_point(img_center.x, img_center.y) + offset,
+            5,
+            cv::Scalar(0, 255, 255),
+            -1
+        ); // 图像中心
 
         cv::Point2f pts[4];
         best_rr.points(pts);
+        for (size_t k = 0; k < 4; k++) {
+            pts[k] = map_point(pts[k].x, pts[k].y);
+            pts[k] += offset;
+        }
         for (int k = 0; k < 4; k++) {
-            cv::line(
-                debug_img,
-                pts[k] + offset,
-                pts[(k + 1) % 4] + offset,
-                cv::Scalar(0, 0, 255),
-                2
-            );
+            cv::line(debug_img, pts[k], pts[(k + 1) % 4], cv::Scalar(0, 0, 255), 2);
         }
     }
 
@@ -353,17 +367,29 @@ inline void RuneDetectorCV::markInvalidContours(
         }
     }
 }
+static bool isUpscaled(const cv::Rect& roi, int model_w, int model_h) {
+    float scale = std::min(model_w / float(roi.width), model_h / float(roi.height));
 
-void RuneDetectorCV::pushInput(CommonFrame& frame, bool is_big) {
+    return scale > 1.0f;
+}
+void RuneDetectorCV::pushInput(CommonFrame& frame, bool is_big, bool debug) {
     frame.id = current_id_++;
     rune::RuneFan fan { .is_valid = false,
                         .timestamp = frame.timestamp,
                         .id = frame.id,
                         .is_big = is_big };
-    cv::Mat roi = frame.src_img(frame.expanded);
-    cv::Mat processed_img = preProcess(roi, frame.detect_color);
     cv::Mat debug_img;
-    debug_img = frame.src_img.clone();
+    if (debug) {
+        debug_img = frame.src_img.clone();
+    }
+    cv::Mat roi = frame.src_img(frame.expanded);
+    Eigen::Matrix3f transform_matrix;
+    bool is_up = isUpscaled(frame.expanded, params_.target_width, params_.target_height);
+    if (is_up) {
+        roi = utils::letterbox(roi, transform_matrix, params_.target_width, params_.target_height);
+    }
+
+    cv::Mat processed_img = preProcess(roi, frame.detect_color);
 
     std::vector<std::vector<cv::Point>> contours;
     std::vector<cv::Vec4i> hierarchy;
@@ -380,8 +406,16 @@ void RuneDetectorCV::pushInput(CommonFrame& frame, bool is_big) {
         frame.detect_color,
         params_.color_diff_threshold
     );
-    auto rune_center =
-        getRuneCenter(contours, hierarchy, roi.size(), frame.offset, debug_img, used_flags);
+    auto rune_center = getRuneCenter(
+        contours,
+        hierarchy,
+        roi.size(),
+        frame.offset,
+        transform_matrix,
+        is_up,
+        debug_img,
+        used_flags
+    );
     std::vector<rune::RunePan> rune_pans = markRuneTarget(contours, hierarchy, used_flags);
     double avg_pan_area = 0.0;
     for (auto& rune_pan: rune_pans) {
@@ -398,7 +432,7 @@ void RuneDetectorCV::pushInput(CommonFrame& frame, bool is_big) {
             fan.fans.push_back(simple);
         }
         if (!debug_img.empty())
-            rune_pan.draw(debug_img, frame.offset);
+            rune_pan.draw(debug_img, frame.offset, transform_matrix, is_up);
     }
     rune::RuneFan tmp = fan;
     for (int i = 0; i < tmp.fans.size(); i++) {
@@ -408,6 +442,9 @@ void RuneDetectorCV::pushInput(CommonFrame& frame, bool is_big) {
 
             fan.fans[i].addOther(tmp.fans[j]);
         }
+    }
+    if (is_up) {
+        fan.transform(transform_matrix);
     }
     fan.addOffset(frame.offset);
     if (callback_) {

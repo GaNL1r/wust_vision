@@ -15,6 +15,7 @@
 
 #include "tasks/auto_aim/armor_detect/openvino/armor_detector_openvino.hpp"
 #include "tasks/auto_aim/armor_detect/armor_infer.hpp"
+#include "tasks/utils.hpp"
 
 ArmorDetectOpenVino::ArmorDetectOpenVino(
     std::string model_type,
@@ -92,7 +93,7 @@ bool ArmorDetectOpenVino::processCallback(const CommonFrame& frame) {
     auto start = std::chrono::steady_clock::now();
     Eigen::Matrix3f transform_matrix;
     auto roi = frame.src_img(frame.expanded);
-    cv::Mat resized_img = armor_infer_->letterbox(
+    cv::Mat resized_img = utils::letterbox(
         roi,
         transform_matrix,
         armor_infer_->getInputW(),

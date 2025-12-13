@@ -18,7 +18,6 @@
 #include "ba_solver.hpp"
 #include <opencv2/core/eigen.hpp>
 
-
 BaSolver::BaSolver(const YAML::Node& config, const cv::Mat& camera_matrix) {
     cv::cv2eigen(camera_matrix, K_);
     params_.load(config);

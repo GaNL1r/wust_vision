@@ -118,13 +118,14 @@ bool VisionBase::init(bool debug_mode) {
         communication_delay_μs
     );
     auto_aim_->setShared(auto_aim_shared_);
+    auto_aim_->setDebug(debug_mode_);
     auto_buff_shared_ = std::make_shared<auto_buff::AutoBuffShared>(
         motion_buffer_,
         bullet_speed,
         communication_delay_μs
     );
     auto_buff_->setShared(auto_buff_shared_);
-
+    auto_buff_->setDebug(debug_mode_);
     std::string device_name = config_["control"]["device_name"].as<std::string>();
 
     serial_ = std::make_shared<SerialDriver>();
@@ -151,12 +152,6 @@ bool VisionBase::init(bool debug_mode) {
     timer_ = std::make_unique<Timer>();
     detect_color_ = config_["detect_color"].as<int>(0);
 
-    if (auto_aim_) {
-        auto_aim_->setDebug(debug_mode_);
-    }
-    if (auto_buff_) {
-        auto_buff_->setDebug(debug_mode_);
-    }
     bool use_record = config_["record"]["use_record"].as<bool>(false);
     if (use_record) {
         std::string folder_path = config_["record"]["folder_path"].as<std::string>();
@@ -208,9 +203,7 @@ void VisionBase::serialCallback(const uint8_t* data, std::size_t len) {
 }
 void VisionBase::processAimData(const ReceiveAimINFO& aim_data) {
     static Averager<double> vyaw_avg(100);
-    if (std::isnan(aim_data.roll) || std::isnan(aim_data.pitch) || std::isnan(aim_data.yaw)
-        || !this->run_flag_)
-    {
+    if (!this->run_flag_) {
         return;
     }
     //detect_color_ = aim_data.detect_color;
@@ -247,17 +240,13 @@ void VisionBase::processAimData(const ReceiveAimINFO& aim_data) {
 void VisionBase::autoExposureControl(const cv::Mat& frame) {
     AttackMode mode = toAttackMode(attack_mode_);
     switch (mode) {
+        case AttackMode::UNKNOWN:
         case AttackMode::ARMOR: {
             auto_aim_->autoExposureControl(frame, camera_);
         } break;
-        case AttackMode::SMALL_RUNE: {
-            auto_buff_->autoExposureControl(frame, camera_);
-        } break;
+        case AttackMode::SMALL_RUNE:
         case AttackMode::BIG_RUNE: {
             auto_buff_->autoExposureControl(frame, camera_);
-        } break;
-        case AttackMode::UNKNOWN: {
-            auto_aim_->autoExposureControl(frame, camera_);
         } break;
     }
 }
@@ -288,6 +277,7 @@ void VisionBase::frameCallback(wust_vl_video::ImageFrame& frame) {
         }
         AttackMode mode = toAttackMode(attack_mode_);
         switch (mode) {
+            case AttackMode::UNKNOWN:
             case AttackMode::ARMOR: {
                 auto_aim_->pushInput(frame);
             } break;
@@ -297,9 +287,6 @@ void VisionBase::frameCallback(wust_vl_video::ImageFrame& frame) {
             case AttackMode::BIG_RUNE: {
                 auto_buff_->pushInput(frame, true);
             } break;
-            case AttackMode::UNKNOWN: {
-                auto_aim_->pushInput(frame);
-            } break;
         }
         infer_running_count_--;
     });
@@ -307,6 +294,7 @@ void VisionBase::frameCallback(wust_vl_video::ImageFrame& frame) {
 void VisionBase::checkStateMatchMode() {
     AttackMode mode = toAttackMode(attack_mode_);
     switch (mode) {
+        case AttackMode::UNKNOWN:
         case AttackMode::ARMOR: {
             if (!auto_aim_->isActive()) {
                 auto_aim_->processingUp();
@@ -325,14 +313,6 @@ void VisionBase::checkStateMatchMode() {
                 auto_buff_->processingUp();
             }
         } break;
-        case AttackMode::UNKNOWN: {
-            if (!auto_aim_->isActive()) {
-                auto_aim_->processingUp();
-            }
-            if (auto_buff_->isActive()) {
-                auto_buff_->processingWait();
-            }
-        } break;
     }
 }
 
@@ -345,15 +325,13 @@ void VisionBase::timerCallback(double dt_ms) {
     try {
         AttackMode mode = toAttackMode(attack_mode_);
         switch (mode) {
+            case AttackMode::UNKNOWN:
             case AttackMode::ARMOR: {
                 cmd = auto_aim_->solve(dt_ms);
             } break;
             case AttackMode::SMALL_RUNE:
             case AttackMode::BIG_RUNE: {
                 cmd = auto_buff_->solve();
-            } break;
-            case AttackMode::UNKNOWN: {
-                cmd = auto_aim_->solve(dt_ms);
             } break;
         }
     } catch (const std::exception& e) {
@@ -441,15 +419,13 @@ void VisionBase::debugThread() {
             auto dbg_rune = auto_buff_->getDebugFrame();
             AttackMode mode = toAttackMode(attack_mode_);
             switch (mode) {
+                case AttackMode::UNKNOWN:
                 case AttackMode::ARMOR: {
                     drawDebugOverlayShm(dbg_armor, camera_info_, false);
                 } break;
                 case AttackMode::SMALL_RUNE:
                 case AttackMode::BIG_RUNE: {
                     drawDebugOverlayShm(dbg_rune, camera_info_, false);
-                } break;
-                case AttackMode::UNKNOWN: {
-                    drawDebugOverlayShm(dbg_armor, camera_info_, false);
                 } break;
             }
             auto last_att = motion_buffer_->get_last();

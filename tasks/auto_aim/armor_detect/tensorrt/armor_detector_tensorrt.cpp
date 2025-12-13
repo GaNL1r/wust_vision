@@ -16,6 +16,7 @@
 #include "tasks/auto_aim/armor_detect/tensorrt/armor_detector_tensorrt.hpp"
 #include "cuda_runtime_api.h"
 #include "tasks/auto_aim/armor_detect/armor_infer.hpp"
+#include "tasks/utils.hpp"
 #include "wust_vl/common/utils/logger.hpp"
 #include "wust_vl/common/utils/timer.hpp"
 #include <cuda.h>
@@ -292,7 +293,7 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
         );
 
     } else {
-        resized_img = armor_infer_->letterbox(
+        resized_img = utils::letterbox(
             roi,
             transform_matrix,
             armor_infer_->getInputW(),

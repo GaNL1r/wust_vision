@@ -20,6 +20,7 @@
 
 #include "tasks/auto_aim/armor_detect/opencv/armor_detector_opencv.hpp"
 #include "tasks/auto_aim/armor_detect/armor_infer.hpp"
+#include "tasks/utils.hpp"
 ArmorDetectOpenCV::ArmorDetectOpenCV(
     const std::string& classify_model_path,
     const std::string& classify_label_path,
@@ -49,7 +50,7 @@ ArmorDetectOpenCV::detect(const cv::Mat& input, int detect_color) noexcept {
     std::vector<armor::ArmorObject> armors = matchLights(lights_, detect_color);
     std::vector<armor::ArmorObject> valid_armors;
 
-    for (auto& armor : armors) {
+    for (auto& armor: armors) {
         try {
             armor.number_img = extractNumber(gray_img, armor);
             if (armor.number_img.empty())
@@ -61,8 +62,7 @@ ArmorDetectOpenCV::detect(const cv::Mat& input, int detect_color) noexcept {
             if (armor.confidence < classifier_threshold_)
                 continue;
 
-            if (armor.number != armor::ArmorNumber::NO1
-                && armor.number != armor::ArmorNumber::BASE
+            if (armor.number != armor::ArmorNumber::NO1 && armor.number != armor::ArmorNumber::BASE
                 && armor.type == armor::ArmorType::LARGE)
             {
                 continue;
@@ -81,7 +81,6 @@ ArmorDetectOpenCV::detect(const cv::Mat& input, int detect_color) noexcept {
 
     return valid_armors;
 }
-
 
 std::tuple<cv::Mat, cv::Mat> ArmorDetectOpenCV::preprocessImage(const cv::Mat& img) noexcept {
     cv::Mat gray_img;
@@ -333,14 +332,8 @@ void ArmorDetectOpenCV::topts(armor::ArmorObject& armor) {
     armor.pts[2] = armor.lights[1].bottom;
     armor.pts[3] = armor.lights[1].top;
 }
-bool isRoiScaleLarger(const cv::Mat& frame, const cv::Rect& roi, int model_w, int model_h) {
-    float scale_full = std::min(model_w / float(frame.cols), model_h / float(frame.rows));
 
-    float scale_roi = std::min(model_w / float(roi.width), model_h / float(roi.height));
-
-    return scale_roi > scale_full; // true = ROI 放大倍率更高
-}
-bool isUpscaled(const cv::Rect& roi, int model_w, int model_h) {
+static bool isUpscaled(const cv::Rect& roi, int model_w, int model_h) {
     float scale = std::min(model_w / float(roi.width), model_h / float(roi.height));
 
     return scale > 1.0f;
@@ -353,12 +346,7 @@ void ArmorDetectOpenCV::pushInput(CommonFrame& frame) {
     bool is_up = isUpscaled(frame.expanded, target_width_, target_height_);
     if (is_up) {
         Eigen::Matrix3f transform_matrix;
-        auto resized = armor_infer::ArmorInfer::letterbox(
-            roi,
-            transform_matrix,
-            target_width_,
-            target_height_
-        );
+        auto resized = utils::letterbox(roi, transform_matrix, target_width_, target_height_);
         objs_result = detect(resized, frame.detect_color);
         for (auto& obj: objs_result) {
             obj.transform(transform_matrix);

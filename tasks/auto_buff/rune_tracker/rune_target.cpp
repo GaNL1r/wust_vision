@@ -242,89 +242,89 @@ cv::Rect RuneTarget::expanded(
     return square;
 }
 std::vector<std::pair<int, rune::RuneFan::Simple>>
-    RuneTarget::match(const std::vector<rune::RuneFan::Simple>& fans) {
-        std::vector<std::pair<int, rune::RuneFan::Simple>> result;
-        const int n_obs = (int)(fans.size());
-        const int armors_num = 5;
-        const double GATE = target_config_.match_gate;
-        const double max_cost = 1e9;
-        std::vector<std::vector<double>> cost(n_obs, std::vector<double>(armors_num, max_cost + 1));
-        std::vector<ypdrune_motion_model::VecZ> meas_list(n_obs);
-        for (int j = 0; j < n_obs; ++j) {
-            meas_list[j] = getmean(fans[j]);
-        }
-        for (int j = 0; j < n_obs; ++j) {
-            for (int id = 0; id < armors_num; ++id) {
-                ypdrune_motion_model::Measure measure(id);
-                ypdrune_motion_model::VecZ z_pred;
-                measure.h(target_state_, z_pred);
-
-                ypdrune_motion_model::VecZ nu = meas_list[j] - z_pred;
-                nu[(int)ypdrune_motion_model::Mean::YPD_Y] =
-                    angles::normalize_angle(nu[(int)ypdrune_motion_model::Mean::YPD_Y]);
-                nu[(int)ypdrune_motion_model::Mean::YPD_P] =
-                    angles::normalize_angle(nu[(int)ypdrune_motion_model::Mean::YPD_P]);
-                nu[(int)ypdrune_motion_model::Mean::ORI_YAW] =
-                    angles::normalize_angle(nu[(int)ypdrune_motion_model::Mean::ORI_YAW]);
-                nu[(int)ypdrune_motion_model::Mean::ORI_ROLL] =
-                    angles::normalize_angle(nu[(int)ypdrune_motion_model::Mean::ORI_ROLL]);
-                auto R = computeMeasurementCovariance(z_pred);
-                auto Rinv = R.inverse();
-
-                double d2 = (nu.transpose() * Rinv * nu)(0, 0);
-
-                // 门控
-                if (std::isfinite(d2) && d2 < GATE) {
-                    cost[j][id] = d2;
-                }
-            }
-        }
-        std::vector<bool> used_obs(n_obs, false);
-        std::vector<bool> used_id(armors_num, false);
-
-        while (true) {
-            double best = max_cost;
-            int best_j = -1;
-            int best_id = -1;
-
-            for (int j = 0; j < n_obs; ++j) {
-                if (used_obs[j])
-                    continue;
-                for (int id = 0; id < armors_num; ++id) {
-                    if (used_id[id])
-                        continue;
-                    if (cost[j][id] < best) {
-                        best = cost[j][id];
-                        best_j = j;
-                        best_id = id;
-                    }
-                }
-            }
-
-            if (best_j < 0 || best_id < 0) {
-                break;
-            }
-
-            used_obs[best_j] = true;
-            used_id[best_id] = true;
-            result.push_back(std::make_pair(best_id, fans[best_j]));
-        }
-
-        // for (auto fan: fans) {
-        //     int id;
-        //     auto min_angle_error = 1e10;
-        //     const auto angles = getAngles();
-        //     for (int i = 0; i < angles.size(); i++) {
-        //         auto angle_error = std::abs(angles::normalize_angle(
-        //             angles::normalize_angle(orientationToRoll(fan.target_ori)) - angles[i]
-        //         ));
-        //         if (angle_error < min_angle_error) {
-        //             min_angle_error = angle_error;
-        //             id = i;
-        //         }
-        //     }
-        //     result.push_back(std::make_pair(id, fan));
-        // }
-        return result;
+RuneTarget::match(const std::vector<rune::RuneFan::Simple>& fans) {
+    std::vector<std::pair<int, rune::RuneFan::Simple>> result;
+    const int n_obs = (int)(fans.size());
+    const int armors_num = 5;
+    const double GATE = target_config_.match_gate;
+    const double max_cost = 1e9;
+    std::vector<std::vector<double>> cost(n_obs, std::vector<double>(armors_num, max_cost + 1));
+    std::vector<ypdrune_motion_model::VecZ> meas_list(n_obs);
+    for (int j = 0; j < n_obs; ++j) {
+        meas_list[j] = getmean(fans[j]);
     }
+    for (int j = 0; j < n_obs; ++j) {
+        for (int id = 0; id < armors_num; ++id) {
+            ypdrune_motion_model::Measure measure(id);
+            ypdrune_motion_model::VecZ z_pred;
+            measure.h(target_state_, z_pred);
+
+            ypdrune_motion_model::VecZ nu = meas_list[j] - z_pred;
+            nu[(int)ypdrune_motion_model::Mean::YPD_Y] =
+                angles::normalize_angle(nu[(int)ypdrune_motion_model::Mean::YPD_Y]);
+            nu[(int)ypdrune_motion_model::Mean::YPD_P] =
+                angles::normalize_angle(nu[(int)ypdrune_motion_model::Mean::YPD_P]);
+            nu[(int)ypdrune_motion_model::Mean::ORI_YAW] =
+                angles::normalize_angle(nu[(int)ypdrune_motion_model::Mean::ORI_YAW]);
+            nu[(int)ypdrune_motion_model::Mean::ORI_ROLL] =
+                angles::normalize_angle(nu[(int)ypdrune_motion_model::Mean::ORI_ROLL]);
+            auto R = computeMeasurementCovariance(z_pred);
+            auto Rinv = R.inverse();
+
+            double d2 = (nu.transpose() * Rinv * nu)(0, 0);
+
+            // 门控
+            if (std::isfinite(d2) && d2 < GATE) {
+                cost[j][id] = d2;
+            }
+        }
+    }
+    std::vector<bool> used_obs(n_obs, false);
+    std::vector<bool> used_id(armors_num, false);
+
+    while (true) {
+        double best = max_cost;
+        int best_j = -1;
+        int best_id = -1;
+
+        for (int j = 0; j < n_obs; ++j) {
+            if (used_obs[j])
+                continue;
+            for (int id = 0; id < armors_num; ++id) {
+                if (used_id[id])
+                    continue;
+                if (cost[j][id] < best) {
+                    best = cost[j][id];
+                    best_j = j;
+                    best_id = id;
+                }
+            }
+        }
+
+        if (best_j < 0 || best_id < 0) {
+            break;
+        }
+
+        used_obs[best_j] = true;
+        used_id[best_id] = true;
+        result.push_back(std::make_pair(best_id, fans[best_j]));
+    }
+
+    // for (auto fan: fans) {
+    //     int id;
+    //     auto min_angle_error = 1e10;
+    //     const auto angles = getAngles();
+    //     for (int i = 0; i < angles.size(); i++) {
+    //         auto angle_error = std::abs(angles::normalize_angle(
+    //             angles::normalize_angle(orientationToRoll(fan.target_ori)) - angles[i]
+    //         ));
+    //         if (angle_error < min_angle_error) {
+    //             min_angle_error = angle_error;
+    //             id = i;
+    //         }
+    //     }
+    //     result.push_back(std::make_pair(id, fan));
+    // }
+    return result;
+}
 } // namespace rune

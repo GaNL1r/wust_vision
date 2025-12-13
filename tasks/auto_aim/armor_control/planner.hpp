@@ -1,9 +1,9 @@
 #pragma once
-#include <Eigen/Dense>
 #include "aimer.hpp"
 #include "shooter.hpp"
 #include "tasks/auto_aim/armor_tracker/target.hpp"
 #include "tinympc/tiny_api.hpp"
+#include <Eigen/Dense>
 
 constexpr double MPC_DT = 1.0 / 200.0;
 constexpr int MPC_HALF_HORIZON = 200;

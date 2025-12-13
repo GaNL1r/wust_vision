@@ -17,11 +17,7 @@
 * yaml-cpp
 ## 环境配置
 ```
-sudo apt install libfmt-dev
-sudo apt install libceres-dev
-sudo apt install libeigen3-dev
-sudo apt install nlohmann-json3-dev
-sudo apt install libyaml-cpp-dev
+./script/install_depences.sh
 ```
 ## Quick Start
 ```

@@ -11,7 +11,8 @@ rune_detector:
 
   bin_threshold: 70
   color_diff_threshold: 40
-
+  target_width: 640
+  target_height: 640
 
 rune_optimize:
   enable: true

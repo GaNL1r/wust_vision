@@ -14,9 +14,9 @@
 
 #pragma once
 #include "tasks/auto_aim/armor_tracker/trackerv3.hpp"
+#include "tasks/auto_aim/auto_aim_fsm.hpp"
 #include "tasks/auto_aim/type.hpp"
 #include "wust_vl/common/utils/config_binder.hpp"
-#include "tasks/auto_aim/auto_aim_fsm.hpp"
 class TrackerManager {
 public:
     explicit TrackerManager(

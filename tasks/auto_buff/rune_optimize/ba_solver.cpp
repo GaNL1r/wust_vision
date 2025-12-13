@@ -1,6 +1,6 @@
 #include "ba_solver.hpp"
-#include <ceres/solver.h>
 #include "tasks/utils.hpp"
+#include <ceres/solver.h>
 namespace rune {
 BaSolver::BaSolver(const YAML::Node& config, const cv::Mat& camera_matrix) {
     cv::cv2eigen(camera_matrix, K_);

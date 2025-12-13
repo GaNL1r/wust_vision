@@ -1,7 +1,7 @@
 #pragma once
-#include <wust_vl/common/utils/trajectory_compensator.hpp>
 #include "tasks/auto_aim/auto_aim_fsm.hpp"
 #include "tasks/auto_aim/type.hpp"
+#include <wust_vl/common/utils/trajectory_compensator.hpp>
 class Shooter {
 public:
     Shooter();

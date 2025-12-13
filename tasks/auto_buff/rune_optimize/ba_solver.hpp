@@ -16,13 +16,13 @@
 // limitations under the License.
 
 #pragma once
+#include "tasks/auto_buff/type.hpp"
 #include <Eigen/Dense>
 #include <ceres/autodiff_cost_function.h>
 #include <ceres/jet.h>
 #include <ceres/loss_function.h>
 #include <ceres/problem.h>
 #include <opencv2/core.hpp>
-#include "tasks/auto_buff/type.hpp"
 namespace rune {
 inline double normalizeAngleaa(double angle) {
     while (angle > 180.0)

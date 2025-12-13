@@ -27,12 +27,27 @@ public:
     bool is_valid = false;
     bool has_refer = false;
 
-    void draw(cv::Mat& img, const cv::Point2f& offset) const {
+    void draw(
+        cv::Mat& img,
+        const cv::Point2f& offset,
+        const Eigen::Matrix<float, 3, 3>& transform_matrix,
+        bool is_up
+    ) const {
         if (!is_valid || corners.size() < 3)
             return;
-
+        auto map_point = [&](float x, float y) -> cv::Point2f {
+            Eigen::Vector3f pt(x, y, 1.f);
+            Eigen::Vector3f tr;
+            if (is_up) {
+                tr = transform_matrix * pt;
+            } else {
+                tr = pt;
+            }
+            return { tr(0), tr(1) };
+        };
         std::vector<cv::Point2f> sorted_corners = corners;
         for (auto& pt: sorted_corners) {
+            pt = map_point(pt.x, pt.y);
             pt += offset;
         }
         // 画边
@@ -293,6 +308,18 @@ struct RuneFan {
         for (auto& fan: fans) {
             for (auto& point: fan.points2d) {
                 point += offset;
+            }
+        }
+    }
+    void transform(const Eigen::Matrix<float, 3, 3>& transform_matrix) {
+        auto map_point = [&](float x, float y) -> cv::Point2f {
+            Eigen::Vector3f pt(x, y, 1.f);
+            Eigen::Vector3f tr = transform_matrix * pt;
+            return { tr(0), tr(1) };
+        };
+        for (auto& fan: fans) {
+            for (auto& pt: fan.points2d) {
+                pt = map_point(pt.x, pt.y);
             }
         }
     }

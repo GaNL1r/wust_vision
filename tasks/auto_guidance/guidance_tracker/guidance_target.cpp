@@ -1,6 +1,5 @@
 #include "guidance_target.hpp"
 
-
 namespace auto_guidance {
 GuidanceTarget::GuidanceTarget() {
     target_state_ = Eigen::VectorXd::Zero(imgbox_model::X_N);

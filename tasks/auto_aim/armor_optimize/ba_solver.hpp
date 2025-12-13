@@ -16,12 +16,12 @@
 // limitations under the License.
 
 #pragma once
+#include "tasks/auto_aim/type.hpp"
 #include <ceres/autodiff_cost_function.h>
 #include <ceres/local_parameterization.h>
 #include <ceres/loss_function.h>
 #include <ceres/problem.h>
 #include <ceres/solver.h>
-#include "tasks/auto_aim/type.hpp"
 // BA algorithm based Optimizer for the armor pose estimation (Particularly for
 // the Yaw angle)
 class BaSolver {

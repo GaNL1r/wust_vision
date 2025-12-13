@@ -84,7 +84,7 @@ struct AutoBuff::Impl {
             frame.offset = cv::Point2f(bbox.x, bbox.y);
         }
         expanded_ = frame.expanded;
-        rune_detector_->pushInput(frame, is_big);
+        rune_detector_->pushInput(frame, is_big, debug_mode_);
     }
     void
     runeDetectCallback(const rune::RuneFan& fan, const CommonFrame& frame, cv::Mat& debug_img) {

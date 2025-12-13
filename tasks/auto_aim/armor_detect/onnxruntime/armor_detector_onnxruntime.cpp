@@ -1,5 +1,6 @@
 #include "armor_detector_onnxruntime.hpp"
 #include "tasks/auto_aim/armor_detect/armor_infer.hpp"
+#include "tasks/utils.hpp"
 ArmorDetectOnnxRuntime::ArmorDetectOnnxRuntime(
     std::string provider,
     std::string model_type,
@@ -54,14 +55,12 @@ void ArmorDetectOnnxRuntime::setCallback(DetectorCallback callback) {
 bool ArmorDetectOnnxRuntime::processCallback(const CommonFrame& frame) {
     Eigen::Matrix3f transform_matrix;
     auto roi = frame.src_img(frame.expanded);
-    cv::Mat resized_img = armor_infer_->letterbox(
+    cv::Mat resized_img = utils::letterbox(
         roi,
         transform_matrix,
         armor_infer_->getInputW(),
         armor_infer_->getInputH()
     );
-    cv::imshow("resized_img", resized_img);
-    cv::waitKey(1);
     float scale = armor_infer_->getUseNorm() ? 1.0f / 255.0f : 1.0f;
     cv::Mat blob = cv::dnn::blobFromImage(
         resized_img,

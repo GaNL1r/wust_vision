@@ -8,7 +8,7 @@ public:
         std::function<void(const rune::RuneFan&, const CommonFrame&, cv::Mat&)>;
     using Ptr = std::unique_ptr<RuneDetectorCV>;
     RuneDetectorCV(const YAML::Node& node);
-    void pushInput(CommonFrame& frame, bool is_big);
+    void pushInput(CommonFrame& frame, bool is_big, bool debug = false);
     void setCallback(DetectorCallback callback) {
         callback_ = callback;
     }
@@ -18,6 +18,8 @@ public:
         const std::vector<cv::Vec4i>& hierarchy,
         cv::Size image_size,
         cv::Point2f offset,
+        const Eigen::Matrix<float, 3, 3>& transform_matrix,
+        bool is_up,
         cv::Mat& debug_img,
         std::vector<bool>& used_flags
     );
@@ -59,6 +61,9 @@ public:
         double bin_threshold = 150.0;
         double color_diff_threshold = 40.0;
 
+        int target_width = 416;
+        int target_height = 416;
+
         void load(const YAML::Node& node) {
             // center params
             rune_center_min_area = node["rune_center_min_area"]
@@ -94,6 +99,9 @@ public:
             color_diff_threshold = node["color_diff_threshold"]
                 ? node["color_diff_threshold"].as<double>()
                 : color_diff_threshold;
+
+            target_width = node["target_width"] ? node["target_width"].as<int>() : target_width;
+            target_height = node["target_height"] ? node["target_height"].as<int>() : target_height;
         }
     } params_;
 };

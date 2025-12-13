@@ -26,49 +26,47 @@ public:
         float nms_threshold = 0.45f,
         int top_k = 100
     );
-    static cv::Mat letterbox(
-        const cv::Mat& img,
-        Eigen::Matrix3f& transform_matrix,
-        const int new_shape_w,
-        const int new_shape_h
-    ) {
-        int img_h = img.rows;
-        int img_w = img.cols;
+    // static cv::Mat letterbox(
+    //     const cv::Mat& img,
+    //     Eigen::Matrix3f& transform_matrix,
+    //     const int new_shape_w,
+    //     const int new_shape_h
+    // ) {
+    //     const int img_h = img.rows;
+    //     const int img_w = img.cols;
 
-        // new_shape expected as {new_w, new_h}
-        float scale = std::min(new_shape_h * 1.0f / img_h, new_shape_w * 1.0f / img_w);
-        int resize_h = static_cast<int>(round(img_h * scale));
-        int resize_w = static_cast<int>(round(img_w * scale));
+    //     // scale (keep aspect ratio)
+    //     const float scale = std::min(new_shape_h * 1.0f / img_h, new_shape_w * 1.0f / img_w);
 
-        int pad_h = new_shape_h - resize_h;
-        int pad_w = new_shape_w - resize_w;
+    //     const int resize_h = static_cast<int>(img_h * scale + 0.5f);
+    //     const int resize_w = static_cast<int>(img_w * scale + 0.5f);
 
-        cv::Mat resized_img;
-        cv::resize(img, resized_img, cv::Size(resize_w, resize_h));
+    //     const int pad_h = new_shape_h - resize_h;
+    //     const int pad_w = new_shape_w - resize_w;
 
-        float half_h = pad_h * 1.0f / 2;
-        float half_w = pad_w * 1.0f / 2;
+    //     // YOLO-style symmetric padding
+    //     const float half_h = pad_h * 0.5f;
+    //     const float half_w = pad_w * 0.5f;
 
-        int top = static_cast<int>(round(half_h - 0.1f));
-        int bottom = static_cast<int>(round(half_h + 0.1f));
-        int left = static_cast<int>(round(half_w - 0.1f));
-        int right = static_cast<int>(round(half_w + 0.1f));
+    //     const int top = static_cast<int>(half_h - 0.1f);
+    //     const int left = static_cast<int>(half_w - 0.1f);
 
-        transform_matrix << 1.0f / scale, 0, -half_w / scale, 0, 1.0f / scale, -half_h / scale, 0,
-            0, 1;
+    //     // Allocate output once, fill with padding color
+    //     cv::Mat out(new_shape_h, new_shape_w, img.type(), cv::Scalar(114, 114, 114));
 
-        cv::copyMakeBorder(
-            resized_img,
-            resized_img,
-            top,
-            bottom,
-            left,
-            right,
-            cv::BORDER_CONSTANT,
-            cv::Scalar(114, 114, 114)
-        );
-        return resized_img;
-    }
+    //     // ROI where resized image will be placed
+    //     cv::Rect roi(left, top, resize_w, resize_h);
+    //     cv::Mat out_roi = out(roi);
+
+    //     // Resize directly into ROI
+    //     cv::resize(img, out_roi, out_roi.size(), 0, 0, cv::INTER_LINEAR);
+
+    //     // Transform matrix: letterbox -> original image
+    //     transform_matrix << 1.0f / scale, 0.0f, -half_w / scale, 0.0f, 1.0f / scale,
+    //         -half_h / scale, 0.0f, 0.0f, 1.0f;
+
+    //     return out;
+    // }
 
     // setters
     void setMode(Mode m) {
