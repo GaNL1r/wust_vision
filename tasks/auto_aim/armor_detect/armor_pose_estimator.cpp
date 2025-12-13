@@ -67,7 +67,7 @@ std::vector<armor::Armor> ArmorPoseEstimator::extractArmorPoses(
         msg.pos = { x, y, z };
         msg.ori = new_q;
 
-        utils::transformArmorData(msg, T_camera_to_odom);
+        armor::transformArmorData(msg, T_camera_to_odom);
         msg.distance_to_image_center =
             pnp_solver_->calculateDistanceToCenter(obj.center, camera_intrinsic);
         msg.is_ok = obj.is_ok;

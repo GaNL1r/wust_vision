@@ -79,6 +79,7 @@ target_link_libraries(project_min_deps INTERFACE
     yaml-cpp
     fmt::fmt
     ${OpenCV_LIBS}
+    utils
 )
 
 # ------------------- Subdirectories -------------------

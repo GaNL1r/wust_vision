@@ -474,13 +474,8 @@ bool AutoAim::init(
     const Eigen::Vector3d& t_camera2gimbal,
     const std::pair<cv::Mat, cv::Mat>& camera_info
 ) {
-    return _impl->init(
-        config,
-        use_detect_ncnn_count,
-        R_camera2gimbal,
-        t_camera2gimbal,
-        camera_info
-    );
+    return _impl
+        ->init(config, use_detect_ncnn_count, R_camera2gimbal, t_camera2gimbal, camera_info);
 }
 void AutoAim::start() {
     _impl->start();

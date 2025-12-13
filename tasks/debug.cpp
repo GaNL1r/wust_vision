@@ -124,7 +124,7 @@ void drawDebugArmorContent(
         return armor_data;
     };
     auto armor_data = visualizeTargetProjection(dbg.target);
-    utils::transformArmorData(armor_data, dbg.T_camera_to_odom.inverse());
+    armor::transformArmorData(armor_data, dbg.T_camera_to_odom.inverse());
     for (size_t i = 0; i < armor_data.armors.size(); ++i) {
         const auto& pts = armor_data.armors[i].toPtsDebug(camera_info.first, camera_info.second);
         const auto& pos = armor_data.armors[i].pos;

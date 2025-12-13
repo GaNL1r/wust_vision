@@ -87,13 +87,8 @@ bool VisionBase::init(bool debug_mode) {
 
     YAML::Node auto_aim_config = YAML::LoadFile(auto_aim_config_);
     auto_aim_ = std::make_shared<auto_aim::AutoAim>();
-    auto_aim_->init(
-        auto_aim_config,
-        use_ncnn_count_,
-        R_camera2gimbal_,
-        t_camera2gimbal_,
-        camera_info
-    );
+    auto_aim_
+        ->init(auto_aim_config, use_ncnn_count_, R_camera2gimbal_, t_camera2gimbal_, camera_info);
     YAML::Node auto_buff_config = YAML::LoadFile(auto_buff_config_);
     auto_buff_ = std::make_shared<auto_buff::AutoBuff>();
     auto_buff_->init(

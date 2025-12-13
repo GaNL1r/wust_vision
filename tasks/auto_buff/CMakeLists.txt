@@ -7,6 +7,7 @@ target_compile_options(auto_buff PRIVATE -w)
 target_compile_definitions(auto_buff PRIVATE ${BUILD_DEFINITIONS})
 target_sources(auto_buff PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/auto_buff.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/type.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/rune_control/aimer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/rune_optimize/ba_solver.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/rune_tracker/rune_tracker.cpp

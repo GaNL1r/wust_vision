@@ -34,6 +34,7 @@ target_include_directories(auto_aim PRIVATE
 
 target_sources(auto_aim PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/auto_aim.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/type.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_control/aimer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_control/shooter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_control/planner.cpp
