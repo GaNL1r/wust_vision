@@ -43,6 +43,7 @@ struct RuneFan {
     bool is_big = false;
     std::chrono::steady_clock::time_point timestamp;
     struct Simple {
+        int has_other = 0;
         std::vector<double> angle_diffs = { 0,
                                             2 * M_PI / 5,
                                             2 * M_PI / 5 * 2,

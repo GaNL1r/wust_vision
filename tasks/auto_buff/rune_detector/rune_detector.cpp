@@ -102,7 +102,6 @@ inline rune::RuneCenter RuneDetectorCV::getRuneCenter(
 
         nodes.push_back({ rr.center, i, rr });
 
-        // debug 绿色框
         if (!debug_img.empty()) {
             cv::Point2f pts[4];
             rr.points(pts);

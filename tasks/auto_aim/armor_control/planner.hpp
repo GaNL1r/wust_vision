@@ -84,5 +84,4 @@ private:
     std::shared_ptr<Aimer> aimer_;
     std::shared_ptr<Shooter> shooter_;
     int max_iter_;
-
 };

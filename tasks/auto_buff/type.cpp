@@ -190,6 +190,7 @@ void RuneFan::Simple::addOther(const Simple& other) {
     if (id < 1) {
         return;
     }
+    has_other++;
     points2d.push_back(other.points2d[1]);
     points2d.push_back(other.points2d[2]);
     points2d.push_back(other.points2d[3]);

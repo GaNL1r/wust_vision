@@ -25,7 +25,7 @@ armor_tracker:
   tracking_thres: 10
   max_yaw_diff_deg: 90.0
   max_dis_diff: 3.0
-  match_gate: 3
+  match_gate: 5
   qxyz_common: 200.0
   qyaw_common: 50.0
   qxyz_output: 10.0
@@ -41,7 +41,7 @@ armor_tracker:
   yaw_r_base_front: 0.2
   yaw_r_base_side: 0.06
   yaw_r_log_ratio: 0.02
-  esekf_iter_num: 3
+  esekf_iter_num: 5
 
 auto_aim_fsm:
   thres_up_1: 3.5
@@ -54,12 +54,12 @@ planner:
   max_iter: 10
   max_yaw_acc: 40
   #全向yaw加速度测算37
-  Q_yaw: [9e6, 0]
-  R_yaw: [1.0]
+  Q_yaw: [5e6, 0]
+  R_yaw: [5.0]
 
   max_pitch_acc: 25
-  Q_pitch: [9e6, 0]
-  R_pitch: [1]
+  Q_pitch: [5e6, 0]
+  R_pitch: [5.0]
 
 aimer:
   prediction_delay: -0.00
@@ -95,10 +95,7 @@ trajectory_compensator:
   gravity: 9.8
   iteration_times: 20
   resistance: 0.092
-  rho: 1.225
-  Cd: 0.5
-  A: 0.00023
-  mass: 0.02
+
 
 
 auto_exposure:

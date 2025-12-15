@@ -114,6 +114,7 @@ struct AutoBuff::Impl {
         T_camera_to_odom_ = T_camera_to_odom;
         rune::RuneFan copy_fan = fan;
         const Eigen::Matrix3d R_imu_cam = T_camera_to_odom.block<3, 3>(0, 0);
+        double pnp_distance = 0.0;
         for (auto& fan: copy_fan.fans) {
             cv::Mat rvec, tvec;
             cv::solvePnP(
@@ -124,12 +125,15 @@ struct AutoBuff::Impl {
                 rvec,
                 tvec,
                 false,
-                cv::SOLVEPNP_ITERATIVE
+                cv::SOLVEPNP_IPPE //平移更稳定，（旋转这里纯靠后面优化）
+
             );
+
             cv::Mat R_cv;
             cv::Rodrigues(rvec, R_cv);
             Eigen::Matrix3d R = utils::cvToEigen(R_cv);
             Eigen::Vector3d t = utils::cvToEigen(tvec);
+            pnp_distance = t.norm();
             if (ba_solver_) {
                 R = ba_solver_->solveBa_R(fan, t, R, R_imu_cam);
             }
@@ -151,6 +155,7 @@ struct AutoBuff::Impl {
             auto_buff_debug_.src_img = { std::move(debug_img), frame.timestamp };
             auto_buff_debug_.T_camera_to_odom = T_camera_to_odom_;
             auto_buff_debug_.expanded = frame.expanded;
+            auto_buff_debug_.pnp_distance = pnp_distance;
         }
 
         detect_finish_count_++;

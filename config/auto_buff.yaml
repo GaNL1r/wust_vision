@@ -59,10 +59,7 @@ trajectory_compensator:
   gravity: 9.8
   iteration_times: 20
   resistance: 0.092
-  rho: 1.225
-  Cd: 0.5
-  A: 0.00023
-  mass: 0.02
+
 
 
 

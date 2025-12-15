@@ -33,6 +33,7 @@ struct DebugRune {
     double fitter_v;
     double obs_v;
     cv::Rect expanded;
+    double pnp_distance;
 };
 struct DebugLogs {
     std::vector<double> time_log;
@@ -58,6 +59,7 @@ struct DebugLogs {
     std::vector<double> control_v_pitch_log;
     std::vector<double> yaw_diff_log;
     std::vector<double> fire_log;
+    std::vector<double> rune_dis_log;
     void clear() {
         time_log.clear();
         raw_yaw_log.clear();
@@ -81,6 +83,7 @@ struct DebugLogs {
         control_v_yaw_log.clear();
         yaw_diff_log.clear();
         fire_log.clear();
+        rune_dis_log.clear();
     }
 };
 

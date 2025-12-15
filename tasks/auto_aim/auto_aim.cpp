@@ -104,18 +104,10 @@ struct AutoAim::Impl {
         double gravity_ = config["trajectory_compensator"]["gravity"].as<double>(10.0);
         double resistance_ = config["trajectory_compensator"]["resistance"].as<double>(0.092);
         int iteration_times_ = config["trajectory_compensator"]["iteration_times"].as<int>(20);
-        double rho = config["trajectory_compensator"]["rho"].as<double>(0.0);
-        double Cd = config["trajectory_compensator"]["Cd"].as<double>(0.47);
-        double A = config["trajectory_compensator"]["A"].as<double>(0.0);
-        double mass = config["trajectory_compensator"]["mass"].as<double>(0.5);
         auto trajectory_compensator = CompensatorFactory::createCompensator(comp_type);
         trajectory_compensator->iteration_times_ = iteration_times_;
         trajectory_compensator->gravity_ = gravity_;
         trajectory_compensator->resistance_ = resistance_;
-        trajectory_compensator->rho_ = rho;
-        trajectory_compensator->Cd_ = Cd;
-        trajectory_compensator->A_ = A;
-        trajectory_compensator->mass_ = mass;
         aimer_ = std::make_shared<Aimer>();
         aimer_->init(config_, trajectory_compensator);
         shooter_ = std::make_shared<Shooter>();

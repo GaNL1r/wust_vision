@@ -933,6 +933,7 @@ void debuglog(
     static double last_distance_ = 0.0;
     static DebugLogs log;
     static GimbalCmd last_cmd_;
+    static double rune_dis = 0.0;
     if (first_log) {
         start_time = std::chrono::steady_clock::now();
         first_log = false;
@@ -944,8 +945,12 @@ void debuglog(
     Target target = dbg_armor.target;
     rune::RuneTarget rune_target = dbg_rune.target;
     writeTargetLogToJson(target, rune_target);
-
+    
     double armor_yaw = 0.0, ypd_y = 0.0, ypd_p = 0.0, armor_distance = 0.0;
+    if(dbg_rune.pnp_distance >1.0)
+    {
+        rune_dis = dbg_rune.pnp_distance;
+    }
 
     if (!armors.armors.empty()) {
         std::vector<armor::Armor> ok_armors;
@@ -1022,6 +1027,7 @@ void debuglog(
     log.control_v_yaw_log.push_back(i_use.v_yaw);
     log.yaw_diff_log.push_back(i_use.yaw_diff);
     log.fire_log.push_back(i_use.fire_advice);
+    log.rune_dis_log.push_back(rune_dis);
     if (gimbal_cmd.appera) {
         last_cmd_ = gimbal_cmd;
     }
@@ -1055,6 +1061,7 @@ void debuglog(
     trim(log.control_v_yaw_log);
     trim(log.yaw_diff_log);
     trim(log.fire_log);
+    trim(log.rune_dis_log);
     nlohmann::json j;
     {
         j["time"] = log.time_log;
@@ -1080,6 +1087,7 @@ void debuglog(
         j["control_v_yaw"] = log.control_v_yaw_log;
         j["yaw_diff"] = log.yaw_diff_log;
         j["fire"] = log.fire_log;
+        j["rune_dis"] = log.rune_dis_log;
     }
     std::ofstream file("/dev/shm/cmd_log.json");
     if (file.is_open()) {

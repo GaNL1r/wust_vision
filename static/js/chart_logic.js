@@ -32,6 +32,7 @@ const chartMap = {
   control_v_pitch: { label: "Control V Pitch" },
   yaw_diff: { label: "Yaw Diff" },
   fire: { label: "Fire" },
+  rune_dis: { label: "Rune Distance" },
 };
 
 const mainCtx = document.getElementById("mainChart").getContext("2d");
