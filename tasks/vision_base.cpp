@@ -40,7 +40,7 @@ bool VisionBase::init(bool debug_mode) {
         std::cout << "[env] VISION_ROOT not set in this process\n";
     debug_mode_ = debug_mode;
     config_ = YAML::LoadFile(common_config_);
-
+    debug_fps_ = config_["debug_fps"].as<int>(30);
     std::string log_level_ = config_["logger"]["log_level"].as<std::string>("INFO");
     std::string log_path_ = config_["logger"]["log_path"].as<std::string>("wust_log");
     bool use_logcli = config_["logger"]["use_logcli"].as<bool>();
@@ -402,8 +402,7 @@ void VisionBase::start() {
 
 void VisionBase::debugThread() {
     using namespace std::chrono;
-
-    double us_interval = 1e6 / static_cast<double>(30.0);
+    double us_interval = 1e6 / static_cast<double>(debug_fps_);
     auto kInterval = std::chrono::microseconds(static_cast<int64_t>(us_interval));
     while (run_flag_) {
         auto start_time = steady_clock::now();

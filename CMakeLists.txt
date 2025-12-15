@@ -35,6 +35,7 @@ find_package(fmt         REQUIRED)
 find_package(yaml-cpp    REQUIRED)
 find_package(Ceres       REQUIRED)
 find_package(HikSDK      REQUIRED)
+
 if(BUILD_WITH_OPENVINO)
     find_package(OpenVINO REQUIRED COMPONENTS Runtime ONNX)
 endif()

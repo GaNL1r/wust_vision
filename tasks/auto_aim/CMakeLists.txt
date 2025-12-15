@@ -18,7 +18,7 @@ if(BUILD_WITH_ORT)
   list(APPEND BUILD_LIBS ${Ort_LIB})
 endif()
 add_subdirectory(armor_control/tinympc)
-list(APPEND BUILD_LIBS tinympcstatic   ${CERES_LIBRARIES} ${WUST_VL_LIBS})
+list(APPEND BUILD_LIBS tinympcstatic   ${CERES_LIBRARIES} ${WUST_VL_LIBS} )
 
 add_library(auto_aim OBJECT)
 

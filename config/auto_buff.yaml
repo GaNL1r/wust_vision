@@ -55,7 +55,7 @@ aimer:
       yaw_off: 0
 
 trajectory_compensator:
-  compenstator_type: rk4
+  compenstator_type: resistance
   gravity: 9.8
   iteration_times: 20
   resistance: 0.092

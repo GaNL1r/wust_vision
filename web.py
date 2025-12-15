@@ -14,7 +14,8 @@ app = Flask(__name__)
 # True -> 强制共享内存模式
 # False -> 文件模式
 USE_SHARED_MEMORY_MODE = True
-
+STREAM_FPS = 60          
+FRAME_INTERVAL = 1.0 / STREAM_FPS
 # 通信参数
 shared_memory_path = "/dev/shm/debug_frame"
 shared_size = 2 * 1024 * 1024  # 2MB
@@ -137,18 +138,18 @@ def mjpeg_stream():
                     mapfile.seek(0)
                     size_bytes = mapfile.read(4)
                     if len(size_bytes) < 4:
-                        time.sleep(0.03)
+                        time.sleep(FRAME_INTERVAL)
                         continue
                     jpg_size = struct.unpack("I", size_bytes)[0]
                     if jpg_size <= 0 or jpg_size > shared_size - 4:
-                        time.sleep(0.03)
+                        time.sleep(FRAME_INTERVAL)
                         continue
                     jpg_bytes = mapfile.read(jpg_size)
                     if len(jpg_bytes) != jpg_size:
-                        time.sleep(0.03)
+                        time.sleep(FRAME_INTERVAL)
                         continue
                     if jpg_bytes[0:3] != b"\xff\xd8\xff":
-                        time.sleep(0.03)
+                        time.sleep(FRAME_INTERVAL)
                         continue
                 except (OSError, ValueError) as e:
                     current_time = time.time()
@@ -165,7 +166,7 @@ def mjpeg_stream():
                     with open(shared_frame_path, "rb") as f:
                         jpg_bytes = f.read()
                     if jpg_bytes[0:3] != b"\xff\xd8\xff":
-                        time.sleep(0.03)
+                        time.sleep(FRAME_INTERVAL)
                         continue
                 except FileNotFoundError:
                     time.sleep(0.1)
@@ -175,7 +176,7 @@ def mjpeg_stream():
                     continue
 
             yield b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + jpg_bytes + b"\r\n"
-            time.sleep(0.03)
+            time.sleep(FRAME_INTERVAL)
         except Exception:
             time.sleep(0.5)
 

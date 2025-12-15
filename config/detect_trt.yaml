@@ -18,15 +18,15 @@ armor_detect:
     max_ratio: 0.6
     min_ratio: 0.01
     max_pts_error: 20.0
-    max_angle_diff: 20.0
-    color_diff_thresh: 20
+    max_angle_diff: 30.0
+    color_diff_thresh: 5
   model:
     conf_threshold: 0.2
     model_path: ${VISION_ROOT}/model/opt-1208-001.onnx
     device_id: 0
     nms_threshold: 0.3
     top_k: 128
-    max_infer_running: 4
+    max_infer_running: 3
     min_free_mem_ratio: 0.1
     use_cuda_pre: true
     log_time: false
