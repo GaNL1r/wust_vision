@@ -11,8 +11,6 @@
 * fmt
 * ceres
 * Eigen3
-* Sophus
-* g2o
 * nlohmann
 * yaml-cpp
 ## 环境配置
@@ -32,11 +30,7 @@ sudo ./run.sh run xx /rebuild/build #编译并运行xx可执行文件/删除buil
 ├── 3rdparty
 │   ├── angles.h
 │   └── backward-cpp
-│       
-├── calibration
-│   ├── calcamera.cpp
-│   ├── capture.cpp
-│   └── eye_hand.cpp
+│
 ├── cmake
 │   ├── FindG2O.cmake
 │   ├── FindHikSDK.cmake
@@ -46,11 +40,12 @@ sudo ./run.sh run xx /rebuild/build #编译并运行xx可执行文件/删除buil
 ├── config
 │   ├── auto_aim.yaml
 │   ├── auto_buff.yaml
-│   ├── cal.yaml
-│   ├── camera_calibrator.yaml
+│   ├── auto_guidance.yaml
+│   ├── auto_sniper.yaml
 │   ├── camera_info.yaml
 │   ├── camera.yaml
 │   ├── common.yaml
+│   ├── config -> /home/hy/wust_vision/config
 │   ├── detect_ncnn.yaml
 │   ├── detect_opencv.yaml
 │   ├── detect_openvino.yaml
@@ -62,32 +57,35 @@ sudo ./run.sh run xx /rebuild/build #编译并运行xx可执行文件/删除buil
 │   ├── armor_infer.hpp
 │   ├── CMakeLists.txt
 │   ├── letter_box.cu
-│   ├── letter_box.hpp
-│   ├── rune_infer.cu
-│   └── rune_infer.hpp
-├── dandao.py
+│   └── letter_box.hpp
 ├── env.bash
 ├── format.sh
-├── fun
-│
 ├── KalmanHyLib
 │   ├── adaptive_extended_kalman_filter.hpp
 │   ├── error_state_extended_kalman_filter.hpp
 │   ├── extended_kalman_filter.hpp
-│   ├── gtsam.hpp
 │   ├── kalman_hybird_lib.hpp
-│   ├── kf.hpp
+│   ├── README.md
 │   └── unscented_kalman_filter.hpp
 ├── model
 │
 ├── README.md
+├── read_shm_image_mmap_only.py
 ├── ros2
 │   ├── CMakeLists.txt
 │   ├── ros2.cpp
 │   └── ros2.hpp
 ├── run.sh
+├── script
+│   ├── install_depences.sh
+│   ├── rsync.sh
+│   ├── setup_devenv.sh
+│   └── setup_service.sh
 ├── src
+│   ├── dart.cpp
+│   ├── hero.cpp
 │   ├── sentry.cpp
+│   ├── sim.cpp
 │   └── standard.cpp
 ├── static
 │   ├── 崇实战队logo图标.png
@@ -108,7 +106,7 @@ sudo ./run.sh run xx /rebuild/build #编译并运行xx可执行文件/删除buil
 │   │   │   ├── shooter.cpp
 │   │   │   ├── shooter.hpp
 │   │   │   └── tinympc
-│   │   │       
+│   │   │
 │   │   ├── armor_detect
 │   │   │   ├── armor_detect_common.cpp
 │   │   │   ├── armor_detect_common.hpp
@@ -128,10 +126,10 @@ sudo ./run.sh run xx /rebuild/build #编译并运行xx可执行文件/删除buil
 │   │   │   ├── number_classifier.cpp
 │   │   │   ├── number_classifier.hpp
 │   │   │   ├── onnxruntime
-│   │   │   │   ├── armor_detector_ort.cpp
-│   │   │   │   ├── armor_detector_ort.hpp
-│   │   │   │   ├── armor_detector_ort_wrapper.cpp
-│   │   │   │   └── armor_detector_ort_wrapper.hpp
+│   │   │   │   ├── armor_detector_onnxruntime.cpp
+│   │   │   │   ├── armor_detector_onnxruntime.hpp
+│   │   │   │   ├── armor_detector_onnxruntime_wrapper.cpp
+│   │   │   │   └── armor_detector_onnxruntime_wrapper.hpp
 │   │   │   ├── opencv
 │   │   │   │   ├── armor_detector_opencv.cpp
 │   │   │   │   ├── armor_detector_opencv.hpp
@@ -143,19 +141,16 @@ sudo ./run.sh run xx /rebuild/build #编译并运行xx可执行文件/删除buil
 │   │   │   │   ├── armor_detector_openvino_wrapper.cpp
 │   │   │   │   └── armor_detector_openvino_wrapper.hpp
 │   │   │   └── tensorrt
-│   │   │       ├── armor_detector_trt.cpp
-│   │   │       ├── armor_detector_trt.hpp
-│   │   │       ├── armor_detector_trt_wrapper.cpp
-│   │   │       └── armor_detector_trt_wrapper.hpp
+│   │   │       ├── armor_detector_tensorrt.cpp
+│   │   │       ├── armor_detector_tensorrt.hpp
+│   │   │       ├── armor_detector_tensorrt_wrapper.cpp
+│   │   │       └── armor_detector_tensorrt_wrapper.hpp
 │   │   ├── armor_optimize
 │   │   │   ├── ba_solver.cpp
-│   │   │   ├── ba_solver.hpp
-│   │   │   ├── graph_optimizer.cpp
-│   │   │   └── graph_optimizer.hpp
+│   │   │   └── ba_solver.hpp
 │   │   ├── armor_tracker
 │   │   │   ├── motion_models
 │   │   │   │   ├── acc_model.hpp
-│   │   │   │   ├── factorypd.hpp
 │   │   │   │   ├── motion_modela.hpp
 │   │   │   │   ├── motion_modelonea.hpp
 │   │   │   │   ├── motion_modeloneca.hpp
@@ -164,24 +159,17 @@ sudo ./run.sh run xx /rebuild/build #编译并运行xx可执行文件/删除buil
 │   │   │   │   ├── motion_modelrypd.hpp
 │   │   │   │   ├── motion_modelypd.hpp
 │   │   │   │   └── motion_modelypdv2.hpp
-│   │   │   ├── one_ca_tracker.cpp
-│   │   │   ├── one_ca_tracker.hpp
-│   │   │   ├── one_tracker.cpp
-│   │   │   ├── one_tracker.hpp
 │   │   │   ├── target.cpp
 │   │   │   ├── target.hpp
-│   │   │   ├── tracker.cpp
-│   │   │   ├── tracker.hpp
 │   │   │   ├── tracker_manager.cpp
 │   │   │   ├── tracker_manager.hpp
-│   │   │   ├── trackerv2.cpp
-│   │   │   ├── trackerv2.hpp
 │   │   │   ├── trackerv3.cpp
 │   │   │   └── trackerv3.hpp
 │   │   ├── auto_aim.cpp
 │   │   ├── auto_aim_fsm.hpp
 │   │   ├── auto_aim.hpp
 │   │   ├── CMakeLists.txt
+│   │   ├── type.cpp
 │   │   └── type.hpp
 │   ├── auto_buff
 │   │   ├── auto_buff.cpp
@@ -191,14 +179,11 @@ sudo ./run.sh run xx /rebuild/build #编译并运行xx可执行文件/删除buil
 │   │   │   ├── aimer.cpp
 │   │   │   └── aimer.hpp
 │   │   ├── rune_detector
-│   │   │   ├── rm_vision_core
-│   │   │   ├── scut_robot_detector.cpp
-│   │   │   └── scut_robot_detector.hpp
+│   │   │   ├── rune_detector.cpp
+│   │   │   └── rune_detector.hpp
 │   │   ├── rune_optimize
 │   │   │   ├── ba_solver.cpp
-│   │   │   ├── ba_solver.hpp
-│   │   │   ├── graph_optimizer.cpp
-│   │   │   └── graph_optimizer.hpp
+│   │   │   └── ba_solver.hpp
 │   │   ├── rune_tracker
 │   │   │   ├── motion_models
 │   │   │   │   └── motion_modelrypd.hpp
@@ -207,12 +192,51 @@ sudo ./run.sh run xx /rebuild/build #编译并运行xx可执行文件/删除buil
 │   │   │   ├── rune_tracker.cpp
 │   │   │   ├── rune_tracker.hpp
 │   │   │   └── spd_fitter.hpp
+│   │   ├── type.cpp
 │   │   └── type.hpp
+│   ├── auto_guidance
+│   │   ├── auto_guidance.cpp
+│   │   ├── auto_guidance.hpp
+│   │   ├── CMakeLists.txt
+│   │   ├── debug.cpp
+│   │   ├── debug.hpp
+│   │   ├── guidance_detector
+│   │   │   ├── detector_base.hpp
+│   │   │   ├── detector_factory.hpp
+│   │   │   ├── green_light_infer.cpp
+│   │   │   ├── green_light_infer.hpp
+│   │   │   ├── opencv
+│   │   │   │   ├── guidance_detector_opencv.cpp
+│   │   │   │   └── guidance_detector_opencv.hpp
+│   │   │   └── openvino
+│   │   │       ├── guidance_detector_openvino.cpp
+│   │   │       └── guidance_detector_openvino.hpp
+│   │   ├── guidance_tracker
+│   │   │   ├── guidance_target.cpp
+│   │   │   ├── guidance_target.hpp
+│   │   │   ├── guidance_tracker.cpp
+│   │   │   ├── guidance_tracker.hpp
+│   │   │   └── motion_models
+│   │   │       └── imgbox_model.hpp
+│   │   └── type.hpp
+│   ├── auto_offset
+│   │   ├── auto_offset.cpp
+│   │   ├── auto_offset.hpp
+│   │   └── CMakeLists.txt
+│   ├── auto_sniper
+│   │   ├── auto_sniper.cpp
+│   │   ├── auto_sniper.hpp
+│   │   ├── CMakeLists.txt
+│   │   └── trajectory_solver.hpp
 │   ├── CMakeLists.txt
 │   ├── debug.cpp
 │   ├── debug.hpp
+│   ├── main_base.hpp
 │   ├── packet_typedef.hpp
+│   ├── sinple_img_rotate_saver.hpp
+│   ├── type_common.cpp
 │   ├── type_common.hpp
+│   ├── utils.cpp
 │   ├── utils.hpp
 │   ├── vision_base.cpp
 │   └── vision_base.hpp
@@ -220,11 +244,8 @@ sudo ./run.sh run xx /rebuild/build #编译并运行xx可执行文件/删除buil
 │   └── index.html
 ├── test
 │   ├── control.cpp
-│   └── test_ros2.cpp
-├── video.py
+│   └── test_usbcamera.cpp
 └── web.py
-
-
 
 
 
