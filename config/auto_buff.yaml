@@ -16,7 +16,7 @@ rune_detector:
 
 rune_optimize:
   enable: true
-  mode: golden
+  mode: ceres
   ceres_max_iter: 40
   golden_search_side_deg: 60
 

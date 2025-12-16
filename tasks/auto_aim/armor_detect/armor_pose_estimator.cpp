@@ -21,7 +21,7 @@ ArmorPoseEstimator::ArmorPoseEstimator(
     const YAML::Node& config,
     std::pair<cv::Mat, cv::Mat> camera_info
 ) {
-    pnp_solver_ = std::make_unique<PnPSolver>();
+    pnp_solver_ = std::make_unique<PnPSolver>(cv::SOLVEPNP_IPPE);
     pnp_solver_->setObjectPoints(
         "small",
         armor::ArmorObject::buildObjectPoints<cv::Point3f>(SMALL_ARMOR_WIDTH, SMALL_ARMOR_HEIGHT)

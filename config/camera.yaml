@@ -1,4 +1,4 @@
-type: video_player
+type: hik_camera
 
 camera_info_path: ${VISION_ROOT}/config/camera_info.yaml
 

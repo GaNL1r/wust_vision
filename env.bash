@@ -16,8 +16,8 @@ export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 export ROS_DOMAIN_ID=42
 
 
-WORK_DIR=/home/hy/wust_vision
-export VISION_ROOT="$WORK_DIR"
+# WORK_DIR=/home/hy/wust_vision
+# export VISION_ROOT="$WORK_DIR"
 blue="\033[1;34m"
 yellow="\033[1;33m"
 reset="\033[0m"

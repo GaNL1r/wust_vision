@@ -1,5 +1,5 @@
 max_infer_running: 6
-detect_color: 1
+detect_color: 0
 attack_mode: 0
 debug_fps: 60
 tf:
@@ -10,8 +10,8 @@ control:
   control_rate: 300
   communication_delay_us: 1100
   pitch_avg_windows: 1
-  device_name: /dev/ttyACM_RMc
-  use_serial: false
+  device_name: /dev/ttyACM0
+  use_serial: true
   
 logger:
   log_level: INFO
@@ -21,7 +21,7 @@ logger:
   use_simplelog: true
 
 shoot:
-  bullet_speed: 21.0
+  bullet_speed: 25.0
   rate: 7
   controller_delay: 0.00
 

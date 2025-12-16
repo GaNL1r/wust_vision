@@ -48,12 +48,20 @@ void Light::transform(const Eigen::Matrix<float, 3, 3>& transform_matrix) {
     this->points(p);
 
     width = cv::norm(map_point(p[0].x, p[0].y) - map_point(p[1].x, p[1].y));
+    cv::Point2f p0 = center;
+    cv::Point2f p1 = center + axis;
+
+    cv::Point2f p0_t = map_point(p0.x, p0.y);
+    cv::Point2f p1_t = map_point(p1.x, p1.y);
+
+    axis = p1_t - p0_t;
+    axis /= cv::norm(axis);
 
     // axis = (top - bottom) / cv::norm(top - bottom);
 
     tilt_angle =
         std::atan2(std::abs(top.x - bottom.x), std::abs(top.y - bottom.y)) / CV_PI * 180.0f;
-    axis = map_point(axis.x, axis.y);
+    // axis = map_point(axis.x, axis.y);
     center = map_point(center.x, center.y);
 }
 int formArmorColor(ArmorColor color) {

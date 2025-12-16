@@ -65,6 +65,7 @@ public:
         const std::vector<cv::Point2f>& lm,
         const Eigen::Matrix3d& Rci,
         double pitch,
+        double roll,
         const Eigen::Vector3d& t,
         const Eigen::Matrix3d& K
     );
@@ -74,6 +75,7 @@ public:
         const std::vector<cv::Point2f>& lm,
         const Eigen::Matrix3d& Rci,
         double pitch,
+        double roll,
         const Eigen::Vector3d& t,
         const Eigen::Matrix3d& K
     );
@@ -99,111 +101,114 @@ public:
     }
 };
 
-struct ReprojectionError {
+
+struct CameraProjector {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    ReprojectionError(
-        const Eigen::Vector2d& uv,
-        const Eigen::Vector3d& pt_3d,
+
+    CameraProjector(
         const Eigen::Matrix3d& Rci,
         double pitch,
+        double roll,
         const Eigen::Vector3d& t,
         const Eigen::Matrix3d& K
     ):
-        uv_(uv),
-        pt3_(pt_3d),
         Rci_(Rci),
         pitch_(pitch),
+        roll_(roll),
         t_(t),
         K_(K) {}
 
-    template<typename T>
-    bool operator()(const T* const yaw, T* residuals) const {
-        // build yaw rotation matrix
-        T cy = ceres::cos(yaw[0]);
-        T sy = ceres::sin(yaw[0]);
+    template<typename T, typename Derived>
+    inline Eigen::Matrix<T, 2, 1>
+    project(const T& yaw, const Eigen::MatrixBase<Derived>& Pw) const {
+        // -------- yaw --------
+        T cy = ceres::cos(yaw);
+        T sy = ceres::sin(yaw);
         Eigen::Matrix<T, 3, 3> R_yaw;
         R_yaw << cy, -sy, T(0), sy, cy, T(0), T(0), T(0), T(1);
 
-        // build pitch rotation matrix (pitch is double, cast to T)
+        // -------- pitch --------
         T cp = ceres::cos(T(pitch_));
         T sp = ceres::sin(T(pitch_));
         Eigen::Matrix<T, 3, 3> R_pitch;
-        // Note: consistent with your previous Rpitch = exp([0, pitch, 0])
         R_pitch << cp, T(0), sp, T(0), T(1), T(0), -sp, T(0), cp;
 
-        // R = Rci * R_yaw * R_pitch
-        Eigen::Matrix<T, 3, 3> R = Rci_.cast<T>() * R_yaw * R_pitch;
+        // -------- roll --------
+        T cr = ceres::cos(T(roll_));
+        T sr = ceres::sin(T(roll_));
+        Eigen::Matrix<T, 3, 3> R_roll;
+        R_roll << cr, -sr, T(0), sr, cr, T(0), T(0), T(0), T(1);
 
-        Eigen::Matrix<T, 3, 1> Pc = R * pt3_.cast<T>() + t_.cast<T>();
+        // -------- full rotation --------
+        Eigen::Matrix<T, 3, 3> R = Rci_.cast<T>() * R_yaw * R_pitch * R_roll;
 
-        // project (assumes fx == K(0,0), fy == K(1,1), cx, cy)
-        T u = T(K_(0, 0)) * Pc.x() / Pc.z() + T(K_(0, 2));
-        T v = T(K_(1, 1)) * Pc.y() / Pc.z() + T(K_(1, 2));
+        // -------- camera frame --------
+        Eigen::Matrix<T, 3, 1> Pc = R * Pw + t_.cast<T>();
 
-        residuals[0] = u - T(uv_(0));
-        residuals[1] = v - T(uv_(1));
+        // -------- projection --------
+        Eigen::Matrix<T, 2, 1> uv;
+        uv(0) = T(K_(0, 0)) * Pc.x() / Pc.z() + T(K_(0, 2));
+        uv(1) = T(K_(1, 1)) * Pc.y() / Pc.z() + T(K_(1, 2));
+        return uv;
+    }
+
+    Eigen::Matrix3d Rci_;
+    double pitch_;
+    double roll_;
+    Eigen::Vector3d t_;
+    Eigen::Matrix3d K_;
+};
+struct ReprojectionError {
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+    ReprojectionError(
+        const Eigen::Vector2d& uv,
+        const Eigen::Vector3d& pt3d,
+        const CameraProjector& cam
+    ):
+        uv_(uv),
+        pt3_(pt3d),
+        cam_(cam) {}
+
+    template<typename T>
+    bool operator()(const T* const yaw, T* residuals) const {
+        Eigen::Matrix<T, 2, 1> uv_proj = cam_.project(yaw[0], pt3_.cast<T>());
+
+        residuals[0] = uv_proj(0) - T(uv_(0));
+        residuals[1] = uv_proj(1) - T(uv_(1));
         return true;
     }
 
-    const Eigen::Vector2d uv_;
-    const Eigen::Vector3d pt3_;
-    const Eigen::Matrix3d Rci_;
-    const double pitch_;
-    const Eigen::Vector3d t_;
-    const Eigen::Matrix3d K_;
+    Eigen::Vector2d uv_;
+    Eigen::Vector3d pt3_;
+    CameraProjector cam_;
 };
-
 struct SymmetryError {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
     SymmetryError(
         const Eigen::Vector3d& p1,
         const Eigen::Vector3d& p2,
         const Eigen::Vector2d& measCenter,
-        const Eigen::Matrix3d& Rci,
-        double pitch,
-        const Eigen::Vector3d& t,
-        const Eigen::Matrix3d& K
+        const CameraProjector& cam
     ):
         p1_(p1),
         p2_(p2),
         meas_(measCenter),
-        Rci_(Rci),
-        pitch_(pitch),
-        t_(t),
-        K_(K) {}
+        cam_(cam) {}
 
     template<typename T>
     bool operator()(const T* const yaw, T* residuals) const {
-        T cy = ceres::cos(yaw[0]);
-        T sy = ceres::sin(yaw[0]);
-        Eigen::Matrix<T, 3, 3> R_yaw;
-        R_yaw << cy, -sy, T(0), sy, cy, T(0), T(0), T(0), T(1);
+        Eigen::Matrix<T, 2, 1> uv1 = cam_.project(yaw[0], p1_.cast<T>());
+        Eigen::Matrix<T, 2, 1> uv2 = cam_.project(yaw[0], p2_.cast<T>());
 
-        T cp = ceres::cos(T(pitch_));
-        T sp = ceres::sin(T(pitch_));
-        Eigen::Matrix<T, 3, 3> R_pitch;
-        R_pitch << cp, T(0), sp, T(0), T(1), T(0), -sp, T(0), cp;
-
-        Eigen::Matrix<T, 3, 3> R = Rci_.cast<T>() * R_yaw * R_pitch;
-
-        Eigen::Matrix<T, 3, 1> Pc1 = R * p1_.cast<T>() + t_.cast<T>();
-        Eigen::Matrix<T, 3, 1> Pc2 = R * p2_.cast<T>() + t_.cast<T>();
-
-        T u1 = T(K_(0, 0)) * Pc1.x() / Pc1.z() + T(K_(0, 2));
-        T v1 = T(K_(1, 1)) * Pc1.y() / Pc1.z() + T(K_(1, 2));
-
-        T u2 = T(K_(0, 0)) * Pc2.x() / Pc2.z() + T(K_(0, 2));
-        T v2 = T(K_(1, 1)) * Pc2.y() / Pc2.z() + T(K_(1, 2));
-
-        residuals[0] = (u1 + u2) * T(0.5) - T(meas_(0));
-        residuals[1] = (v1 + v2) * T(0.5) - T(meas_(1));
+        residuals[0] = (uv1(0) + uv2(0)) * T(0.5) - T(meas_(0));
+        residuals[1] = (uv1(1) + uv2(1)) * T(0.5) - T(meas_(1));
         return true;
     }
 
-    const Eigen::Vector3d p1_, p2_;
-    const Eigen::Vector2d meas_;
-    const Eigen::Matrix3d Rci_;
-    const double pitch_;
-    const Eigen::Vector3d t_;
-    const Eigen::Matrix3d K_;
+    Eigen::Vector3d p1_;
+    Eigen::Vector3d p2_;
+    Eigen::Vector2d meas_;
+    CameraProjector cam_;
 };

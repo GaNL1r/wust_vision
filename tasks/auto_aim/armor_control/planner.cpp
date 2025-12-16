@@ -239,21 +239,21 @@ std::pair<Eigen::Vector3d, double> Planner::selectArmor(const Target& target, bo
     if (armor_num > 0) {
         int best_idx = -1;
 
-        if (target.tracked_id_ != armor::ArmorNumber::OUTPOST) {
-            auto [com, lea] = aimer_->getCommingLeaving();
-            double coming_angle = com * M_PI / 180.0;
-            double leaving_angle = lea * M_PI / 180.0;
+        // if (target.tracked_id_ != armor::ArmorNumber::OUTPOST) {
+        //     auto [com, lea] = aimer_->getCommingLeaving();
+        //     double coming_angle = com * M_PI / 180.0;
+        //     double leaving_angle = lea * M_PI / 180.0;
 
-            for (int i = 0; i < armor_num; ++i) {
-                if (std::abs(delta_angles[i]) > coming_angle)
-                    continue;
+        //     for (int i = 0; i < armor_num; ++i) {
+        //         if (std::abs(delta_angles[i]) > coming_angle)
+        //             continue;
 
-                if (target.v_yaw() > 0 && delta_angles[i] < leaving_angle)
-                    best_idx = i;
-                if (target.v_yaw() < 0 && delta_angles[i] > -leaving_angle)
-                    best_idx = i;
-            }
-        }
+        //         if (target.v_yaw() > 0 && delta_angles[i] < leaving_angle)
+        //             best_idx = i;
+        //         if (target.v_yaw() < 0 && delta_angles[i] > -leaving_angle)
+        //             best_idx = i;
+        //     }
+        // }
 
         if (best_idx < 0) {
             std::vector<int> all(armor_num);

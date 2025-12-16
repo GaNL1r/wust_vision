@@ -15,7 +15,7 @@ armor_map:
 
 armor_optimize:
   enable: true
-  mode: golden
+  mode: ceres
   ceres_max_iter: 40
   golden_search_side_deg: 60
   distance_fix_a2: 0.0
@@ -54,39 +54,45 @@ planner:
   max_iter: 10
   max_yaw_acc: 40
   #全向yaw加速度测算37
-  Q_yaw: [5e6, 0]
-  R_yaw: [5.0]
+  Q_yaw: [7e6, 0]
+  R_yaw: [3.0]
 
   max_pitch_acc: 25
-  Q_pitch: [5e6, 0]
-  R_pitch: [5.0]
+  Q_pitch: [7e6, 0]
+  R_pitch: [3.0]
 
 aimer:
-  prediction_delay: -0.00
+  prediction_delay: 0.0
   comming_angle: 60
   leaving_angle: 20
 
 shooter:
   yaw_limit: 45
   shooting_range_h: 0.1
-  shooting_range_w: 0.12
+  shooting_range_w: 0.1
   min_enable_pitch_deg: 0.25
   min_enable_yaw_deg: 0.25
   base_offset:
-      yaw: -4.1
-      pitch: -3.0
+      yaw: -6
+      pitch: -4
   trajectory_offset:
-    - d_max: 9
+    - d_max: 3
       d_min: 0
       h_max: 1.5
       h_min: -1
-      pitch_off: -0
-      yaw_off: -0
-    - d_max: 10
-      d_min: 9
-      h_max: 0.4
+      pitch_off: 0
+      yaw_off: 0
+    - d_max: 4.5
+      d_min: 3
+      h_max: 1.5
       h_min: -1
-      pitch_off: -0
+      pitch_off: 0
+      yaw_off: 0
+    - d_max: 4.5
+      d_min: 9
+      h_max: 1.5
+      h_min: -1
+      pitch_off: 0
       yaw_off: 0
 
 
@@ -105,5 +111,5 @@ auto_exposure:
   step_gain: 15.0
   decay_step: 1.0
   exposure_min: 100.0
-  exposure_max: 2500.0
+  exposure_max: 3500.0
   control_interval_ms: 300

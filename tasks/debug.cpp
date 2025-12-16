@@ -569,7 +569,7 @@ void drawDebugOverlayWrite(
 
     // 图像构造
     cv::Mat debug_img;
-    src_img.convertTo(debug_img, -1, 1, 0);
+    cv::cvtColor(debug_img, dbg.src_img.img, cv::COLOR_BGR2RGB);
     if (debug_img.empty())
         return;
 
@@ -648,8 +648,7 @@ void drawDebugOverlayShow(
 
     // 图像构造
     cv::Mat debug_img;
-    src_img.convertTo(debug_img, -1, 1, 0);
-    cv::cvtColor(debug_img, debug_img, cv::COLOR_BGR2RGB);
+    cv::cvtColor(debug_img, dbg.src_img.img, cv::COLOR_BGR2RGB);
     if (debug_img.empty())
         return;
 
@@ -679,8 +678,7 @@ void drawDebugOverlayWrite(
 
     // 图像构造
     cv::Mat debug_img;
-    src_img.convertTo(debug_img, -1, 1, 0);
-    cv::cvtColor(debug_img, debug_img, cv::COLOR_BGR2RGB);
+    cv::cvtColor(debug_img, dbg.src_img.img, cv::COLOR_BGR2RGB);
     if (debug_img.empty())
         return;
 
@@ -761,8 +759,7 @@ void drawDebugOverlayShow(
 
     // 图像构造
     cv::Mat debug_img;
-    src_img.convertTo(debug_img, -1, 1, 0);
-    cv::cvtColor(debug_img, debug_img, cv::COLOR_BGR2RGB);
+    cv::cvtColor(debug_img, dbg.src_img.img, cv::COLOR_BGR2RGB);
     if (debug_img.empty())
         return;
 
