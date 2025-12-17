@@ -1,5 +1,7 @@
 #include "vision_base.hpp"
-
+#ifdef USE_NCNN
+    #include <ncnn/gpu.h>
+#endif
 VisionBase::VisionBase(
     std::string common_config,
     std::string camera_config,
@@ -25,11 +27,11 @@ VisionBase::~VisionBase() {
     }
     thread_pool_->waitUntilEmpty();
 
-// #ifdef USE_NCNN
-//     if (use_ncnn_count_ > 0) {
-//         ncnn::destroy_gpu_instance();
-//     }
-// #endif
+#ifdef USE_NCNN
+    if (use_ncnn_count_ > 0) {
+        ncnn::destroy_gpu_instance();
+    }
+#endif
     WUST_MAIN("main") << "vision stop already!";
 }
 bool VisionBase::init(bool debug_mode) {
