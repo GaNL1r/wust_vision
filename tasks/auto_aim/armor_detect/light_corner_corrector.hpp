@@ -46,6 +46,6 @@ private:
         const cv::Mat& gray_img,
         const armor::Light& light,
         const SymmetryAxis& axis,
-        std::string order
+        bool is_top
     );
 };

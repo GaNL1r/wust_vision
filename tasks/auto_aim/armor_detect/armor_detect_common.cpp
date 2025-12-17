@@ -22,11 +22,7 @@ ArmorDetectCommon::ArmorDetectCommon(const ArmorDetectCommonParams& params) {
     );
     corner_corrector_ = std::make_unique<LightCornerCorrector>();
 }
-bool ArmorDetectCommon::extractNetImage(
-    const cv::Mat& src,
-    const cv::Mat& gray_src,
-    armor::ArmorObject& armor
-) {
+bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, armor::ArmorObject& armor) {
     const int light_length = 12;
     const int warp_height = 28;
     const int small_armor_width = 32;
@@ -67,7 +63,8 @@ bool ArmorDetectCommon::extractNetImage(
     if (litroi_color.empty())
         return false;
 
-    cv::Mat litroi_gray = gray_src(expanded_rect);
+    cv::Mat litroi_gray;
+    cv::cvtColor(litroi_color, litroi_gray, cv::COLOR_BGR2GRAY);
     if (litroi_gray.empty())
         return false;
     armor.whole_gray_img = litroi_gray;
@@ -84,9 +81,12 @@ bool ArmorDetectCommon::extractNetImage(
     } catch (...) {
         return false;
     }
-
+    cv::Point2f offset = cv::Point2f(new_x, new_y);
     // 光条透视变换
-    cv::Point2f lights_vertices[4] = { armor.pts[0], armor.pts[1], armor.pts[2], armor.pts[3] };
+    cv::Point2f lights_vertices[4] = { armor.pts[1] - offset,
+                                       armor.pts[0] - offset,
+                                       armor.pts[3] - offset,
+                                       armor.pts[2] - offset };
     int top_light_y = (warp_height - light_length) / 2 - 1;
     int bottom_light_y = top_light_y + light_length;
     const int warp_width = is_large ? large_armor_width : small_armor_width;
@@ -99,12 +99,10 @@ bool ArmorDetectCommon::extractNetImage(
     cv::Mat number_image, warp_mat;
     try {
         warp_mat = cv::getPerspectiveTransform(lights_vertices, target_vertices);
-        cv::warpPerspective(gray_src, number_image, warp_mat, cv::Size(warp_width, warp_height));
+        cv::warpPerspective(litroi_gray, number_image, warp_mat, cv::Size(warp_width, warp_height));
         number_image =
             number_image(cv::Rect(cv::Point((warp_width - roi_size.width) / 2, 0), roi_size));
-        cv::threshold(number_image, number_image, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
-        cv::flip(number_image, armor.number_img, 0);
-
+        cv::threshold(number_image, armor.number_img, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
     } catch (...) {
         return false;
     }
@@ -118,39 +116,61 @@ bool ArmorDetectCommon::extractNetImage(
 }
 
 bool ArmorDetectCommon::refineLightsFromArmorPts(armor::ArmorObject& armor) const {
-    armor.center = (armor.pts[0] + armor.pts[1] + armor.pts[2] + armor.pts[3]) * 0.25;
-
-    std::vector<std::pair<int, double>> light_distances;
-    for (int i = 0; i < static_cast<int>(armor.lights.size()); ++i) {
-        double dist = cv::norm(armor.lights[i].center - armor.center);
-        light_distances.emplace_back(i, dist);
-    }
-
-    std::sort(light_distances.begin(), light_distances.end(), [](const auto& a, const auto& b) {
-        return a.second < b.second;
-    });
-
-    if (light_distances.size() >= 2) {
-        const armor::Light& l1 = armor.lights[light_distances[0].first];
-        const armor::Light& l2 = armor.lights[light_distances[1].first];
-
-        if (l1.center.x < l2.center.x) {
-            armor.lights[0] = l1;
-            armor.lights[1] = l2;
-        } else {
-            armor.lights[0] = l2;
-            armor.lights[1] = l1;
-        }
-        for (auto& light: armor.lights) {
-            const cv::Point2f offset { static_cast<float>(armor.new_x),
-                                       static_cast<float>(armor.new_y) };
-            light.addOffset(offset);
-        }
-        return true;
-    } else {
+    armor.center = (armor.pts[0] + armor.pts[1] +
+                    armor.pts[2] + armor.pts[3]) * 0.25f;
+    if (armor.lights.size() < 2)
         return false;
+
+    auto ordered = armor.sortCorners(armor.pts);
+    cv::Point2f l_centers[2] = {
+        (ordered[0] + ordered[1]) * 0.5f,
+        (ordered[2] + ordered[3]) * 0.5f
+    };
+
+    int idx[2] = { -1, -1 };
+    double min_dist[2] = {
+        std::numeric_limits<double>::max(),
+        std::numeric_limits<double>::max()
+    };
+
+    for (int i = 0; i < static_cast<int>(armor.lights.size()); ++i) {
+        for (int k = 0; k < 2; ++k) {
+            double d = cv::norm(armor.lights[i].center - l_centers[k]);
+            if (d < min_dist[k]) {
+                min_dist[k] = d;
+                idx[k] = i;
+            }
+        }
     }
+    if (idx[0] == idx[1]) {
+        min_dist[1] = std::numeric_limits<double>::max();
+        for (int i = 0; i < static_cast<int>(armor.lights.size()); ++i) {
+            if (i == idx[0]) continue;
+            double d = cv::norm(armor.lights[i].center - l_centers[1]);
+            if (d < min_dist[1]) {
+                min_dist[1] = d;
+                idx[1] = i;
+            }
+        }
+    }
+
+    if (idx[0] < 0 || idx[1] < 0)
+        return false;
+
+    const auto& a = armor.lights[idx[0]];
+    const auto& b = armor.lights[idx[1]];
+
+    if (a.center.x < b.center.x) {
+        armor.lights[0] = a;
+        armor.lights[1] = b;
+    } else {
+        armor.lights[0] = b;
+        armor.lights[1] = a;
+    }
+
+    return true;
 }
+
 std::vector<armor::Light> ArmorDetectCommon::findLights(
     const cv::Mat& color_img,
     const cv::Mat& binary_img,
@@ -251,8 +271,6 @@ std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
     }
 
     auto start = time_utils::now();
-    cv::Mat gray;
-    cv::cvtColor(src_img, gray, cv::COLOR_RGB2GRAY);
 
     for (auto& armor_in: objs_result) {
         armor::ArmorObject armor = armor_in;
@@ -267,7 +285,7 @@ std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
             bool ok = false;
 
             try {
-                ok = extractNetImage(src_img, gray, armor);
+                ok = extractNetImage(src_img, armor);
             } catch (const cv::Exception& e) {
                 std::cerr << "[detectNet] OpenCV exception in extractNetImage: " << e.what()
                           << std::endl;
@@ -299,7 +317,12 @@ std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
             if (refineLightsFromArmorPts(armor)) {
                 if (isArmor(armor.lights[0], armor.lights[1])) {
                     armor.is_ok = true;
-                    corner_corrector_->correctCorners(armor, gray);
+                    corner_corrector_->correctCorners(armor, armor.whole_gray_img);
+                    for (auto& light: armor.lights) {
+                        const cv::Point2f offset { static_cast<float>(armor.new_x),
+                                                   static_cast<float>(armor.new_y) };
+                        light.addOffset(offset);
+                    }
                 }
             }
 

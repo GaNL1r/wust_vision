@@ -73,9 +73,8 @@ bool NumberClassifier::classifyNumber(armor::ArmorObject& armor) {
         }
     }
 
-    cv::Mat image = armor.number_img.clone();
-
-    image = image / 255.0;
+    cv::Mat image = armor.number_img;
+    // image.convertTo(image, CV_32F, 1.0 / 255.0);
 
     cv::Mat blob;
     cv::dnn::blobFromImage(image, blob);
@@ -83,16 +82,18 @@ bool NumberClassifier::classifyNumber(armor::ArmorObject& armor) {
     thread_net->setInput(blob);
     cv::Mat outputs = thread_net->forward();
 
-    float max_prob = *std::max_element(outputs.begin<float>(), outputs.end<float>());
-    cv::Mat softmax_prob;
-    cv::exp(outputs - max_prob, softmax_prob);
-    float sum = static_cast<float>(cv::sum(softmax_prob)[0]);
-    softmax_prob /= sum;
+    double max_val;
+    cv::minMaxLoc(outputs, nullptr, &max_val);
+
+    cv::Mat prob;
+    cv::exp(outputs - max_val, prob);
+    prob /= cv::sum(prob)[0];
 
     double confidence;
-    cv::Point class_id_point;
-    cv::minMaxLoc(softmax_prob.reshape(1, 1), nullptr, &confidence, nullptr, &class_id_point);
-    int label_id = class_id_point.x;
+    cv::Point class_id;
+    cv::minMaxLoc(prob, nullptr, &confidence, nullptr, &class_id);
+
+    int label_id = class_id.x;
     double raw_conf = armor.confidence;
     armor.confidence = confidence;
 

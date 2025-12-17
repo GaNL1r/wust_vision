@@ -12,7 +12,7 @@ armor_detect:
     threshold: 0.5
   light:
     binary_thres: 85
-    expand_ratio_h: 1.2
+    expand_ratio_h: 1.7
     expand_ratio_w: 1.2
     max_angle: 35
     max_ratio: 0.45

@@ -93,7 +93,7 @@ double reprojectionErrorYaw(
             * (Eigen::Vector2d(landmarks[p.first].x, landmarks[p.first].y)
                + Eigen::Vector2d(landmarks[p.second].x, landmarks[p.second].y));
 
-        cost +=symWeight* (mid - meas).squaredNorm();
+        cost += symWeight * (mid - meas).squaredNorm();
     }
     return cost;
 }
@@ -148,12 +148,10 @@ double BaSolver::ceresYaw(
 ) {
     double yaw = initial_yaw;
 
-
     CameraProjector cam(R_camera_imu, armor_pitch, roll, t_camera_armor, K);
 
     ceres::Problem problem;
     problem.AddParameterBlock(&yaw, 1, new YawLocalParameterization());
-
 
     // for (size_t i = 0; i < object_points.size(); ++i) {
     //     ceres::CostFunction* cost =
@@ -184,12 +182,10 @@ double BaSolver::ceresYaw(
         problem.AddResidualBlock(cost, new ceres::HuberLoss(1.0), &yaw);
     }
 
-
     ceres::Solver::Options options;
     options.max_num_iterations = params_.ceres_max_iter;
     options.linear_solver_type = ceres::DENSE_QR;
     options.minimizer_progress_to_stdout = false;
-
 
     ceres::Solver::Summary summary;
     ceres::Solve(options, &problem, &summary);

@@ -47,7 +47,7 @@ public:
         Eigen::Matrix3f transform_matrix,
         int detect_color
     );
-    bool extractNetImage(const cv::Mat& src, const cv::Mat& gray_src, armor::ArmorObject& armor);
+    bool extractNetImage(const cv::Mat& src, armor::ArmorObject& armor);
     bool refineLightsFromArmorPts(armor::ArmorObject& armor) const;
     std::unique_ptr<LightCornerCorrector> corner_corrector_;
     std::unique_ptr<NumberClassifier> number_classifier_;

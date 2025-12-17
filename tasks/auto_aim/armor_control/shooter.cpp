@@ -29,10 +29,10 @@ struct Shooter::Impl {
             );
             manual_compensator_->setBaseYaw(config["shooter"]["base_offset"]["yaw"].as<double>());
         }
-        if(!manual_compensator_->updateMapFlow(entries)||entries.size()<1) {
+        if (!manual_compensator_->updateMapFlow(entries) || entries.size() < 1) {
             std::cout << "Trajectory compensator init failed" << std::endl;
         }
-        
+
         last_cmd_.yaw = 0;
     }
     GimbalCmd shoot(
