@@ -35,9 +35,11 @@ find_package(fmt         REQUIRED)
 find_package(yaml-cpp    REQUIRED)
 find_package(Ceres       REQUIRED)
 find_package(HikSDK      REQUIRED)
+find_package(wust_vl REQUIRED)
 
 if(BUILD_WITH_OPENVINO)
     find_package(OpenVINO REQUIRED COMPONENTS Runtime ONNX)
+    list(APPEND BUILD_DEFINITIONS USE_OPENVINO)
 endif()
 
 if(BUILD_WITH_TRT)
@@ -51,18 +53,22 @@ if(BUILD_WITH_TRT)
     set(CMAKE_CUDA_STANDARD_REQUIRED ON)
     set(CMAKE_CUDA_COMPILER_LAUNCHER ccache)
     add_subdirectory(${CMAKE_SOURCE_DIR}/cuda_infer ${CMAKE_BINARY_DIR}/cuda_infer_build)
+    list(APPEND BUILD_DEFINITIONS USE_TRT)
 endif()
 
 if(BUILD_WITH_NCNN)
     find_package(ncnn REQUIRED)
+    list(APPEND BUILD_DEFINITIONS USE_NCNN)
 endif()
 
 if(BUILD_WITH_ORT)
     set(ort_root_path "/home/hy/onnxruntime-linux-x64-gpu-1.22.0")
     find_package(Ort REQUIRED)
+    list(APPEND BUILD_DEFINITIONS USE_ORT)
 endif()
 
-find_package(wust_vl REQUIRED)
+add_library(project_options INTERFACE)
+target_compile_definitions(project_options INTERFACE ${BUILD_DEFINITIONS})
 
 include_directories(${EIGEN3_INCLUDE_DIR} ${OpenCV_INCLUDE_DIRS} ${Ceres_INCLUDE_DIRS})
 

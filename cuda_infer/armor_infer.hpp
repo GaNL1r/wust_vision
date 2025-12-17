@@ -10,7 +10,6 @@
 #include <vector>
 
 namespace armor_cuda_infer {
-
 cv::Mat tensorToMat(float* d_nchw, int W, int H, cudaStream_t stream);
 
 class CudaInfer {

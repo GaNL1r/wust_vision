@@ -49,8 +49,8 @@ ArmorDetectTrt::ArmorDetectTrt(
     trt_net_ = std::make_unique<ml_net::TensorRTNet>();
     ml_net::TensorRTNet::Params trt_params;
     trt_params.model_path = onnx_path;
-    trt_params.input_h = armor_infer_->getInputH();
-    trt_params.input_w = armor_infer_->getInputW();
+    trt_params.input_dims =
+        nvinfer1::Dims4 { 1, 3, armor_infer_->getInputH(), armor_infer_->getInputW() };
     trt_net_->init(trt_params);
     auto input_output_dims = trt_net_->getInputOutputDims();
     input_dims_ = std::get<0>(input_output_dims);

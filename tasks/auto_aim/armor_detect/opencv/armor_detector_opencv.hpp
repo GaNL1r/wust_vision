@@ -19,7 +19,7 @@
 
 #pragma once
 #include "tasks/auto_aim/armor_detect/light_corner_corrector.hpp"
-#include "tasks/auto_aim/armor_detect/number_classifier.hpp"
+#include "tasks/auto_aim/armor_detect/number_classifier/number_classifier.hpp"
 #include "tasks/type_common.hpp"
 class ArmorDetectOpenCV {
 public:

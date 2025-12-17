@@ -14,14 +14,15 @@
 // limitations under the License.
 #pragma once
 #include "tasks/auto_aim/type.hpp"
-class NumberClassifier {
+#include "base.hpp"
+class NumberClassifier : public NumberClassifierBase {
 public:
     NumberClassifier(
         const std::string& classify_model_path,
         const std::string& classify_label_path
     );
-    void initNumberClassifier();
-    bool classifyNumber(armor::ArmorObject& armor);
+    void initNumberClassifier() override;
+    bool classifyNumber(armor::ArmorObject& armor) override;
 
 private:
     std::vector<std::string> class_names_;

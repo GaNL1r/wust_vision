@@ -2,19 +2,15 @@ cmake_minimum_required(VERSION 3.14)
 project(auto_aim LANGUAGES CXX )
 
 if(BUILD_WITH_OPENVINO)
-  list(APPEND BUILD_DEFINITIONS USE_OPENVINO)
   list(APPEND BUILD_LIBS openvino::runtime openvino::frontend::onnx)
 endif()
 if(BUILD_WITH_TRT)
-  list(APPEND BUILD_DEFINITIONS USE_TRT)
   list(APPEND BUILD_LIBS TensorRT::TensorRT TensorRT::nvonnxparser  CUDA::cudart  cuda_infer)
 endif()
 if(BUILD_WITH_NCNN)
-  list(APPEND BUILD_DEFINITIONS USE_NCNN)
   list(APPEND BUILD_LIBS ncnn)
 endif()
 if(BUILD_WITH_ORT)
-  list(APPEND BUILD_DEFINITIONS USE_ORT)
   list(APPEND BUILD_LIBS ${Ort_LIB})
 endif()
 add_subdirectory(armor_control/tinympc)
@@ -24,6 +20,9 @@ add_library(auto_aim OBJECT)
 
 target_compile_options(auto_aim PRIVATE -w)
 target_compile_definitions(auto_aim PRIVATE ${BUILD_DEFINITIONS})
+target_link_libraries(auto_aim PRIVATE
+    project_options
+)
 target_include_directories(auto_aim PRIVATE
     include
     $<$<BOOL:${BUILD_WITH_OPENVINO}>:${OpenVINO_INCLUDE_DIRS}>
@@ -48,7 +47,7 @@ target_sources(auto_aim PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/armor_infer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/armor_pose_estimator.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/light_corner_corrector.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/number_classifier.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/number_classifier/number_classifier.cpp
 )
 target_include_directories(auto_aim PUBLIC
     ${WUST_VL_INCLUDE_DIRS}
@@ -66,6 +65,7 @@ if(BUILD_WITH_TRT)
     target_sources(auto_aim PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/tensorrt/armor_detector_tensorrt.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/tensorrt/armor_detector_tensorrt_wrapper.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/number_classifier/number_classifier_trt.cpp
     )
 endif()
 

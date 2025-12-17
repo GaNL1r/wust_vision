@@ -14,9 +14,10 @@
 #pragma once
 
 #include "tasks/auto_aim/armor_detect/light_corner_corrector.hpp"
-#include "tasks/auto_aim/armor_detect/number_classifier.hpp"
+#include "tasks/auto_aim/armor_detect/number_classifier/factory.hpp"
 #include "tasks/auto_aim/type.hpp"
 struct ArmorDetectCommonParams {
+    std::string classify_backend = "opencv";
     std::string classify_model_path;
     std::string classify_label_path;
     double classifier_threshold = 0.5;
@@ -50,6 +51,6 @@ public:
     bool extractNetImage(const cv::Mat& src, armor::ArmorObject& armor);
     bool refineLightsFromArmorPts(armor::ArmorObject& armor) const;
     std::unique_ptr<LightCornerCorrector> corner_corrector_;
-    std::unique_ptr<NumberClassifier> number_classifier_;
+    std::unique_ptr<NumberClassifierBase> number_classifier_;
     ArmorDetectCommonParams params_;
 };

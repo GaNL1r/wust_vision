@@ -22,6 +22,7 @@ ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(
         utils::expandEnv(config["armor_detect"]["classify"]["model_path"].as<std::string>());
     auto classify_label_path =
         utils::expandEnv(config["armor_detect"]["classify"]["label_path"].as<std::string>());
+    std::string classify_backend = config["armor_detect"]["classify"]["backend"].as<std::string>();
     double classify_threshold = config["armor_detect"]["classify"]["threshold"].as<double>();
     std::string model_path =
         utils::expandEnv(config["armor_detect"]["model"]["model_path"].as<std::string>());
@@ -70,6 +71,7 @@ ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(
         .classifier_threshold = classify_threshold,
         .classify_label_path = classify_label_path,
         .classify_model_path = classify_model_path,
+        .classify_backend = classify_backend,
         .expand_ratio_h = expand_ratio_h,
         .expand_ratio_w = expand_ratio_w,
         .armor_params = a_params,

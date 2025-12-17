@@ -16,9 +16,10 @@
 #include "wust_vl/common/utils/timer.hpp"
 ArmorDetectCommon::ArmorDetectCommon(const ArmorDetectCommonParams& params) {
     params_ = params;
-    number_classifier_ = std::make_unique<NumberClassifier>(
-        params_.classify_model_path,
-        params_.classify_label_path
+    number_classifier_ = NumberClassifierFactory::createNumberClassifier(
+        params.classify_backend,
+        params.classify_model_path,
+        params.classify_label_path
     );
     corner_corrector_ = std::make_unique<LightCornerCorrector>();
 }
@@ -116,22 +117,16 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, armor::ArmorObject& 
 }
 
 bool ArmorDetectCommon::refineLightsFromArmorPts(armor::ArmorObject& armor) const {
-    armor.center = (armor.pts[0] + armor.pts[1] +
-                    armor.pts[2] + armor.pts[3]) * 0.25f;
+    armor.center = (armor.pts[0] + armor.pts[1] + armor.pts[2] + armor.pts[3]) * 0.25f;
     if (armor.lights.size() < 2)
         return false;
 
     auto ordered = armor.sortCorners(armor.pts);
-    cv::Point2f l_centers[2] = {
-        (ordered[0] + ordered[1]) * 0.5f,
-        (ordered[2] + ordered[3]) * 0.5f
-    };
+    cv::Point2f l_centers[2] = { (ordered[0] + ordered[1]) * 0.5f,
+                                 (ordered[2] + ordered[3]) * 0.5f };
 
     int idx[2] = { -1, -1 };
-    double min_dist[2] = {
-        std::numeric_limits<double>::max(),
-        std::numeric_limits<double>::max()
-    };
+    double min_dist[2] = { std::numeric_limits<double>::max(), std::numeric_limits<double>::max() };
 
     for (int i = 0; i < static_cast<int>(armor.lights.size()); ++i) {
         for (int k = 0; k < 2; ++k) {
@@ -145,7 +140,8 @@ bool ArmorDetectCommon::refineLightsFromArmorPts(armor::ArmorObject& armor) cons
     if (idx[0] == idx[1]) {
         min_dist[1] = std::numeric_limits<double>::max();
         for (int i = 0; i < static_cast<int>(armor.lights.size()); ++i) {
-            if (i == idx[0]) continue;
+            if (i == idx[0])
+                continue;
             double d = cv::norm(armor.lights[i].center - l_centers[1]);
             if (d < min_dist[1]) {
                 min_dist[1] = d;
@@ -300,8 +296,16 @@ std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
 
             if (!ok)
                 continue;
+            try {
+                number_classifier_->classifyNumber(armor);
+            } catch (const std::exception& e) {
+                std::cerr << "[detectNet] exception in classifyNumber: " << e.what() << std::endl;
+                continue;
+            } catch (...) {
+                std::cerr << "[detectNet] unknown error in classifyNumber." << std::endl;
+                continue;
+            }
 
-            number_classifier_->classifyNumber(armor);
             if (armor.confidence < params_.classifier_threshold)
                 continue;
             if (armor.color == armor::ArmorColor::NONE || armor.color == armor::ArmorColor::PURPLE)

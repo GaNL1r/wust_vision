@@ -9,6 +9,7 @@ armor_detect:
   classify:
     label_path: ${VISION_ROOT}/model/label.txt
     model_path: ${VISION_ROOT}/model/reborn_number_classifier.onnx
+    backend: opencv
     threshold: 0.5
   light:
     binary_thres: 80
