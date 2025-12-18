@@ -245,9 +245,9 @@ void VisionBase::autoExposureControl(const cv::Mat& frame) {
         } break;
     }
 }
-// #ifdef USE_TRT
-//     #include "cuda_infer/cvtcolor.hpp"
-// #endif
+#ifdef USE_TRT
+    #include "cuda_infer/cvtcolor.hpp"
+#endif
 void VisionBase::frameCallback(wust_vl_video::ImageFrame& frame) {
     if (!run_flag_ || infer_running_count_ >= max_infer_running_) {
         return;
@@ -261,11 +261,10 @@ void VisionBase::frameCallback(wust_vl_video::ImageFrame& frame) {
     if (frame.src_img.channels() == 3) {
         common_frame.src_img = std::move(frame.src_img);
     } else {
-        // #ifdef USE_TRT
-        //     static cuda_cvt::CudaBayer_EA cuda_cvt;
-        //     cuda_cvt.process(frame.src_img, common_frame.src_img);
-        // #endif
-
+        #ifdef USE_TRT
+            static cuda_cvt::CudaBayer_EA cuda_cvt;
+            cuda_cvt.process(frame.src_img, common_frame.src_img,frame.pixel_type);
+        #endif
     }
 
     common_frame.expanded = cv::Rect(0, 0, common_frame.src_img.cols, common_frame.src_img.rows);

@@ -10,10 +10,12 @@ hik_camera:
   gain: 16.9
   gamma: 0.7 #Bayer用不了
   pixel_format: BayerRG8 #RGB8Packed
-  use_raw: false
   acquisition_frame_rate_enable: true
   reverse_x: false
   reverse_y: false
+  use_raw: true
+  rgb: false
+  ea: false
   
 video_player:
   fps: 60
