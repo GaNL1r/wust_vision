@@ -123,7 +123,7 @@ bool TrackerV3::updateTarget(const armor::Armors& armors) {
 
     std::vector<armor::Armor> valid_armors;
     for (const auto& armor: armors.armors) {
-        if (!armor::isSameTarget(armor.number, target_.tracked_id_)||armor.is_none_purple)
+        if (!armor::isSameTarget(armor.number, target_.tracked_id_) || armor.is_none_purple)
             continue;
         found_count++;
         valid_armors.push_back(armor);

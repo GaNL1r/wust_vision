@@ -13,10 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #pragma once
+#include "base.hpp"
 #include "tasks/auto_aim/type.hpp"
 #include "wust_vl/ml_net/tensorrt/tensorrt_net.hpp"
-#include "base.hpp"
-class NumberClassifierTRT : public NumberClassifierBase {
+class NumberClassifierTRT: public NumberClassifierBase {
 public:
     NumberClassifierTRT(
         const std::string& classify_model_path,

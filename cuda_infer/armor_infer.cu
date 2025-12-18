@@ -136,6 +136,48 @@ float* CudaInfer::preprocess(
     CUDA_CHECK(cudaGetLastError());
     return d_nchw_;
 }
+float* CudaInfer::preprocess_gpu(
+    const unsigned char* input_bgr_device,
+    int img_w,
+    int img_h,
+    Eigen::Matrix3f& tf_matrix,
+    cudaStream_t stream
+) {
+    if (!isInitialized()) {
+        throw std::runtime_error("CudaInfer not initialized properly.");
+    }
+
+    if (!input_bgr_device || !d_nchw_) {
+        fprintf(stderr, "[Error] Null pointer in preprocess input\n");
+        return nullptr;
+    }
+
+    float scale = fminf(input_w_ / (float)img_w, input_h_ / (float)img_h);
+    int rw = round(img_w * scale), rh = round(img_h * scale);
+    int pad_l = (input_w_ - rw) / 2, pad_t = (input_h_ - rh) / 2;
+
+    tf_matrix << 1.f / scale, 0, -pad_l / scale, 0, 1.f / scale, -pad_t / scale, 0, 0, 1;
+
+    size_t img_size = img_w * img_h * 3;
+
+    dim3 threads(TILE_W, TILE_H);
+    dim3 blocks((input_w_ + TILE_W - 1) / TILE_W, (input_h_ + TILE_H - 1) / TILE_H);
+
+    letterbox_kernel_shared<<<blocks, threads, 0, stream>>>(
+        input_bgr_device,
+        img_w,
+        img_h,
+        d_nchw_,
+        input_w_,
+        input_h_,
+        scale,
+        pad_t,
+        pad_l
+    );
+
+    CUDA_CHECK(cudaGetLastError());
+    return d_nchw_;
+}
 float* CudaInfer::preprocess_pitched(
     const unsigned char* input_bgr_host,
     int img_w,
@@ -190,7 +232,52 @@ float* CudaInfer::preprocess_pitched(
     CUDA_CHECK(cudaGetLastError());
     return d_nchw_;
 }
+float* CudaInfer::preprocess_pitched_gpu(
+    const unsigned char* input_bgr_device,
+    int img_w,
+    int img_h,
+    int input_step,
+    Eigen::Matrix3f& tf_matrix,
+    cudaStream_t stream
+) {
+    if (!isInitialized()) {
+        throw std::runtime_error("CudaInfer not initialized properly.");
+    }
 
+    if (!input_bgr_device || !d_nchw_) {
+        fprintf(stderr, "[Error] Null pointer in preprocess_pitched_gpu\n");
+        return nullptr;
+    }
 
+    float scale = fminf(static_cast<float>(input_w_) / img_w, static_cast<float>(input_h_) / img_h);
+
+    int rw = static_cast<int>(roundf(img_w * scale));
+    int rh = static_cast<int>(roundf(img_h * scale));
+
+    int pad_l = (input_w_ - rw) / 2;
+    int pad_t = (input_h_ - rh) / 2;
+
+    tf_matrix << 1.f / scale, 0.f, -pad_l / scale, 0.f, 1.f / scale, -pad_t / scale, 0.f, 0.f, 1.f;
+
+    dim3 threads(TILE_W, TILE_H);
+    dim3 blocks((input_w_ + TILE_W - 1) / TILE_W, (input_h_ + TILE_H - 1) / TILE_H);
+
+    letterbox_kernel_pitched<<<blocks, threads, 0, stream>>>(
+        input_bgr_device,
+        input_step,
+        img_w,
+        img_h,
+        d_nchw_,
+        input_w_,
+        input_h_,
+        scale,
+        pad_t,
+        pad_l
+    );
+
+    CUDA_CHECK(cudaGetLastError());
+
+    return d_nchw_;
+}
 
 } // namespace armor_cuda_infer

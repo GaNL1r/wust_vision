@@ -38,6 +38,21 @@ public:
         Eigen::Matrix3f& tf_matrix,
         cudaStream_t stream
     );
+    float* preprocess_gpu(
+        const unsigned char* input_bgr_device,
+        int img_w,
+        int img_h,
+        Eigen::Matrix3f& tf_matrix,
+        cudaStream_t stream
+    );
+    float* preprocess_pitched_gpu(
+        const unsigned char* input_bgr_device,
+        int img_w,
+        int img_h,
+        int host_step,
+        Eigen::Matrix3f& tf_matrix,
+        cudaStream_t stream
+    );
 
 private:
     CudaInfer(const CudaInfer&) = delete;

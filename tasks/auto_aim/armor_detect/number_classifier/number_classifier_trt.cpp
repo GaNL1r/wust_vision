@@ -29,7 +29,7 @@ void NumberClassifierTRT::initNumberClassifier() {
     trt_net_ = std::make_unique<ml_net::TensorRTNet>();
     ml_net::TensorRTNet::Params trt_params;
     trt_params.model_path = model_path;
-    trt_params.input_dims = nvinfer1::Dims4 { 1, 1, 20,28 };
+    trt_params.input_dims = nvinfer1::Dims4 { 1, 1, 20, 28 };
     trt_net_->init(trt_params);
     auto input_output_dims = trt_net_->getInputOutputDims();
     input_dims_ = std::get<0>(input_output_dims);
@@ -72,12 +72,7 @@ bool NumberClassifierTRT::classifyNumber(armor::ArmorObject& armor) {
 
     cv::Mat image = armor.number_img;
     cv::Mat blob;
-    cv::dnn::blobFromImage(
-        image,
-        blob,
-        1.0 / 255.0,
-        cv::Size(28, 20)
-    );
+    cv::dnn::blobFromImage(image, blob, 1.0 / 255.0, cv::Size(28, 20));
     trt_net_->input2Device(blob.ptr<float>());
     void* input_tensor_ptr = trt_net_->getInputTensorPtr();
     trt_net_->infer(input_tensor_ptr, ctx.get());

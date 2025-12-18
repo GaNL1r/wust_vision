@@ -13,9 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #pragma once
-#include "tasks/auto_aim/type.hpp"
 #include "base.hpp"
-class NumberClassifier : public NumberClassifierBase {
+#include "tasks/auto_aim/type.hpp"
+class NumberClassifier: public NumberClassifierBase {
 public:
     NumberClassifier(
         const std::string& classify_model_path,
