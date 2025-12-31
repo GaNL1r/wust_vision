@@ -6,25 +6,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_UNITY_BUILD ON)
 set(CMAKE_UNITY_BUILD_BATCH_SIZE 16) 
-set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
-
-add_compile_options(
-    -O3
-    -ffast-math
-    -funroll-loops
-)
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64")
-        add_compile_options(-march=native -mtune=native)
-    endif()
-endif()
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-
-endif()
-add_link_options(
-    -O3
-    -flto
-)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 set(CMAKE_BUILD_TYPE "Release")
 message(STATUS "--------------------CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}--------------------")

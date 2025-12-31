@@ -65,9 +65,7 @@ inline int runVisionMain(int argc, char** argv) {
                 for (auto& status: all_status) {
                     if (status.second == wust_vl_concurrency::MonitoredThread::Status::Hung) {
                         std::cerr << status.first << " is Hunging! Exiting program..." << std::endl;
-                        exit_flag = true;
                         exit_code = -1;
-                        sig.requestExit();
                         break;
                     }
                 }

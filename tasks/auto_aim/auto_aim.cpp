@@ -120,15 +120,14 @@ struct AutoAim::Impl {
         return true;
     }
     void start() {
+        run_flag_ = true;
         processing_thread_ = wust_vl_concurrency::MonitoredThread::create(
             "AutoAimProcessingThread",
             [this](std::shared_ptr<wust_vl_concurrency::MonitoredThread> self) {
                 this->processingLoop(self);
             }
         );
-
         wust_vl_concurrency::ThreadManager::instance().registerThread(processing_thread_);
-        run_flag_ = true;
     }
     void pushInput(CommonFrame& frame) {
         img_recv_count_++;
@@ -326,7 +325,7 @@ struct AutoAim::Impl {
         while (!self->isAlive()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
-        while (self->isAlive()) {
+        while (self->isAlive()&&run_flag_) {
             if (!self->waitPoint())
                 break;
             printStats();

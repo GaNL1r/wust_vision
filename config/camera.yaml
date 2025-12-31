@@ -13,7 +13,7 @@ hik_camera:
   acquisition_frame_rate_enable: true
   reverse_x: false
   reverse_y: false
-  use_raw: true
+  use_raw: false
   rgb: false
   ea: false
   

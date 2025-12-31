@@ -245,9 +245,9 @@ void VisionBase::autoExposureControl(const cv::Mat& frame) {
         } break;
     }
 }
-#ifdef USE_TRT
-    #include "cuda_infer/cvtcolor.hpp"
-#endif
+// #ifdef USE_TRT
+//     #include "cuda_infer/cvtcolor.hpp"
+// #endif
 void VisionBase::frameCallback(wust_vl_video::ImageFrame& frame) {
     if (!run_flag_ || infer_running_count_ >= max_infer_running_) {
         return;
@@ -261,10 +261,10 @@ void VisionBase::frameCallback(wust_vl_video::ImageFrame& frame) {
     if (frame.src_img.channels() == 3) {
         common_frame.src_img = std::move(frame.src_img);
     } else {
-#ifdef USE_TRT
-        static cuda_cvt::CudaBayer_EA cuda_cvt;
-        cuda_cvt.process(frame.src_img, common_frame.src_img, frame.pixel_type);
-#endif
+        // #ifdef USE_TRT
+        //         static cuda_cvt::CudaBayer_EA cuda_cvt;
+        //         cuda_cvt.process(frame.src_img, common_frame.src_img, frame.pixel_type);
+        // #endif
     }
 
     common_frame.expanded = cv::Rect(0, 0, common_frame.src_img.cols, common_frame.src_img.rows);
@@ -420,6 +420,9 @@ void VisionBase::debugThread() {
     while (run_flag_) {
         auto start_time = steady_clock::now();
         try {
+            if (!auto_aim_ || !auto_buff_) {
+                continue;
+            }
             auto dbg_armor = auto_aim_->getDebugFrame();
             auto dbg_rune = auto_buff_->getDebugFrame();
             AttackMode mode = toAttackMode(attack_mode_);
@@ -433,12 +436,15 @@ void VisionBase::debugThread() {
                     drawDebugOverlayShm(dbg_rune, camera_info_, false);
                 } break;
             }
-            auto last_att = motion_buffer_->get_last();
             std::pair<double, double> gimbal_py;
-            if (last_att) {
-                gimbal_py.first = last_att->data.pitch;
-                gimbal_py.second = last_att->data.yaw;
+            if (motion_buffer_) {
+                auto last_att = motion_buffer_->get_last();
+                if (last_att) {
+                    gimbal_py.first = last_att->data.pitch;
+                    gimbal_py.second = last_att->data.yaw;
+                }
             }
+
             debuglog(dbg_armor, dbg_rune, last_cmd_, gimbal_py);
         } catch (std::exception& e) {
             std::cout << "debug thread error: " << e.what() << std::endl;

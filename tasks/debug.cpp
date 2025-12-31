@@ -12,6 +12,10 @@ void drawDebugArmorContent(
     const DebugArmor& dbg,
     std::pair<cv::Mat, cv::Mat> camera_info
 ) {
+    if (debug_img.empty()) {
+        std::cout << "debug_img is empty" << std::endl;
+        return;
+    }
     auto now = std::chrono::steady_clock::now();
     auto armors = dbg.armors;
     auto gimbal_cmd = dbg.gimbal_cmd;
@@ -569,7 +573,8 @@ void drawDebugOverlayWrite(
 
     // 图像构造
     cv::Mat debug_img;
-    cv::cvtColor(debug_img, dbg.src_img.img, cv::COLOR_BGR2RGB);
+    cv::cvtColor(dbg.src_img.img, debug_img, cv::COLOR_BGR2RGB);
+
     if (debug_img.empty())
         return;
 
@@ -608,15 +613,32 @@ void drawDebugOverlayShm(
 
     if (!shm_inited) {
         shm_fd = shm_open("/debug_frame", O_CREAT | O_RDWR, 0666);
-        ftruncate(shm_fd, shm_max_size);
-        shm_ptr = mmap(nullptr, shm_max_size, PROT_WRITE, MAP_SHARED, shm_fd, 0);
+        if (shm_fd == -1) {
+            std::cerr << "[SHM] shm_open failed\n";
+            return;
+        }
+        if (ftruncate(shm_fd, shm_max_size) == -1) {
+            std::cerr << "[SHM] ftruncate failed\n";
+            close(shm_fd);
+            shm_fd = -1;
+            return;
+        }
+        shm_ptr = mmap(nullptr, shm_max_size, PROT_WRITE | PROT_READ, MAP_SHARED, shm_fd, 0);
+        if (shm_ptr == MAP_FAILED) {
+            std::cerr << "[SHM] mmap failed\n";
+            close(shm_fd);
+            shm_fd = -1;
+            shm_ptr = nullptr;
+            return;
+        }
+
         shm_inited = true;
     }
 
     cv::Mat debug_img;
     cv::cvtColor(dbg.src_img.img, debug_img, cv::COLOR_BGR2RGB);
-    drawDebugArmorContent(debug_img, dbg, camera_info);
 
+    drawDebugArmorContent(debug_img, dbg, camera_info);
     static std::vector<int> jpeg_params = { cv::IMWRITE_JPEG_QUALITY, 75 };
 
     std::vector<uchar> buf;
@@ -648,7 +670,7 @@ void drawDebugOverlayShow(
 
     // 图像构造
     cv::Mat debug_img;
-    cv::cvtColor(debug_img, dbg.src_img.img, cv::COLOR_BGR2RGB);
+    cv::cvtColor(dbg.src_img.img, debug_img, cv::COLOR_BGR2RGB);
     if (debug_img.empty())
         return;
 
@@ -678,7 +700,8 @@ void drawDebugOverlayWrite(
 
     // 图像构造
     cv::Mat debug_img;
-    cv::cvtColor(debug_img, dbg.src_img.img, cv::COLOR_BGR2RGB);
+    cv::cvtColor(dbg.src_img.img, debug_img, cv::COLOR_BGR2RGB);
+
     if (debug_img.empty())
         return;
 
@@ -718,13 +741,31 @@ void drawDebugOverlayShm(
 
     if (!shm_inited) {
         shm_fd = shm_open("/debug_frame", O_CREAT | O_RDWR, 0666);
-        ftruncate(shm_fd, shm_max_size);
-        shm_ptr = mmap(nullptr, shm_max_size, PROT_WRITE, MAP_SHARED, shm_fd, 0);
+        if (shm_fd == -1) {
+            std::cerr << "[SHM] shm_open failed\n";
+            return;
+        }
+        if (ftruncate(shm_fd, shm_max_size) == -1) {
+            std::cerr << "[SHM] ftruncate failed\n";
+            close(shm_fd);
+            shm_fd = -1;
+            return;
+        }
+        shm_ptr = mmap(nullptr, shm_max_size, PROT_WRITE | PROT_READ, MAP_SHARED, shm_fd, 0);
+        if (shm_ptr == MAP_FAILED) {
+            std::cerr << "[SHM] mmap failed\n";
+            close(shm_fd);
+            shm_fd = -1;
+            shm_ptr = nullptr;
+            return;
+        }
+
         shm_inited = true;
     }
 
     cv::Mat debug_img;
     cv::cvtColor(dbg.src_img.img, debug_img, cv::COLOR_BGR2RGB);
+
     drawDebugRuneContent(debug_img, dbg, camera_info);
 
     static std::vector<int> jpeg_params = { cv::IMWRITE_JPEG_QUALITY, 75 };
@@ -759,7 +800,8 @@ void drawDebugOverlayShow(
 
     // 图像构造
     cv::Mat debug_img;
-    cv::cvtColor(debug_img, dbg.src_img.img, cv::COLOR_BGR2RGB);
+    cv::cvtColor(dbg.src_img.img, debug_img, cv::COLOR_BGR2RGB);
+
     if (debug_img.empty())
         return;
 
