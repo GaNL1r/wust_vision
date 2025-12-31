@@ -1,8 +1,11 @@
 #pragma once
+#include "tasks/auto_aim/armor_tracker/motion_models/motion_model_crazy.hpp"
 #include "tasks/auto_aim/armor_tracker/motion_models/motion_modelypdv2.hpp"
 #include "tasks/auto_aim/type.hpp"
 #include "tasks/utils.hpp"
 #include <wust_vl/common/utils/timer.hpp>
+namespace MModel = ypdv2armor_motion_model;
+
 struct TargetConfig {
     int esekf_iter_num = 2;
     double qxyz_common = 100;
@@ -52,14 +55,14 @@ public:
         const TargetConfig& target_config,
         double radius,
         int armor_num,
-        Eigen::DiagonalMatrix<double, ypdv2armor_motion_model::X_N> p0
+        Eigen::DiagonalMatrix<double, MModel::X_N> p0
     );
     armor::ArmorNumber tracked_id_;
     std::string type_;
-    ypdv2armor_motion_model::VecZ measurement_ =
-        Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>::Zero();
-    ypdv2armor_motion_model::VecX target_state_ =
-        Eigen::Matrix<double, ypdv2armor_motion_model::X_N, 1>::Zero();
+    MModel::VecZ measurement_ =
+        Eigen::Matrix<double, MModel::Z_N, 1>::Zero();
+    MModel::VecX target_state_ =
+        Eigen::Matrix<double, MModel::X_N, 1>::Zero();
 
     double radius_pre_;
     double last_yaw_ = 0;
@@ -76,7 +79,7 @@ public:
     std::chrono::steady_clock::time_point last_t_;
     std::chrono::steady_clock::time_point timestamp_;
     double dt_;
-    ypdv2armor_motion_model::RobotStateESEKF esekf_ypd_;
+    MModel::RobotStateESEKF esekf_ypd_;
     TargetConfig target_config_;
     cv::Rect expanded(
         Eigen::Matrix4d T_camera_to_odom,
@@ -90,10 +93,10 @@ public:
     );
     void predict(double dt, Eigen::Vector3d self_v = Eigen::Vector3d::Zero());
     bool update(const std::pair<int, armor::Armor>& armor);
-    Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, ypdv2armor_motion_model::Z_N>
-    computeMeasurementCovariance(const Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>& z
+    Eigen::Matrix<double, MModel::Z_N, MModel::Z_N>
+    computeMeasurementCovariance(const Eigen::Matrix<double, MModel::Z_N, 1>& z
     ) const;
-    Eigen::Matrix<double, ypdv2armor_motion_model::X_N, ypdv2armor_motion_model::X_N>
+    Eigen::Matrix<double, MModel::X_N, MModel::X_N>
     computeProcessNoise(double dt) const;
 
     double orientationToYaw(const Eigen::Quaterniond& q) noexcept {
@@ -114,21 +117,21 @@ public:
         return yaw_list;
     }
     Eigen::Vector3d position() const {
-        return { target_state_[(int)ypdv2armor_motion_model::State::CX],
-                 target_state_[(int)ypdv2armor_motion_model::State::CY],
-                 target_state_[(int)ypdv2armor_motion_model::State::CZ] };
+        return { target_state_[(int)MModel::State::CX],
+                 target_state_[(int)MModel::State::CY],
+                 target_state_[(int)MModel::State::CZ] };
     }
     Eigen::Vector3d velocity() const {
-        return { target_state_[(int)ypdv2armor_motion_model::State::VCX],
-                 target_state_[(int)ypdv2armor_motion_model::State::VCY],
-                 target_state_[(int)ypdv2armor_motion_model::State::VCZ] };
+        return { target_state_[(int)MModel::State::VCX],
+                 target_state_[(int)MModel::State::VCY],
+                 target_state_[(int)MModel::State::VCZ] };
     }
     std::vector<Eigen::Vector3d> getArmorPositions() const {
         std::vector<Eigen::Vector3d> armor_positions;
 
         for (int i = 0; i < armor_num_; i++) {
             auto angle = angles::normalize_angle(
-                target_state_[(int)ypdv2armor_motion_model::State::YAW] + i * 2 * CV_PI / armor_num_
+                target_state_[(int)MModel::State::YAW] + i * 2 * CV_PI / armor_num_
             );
             Eigen::Vector3d xyz = h_armor_xyz(target_state_, i);
             armor_positions.push_back(xyz);
@@ -140,7 +143,7 @@ public:
 
         for (int i = 0; i < armor_num_; i++) {
             auto angle = angles::normalize_angle(
-                target_state_[(int)ypdv2armor_motion_model::State::YAW] + i * 2 * CV_PI / armor_num_
+                target_state_[(int)MModel::State::YAW] + i * 2 * CV_PI / armor_num_
             );
             Eigen::Vector3d xyz = h_armor_vxyz(target_state_, i);
             armor_velocities.push_back(xyz);
@@ -149,19 +152,19 @@ public:
     }
     std::vector<std::pair<int, armor::Armor>> match(const std::vector<armor::Armor>& armors);
     double yaw() const {
-        return target_state_((int)ypdv2armor_motion_model::State::YAW);
+        return target_state_((int)MModel::State::YAW);
     }
     double v_yaw() const {
-        return target_state_((int)ypdv2armor_motion_model::State::VYAW);
+        return target_state_((int)MModel::State::VYAW);
     }
     double r() const {
-        return target_state_((int)ypdv2armor_motion_model::State::R);
+        return target_state_((int)MModel::State::R);
     }
     double l() const {
-        return target_state_((int)ypdv2armor_motion_model::State::L);
+        return target_state_((int)MModel::State::L);
     }
     double h() const {
-        return target_state_((int)ypdv2armor_motion_model::State::H);
+        return target_state_((int)MModel::State::H);
     }
 
     inline bool checkTargetAppear() {
@@ -173,18 +176,18 @@ public:
         return diverged(target_state_);
     }
     bool diverged(Eigen::VectorXd target_state) const {
-        auto r_ok = target_state[(int)ypdv2armor_motion_model::State::R] > 0.05
-            && target_state[(int)ypdv2armor_motion_model::State::R] < 0.5;
-        auto l_ok = target_state[(int)ypdv2armor_motion_model::State::R]
-                    + target_state[(int)ypdv2armor_motion_model::State::L]
+        auto r_ok = target_state[(int)MModel::State::R] > 0.05
+            && target_state[(int)MModel::State::R] < 0.5;
+        auto l_ok = target_state[(int)MModel::State::R]
+                    + target_state[(int)MModel::State::L]
                 > 0.05
-            && target_state[(int)ypdv2armor_motion_model::State::R]
-                    + target_state[(int)ypdv2armor_motion_model::State::L]
+            && target_state[(int)MModel::State::R]
+                    + target_state[(int)MModel::State::L]
                 < 0.5;
         if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
             l_ok = true;
         }
-        auto v_yaw_ok = std::abs(target_state[(int)ypdv2armor_motion_model::State::VYAW]) < 30.0;
+        auto v_yaw_ok = std::abs(target_state[(int)MModel::State::VYAW]) < 30.0;
         Eigen::Vector3d vel = velocity();
         auto v_xyz_ok = std::abs(vel.norm()) < 10.0;
         auto pos_ok = position().norm() < 10.0 && position().norm() > 0.5;
@@ -203,26 +206,26 @@ public:
         }
 
         // state[6] = std::remainder(state[6], 2 * M_PI);
-        state[(int)ypdv2armor_motion_model::State::VYAW] =
-            std::clamp(state[(int)ypdv2armor_motion_model::State::VYAW], -30.0, 30.0);
-        state[(int)ypdv2armor_motion_model::State::R] =
-            std::clamp(state[(int)ypdv2armor_motion_model::State::R], 0.05, 0.5);
-        state[(int)ypdv2armor_motion_model::State::L] =
-            std::clamp(state[(int)ypdv2armor_motion_model::State::L], -0.45, 0.45);
+        state[(int)MModel::State::VYAW] =
+            std::clamp(state[(int)MModel::State::VYAW], -30.0, 30.0);
+        state[(int)MModel::State::R] =
+            std::clamp(state[(int)MModel::State::R], 0.05, 0.5);
+        state[(int)MModel::State::L] =
+            std::clamp(state[(int)MModel::State::L], -0.45, 0.45);
 
         if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
-            state[(int)ypdv2armor_motion_model::State::R] =
-                std::clamp(state[(int)ypdv2armor_motion_model::State::R], 0.05, 0.5);
+            state[(int)MModel::State::R] =
+                std::clamp(state[(int)MModel::State::R], 0.05, 0.5);
         }
 
-        double r_plus_l = state[(int)ypdv2armor_motion_model::State::R]
-            + state[(int)ypdv2armor_motion_model::State::L];
+        double r_plus_l = state[(int)MModel::State::R]
+            + state[(int)MModel::State::L];
         if (r_plus_l < 0.05) {
-            state[(int)ypdv2armor_motion_model::State::L] =
-                0.05 - state[(int)ypdv2armor_motion_model::State::R];
+            state[(int)MModel::State::L] =
+                0.05 - state[(int)MModel::State::R];
         } else if (r_plus_l > 0.5) {
-            state[(int)ypdv2armor_motion_model::State::L] =
-                0.5 - state[(int)ypdv2armor_motion_model::State::R];
+            state[(int)MModel::State::L] =
+                0.5 - state[(int)MModel::State::R];
         }
         esekf_ypd_.setState(state);
     }
@@ -239,60 +242,60 @@ public:
     }
     Eigen::Vector3d h_armor_xyz(const Eigen::VectorXd& x, int id) const {
         auto angle = angles::normalize_angle(
-            x[(int)ypdv2armor_motion_model::State::YAW] + id * 2 * CV_PI / armor_num_
+            x[(int)MModel::State::YAW] + id * 2 * CV_PI / armor_num_
         );
         auto use_l_h = (armor_num_ == 4) && (id == 1 || id == 3);
         auto outpost = armor_num_ == 3;
 
         auto r = (use_l_h)
-            ? x[(int)ypdv2armor_motion_model::State::R] + x[(int)ypdv2armor_motion_model::State::L]
-            : x[(int)ypdv2armor_motion_model::State::R];
-        auto armor_x = x[(int)ypdv2armor_motion_model::State::CX] - r * std::cos(angle);
-        auto armor_y = x[(int)ypdv2armor_motion_model::State::CY] - r * std::sin(angle);
+            ? x[(int)MModel::State::R] + x[(int)MModel::State::L]
+            : x[(int)MModel::State::R];
+        auto armor_x = x[(int)MModel::State::CX] - r * std::cos(angle);
+        auto armor_y = x[(int)MModel::State::CY] - r * std::sin(angle);
         auto armor_z = (outpost) ? getoutpost_armor_z(id, x)
             : (use_l_h)
-            ? x[(int)ypdv2armor_motion_model::State::CZ] + x[(int)ypdv2armor_motion_model::State::H]
-            : x[(int)ypdv2armor_motion_model::State::CZ];
+            ? x[(int)MModel::State::CZ] + x[(int)MModel::State::H]
+            : x[(int)MModel::State::CZ];
 
         return { armor_x, armor_y, armor_z };
     }
     double getoutpost_armor_z(int id, const Eigen::VectorXd x) const {
-        return (id == 0) ? x[(int)ypdv2armor_motion_model::State::CZ]
-            : (id == 1)  ? x[(int)ypdv2armor_motion_model::State::CZ]
-                + x[(int)ypdv2armor_motion_model::State::outpost01DZ]
-            : (id == 2) ? x[(int)ypdv2armor_motion_model::State::CZ]
-                + x[(int)ypdv2armor_motion_model::State::outpost02DZ]
-                        : x[(int)ypdv2armor_motion_model::State::CZ];
+        return (id == 0) ? x[(int)MModel::State::CZ]
+            : (id == 1)  ? x[(int)MModel::State::CZ]
+                + x[(int)MModel::State::outpost01DZ]
+            : (id == 2) ? x[(int)MModel::State::CZ]
+                + x[(int)MModel::State::outpost02DZ]
+                        : x[(int)MModel::State::CZ];
     }
 
     Eigen::Vector3d h_armor_vxyz(const Eigen::VectorXd& x, int id) const {
         Eigen::Vector3d v_center(
-            x[(int)ypdv2armor_motion_model::State::CX],
-            x[(int)ypdv2armor_motion_model::State::CY],
-            x[(int)ypdv2armor_motion_model::State::CZ]
+            x[(int)MModel::State::CX],
+            x[(int)MModel::State::CY],
+            x[(int)MModel::State::CZ]
         );
 
         auto angle = angles::normalize_angle(
-            x[(int)ypdv2armor_motion_model::State::YAW] + id * 2 * CV_PI / armor_num_
+            x[(int)MModel::State::YAW] + id * 2 * CV_PI / armor_num_
         );
         auto use_l_h = (armor_num_ == 4) && (id == 1 || id == 3);
 
         auto r = (use_l_h)
-            ? x[(int)ypdv2armor_motion_model::State::R] + x[(int)ypdv2armor_motion_model::State::L]
-            : x[(int)ypdv2armor_motion_model::State::R];
+            ? x[(int)MModel::State::R] + x[(int)MModel::State::L]
+            : x[(int)MModel::State::R];
 
         Eigen::Vector3d p(
             -r * std::cos(angle),
             -r * std::sin(angle),
-            (use_l_h ? x[(int)ypdv2armor_motion_model::State::H] : 0.0)
+            (use_l_h ? x[(int)MModel::State::H] : 0.0)
         );
 
-        Eigen::Vector3d omega(0.0, 0.0, x[(int)ypdv2armor_motion_model::State::VYAW]);
+        Eigen::Vector3d omega(0.0, 0.0, x[(int)MModel::State::VYAW]);
 
         Eigen::Vector3d v_rot = omega.cross(p);
         return v_center + v_rot;
     }
-    Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1> getmean(const armor::Armor& a) {
+    Eigen::Matrix<double, MModel::Z_N, 1> getmean(const armor::Armor& a) {
         auto p = a.target_pos;
         double measured_yaw = orientationToYaw(a.target_ori);
         double ypd_y = std::atan2(p.y(), p.x());

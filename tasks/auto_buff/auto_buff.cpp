@@ -70,7 +70,6 @@ struct AutoBuff::Impl {
             }
         );
         wust_vl_concurrency::ThreadManager::instance().registerThread(processing_thread_);
-        
     }
     void pushInput(CommonFrame& frame, bool is_big) {
         img_recv_count_++;
@@ -232,7 +231,7 @@ struct AutoBuff::Impl {
         while (!self->isAlive()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
-        while (self->isAlive()&&run_flag_) {
+        while (self->isAlive() && run_flag_) {
             if (!self->waitPoint())
                 break;
             printStats();

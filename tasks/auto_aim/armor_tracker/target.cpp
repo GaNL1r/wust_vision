@@ -1,45 +1,45 @@
 #include "target.hpp"
 Target::Target() {
-    target_state_ = Eigen::VectorXd::Zero(ypdv2armor_motion_model::X_N);
+    target_state_ = Eigen::VectorXd::Zero(MModel::X_N);
 }
 Target::Target(
     const armor::Armor& a,
     const TargetConfig& target_config,
     double radius,
     int armor_num,
-    Eigen::DiagonalMatrix<double, ypdv2armor_motion_model::X_N> p0
+    Eigen::DiagonalMatrix<double, MModel::X_N> p0
 ):
 
     armor_num_(armor_num),
     radius_pre_(radius) {
     target_config_ = target_config;
-    target_state_ = Eigen::VectorXd::Zero(ypdv2armor_motion_model::X_N);
-    auto yfv2 = ypdv2armor_motion_model::Predict(0.005);
-    auto yhv2 = ypdv2armor_motion_model::Measure(0, 4);
+    target_state_ = Eigen::VectorXd::Zero(MModel::X_N);
+    auto yfv2 = MModel::Predict(0.005);
+    auto yhv2 = MModel::Measure(0, 4);
     auto yu_qv2 = [this]() {
-        Eigen::Matrix<double, ypdv2armor_motion_model::X_N, ypdv2armor_motion_model::X_N> q;
+        Eigen::Matrix<double, MModel::X_N, MModel::X_N> q;
         return q;
     };
 
-    auto yu_rv2 = [this](const Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>& z) {
-        Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, ypdv2armor_motion_model::Z_N> r;
+    auto yu_rv2 = [this](const Eigen::Matrix<double, MModel::Z_N, 1>& z) {
+        Eigen::Matrix<double, MModel::Z_N, MModel::Z_N> r;
         return r;
     };
-    esekf_ypd_ = ypdv2armor_motion_model::RobotStateESEKF(yfv2, yhv2, yu_qv2, yu_rv2, p0);
+    esekf_ypd_ = MModel::RobotStateESEKF(yfv2, yhv2, yu_qv2, yu_rv2, p0);
 
     esekf_ypd_.setResidualFunc(
         [this](
-            const Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>& z_pred,
-            const Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>& z
+            const Eigen::Matrix<double, MModel::Z_N, 1>& z_pred,
+            const Eigen::Matrix<double, MModel::Z_N, 1>& z
         ) {
-            Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1> r = z - z_pred;
+            Eigen::Matrix<double, MModel::Z_N, 1> r = z - z_pred;
             r[0] = angles::shortest_angular_distance(
-                z_pred[(int)ypdv2armor_motion_model::Mean::YPD_Y],
-                z[(int)ypdv2armor_motion_model::Mean::YPD_Y]
+                z_pred[(int)MModel::Mean::YPD_Y],
+                z[(int)MModel::Mean::YPD_Y]
             ); // yaw
             r[3] = angles::shortest_angular_distance(
-                z_pred[(int)ypdv2armor_motion_model::Mean::ORI_YAW],
-                z[(int)ypdv2armor_motion_model::Mean::ORI_YAW]
+                z_pred[(int)MModel::Mean::ORI_YAW],
+                z[(int)MModel::Mean::ORI_YAW]
             ); // ori_yaw
             return r;
         }
@@ -47,17 +47,17 @@ Target::Target(
     esekf_ypd_.setIterationNum(target_config_.esekf_iter_num);
     esekf_ypd_.setInjectFunc(
         [this](
-            const Eigen::Matrix<double, ypdv2armor_motion_model::X_N, 1>& delta,
-            Eigen::Matrix<double, ypdv2armor_motion_model::X_N, 1>& nominal
+            const Eigen::Matrix<double, MModel::X_N, 1>& delta,
+            Eigen::Matrix<double, MModel::X_N, 1>& nominal
         ) {
-            for (int i = 0; i < ypdv2armor_motion_model::X_N; i++) {
-                if (i == (int)ypdv2armor_motion_model::State::YAW)
+            for (int i = 0; i < MModel::X_N; i++) {
+                if (i == (int)MModel::State::YAW)
                     continue;
                 nominal[i] += delta[i];
             }
-            nominal[(int)ypdv2armor_motion_model::State::YAW] = angles::normalize_angle(
-                nominal[(int)ypdv2armor_motion_model::State::YAW]
-                + delta[(int)ypdv2armor_motion_model::State::YAW]
+            nominal[(int)MModel::State::YAW] = angles::normalize_angle(
+                nominal[(int)MModel::State::YAW]
+                + delta[(int)MModel::State::YAW]
             );
         }
     );
@@ -72,7 +72,7 @@ Target::Target(
     last_yaw_ = 0;
     double yaw = orientationToYaw(a.target_ori);
 
-    target_state_ = Eigen::VectorXd::Zero(ypdv2armor_motion_model::X_N);
+    target_state_ = Eigen::VectorXd::Zero(MModel::X_N);
     double r = radius;
     double xc = xa + r * cos(yaw);
     double yc = ya + r * sin(yaw);
@@ -86,10 +86,10 @@ Target::Target(
     timestamp_ = a.timestamp;
     is_inited = true;
 }
-Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, ypdv2armor_motion_model::Z_N>
-Target::computeMeasurementCovariance(const Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>& z
+Eigen::Matrix<double, MModel::Z_N, MModel::Z_N>
+Target::computeMeasurementCovariance(const Eigen::Matrix<double, MModel::Z_N, 1>& z
 ) const {
-    Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, ypdv2armor_motion_model::Z_N> r;
+    Eigen::Matrix<double, MModel::Z_N, MModel::Z_N> r;
     double delta_angle = angles::normalize_angle(z[3] - z[0]);
     double abs_delta = std::abs(delta_angle);
 
@@ -111,9 +111,9 @@ Target::computeMeasurementCovariance(const Eigen::Matrix<double, ypdv2armor_moti
     // clang-format on
     return r;
 }
-Eigen::Matrix<double, ypdv2armor_motion_model::X_N, ypdv2armor_motion_model::X_N>
+Eigen::Matrix<double, MModel::X_N, MModel::X_N>
 Target::computeProcessNoise(double dt) const {
-    Eigen::Matrix<double, ypdv2armor_motion_model::X_N, ypdv2armor_motion_model::X_N> q;
+    Eigen::Matrix<double, MModel::X_N, MModel::X_N> q;
     double v1, v2;
     double q_l, q_h;
     if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
@@ -163,16 +163,16 @@ void Target::predict(double dt, Eigen::Vector3d self_v) {
     dt_ = dt;
 
     if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
-        esekf_ypd_.setPredictFunc(ypdv2armor_motion_model::Predict {
+        esekf_ypd_.setPredictFunc(MModel::Predict {
             dt,
-            ypdv2armor_motion_model::MotionModel::CONSTANT_ROTATION,
+            MModel::MotionModel::CONSTANT_ROTATION,
             self_v.x(),
             self_v.y(),
             self_v.z() });
     } else {
-        esekf_ypd_.setPredictFunc(ypdv2armor_motion_model::Predict {
+        esekf_ypd_.setPredictFunc(MModel::Predict {
             dt,
-            ypdv2armor_motion_model::MotionModel::CONSTANT_VEL_ROT,
+            MModel::MotionModel::CONSTANT_VEL_ROT,
             self_v.x(),
             self_v.y(),
             self_v.z() });
@@ -184,33 +184,33 @@ void Target::predict(double dt, Eigen::Vector3d self_v) {
     target_state_ = esekf_ypd_.predict();
 
     if (!jumped) {
-        target_state_[(int)ypdv2armor_motion_model::State::R] = radius_pre_;
-        target_state_[(int)ypdv2armor_motion_model::State::L] = 0.0;
-        target_state_[(int)ypdv2armor_motion_model::State::H] = 0.0;
+        target_state_[(int)MModel::State::R] = radius_pre_;
+        target_state_[(int)MModel::State::L] = 0.0;
+        target_state_[(int)MModel::State::H] = 0.0;
         esekf_ypd_.setState(target_state_);
     }
     if (position().norm() < 0.5) {
         is_tracking = false;
     }
     if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
-        if (target_state_[(int)ypdv2armor_motion_model::State::R] < 0.25) {
-            target_state_[(int)ypdv2armor_motion_model::State::R] = 0.25;
+        if (target_state_[(int)MModel::State::R] < 0.25) {
+            target_state_[(int)MModel::State::R] = 0.25;
         }
-        if (target_state_[(int)ypdv2armor_motion_model::State::R] > 0.35) {
-            target_state_[(int)ypdv2armor_motion_model::State::R] = 0.35;
+        if (target_state_[(int)MModel::State::R] > 0.35) {
+            target_state_[(int)MModel::State::R] = 0.35;
         }
-        if (std::abs(target_state_[(int)ypdv2armor_motion_model::State::VYAW]) > 1.5) {
+        if (std::abs(target_state_[(int)MModel::State::VYAW]) > 1.5) {
             constexpr double outpost_v_yaw_err = 0.2;
             double lower = std::max(0.0, armor::outpost_v_yaw - outpost_v_yaw_err);
             double upper = armor::outpost_v_yaw + outpost_v_yaw_err;
 
             double sign = std::copysign(
                 1.0,
-                target_state_[(int)ypdv2armor_motion_model::State::VYAW]
+                target_state_[(int)MModel::State::VYAW]
             ); // 保存符号
-            double abs_val = std::abs(target_state_[(int)ypdv2armor_motion_model::State::VYAW]);
+            double abs_val = std::abs(target_state_[(int)MModel::State::VYAW]);
             abs_val = std::clamp(abs_val, lower, upper);
-            target_state_[(int)ypdv2armor_motion_model::State::VYAW] = sign * abs_val;
+            target_state_[(int)MModel::State::VYAW] = sign * abs_val;
         }
 
         esekf_ypd_.setState(target_state_);
@@ -220,7 +220,7 @@ void Target::predict(double dt, Eigen::Vector3d self_v) {
 bool Target::update(const std::pair<int, armor::Armor>& a) {
     auto armor = a.second;
     auto id = a.first;
-    auto yu_rv2 = [this](const Eigen::Matrix<double, ypdv2armor_motion_model::Z_N, 1>& z) {
+    auto yu_rv2 = [this](const Eigen::Matrix<double, MModel::Z_N, 1>& z) {
         return this->computeMeasurementCovariance(z);
     };
     esekf_ypd_.setUpdateR(yu_rv2);
@@ -241,7 +241,7 @@ bool Target::update(const std::pair<int, armor::Armor>& a) {
     last_id = id;
     update_count_++;
 
-    esekf_ypd_.setMeasureFunc(ypdv2armor_motion_model::Measure { id, armor_num_ });
+    esekf_ypd_.setMeasureFunc(MModel::Measure { id, armor_num_ });
 
     target_state_ = esekf_ypd_.update(measurement_);
     timestamp_ = armor.timestamp;
@@ -260,9 +260,9 @@ cv::Rect Target::expanded(
     }
 
     const float car_box_half = std::max(
-                                   target_state_[(int)ypdv2armor_motion_model::State::R],
-                                   target_state_[(int)ypdv2armor_motion_model::State::R]
-                                       + target_state_[(int)ypdv2armor_motion_model::State::L]
+                                   target_state_[(int)MModel::State::R],
+                                   target_state_[(int)MModel::State::R]
+                                       + target_state_[(int)MModel::State::L]
                                )
         + 0.15;
 
@@ -332,23 +332,23 @@ std::vector<std::pair<int, armor::Armor>> Target::match(const std::vector<armor:
     const double GATE = target_config_.match_gate;
     const double max_cost = 1e9;
     std::vector<std::vector<double>> cost(n_obs, std::vector<double>(armors_num, max_cost + 1));
-    std::vector<ypdv2armor_motion_model::VecZ> meas_list(n_obs);
+    std::vector<MModel::VecZ> meas_list(n_obs);
     for (int j = 0; j < n_obs; ++j) {
         meas_list[j] = getmean(armors[j]);
     }
     for (int j = 0; j < n_obs; ++j) {
         for (int id = 0; id < armors_num; ++id) {
-            ypdv2armor_motion_model::Measure measure(id, armors_num);
-            ypdv2armor_motion_model::VecZ z_pred;
+            MModel::Measure measure(id, armors_num);
+            MModel::VecZ z_pred;
             measure.h(target_state_, z_pred);
 
-            ypdv2armor_motion_model::VecZ nu = meas_list[j] - z_pred;
-            nu[(int)ypdv2armor_motion_model::Mean::YPD_Y] =
-                angles::normalize_angle(nu[(int)ypdv2armor_motion_model::Mean::YPD_Y]);
-            nu[(int)ypdv2armor_motion_model::Mean::YPD_P] =
-                angles::normalize_angle(nu[(int)ypdv2armor_motion_model::Mean::YPD_P]);
-            nu[(int)ypdv2armor_motion_model::Mean::ORI_YAW] =
-                angles::normalize_angle(nu[(int)ypdv2armor_motion_model::Mean::ORI_YAW]);
+            MModel::VecZ nu = meas_list[j] - z_pred;
+            nu[(int)MModel::Mean::YPD_Y] =
+                angles::normalize_angle(nu[(int)MModel::Mean::YPD_Y]);
+            nu[(int)MModel::Mean::YPD_P] =
+                angles::normalize_angle(nu[(int)MModel::Mean::YPD_P]);
+            nu[(int)MModel::Mean::ORI_YAW] =
+                angles::normalize_angle(nu[(int)MModel::Mean::ORI_YAW]);
             auto R = computeMeasurementCovariance(z_pred);
             auto Rinv = R.inverse();
 
