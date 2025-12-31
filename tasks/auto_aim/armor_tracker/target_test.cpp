@@ -1,4 +1,4 @@
-#include "target.hpp"
+#include "target_test.hpp"
 Target::Target() {
     target_state_ = Eigen::VectorXd::Zero(MModel::X_N);
 }
@@ -7,7 +7,9 @@ Target::Target(
     const TargetConfig& target_config,
     double radius,
     int armor_num,
-    Eigen::DiagonalMatrix<double, MModel::X_N> p0
+    Eigen::DiagonalMatrix<double, MModel::X_N> p0,
+    Eigen::Matrix4d T_camera_to_odom,
+    const std::pair<cv::Mat, cv::Mat>& camera_info
 ):
 
     armor_num_(armor_num),
@@ -15,8 +17,12 @@ Target::Target(
     target_config_ = target_config;
     target_state_ = Eigen::VectorXd::Zero(MModel::X_N);
     auto yfv2 = MModel::Predict(0.005);
-    ctx_.armor_num = armor_num;
-    ctx_.id =0;
+    ctx_.id = 0;
+    ctx_.armor_num = armor_num_;
+    ctx_.is_big = tracked_id_ == armor::ArmorNumber::NO1;
+    ctx_.T_odom_to_camera_d = T_camera_to_odom.inverse();
+    ctx_.camera_intrinsic = camera_info.first;
+    ctx_.camera_distortion = camera_info.second;
     auto yhv2 = MModel::Measure(ctx_);
     auto yu_qv2 = [this]() {
         Eigen::Matrix<double, MModel::X_N, MModel::X_N> q;
@@ -29,40 +35,22 @@ Target::Target(
     };
     esekf_ypd_ = MModel::RobotStateESEKF(yfv2, yhv2, yu_qv2, yu_rv2, p0);
 
-    esekf_ypd_.setResidualFunc(
-        [this](
-            const Eigen::Matrix<double, MModel::Z_N, 1>& z_pred,
-            const Eigen::Matrix<double, MModel::Z_N, 1>& z
-        ) {
-            Eigen::Matrix<double, MModel::Z_N, 1> r = z - z_pred;
-            r[0] = angles::shortest_angular_distance(
-                z_pred[(int)MModel::Mean::YPD_Y],
-                z[(int)MModel::Mean::YPD_Y]
-            ); // yaw
-            r[3] = angles::shortest_angular_distance(
-                z_pred[(int)MModel::Mean::ORI_YAW],
-                z[(int)MModel::Mean::ORI_YAW]
-            ); // ori_yaw
-            return r;
-        }
-    );
+    esekf_ypd_.setResidualFunc([this](
+                                   const Eigen::Matrix<double, MModel::Z_N, 1>& z_pred,
+                                   const Eigen::Matrix<double, MModel::Z_N, 1>& z
+                               ) {
+        Eigen::Matrix<double, MModel::Z_N, 1> r = z - z_pred;
+        return r;
+    });
     esekf_ypd_.setIterationNum(target_config_.esekf_iter_num);
-    esekf_ypd_.setInjectFunc(
-        [this](
-            const Eigen::Matrix<double, MModel::X_N, 1>& delta,
-            Eigen::Matrix<double, MModel::X_N, 1>& nominal
-        ) {
-            for (int i = 0; i < MModel::X_N; i++) {
-                if (i == (int)MModel::State::YAW)
-                    continue;
-                nominal[i] += delta[i];
-            }
-            nominal[(int)MModel::State::YAW] = angles::normalize_angle(
-                nominal[(int)MModel::State::YAW]
-                + delta[(int)MModel::State::YAW]
-            );
+    esekf_ypd_.setInjectFunc([this](
+                                 const Eigen::Matrix<double, MModel::X_N, 1>& delta,
+                                 Eigen::Matrix<double, MModel::X_N, 1>& nominal
+                             ) {
+        for (int i = 0; i < MModel::X_N; i++) {
+            nominal[i] += delta[i];
         }
-    );
+    });
 
     esekf_ypd_.setNisThreshold(9.488);
     esekf_ypd_.setNeesThreshold(9.488);
@@ -89,32 +77,22 @@ Target::Target(
     is_inited = true;
 }
 Eigen::Matrix<double, MModel::Z_N, MModel::Z_N>
-Target::computeMeasurementCovariance(const Eigen::Matrix<double, MModel::Z_N, 1>& z
-) const {
+Target::computeMeasurementCovariance(const Eigen::Matrix<double, MModel::Z_N, 1>& z) const {
     Eigen::Matrix<double, MModel::Z_N, MModel::Z_N> r;
-    double delta_angle = angles::normalize_angle(z[3] - z[0]);
-    double abs_delta = std::abs(delta_angle);
-
-    // sin插值函数，小值慢、大值快
-    auto sinInterp = [](double x, double x0, double x1, double y0, double y1) -> double {
-        double t = (x - x0) / (x1 - x0);
-        if (t < 0)
-            t = 0;
-        if (t > 1)
-            t = 1;
-        double s = std::sin(t * M_PI / 2.0);
-        return y0 + s * (y1 - y0);
-    };
+    double R = target_config_.yp_r;
     // clang-format off
-        r <<target_config_.yp_r, 0, 0, 0,
-                0, target_config_.yp_r , 0, 0,
-                0, 0, sinInterp(abs_delta, 0.0, M_PI/2.0, target_config_.dis_r_front, target_config_.dis_r_side)+z[2]*z[2]*target_config_.dis2_r_ratio, 0,
-                0, 0, 0,log(std::abs(z[2]) + 1) *target_config_.yaw_r_log_ratio + sinInterp(M_PI/2.0-abs_delta, 0.0, M_PI/2.0, target_config_.yaw_r_base_side, target_config_.yaw_r_base_front);
+     r <<   R,           0,           0,            0,            0,           0,           0,           0,
+            0,           R,           0,            0,            0,           0,           0,           0,
+            0,           0,           R,            0,            0,           0,           0,           0,
+            0,           0,           0,            R,            0,           0,           0,           0,
+            0,           0,           0,            0,            R,           0,           0,           0,
+            0,           0,           0,            0,            0,           R,           0,           0,
+            0,           0,           0,            0,            0,           0,           R,           0,
+            0,           0,           0,            0,            0,           0,           0,           R;
     // clang-format on
     return r;
 }
-Eigen::Matrix<double, MModel::X_N, MModel::X_N>
-Target::computeProcessNoise(double dt) const {
+Eigen::Matrix<double, MModel::X_N, MModel::X_N> Target::computeProcessNoise(double dt) const {
     Eigen::Matrix<double, MModel::X_N, MModel::X_N> q;
     double v1, v2;
     double q_l, q_h;
@@ -165,19 +143,17 @@ void Target::predict(double dt, Eigen::Vector3d self_v) {
     dt_ = dt;
 
     if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
-        esekf_ypd_.setPredictFunc(MModel::Predict {
-            dt,
-            MModel::MotionModel::CONSTANT_ROTATION,
-            self_v.x(),
-            self_v.y(),
-            self_v.z() });
+        esekf_ypd_.setPredictFunc(MModel::Predict { dt,
+                                                    MModel::MotionModel::CONSTANT_ROTATION,
+                                                    self_v.x(),
+                                                    self_v.y(),
+                                                    self_v.z() });
     } else {
-        esekf_ypd_.setPredictFunc(MModel::Predict {
-            dt,
-            MModel::MotionModel::CONSTANT_VEL_ROT,
-            self_v.x(),
-            self_v.y(),
-            self_v.z() });
+        esekf_ypd_.setPredictFunc(MModel::Predict { dt,
+                                                    MModel::MotionModel::CONSTANT_VEL_ROT,
+                                                    self_v.x(),
+                                                    self_v.y(),
+                                                    self_v.z() });
     }
     auto yu_qv2 = [dt, this]() { return computeProcessNoise(dt); };
 
@@ -206,10 +182,8 @@ void Target::predict(double dt, Eigen::Vector3d self_v) {
             double lower = std::max(0.0, armor::outpost_v_yaw - outpost_v_yaw_err);
             double upper = armor::outpost_v_yaw + outpost_v_yaw_err;
 
-            double sign = std::copysign(
-                1.0,
-                target_state_[(int)MModel::State::VYAW]
-            ); // 保存符号
+            double sign = std::copysign(1.0,
+                                        target_state_[(int)MModel::State::VYAW]); // 保存符号
             double abs_val = std::abs(target_state_[(int)MModel::State::VYAW]);
             abs_val = std::clamp(abs_val, lower, upper);
             target_state_[(int)MModel::State::VYAW] = sign * abs_val;
@@ -219,7 +193,11 @@ void Target::predict(double dt, Eigen::Vector3d self_v) {
     }
 }
 
-bool Target::update(const std::pair<int, armor::Armor>& a) {
+bool Target::update(
+    const std::pair<int, armor::Armor>& a,
+    Eigen::Matrix4d T_camera_to_odom,
+    const std::pair<cv::Mat, cv::Mat>& camera_info
+) {
     auto armor = a.second;
     auto id = a.first;
     auto yu_rv2 = [this](const Eigen::Matrix<double, MModel::Z_N, 1>& z) {
@@ -243,6 +221,11 @@ bool Target::update(const std::pair<int, armor::Armor>& a) {
     last_id = id;
     update_count_++;
     ctx_.id = id;
+    ctx_.armor_num = armor_num_;
+    ctx_.is_big = tracked_id_ == armor::ArmorNumber::NO1;
+    ctx_.T_odom_to_camera_d = T_camera_to_odom.inverse();
+    ctx_.camera_intrinsic = camera_info.first;
+    ctx_.camera_distortion = camera_info.second;
     esekf_ypd_.setMeasureFunc(MModel::Measure { ctx_ });
 
     target_state_ = esekf_ypd_.update(measurement_);
@@ -261,11 +244,11 @@ cv::Rect Target::expanded(
         return cv::Rect(0, 0, 0, 0);
     }
 
-    const float car_box_half = std::max(
-                                   target_state_[(int)MModel::State::R],
-                                   target_state_[(int)MModel::State::R]
-                                       + target_state_[(int)MModel::State::L]
-                               )
+    const float car_box_half =
+        std::max(
+            target_state_[(int)MModel::State::R],
+            target_state_[(int)MModel::State::R] + target_state_[(int)MModel::State::L]
+        )
         + 0.15;
 
     static std::vector<cv::Point3f> CAR_BOX;
@@ -340,18 +323,11 @@ std::vector<std::pair<int, armor::Armor>> Target::match(const std::vector<armor:
     }
     for (int j = 0; j < n_obs; ++j) {
         for (int id = 0; id < armors_num; ++id) {
-            MModel::Measure::MeasureCtx tmp_ctx(id, armors_num);
-            MModel::Measure measure(tmp_ctx);
+            MModel::Measure measure(ctx_);
             MModel::VecZ z_pred;
             measure.h(target_state_, z_pred);
 
             MModel::VecZ nu = meas_list[j] - z_pred;
-            nu[(int)MModel::Mean::YPD_Y] =
-                angles::normalize_angle(nu[(int)MModel::Mean::YPD_Y]);
-            nu[(int)MModel::Mean::YPD_P] =
-                angles::normalize_angle(nu[(int)MModel::Mean::YPD_P]);
-            nu[(int)MModel::Mean::ORI_YAW] =
-                angles::normalize_angle(nu[(int)MModel::Mean::ORI_YAW]);
             auto R = computeMeasurementCovariance(z_pred);
             auto Rinv = R.inverse();
 

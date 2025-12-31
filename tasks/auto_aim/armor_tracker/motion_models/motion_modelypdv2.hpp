@@ -106,14 +106,20 @@ T normalize_angle_t(T angle) {
 }
 
 struct Measure {
+    struct MeasureCtx {
+        MeasureCtx() = default;
+        MeasureCtx( int id,int armor_num): armor_num(armor_num), id(id) {}
+        int armor_num = 4;
+        int id = 0;
+    }ctx;
     Measure() = default;
-    explicit Measure(int id, int armor_num): id(id), armor_num(armor_num) {}
+    explicit Measure(MeasureCtx c): ctx(c) {}
     template<typename T>
     void operator()(const T x[X_N], T z[Z_N]) const {
         // Compute armor position
-        T angle = normalize_angle_t(x[(int)State::YAW] + id * 2 * M_PI / armor_num);
-        auto outpost = armor_num == 3;
-        auto use_l_h = (armor_num == 4) && (id == 1 || id == 3);
+        T angle = normalize_angle_t(x[(int)State::YAW] + ctx.id * 2 * M_PI / ctx.armor_num);
+        auto outpost = ctx.armor_num == 3;
+        auto use_l_h = (ctx.armor_num == 4) && (ctx.id == 1 || ctx.id == 3);
         T r = (use_l_h) ? x[(int)State::R] + x[(int)State::L] : x[(int)State::R];
         T armor_x = x[(int)State::CX] - ceres::cos(angle) * r;
         T armor_y = x[(int)State::CY] - ceres::sin(angle) * r;
@@ -132,9 +138,9 @@ struct Measure {
     }
     template<typename T>
     T getoutpost_armor_z(const T x[X_N]) const {
-        return (id == 0) ? x[(int)State::CZ]
-            : (id == 1)  ? x[(int)State::CZ] + x[(int)State::outpost01DZ]
-            : (id == 2)  ? x[(int)State::CZ] + x[(int)State::outpost02DZ]
+        return (ctx.id == 0) ? x[(int)State::CZ]
+            : (ctx.id == 1)  ? x[(int)State::CZ] + x[(int)State::outpost01DZ]
+            : (ctx.id == 2)  ? x[(int)State::CZ] + x[(int)State::outpost02DZ]
                          : x[(int)State::CZ];
     }
     void h(const VecX& x, VecZ& z) const {
@@ -143,8 +149,6 @@ struct Measure {
         operator()(x.data(), z.data());
     }
 
-    int armor_num = 4;
-    int id = 0;
 };
 
 using RobotStateEKF = kalman_hybird_lib::ExtendedKalmanFilter<X_N, Z_N, Predict, Measure>;

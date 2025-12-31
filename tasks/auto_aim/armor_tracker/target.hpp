@@ -1,5 +1,4 @@
 #pragma once
-#include "tasks/auto_aim/armor_tracker/motion_models/motion_model_crazy.hpp"
 #include "tasks/auto_aim/armor_tracker/motion_models/motion_modelypdv2.hpp"
 #include "tasks/auto_aim/type.hpp"
 #include "tasks/utils.hpp"
@@ -57,6 +56,7 @@ public:
         int armor_num,
         Eigen::DiagonalMatrix<double, MModel::X_N> p0
     );
+    MModel::Measure::MeasureCtx ctx_;
     armor::ArmorNumber tracked_id_;
     std::string type_;
     MModel::VecZ measurement_ =
