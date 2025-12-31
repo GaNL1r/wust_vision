@@ -59,10 +59,8 @@ public:
     MModel::Measure::MeasureCtx ctx_;
     armor::ArmorNumber tracked_id_;
     std::string type_;
-    MModel::VecZ measurement_ =
-        Eigen::Matrix<double, MModel::Z_N, 1>::Zero();
-    MModel::VecX target_state_ =
-        Eigen::Matrix<double, MModel::X_N, 1>::Zero();
+    MModel::VecZ measurement_ = Eigen::Matrix<double, MModel::Z_N, 1>::Zero();
+    MModel::VecX target_state_ = Eigen::Matrix<double, MModel::X_N, 1>::Zero();
 
     double radius_pre_;
     double last_yaw_ = 0;
@@ -94,10 +92,8 @@ public:
     void predict(double dt, Eigen::Vector3d self_v = Eigen::Vector3d::Zero());
     bool update(const std::pair<int, armor::Armor>& armor);
     Eigen::Matrix<double, MModel::Z_N, MModel::Z_N>
-    computeMeasurementCovariance(const Eigen::Matrix<double, MModel::Z_N, 1>& z
-    ) const;
-    Eigen::Matrix<double, MModel::X_N, MModel::X_N>
-    computeProcessNoise(double dt) const;
+    computeMeasurementCovariance(const Eigen::Matrix<double, MModel::Z_N, 1>& z) const;
+    Eigen::Matrix<double, MModel::X_N, MModel::X_N> computeProcessNoise(double dt) const;
 
     double orientationToYaw(const Eigen::Quaterniond& q) noexcept {
         double roll, pitch, yaw;
@@ -176,14 +172,10 @@ public:
         return diverged(target_state_);
     }
     bool diverged(Eigen::VectorXd target_state) const {
-        auto r_ok = target_state[(int)MModel::State::R] > 0.05
-            && target_state[(int)MModel::State::R] < 0.5;
-        auto l_ok = target_state[(int)MModel::State::R]
-                    + target_state[(int)MModel::State::L]
-                > 0.05
-            && target_state[(int)MModel::State::R]
-                    + target_state[(int)MModel::State::L]
-                < 0.5;
+        auto r_ok =
+            target_state[(int)MModel::State::R] > 0.05 && target_state[(int)MModel::State::R] < 0.5;
+        auto l_ok = target_state[(int)MModel::State::R] + target_state[(int)MModel::State::L] > 0.05
+            && target_state[(int)MModel::State::R] + target_state[(int)MModel::State::L] < 0.5;
         if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
             l_ok = true;
         }
@@ -206,26 +198,19 @@ public:
         }
 
         // state[6] = std::remainder(state[6], 2 * M_PI);
-        state[(int)MModel::State::VYAW] =
-            std::clamp(state[(int)MModel::State::VYAW], -30.0, 30.0);
-        state[(int)MModel::State::R] =
-            std::clamp(state[(int)MModel::State::R], 0.05, 0.5);
-        state[(int)MModel::State::L] =
-            std::clamp(state[(int)MModel::State::L], -0.45, 0.45);
+        state[(int)MModel::State::VYAW] = std::clamp(state[(int)MModel::State::VYAW], -30.0, 30.0);
+        state[(int)MModel::State::R] = std::clamp(state[(int)MModel::State::R], 0.05, 0.5);
+        state[(int)MModel::State::L] = std::clamp(state[(int)MModel::State::L], -0.45, 0.45);
 
         if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
-            state[(int)MModel::State::R] =
-                std::clamp(state[(int)MModel::State::R], 0.05, 0.5);
+            state[(int)MModel::State::R] = std::clamp(state[(int)MModel::State::R], 0.05, 0.5);
         }
 
-        double r_plus_l = state[(int)MModel::State::R]
-            + state[(int)MModel::State::L];
+        double r_plus_l = state[(int)MModel::State::R] + state[(int)MModel::State::L];
         if (r_plus_l < 0.05) {
-            state[(int)MModel::State::L] =
-                0.05 - state[(int)MModel::State::R];
+            state[(int)MModel::State::L] = 0.05 - state[(int)MModel::State::R];
         } else if (r_plus_l > 0.5) {
-            state[(int)MModel::State::L] =
-                0.5 - state[(int)MModel::State::R];
+            state[(int)MModel::State::L] = 0.5 - state[(int)MModel::State::R];
         }
         esekf_ypd_.setState(state);
     }
@@ -241,31 +226,26 @@ public:
         return _armor_xyza_list;
     }
     Eigen::Vector3d h_armor_xyz(const Eigen::VectorXd& x, int id) const {
-        auto angle = angles::normalize_angle(
-            x[(int)MModel::State::YAW] + id * 2 * CV_PI / armor_num_
-        );
+        auto angle =
+            angles::normalize_angle(x[(int)MModel::State::YAW] + id * 2 * CV_PI / armor_num_);
         auto use_l_h = (armor_num_ == 4) && (id == 1 || id == 3);
         auto outpost = armor_num_ == 3;
 
-        auto r = (use_l_h)
-            ? x[(int)MModel::State::R] + x[(int)MModel::State::L]
-            : x[(int)MModel::State::R];
+        auto r = (use_l_h) ? x[(int)MModel::State::R] + x[(int)MModel::State::L]
+                           : x[(int)MModel::State::R];
         auto armor_x = x[(int)MModel::State::CX] - r * std::cos(angle);
         auto armor_y = x[(int)MModel::State::CY] - r * std::sin(angle);
         auto armor_z = (outpost) ? getoutpost_armor_z(id, x)
-            : (use_l_h)
-            ? x[(int)MModel::State::CZ] + x[(int)MModel::State::H]
-            : x[(int)MModel::State::CZ];
+            : (use_l_h)          ? x[(int)MModel::State::CZ] + x[(int)MModel::State::H]
+                                 : x[(int)MModel::State::CZ];
 
         return { armor_x, armor_y, armor_z };
     }
     double getoutpost_armor_z(int id, const Eigen::VectorXd x) const {
         return (id == 0) ? x[(int)MModel::State::CZ]
-            : (id == 1)  ? x[(int)MModel::State::CZ]
-                + x[(int)MModel::State::outpost01DZ]
-            : (id == 2) ? x[(int)MModel::State::CZ]
-                + x[(int)MModel::State::outpost02DZ]
-                        : x[(int)MModel::State::CZ];
+            : (id == 1)  ? x[(int)MModel::State::CZ] + x[(int)MModel::State::outpost01DZ]
+            : (id == 2)  ? x[(int)MModel::State::CZ] + x[(int)MModel::State::outpost02DZ]
+                         : x[(int)MModel::State::CZ];
     }
 
     Eigen::Vector3d h_armor_vxyz(const Eigen::VectorXd& x, int id) const {
@@ -275,14 +255,12 @@ public:
             x[(int)MModel::State::CZ]
         );
 
-        auto angle = angles::normalize_angle(
-            x[(int)MModel::State::YAW] + id * 2 * CV_PI / armor_num_
-        );
+        auto angle =
+            angles::normalize_angle(x[(int)MModel::State::YAW] + id * 2 * CV_PI / armor_num_);
         auto use_l_h = (armor_num_ == 4) && (id == 1 || id == 3);
 
-        auto r = (use_l_h)
-            ? x[(int)MModel::State::R] + x[(int)MModel::State::L]
-            : x[(int)MModel::State::R];
+        auto r = (use_l_h) ? x[(int)MModel::State::R] + x[(int)MModel::State::L]
+                           : x[(int)MModel::State::R];
 
         Eigen::Vector3d p(
             -r * std::cos(angle),

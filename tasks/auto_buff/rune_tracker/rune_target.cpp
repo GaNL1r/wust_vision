@@ -56,10 +56,6 @@ RuneTarget::RuneTarget(
             + delta[(int)ypdrune_motion_model::Mean::ORI_ROLL]
         );
     });
-    esekf_ypd_.setNisThreshold(9.488);
-    esekf_ypd_.setNeesThreshold(9.488);
-    esekf_ypd_.setWindowSize(50);
-    esekf_ypd_.setRecentFailRateThreshold(0.4);
 
     double xc = fan.fans.front().target_pos.x();
     double yc = fan.fans.front().target_pos.y();

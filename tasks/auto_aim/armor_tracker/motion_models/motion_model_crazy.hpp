@@ -202,8 +202,8 @@ struct Measure {
                             : x[(int)State::CZ];
 
         Eigen::Vector3<T> euler_odom;
-        euler_odom[0] = angle; //yaw 
-        euler_odom[1] = outpost ? T(-FIFTTEN_DEGREE_RAD) : T(FIFTTEN_DEGREE_RAD); //pitch 
+        euler_odom[0] = angle; //yaw
+        euler_odom[1] = outpost ? T(-FIFTTEN_DEGREE_RAD) : T(FIFTTEN_DEGREE_RAD); //pitch
         euler_odom[2] = T(M_PI / 2.0); //roll
 
         Eigen::Quaternion<T> q_odom = eulerToQuat(euler_odom, 2, 1, 0, true);
@@ -232,7 +232,7 @@ struct Measure {
         Pc.reserve(objPts.size());
         for (const auto& p: objPts) {
             Eigen::Matrix<T, 3, 1> v = p;
-            Pc.push_back(R  * v + t);
+            Pc.push_back(R * v + t);
         }
 
         const cv::Mat& K = ctx.camera_intrinsic;

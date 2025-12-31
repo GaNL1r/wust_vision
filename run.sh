@@ -1,6 +1,6 @@
 #!/bin/bash
 
-WORK_DIR="$(cd "$(dirname "$0")" && pwd)"
+WORK_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 BUILD_DIR="$WORK_DIR/build"
 CONFIG_DIR="$WORK_DIR/config"
 BIN_DIR="$WORK_DIR/bin"
@@ -13,7 +13,7 @@ reset="\033[0m"
 red="\033[1;31m"
 
 # 设置 /dev/shm/debug_frame 权限
-chmod 666 /dev/shm/debug_frame
+chmod 777 /dev/shm/debug_frame
 
 # 清理并建立符号链接
 rm -rf "$BIN_DIR/config"

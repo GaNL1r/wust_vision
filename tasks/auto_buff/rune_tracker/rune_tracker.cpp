@@ -54,10 +54,6 @@ rune::RuneTarget RuneTracker::track(const rune::RuneFan& fan) {
         tracker_state = LOST;
         WUST_WARN("tracker") << "Target diverged!";
     }
-    if (tracker_state != LOST && target_.esekf_ypd_.isRecentlyInconsistent()) {
-        //tracker_state = LOST;
-        WUST_WARN("tracker") << "Bad Converge Found!";
-    }
     if (tracker_state == LOST || tracker_state == DETECTING) {
         target_.is_tracking = false;
     } else {

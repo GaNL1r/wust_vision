@@ -34,10 +34,6 @@ GuidanceTarget::GuidanceTarget(const GreenLight& light, TargetConfig target_conf
         }
     });
 
-    esekf_.setNisThreshold(9.488);
-    esekf_.setNeesThreshold(9.488);
-    esekf_.setWindowSize(50);
-    esekf_.setRecentFailRateThreshold(0.4);
     double cx = light.center_point.x;
     double cy = light.center_point.y;
     double w = light.box.width;

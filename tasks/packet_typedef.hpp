@@ -21,22 +21,9 @@
 #include <stdexcept>
 #include <vector>
 
-const uint8_t SOF_RECEIVE = 0x5A;
-const uint8_t SOF_SEND = 0x5A;
-
-// Receive
-// const uint8_t ID_DEBUG = 0x01;
-const uint8_t ID_IMU = 0x01;
-
-// Send
 const uint8_t ID_ROBOT_CMD = 0x01;
 const uint8_t ID_NAV_CMD = 0x02;
-struct HeaderFrame {
-    uint8_t sof; // 数据帧起始字节，固定值为 0x5A
-    uint8_t len; // 数据段长度
-    uint8_t id; // 数据段id
-    uint8_t crc; // 数据帧头的 CRC8 校验
-} __attribute__((packed));
+
 const uint8_t ID_AIM_INFO = 0X02;
 const uint8_t ID_REFEREE_INFO = 0X03;
 struct ReceiveAimINFO {
@@ -78,24 +65,6 @@ struct ReceiveReferee //rmul2024
     int b3_health;
     int b7_health;
 
-} __attribute__((packed));
-// IMU 数据包
-struct ReceiveImuData {
-    HeaderFrame frame_header;
-    uint32_t time_stamp;
-
-    struct {
-        float yaw; // rad
-        float pitch; // rad
-        float roll; // rad
-
-        float yaw_vel; // rad/s
-        float pitch_vel; // rad/s
-        float roll_vel; // rad/s
-
-    } __attribute__((packed)) data;
-
-    uint16_t crc;
 } __attribute__((packed));
 
 struct SendRobotCmdData {

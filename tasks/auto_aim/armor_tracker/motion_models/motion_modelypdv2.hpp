@@ -108,10 +108,10 @@ T normalize_angle_t(T angle) {
 struct Measure {
     struct MeasureCtx {
         MeasureCtx() = default;
-        MeasureCtx( int id,int armor_num): armor_num(armor_num), id(id) {}
+        MeasureCtx(int id, int armor_num): armor_num(armor_num), id(id) {}
         int armor_num = 4;
         int id = 0;
-    }ctx;
+    } ctx;
     Measure() = default;
     explicit Measure(MeasureCtx c): ctx(c) {}
     template<typename T>
@@ -141,14 +141,13 @@ struct Measure {
         return (ctx.id == 0) ? x[(int)State::CZ]
             : (ctx.id == 1)  ? x[(int)State::CZ] + x[(int)State::outpost01DZ]
             : (ctx.id == 2)  ? x[(int)State::CZ] + x[(int)State::outpost02DZ]
-                         : x[(int)State::CZ];
+                             : x[(int)State::CZ];
     }
     void h(const VecX& x, VecZ& z) const {
         assert(x.size() == X_N);
         assert(z.size() == Z_N);
         operator()(x.data(), z.data());
     }
-
 };
 
 using RobotStateEKF = kalman_hybird_lib::ExtendedKalmanFilter<X_N, Z_N, Predict, Measure>;
