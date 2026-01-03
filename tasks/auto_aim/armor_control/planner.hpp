@@ -46,10 +46,9 @@ public:
     );
 
 private:
-    double yaw_offset_;
-    double pitch_offset_;
+    double control_delay_ = 0.01;
+    double enable_fire_error_ = 0.0035;
     double fire_thresh_;
-    double low_speed_delay_time_, high_speed_delay_time_, decision_speed_;
     double max_yaw_acc_, max_pitch_acc_;
     TinySolver* yaw_solver_;
     TinySolver* pitch_solver_;

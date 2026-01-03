@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "number_classifier.hpp"
+#include "tasks/auto_aim/armor_detect/number_classifier.hpp"
 #include <wust_vl/common/utils/logger.hpp>
 
 NumberClassifier::NumberClassifier(
@@ -74,8 +74,8 @@ bool NumberClassifier::classifyNumber(armor::ArmorObject& armor) {
     }
 
     cv::Mat image = armor.number_img;
-    // cv::imwrite("number_classifier.png", image);
     // image.convertTo(image, CV_32F, 1.0 / 255.0);
+
     cv::Mat blob;
     cv::dnn::blobFromImage(image, blob);
 

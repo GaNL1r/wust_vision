@@ -5,6 +5,8 @@ import threading
 import subprocess
 import atexit
 import fcntl
+import setproctitle
+setproctitle.setproctitle("wust_vision_web")
 
 app = Flask(__name__)
 

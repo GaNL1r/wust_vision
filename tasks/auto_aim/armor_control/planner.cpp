@@ -15,6 +15,8 @@ Planner::Planner(
     aimer_ = aimer;
     shooter_ = shooter;
     max_iter_ = config["max_iter"].as<int>();
+    control_delay_ = config["control_delay"].as<double>();
+    enable_fire_error_ = config["enable_fire_error"].as<double>();
     setup_yaw_solver(config);
     setup_pitch_solver(config);
 }
@@ -110,8 +112,8 @@ Plan Planner::plan(
     // plan.target_yaw = angles::normalize_angle(traj(0, MPC_HALF_HORIZON+2) + yaw0);
 
     // plan.target_pitch = traj(2, MPC_HALF_HORIZON);
-    const double total_time = (traj.cols() - 1) * MPC_DT;
-    auto target_state = getStateAtTime(traj, total_time / 2.0 + 0.01);
+    const double total_time = MPC_HORIZON * MPC_DT;
+    auto target_state = getStateAtTime(traj, total_time / 2.0);
     plan.target_yaw = angles::normalize_angle(target_state(0) + yaw0);
     plan.target_pitch = angles::normalize_angle(target_state(2));
     plan.yaw = angles::normalize_angle(yaw_solver_->work->x(0, MPC_HALF_HORIZON) + yaw0);
@@ -124,6 +126,18 @@ Plan Planner::plan(
 
     plan.armor_posandyaw = armor_list;
     plan.aim_target = aim_target;
+    target_state = getStateAtTime(traj, total_time / 2.0 + control_delay_);
+    Trajectory control_traj;
+    control_traj.block(0, 0, 2, MPC_HORIZON) = yaw_solver_->work->x;
+    control_traj.block(2, 0, 2, MPC_HORIZON) = pitch_solver_->work->x;
+    auto control_state = getStateAtTime(control_traj, total_time / 2.0 + control_delay_);
+    plan.fire =
+        std::hypot(
+            angles::normalize_angle(target_state(0) + yaw0)
+                - angles::normalize_angle(control_state(0) + yaw0),
+            angles::normalize_angle(target_state(2)) - angles::normalize_angle(control_state(2))
+        )
+        < enable_fire_error_;
 
     return plan;
 }

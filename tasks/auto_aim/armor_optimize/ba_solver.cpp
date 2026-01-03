@@ -17,11 +17,36 @@
 
 #include "ba_solver.hpp"
 #include <opencv2/core/eigen.hpp>
+Eigen::Vector<double, 5> toEigenDist(const cv::Mat& dist) {
+    Eigen::Vector<double, 5> d = Eigen::Vector<double, 5>::Zero();
 
-BaSolver::BaSolver(const YAML::Node& config, const cv::Mat& camera_matrix) {
-    cv::cv2eigen(camera_matrix, K_);
+    if (dist.total() < 5) {
+        return d; // 如果参数不足，返回 0 避免异常
+    }
+
+    if (dist.type() == CV_32F) {
+        const float* p = dist.ptr<float>();
+        for (int i = 0; i < 5; i++)
+            d[i] = static_cast<double>(p[i]);
+    } else if (dist.type() == CV_64F) {
+        const double* p = dist.ptr<double>();
+        for (int i = 0; i < 5; i++)
+            d[i] = p[i];
+    } else {
+        // 兼容其他类型，逐个读取
+        for (int i = 0; i < 5; i++)
+            d[i] = dist.at<double>(i, 0);
+    }
+
+    return d;
+}
+BaSolver::BaSolver(const YAML::Node& config, const std::pair<cv::Mat, cv::Mat>& camera_info) {
+    camera_info_ = camera_info;
+    cv::cv2eigen(camera_info.first, K_);
+    dist_eigen_ = toEigenDist(camera_info.second);
     params_.load(config);
 }
+
 std::vector<Eigen::Vector2d> reprojectionArmor(
     double yaw,
     const std::vector<Eigen::Vector3d>& object_points,
@@ -30,32 +55,49 @@ std::vector<Eigen::Vector2d> reprojectionArmor(
     double pitch,
     double roll,
     const Eigen::Vector3d& t,
-    const Eigen::Matrix3d& K
+    const Eigen::Matrix3d& K,
+    const cv::Mat& dist // 畸变参数
 ) {
-    std::vector<Eigen::Vector2d> image_points;
-    double cy = std::cos(yaw), sy = std::sin(yaw);
-    Eigen::Matrix3d R_yaw;
-    R_yaw << cy, -sy, 0, sy, cy, 0, 0, 0, 1;
+    // 组合旋转（相机系到目标系）
+    Eigen::AngleAxisd ay(yaw, Eigen::Vector3d::UnitZ());
+    Eigen::AngleAxisd ap(pitch, Eigen::Vector3d::UnitY());
+    Eigen::AngleAxisd ar(roll, Eigen::Vector3d::UnitX());
+    Eigen::Matrix3d R = Rci * (ay * ap * ar).toRotationMatrix();
 
-    double cp = std::cos(pitch), sp = std::sin(pitch);
-    Eigen::Matrix3d R_pitch;
-    R_pitch << cp, 0, sp, 0, 1, 0, -sp, 0, cp;
+    // 转成 OpenCV rvec/tvec
+    cv::Mat rvec, R_cv;
+    cv::eigen2cv(R, R_cv);
+    cv::Rodrigues(R_cv, rvec);
 
-    Eigen::Matrix3d R_roll;
-    double cr = std::cos(roll), sr = std::sin(roll);
-    R_roll << cr, -sr, 0, sr, cr, 0, 0, 0, 1;
-    Eigen::Matrix3d R = Rci * R_yaw * R_pitch * R_roll;
+    cv::Mat tvec = (cv::Mat_<double>(3, 1) << t.x(), t.y(), t.z());
 
-    double total = 0;
-    for (int i = 0; i < object_points.size(); ++i) {
-        Eigen::Vector3d Pc = R * object_points[i] + t;
+    // 取内参
+    cv::Mat K_cv;
+    cv::eigen2cv(K, K_cv);
 
-        Eigen::Vector2d proj(
-            K(0, 0) * Pc.x() / Pc.z() + K(0, 2),
-            K(1, 1) * Pc.y() / Pc.z() + K(1, 2)
-        );
-        image_points.push_back(proj);
+    // 3D点转 cv::Point3f
+    std::vector<cv::Point3f> obj_pts;
+    obj_pts.reserve(object_points.size());
+    for (const auto& p: object_points) {
+        obj_pts.emplace_back(p.x(), p.y(), p.z());
     }
+
+    // 投影（带畸变）
+    std::vector<cv::Point2f> pts_2d;
+    pts_2d.reserve(obj_pts.size());
+    cv::projectPoints(obj_pts, rvec, tvec, K_cv, dist, pts_2d);
+
+    // 输出到 Eigen，并做 NaN/越界/深度保护
+    std::vector<Eigen::Vector2d> image_points;
+    image_points.reserve(pts_2d.size());
+
+    for (const auto& p: pts_2d) {
+        if (!std::isfinite(p.x) || !std::isfinite(p.y)) {
+            continue; // 过滤异常点
+        }
+        image_points.emplace_back(p.x, p.y);
+    }
+
     return image_points;
 }
 
@@ -67,9 +109,11 @@ double reprojectionErrorYaw(
     double pitch,
     double roll,
     const Eigen::Vector3d& t,
-    const Eigen::Matrix3d& K
+    const Eigen::Matrix3d& K,
+    const cv::Mat& dist
 ) {
-    auto image_points = reprojectionArmor(yaw, object_points, landmarks, Rci, pitch, roll, t, K);
+    auto image_points =
+        reprojectionArmor(yaw, object_points, landmarks, Rci, pitch, roll, t, K, dist);
     double cost = 0.0;
 
     // for (size_t i = 0; i < image_points.size(); ++i) {
@@ -115,8 +159,8 @@ double BaSolver::goldenYaw(
     double y1 = r - (r - l) / phi;
     double y2 = l + (r - l) / phi;
 
-    double f1 = reprojectionErrorYaw(y1, obj, lm, Rci, pitch, roll, t, K);
-    double f2 = reprojectionErrorYaw(y2, obj, lm, Rci, pitch, roll, t, K);
+    double f1 = reprojectionErrorYaw(y1, obj, lm, Rci, pitch, roll, t, K, camera_info_.second);
+    double f2 = reprojectionErrorYaw(y2, obj, lm, Rci, pitch, roll, t, K, camera_info_.second);
 
     while (r - l > 0.0001) { // stop threshold ~0.005 degree
         if (f1 < f2) {
@@ -124,18 +168,19 @@ double BaSolver::goldenYaw(
             y2 = y1;
             f2 = f1;
             y1 = r - (r - l) / phi;
-            f1 = reprojectionErrorYaw(y1, obj, lm, Rci, pitch, roll, t, K);
+            f1 = reprojectionErrorYaw(y1, obj, lm, Rci, pitch, roll, t, K, camera_info_.second);
         } else {
             l = y1;
             y1 = y2;
             f1 = f2;
             y2 = l + (r - l) / phi;
-            f2 = reprojectionErrorYaw(y2, obj, lm, Rci, pitch, roll, t, K);
+            f2 = reprojectionErrorYaw(y2, obj, lm, Rci, pitch, roll, t, K, camera_info_.second);
         }
     }
 
     return 0.5 * (l + r);
 }
+
 double BaSolver::ceresYaw(
     double initial_yaw,
     const std::vector<Eigen::Vector3d>& object_points,
@@ -148,7 +193,7 @@ double BaSolver::ceresYaw(
 ) {
     double yaw = initial_yaw;
 
-    CameraProjector cam(R_camera_imu, armor_pitch, roll, t_camera_armor, K);
+    CameraProjector cam(R_camera_imu, armor_pitch, roll, t_camera_armor, K, dist_eigen_);
 
     ceres::Problem problem;
     problem.AddParameterBlock(&yaw, 1, new YawLocalParameterization());

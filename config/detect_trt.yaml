@@ -8,7 +8,7 @@ armor_detect:
     min_small_center_distance: 0.05
   classify:
     label_path: ${VISION_ROOT}/model/label.txt
-    model_path: ${VISION_ROOT}/model/reborn_number_classifier.onnx
+    model_path: ${VISION_ROOT}/model/mlp.onnx
     backend: opencv
     threshold: 0.5
   light:

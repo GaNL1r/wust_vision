@@ -34,10 +34,19 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, armor::ArmorObject& 
         std::cerr << "[extractNetImage] input src is empty or too small!" << std::endl;
         return false;
     }
+    auto ordered = armor.sortCorners(armor.pts);
 
+    armor::Light l1, l2;
+    l1.length = cv::norm(ordered[1] - ordered[0]);
+    l1.center = (ordered[0] + ordered[1]) / 2.0;
+
+    l2.length = cv::norm(ordered[2] - ordered[3]);
+    l2.center = (ordered[2] + ordered[3]) / 2.0;
+    float avg_light_length = (l1.length + l2.length) / 2;
+    float center_distance = cv::norm(l1.center - l2.center) / avg_light_length;
     // 判断装甲板类型
-    bool is_large =
-        (armor.number == armor::ArmorNumber::NO1 || armor.number == armor::ArmorNumber::BASE);
+    bool is_large = center_distance > params_.armor_params.min_large_center_distance;
+    // (armor.number == armor::ArmorNumber::NO1 || armor.number == armor::ArmorNumber::BASE);
 
     // pts 数量检查
     std::vector<cv::Point2f> pts_vec(std::begin(armor.pts), std::end(armor.pts));

@@ -31,7 +31,7 @@ ArmorPoseEstimator::ArmorPoseEstimator(
         armor::ArmorObject::buildObjectPoints<cv::Point3f>(LARGE_ARMOR_WIDTH, LARGE_ARMOR_HEIGHT)
     );
     if (config["armor_optimize"]["enable"].as<bool>()) {
-        ba_solver_ = std::make_unique<BaSolver>(config["armor_optimize"], camera_info.first);
+        ba_solver_ = std::make_unique<BaSolver>(config["armor_optimize"], camera_info);
     }
     distance_fix_a2_ = config["armor_optimize"]["distance_fix_a2"].as<double>();
 

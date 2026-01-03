@@ -16,18 +16,19 @@ armor_map:
 armor_optimize:
   enable: true
   mode: golden
-  ceres_max_iter: 40
+  ceres_max_iter: 100
   golden_search_side_deg: 60
   distance_fix_a2: 0.0
 
 armor_tracker:
   lost_time_thres: 2.0
   tracking_thres: 10
-  max_yaw_diff_deg: 90.0
+  grow_k: 0.2
+  max_yaw_diff_deg: 70.0
   max_dis_diff: 3.0
   match_gate: 5
   qxyz_common: 200.0
-  qyaw_common: 50.0
+  qyaw_common: 10.0
   qxyz_output: 10.0
   qyaw_output: 0.1
   q_r: 0.0
@@ -52,6 +53,8 @@ auto_aim_fsm:
 
 planner:
   max_iter: 10
+  control_delay: 0.01
+  enable_fire_error: 0.0035
   max_yaw_acc: 40
   #全向yaw加速度测算37
   Q_yaw: [7e6, 0]
@@ -67,14 +70,14 @@ aimer:
   leaving_angle: 20
 
 shooter:
-  yaw_limit: 45
+  yaw_limit: 35
   shooting_range_h: 0.1
   shooting_range_w: 0.1
   min_enable_pitch_deg: 0.25
   min_enable_yaw_deg: 0.25
   base_offset:
-      yaw: -6
-      pitch: -4
+      yaw: -3
+      pitch: -3.2
   trajectory_offset:
     - d_max: 3
       d_min: 0
@@ -106,7 +109,7 @@ trajectory_compensator:
 
 auto_exposure:
   enable: true
-  target_brightness: 15.0
+  target_brightness: 25.0
   tolerance: 3.0
   step_gain: 15.0
   decay_step: 1.0

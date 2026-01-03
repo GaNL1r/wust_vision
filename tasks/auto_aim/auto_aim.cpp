@@ -296,8 +296,15 @@ struct AutoAim::Impl {
                     last_att->data.vyaw
                 );
                 gimbal_cmd.fire_advice = only_check_fire.fire_advice;
-                gimbal_cmd.enable_pitch_diff = only_check_fire.enable_pitch_diff;
-                gimbal_cmd.enable_yaw_diff = only_check_fire.enable_yaw_diff;
+                if (plan.fire) {
+                    gimbal_cmd.enable_pitch_diff = only_check_fire.enable_pitch_diff;
+                    gimbal_cmd.enable_yaw_diff = only_check_fire.enable_yaw_diff;
+
+                } else {
+                    gimbal_cmd.enable_pitch_diff = 0;
+                    gimbal_cmd.enable_yaw_diff = 0;
+                }
+
                 gimbal_cmd.target_yaw = plan.target_yaw / M_PI * 180.0;
                 gimbal_cmd.target_pitch = plan.target_pitch / M_PI * 180.0;
                 gimbal_cmd.raw_yaw = gimbal_cmd.target_yaw;

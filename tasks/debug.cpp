@@ -612,7 +612,7 @@ void drawDebugOverlayShm(
     last_show_time = now;
 
     if (!shm_inited) {
-        shm_fd = shm_open("/debug_frame", O_CREAT | O_RDWR, 0666);
+        shm_fd = shm_open("/debug_frame", O_CREAT | O_RDWR, 0777);
         if (shm_fd == -1) {
             std::cerr << "[SHM] shm_open failed\n";
             return;

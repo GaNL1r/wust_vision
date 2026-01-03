@@ -241,8 +241,8 @@ cv::Rect Target::expanded(
     const cv::Mat& camera_distortion,
     const cv::Size& image_size
 ) {
-    if (!is_inited
-        || time_utils::durationSec(timestamp_, time_utils::now()) > target_config_.lost_dt) {
+    double dt = time_utils::durationSec(timestamp_, time_utils::now());
+    if (!is_inited || dt > target_config_.lost_dt) {
         return cv::Rect(0, 0, 0, 0);
     }
 
@@ -305,7 +305,8 @@ cv::Rect Target::expanded(
     int cx = rect.x + rect.width / 2;
     int cy = rect.y + rect.height / 2;
     int side = std::max(rect.width, rect.height);
-
+    double grow_ratio = 1.0 + target_config_.grow_k * dt;
+    side = static_cast<int>(side * grow_ratio);
     cv::Rect square(cx - side / 2, cy - side / 2, side, side);
     square &= img_rect;
 

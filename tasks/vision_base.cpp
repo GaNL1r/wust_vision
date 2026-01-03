@@ -101,7 +101,7 @@ bool VisionBase::init(bool debug_mode) {
         camera_info,
         max_infer_running_
     );
-    thread_pool_ = std::make_unique<ThreadPool>(std::thread::hardware_concurrency() * 2);
+    thread_pool_ = std::make_unique<ThreadPool>(max_infer_running_);
     motion_buffer_ = std::make_shared<MotionBufferGeneric<Motion, 1024>>();
     double bullet_speed = config_["shoot"]["bullet_speed"].as<double>(20.0);
     shoot_rate_ = config_["shoot"]["rate"].as<int>(3);
@@ -412,43 +412,68 @@ void VisionBase::start() {
         img_writer_->start();
     }
 }
+bool isWebRunning() {
+    static std::atomic<bool> cached{true}; 
+    static std::atomic<long long> last_check_ms{0};
 
+    long long now_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()
+        ).count();
+    if (last_check_ms.load() == 0) {
+        last_check_ms = now_ms;
+        return true;
+    }
+
+    if (now_ms - last_check_ms.load() >= 1000) {
+        int ret = std::system("pgrep -x wust_vision_web > /dev/null 2>&1");
+        cached = (ret == 0);
+        last_check_ms = now_ms;
+    }
+
+    return cached.load();
+}
 void VisionBase::debugThread() {
     using namespace std::chrono;
     double us_interval = 1e6 / static_cast<double>(debug_fps_);
     auto kInterval = std::chrono::microseconds(static_cast<int64_t>(us_interval));
     while (run_flag_) {
         auto start_time = steady_clock::now();
-        try {
-            if (!auto_aim_ || !auto_buff_) {
-                continue;
-            }
-            auto dbg_armor = auto_aim_->getDebugFrame();
-            auto dbg_rune = auto_buff_->getDebugFrame();
-            AttackMode mode = toAttackMode(attack_mode_);
-            switch (mode) {
-                case AttackMode::UNKNOWN:
-                case AttackMode::ARMOR: {
-                    drawDebugOverlayShm(dbg_armor, camera_info_, false);
-                } break;
-                case AttackMode::SMALL_RUNE:
-                case AttackMode::BIG_RUNE: {
-                    drawDebugOverlayShm(dbg_rune, camera_info_, false);
-                } break;
-            }
-            std::pair<double, double> gimbal_py;
-            if (motion_buffer_) {
-                auto last_att = motion_buffer_->get_last();
-                if (last_att) {
-                    gimbal_py.first = last_att->data.pitch;
-                    gimbal_py.second = last_att->data.yaw;
+        do {
+            try {
+                if (!isWebRunning()) {
+                    break;
                 }
-            }
+                if (!auto_aim_ || !auto_buff_) {
+                    break;
+                }
+                auto dbg_armor = auto_aim_->getDebugFrame();
+                auto dbg_rune = auto_buff_->getDebugFrame();
+                AttackMode mode = toAttackMode(attack_mode_);
+                switch (mode) {
+                    case AttackMode::UNKNOWN:
+                    case AttackMode::ARMOR: {
+                        drawDebugOverlayShm(dbg_armor, camera_info_, false);
+                    } break;
+                    case AttackMode::SMALL_RUNE:
+                    case AttackMode::BIG_RUNE: {
+                        drawDebugOverlayShm(dbg_rune, camera_info_, false);
+                    } break;
+                }
+                std::pair<double, double> gimbal_py;
+                if (motion_buffer_) {
+                    auto last_att = motion_buffer_->get_last();
+                    if (last_att) {
+                        gimbal_py.first = last_att->data.pitch;
+                        gimbal_py.second = last_att->data.yaw;
+                    }
+                }
 
-            debuglog(dbg_armor, dbg_rune, last_cmd_, gimbal_py);
-        } catch (std::exception& e) {
-            std::cout << "debug thread error: " << e.what() << std::endl;
-        }
+                debuglog(dbg_armor, dbg_rune, last_cmd_, gimbal_py);
+            } catch (std::exception& e) {
+                std::cout << "debug thread error: " << e.what() << std::endl;
+            }
+        } while (0);
 
         auto elapsed = steady_clock::now() - start_time;
         if (elapsed < kInterval) {
