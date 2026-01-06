@@ -42,7 +42,7 @@ def ensure_shared_memory_permissions():
                     f.write(b"\0" * shared_size)
 
             current_mode = oct(os.stat(shared_memory_path).st_mode & 0o777)
-            if current_mode != "777":
+            if current_mode != "0o777":
                 print(f"修复权限 (当前: {current_mode} -> 目标: 777)")
                 result = subprocess.run(
                     ["sudo", "chmod", "777", shared_memory_path],

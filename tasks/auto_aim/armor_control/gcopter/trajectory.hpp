@@ -77,15 +77,13 @@ public:
         return pos;
     }
     inline double getYaw(const double& t) const {
-        // 用速度方向计算 yaw
         Eigen::VectorXd v = getVel(t);
         if (v.size() < 2)
             return 0.0;
         double vx = v(0);
         double vy = v(1);
-        // 速度过小时方向不可信，保护一下
         if (std::hypot(vx, vy) < 1e-6) {
-            return getYaw(0.0); // 回退到起点方向
+            return getYaw(0.0); 
         }
         return std::atan2(vy, vx);
     }
@@ -104,7 +102,7 @@ public:
 
         double v2 = vx * vx + vy * vy;
         if (v2 < 1e-12)
-            return 0.0; // 速度太小，角速度设 0 避免爆炸
+            return 0.0; 
         return (ax * vy - ay * vx) / v2;
     }
 
@@ -346,7 +344,6 @@ public:
         if (pieces.empty())
             return pts;
 
-        // 1. 计算合理的长度（用 double 计算避免 size_t overflow）
         double totalT = getTotalDuration();
         double n_est = 0.0;
 
@@ -354,18 +351,15 @@ public:
             n_est = std::ceil(totalT / dt) + 2;
         }
 
-        // 2. clamp 到安全范围，防止 vector::reserve 触发 std::length_error
         size_t N = 0;
         if (n_est > 0.0 && n_est < 1e7) {
             N = static_cast<size_t>(n_est);
         }
 
-        const size_t MAX_RESERVE = 5000; // 轨迹采样不可能需要更大
+        const size_t MAX_RESERVE = 5000; 
         N = std::min(N, MAX_RESERVE);
 
-        pts.reserve(N); // ✔ 现在绝对安全
-
-        // 3. 采样
+        pts.reserve(N);
         for (int i = 0; i < getPieceNum(); ++i) {
             double T = pieces[i].getDuration();
             double t = 0.0;
@@ -375,7 +369,7 @@ public:
                 t += dt;
             }
 
-            pts.push_back(pieces[i].getPos(T)); // 终点兜底
+            pts.push_back(pieces[i].getPos(T)); 
         }
 
         return pts;

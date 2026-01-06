@@ -15,20 +15,20 @@ control:
   
 logger:
   log_level: INFO
-  log_path: /home/hy/wust_log
+  log_path: ${VISION_ROOT}/log
   use_logcli: true
-  use_logfile: true
+  use_logfile: false
   use_simplelog: true
 
 shoot:
-  bullet_speed: 24.0
-  rate: 7
+  bullet_speed: 22.0
+  rate: 10
   controller_delay: 0.00
 
 
 record:
   use_record: false
-  folder_path: /home/hy/wust_data/record
+  folder_path: ${VISION_ROOT}/record
   use_rotate_reade: false
   read_csv_path: 
 

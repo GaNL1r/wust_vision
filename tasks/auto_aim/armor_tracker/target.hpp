@@ -24,7 +24,6 @@ struct TargetConfig {
     double yaw_r_log_ratio = 0.005;
     double match_gate = 10;
     double lost_dt = 0.5;
-    double grow_k = 0.5;
     void loadConfig(const YAML::Node& node) {
         esekf_iter_num = node["esekf_iter_num"].as<int>();
         qyaw_common = node["qyaw_common"].as<double>();
@@ -44,7 +43,6 @@ struct TargetConfig {
         yaw_r_log_ratio = node["yaw_r_log_ratio"].as<double>();
         match_gate = node["match_gate"].as<double>();
         lost_dt = node["lost_time_thres"].as<double>();
-        grow_k = node["grow_k"].as<double>();
     }
 };
 class Target {

@@ -253,21 +253,21 @@ std::pair<Eigen::Vector3d, double> Planner::selectArmor(const Target& target, bo
     if (armor_num > 0) {
         int best_idx = -1;
 
-        // if (target.tracked_id_ != armor::ArmorNumber::OUTPOST) {
-        //     auto [com, lea] = aimer_->getCommingLeaving();
-        //     double coming_angle = com * M_PI / 180.0;
-        //     double leaving_angle = lea * M_PI / 180.0;
+        if (target.tracked_id_ != armor::ArmorNumber::OUTPOST) {
+            auto [com, lea] = aimer_->getCommingLeaving();
+            double coming_angle = com * M_PI / 180.0;
+            double leaving_angle = lea * M_PI / 180.0;
 
-        //     for (int i = 0; i < armor_num; ++i) {
-        //         if (std::abs(delta_angles[i]) > coming_angle)
-        //             continue;
+            for (int i = 0; i < armor_num; ++i) {
+                if (std::abs(delta_angles[i]) > coming_angle)
+                    continue;
 
-        //         if (target.v_yaw() > 0 && delta_angles[i] < leaving_angle)
-        //             best_idx = i;
-        //         if (target.v_yaw() < 0 && delta_angles[i] > -leaving_angle)
-        //             best_idx = i;
-        //     }
-        // }
+                if (target.v_yaw() > 0 && delta_angles[i] < leaving_angle)
+                    best_idx = i;
+                if (target.v_yaw() < 0 && delta_angles[i] > -leaving_angle)
+                    best_idx = i;
+            }
+        }
 
         if (best_idx < 0) {
             std::vector<int> all(armor_num);
@@ -294,7 +294,7 @@ std::tuple<double, double, std::vector<Eigen::Vector4d>, AimTarget> Planner::cal
     std::vector<Target> iteration_target(10, target);
     bool converged = false;
     double prev_fly_time = 0.0;
-    for (int iter = 0; iter < 10; ++iter) {
+    for (int iter = 0; iter < 100; ++iter) {
         auto predict_time = prev_fly_time;
         iteration_target[iter].predict(predict_time);
         auto [iter_chosen, iter_yaw] = selectArmor(iteration_target[iter], aim_first);
@@ -305,11 +305,15 @@ std::tuple<double, double, std::vector<Eigen::Vector4d>, AimTarget> Planner::cal
         }
         prev_fly_time = iter_fly_time;
     }
+    auto fin_target = target;
+    auto predict_time = prev_fly_time;
+    fin_target.predict(predict_time);
+    auto [fin_chosen, fin_chosen_yaw] = selectArmor(fin_target, aim_first);
     // build AimTarget
     AimTarget at;
-    at.pos = chosen;
+    at.pos = fin_chosen;
     Eigen::Vector4d chosen_and_yaw =
-        Eigen::Vector4d(chosen.x(), chosen.y(), chosen.z(), chosen_yaw);
+        Eigen::Vector4d(fin_chosen.x(), fin_chosen.y(), fin_chosen.z(), fin_chosen_yaw);
     double raw_pitch = at.calRawPitch();
     aimer_->compensate(at.pos, raw_pitch, bullet_speed);
     at.shoot_pitch = raw_pitch;
@@ -321,7 +325,7 @@ std::tuple<double, double, std::vector<Eigen::Vector4d>, AimTarget> Planner::cal
     Eigen::Vector3d euler;
     euler.x() = M_PI / 2.0;
     euler.y() = (target.tracked_id_ == armor::ArmorNumber::OUTPOST) ? -0.2618 : 0.2618;
-    euler.z() = chosen_yaw;
+    euler.z() = fin_chosen_yaw;
     Eigen::Quaterniond ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
     at.ori = ori;
 

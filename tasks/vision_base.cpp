@@ -43,12 +43,12 @@ bool VisionBase::init(bool debug_mode) {
     debug_mode_ = debug_mode;
     config_ = YAML::LoadFile(common_config_);
     debug_fps_ = config_["debug_fps"].as<int>(30);
-    std::string log_level_ = config_["logger"]["log_level"].as<std::string>("INFO");
-    std::string log_path_ = config_["logger"]["log_path"].as<std::string>("wust_log");
+    std::string log_level = config_["logger"]["log_level"].as<std::string>("INFO");
+    std::string log_path =  utils::expandEnv(config_["logger"]["log_path"].as<std::string>("wust_log"));
     bool use_logcli = config_["logger"]["use_logcli"].as<bool>();
     bool use_logfile = config_["logger"]["use_logfile"].as<bool>();
     bool use_simplelog = config_["logger"]["use_simplelog"].as<bool>();
-    initLogger(log_level_, log_path_, use_logcli, use_logfile, use_simplelog);
+    initLogger(log_level, log_path, use_logcli, use_logfile, use_simplelog);
     max_infer_running_ = config_["max_infer_running"].as<int>(1);
     attack_mode_ = config_["attack_mode"].as<int>();
     auto t_vec = config_["tf"]["t_camera2gimbal"].as<std::vector<double>>();
@@ -149,7 +149,7 @@ bool VisionBase::init(bool debug_mode) {
 
     bool use_record = config_["record"]["use_record"].as<bool>(false);
     if (use_record) {
-        std::string folder_path = config_["record"]["folder_path"].as<std::string>();
+        std::string folder_path =  utils::expandEnv(config_["record"]["folder_path"].as<std::string>());
         auto file_name = utils::makeTimestampedFileName();
         std::string text_path = fmt::format("{}/{}.csv", folder_path, file_name);
         std::string video_path = fmt::format("{}/{}.avi", folder_path, file_name);
@@ -413,13 +413,13 @@ void VisionBase::start() {
     }
 }
 bool isWebRunning() {
-    static std::atomic<bool> cached{true}; 
-    static std::atomic<long long> last_check_ms{0};
+    static std::atomic<bool> cached { true };
+    static std::atomic<long long> last_check_ms { 0 };
 
-    long long now_ms =
-        std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now().time_since_epoch()
-        ).count();
+    long long now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                           std::chrono::steady_clock::now().time_since_epoch()
+    )
+                           .count();
     if (last_check_ms.load() == 0) {
         last_check_ms = now_ms;
         return true;

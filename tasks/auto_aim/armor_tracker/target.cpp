@@ -302,12 +302,22 @@ cv::Rect Target::expanded(
         return cv::Rect(0, 0, 0, 0);
     }
 
+    int base_side = std::max(rect.width, rect.height);
+    int max_side = std::max(image_size.width, image_size.height);
+
+    double lost_dt = target_config_.lost_dt; 
+    double dt_clamped = std::max(0.0, std::min(dt, lost_dt)); 
+
+    int side = static_cast<int>(base_side + (max_side - base_side) * (dt_clamped / lost_dt));
+
+    if (dt >= lost_dt) {
+        side = max_side;
+    }
+
     int cx = rect.x + rect.width / 2;
     int cy = rect.y + rect.height / 2;
-    int side = std::max(rect.width, rect.height);
-    double grow_ratio = 1.0 + target_config_.grow_k * dt;
-    side = static_cast<int>(side * grow_ratio);
     cv::Rect square(cx - side / 2, cy - side / 2, side, side);
+
     square &= img_rect;
 
     return square;
