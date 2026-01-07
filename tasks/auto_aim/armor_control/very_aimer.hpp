@@ -22,7 +22,7 @@ constexpr int MPC_HALF_HORIZON = MPC_HORIZON / 2;
 class VeryAimer {
 public:
     using Ptr = std::unique_ptr<VeryAimer>;
-    
+
     using Trajectory = Eigen::Matrix<double, 4, MPC_HORIZON>; // yaw, yaw_vel, pitch, pitch_vel
     
     VeryAimer(
@@ -283,8 +283,8 @@ public:
             aim_target_pos.head(2).norm(),
             aim_target_pos.z()
         );
-        control_yaw = angles::normalize_angle((control_yaw + offs[1]) * M_PI / 180.0);
-        control_pitch = (control_pitch + offs[0]) * M_PI / 180.0;
+        control_yaw = angles::normalize_angle((control_yaw + offs[1]*M_PI/180.0) );
+        control_pitch = (control_pitch + offs[0]*M_PI/180.0);
         cp.pitch = control_pitch;
         cp.yaw = control_yaw;
         return cp;
@@ -433,6 +433,7 @@ public:
         cmd.target_pitch = rad2deg(target_pitch_rad);
         cmd.raw_yaw = rad2deg(target_yaw_rad);
         cmd.raw_pitch = rad2deg(target_pitch_rad);
+        cmd.distance = fin_aim_pos.norm();
         auto delay_state = getStateAtTime(traj, total_time / 2.0 + control_delay_);
         Trajectory control_traj;
         control_traj.block(0, 0, 2, MPC_HORIZON) = yaw_solver_->work->x;
