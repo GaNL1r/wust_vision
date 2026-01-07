@@ -23,17 +23,7 @@ struct TrajPoint {
 struct VeryAimer::Impl {
 public:
     using TrajectoryVec = std::vector<TrajPoint>;
-    Eigen::Matrix<double, 4, Eigen::Dynamic> trajVecToEigen(const TrajectoryVec& traj) {
-        int N = traj.size();
-        Eigen::Matrix<double, 4, Eigen::Dynamic> mat(4, N);
-        for (int i = 0; i < N; i++) {
-            mat(0, i) = traj[i].yaw;
-            mat(1, i) = traj[i].v_yaw;
-            mat(2, i) = traj[i].pitch;
-            mat(3, i) = traj[i].v_pitch;
-        }
-        return mat;
-    }
+
     Impl(const YAML::Node& config, std::shared_ptr<TrajectoryCompensator> trajectory_compensator) {
         trajectory_compensator_ = trajectory_compensator;
         shooting_range_w_ = config["shooting_range_w"].as<double>(0.12);
@@ -182,11 +172,9 @@ public:
                     if (lock_id != a && lock_id != b) {
                         lock_id = (std::abs(delta_angles[a]) < std::abs(delta_angles[b])) ? a : b;
                     }
-
                     int pick = (lock_id >= 0 && lock_id < armor_num)
                         ? lock_id
                         : pick_best_by_min_abs(candidates);
-
                     if (pick >= 0) {
                         i_chosen = pick;
                     }
@@ -433,6 +421,17 @@ public:
             cmd.appera = false;
             return cmd;
         }
+        auto trajVecToEigen = [](const TrajectoryVec& traj) {
+            int N = traj.size();
+            Eigen::Matrix<double, 4, Eigen::Dynamic> mat(4, N);
+            for (int i = 0; i < N; i++) {
+                mat(0, i) = traj[i].yaw;
+                mat(1, i) = traj[i].v_yaw;
+                mat(2, i) = traj[i].pitch;
+                mat(3, i) = traj[i].v_pitch;
+            }
+            return mat;
+        };
         auto traj_eigen = trajVecToEigen(traj);
         Eigen::VectorXd x0(2);
         x0 << traj_eigen(0, 0), traj_eigen(1, 0);
@@ -488,15 +487,15 @@ public:
             control_traj[i] = tp;
         }
         auto control_delay_state = getStateAtTime(control_traj, total_time / 2.0 + control_delay_);
-        bool delay_nochange = true;
-        delay_nochange = std::hypot(
-                             angles::normalize_angle(delay_state.yaw + cp0.yaw)
-                                 - angles::normalize_angle(control_delay_state.yaw + cp0.yaw),
-                             angles::normalize_angle(delay_state.pitch)
-                                 - angles::normalize_angle(control_delay_state.pitch)
-                         )
+        bool delay_noswitching = true;
+        delay_noswitching = std::hypot(
+                                angles::normalize_angle(delay_state.yaw + cp0.yaw)
+                                    - angles::normalize_angle(control_delay_state.yaw + cp0.yaw),
+                                angles::normalize_angle(delay_state.pitch)
+                                    - angles::normalize_angle(control_delay_state.pitch)
+                            )
             < enable_fire_error_;
-        if (delay_nochange) {
+        if (delay_noswitching) {
             double center_yaw = std::atan2(target.position().y(), target.position().x());
             double d_angle = angles::shortest_angular_distance(
                 center_yaw,

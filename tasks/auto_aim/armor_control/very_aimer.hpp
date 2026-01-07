@@ -4,8 +4,6 @@
 #include "tasks/auto_aim/auto_aim_fsm.hpp"
 #include "tasks/type_common.hpp"
 #include "wust_vl/common/utils/trajectory_compensator.hpp"
-#include <memory>
-#include <yaml-cpp/yaml.h>
 
 class VeryAimer {
 public:
