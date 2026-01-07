@@ -1,7 +1,8 @@
 #include "very_aimer.hpp"
-#include "wust_vl/common/utils/manual_compensator.hpp"
+#include "gcopter/minco.hpp"
 #include "tasks/auto_aim/armor_control/tinympc/tiny_api.hpp"
 #include "tasks/auto_aim/armor_control/tinympc/types.hpp"
+#include "wust_vl/common/utils/manual_compensator.hpp"
 struct ControlPoint {
     double yaw;
     double pitch;
@@ -10,17 +11,30 @@ struct ControlPoint {
 constexpr int MPC_HORIZON = 300;
 constexpr double MPC_DT = 1.0 / MPC_HORIZON;
 constexpr int MPC_HALF_HORIZON = MPC_HORIZON / 2;
+struct TrajPoint {
+    double yaw;
 
+    double v_yaw;
+
+    double pitch;
+
+    double v_pitch;
+};
 struct VeryAimer::Impl {
 public:
-   
-
-    using Trajectory = Eigen::Matrix<double, 4, MPC_HORIZON>; // yaw, yaw_vel, pitch, pitch_vel
-
-    Impl(
-        const YAML::Node& config,
-        std::shared_ptr<TrajectoryCompensator> trajectory_compensator
-    ) {
+    using TrajectoryVec = std::vector<TrajPoint>;
+    Eigen::Matrix<double, 4, Eigen::Dynamic> trajVecToEigen(const TrajectoryVec& traj) {
+        int N = traj.size();
+        Eigen::Matrix<double, 4, Eigen::Dynamic> mat(4, N);
+        for (int i = 0; i < N; i++) {
+            mat(0, i) = traj[i].yaw;
+            mat(1, i) = traj[i].v_yaw;
+            mat(2, i) = traj[i].pitch;
+            mat(3, i) = traj[i].v_pitch;
+        }
+        return mat;
+    }
+    Impl(const YAML::Node& config, std::shared_ptr<TrajectoryCompensator> trajectory_compensator) {
         trajectory_compensator_ = trajectory_compensator;
         shooting_range_w_ = config["shooting_range_w"].as<double>(0.12);
         shooting_range_h_ = config["shooting_range_h"].as<double>(0.12);
@@ -238,26 +252,34 @@ public:
         cp.id_in_target = target_select;
         return cp;
     }
-    Trajectory getTrajectory(
-        const Target& _target,
+    TrajectoryVec getTrajectory(
+        Target& target,
         const ControlPoint& cp0,
         double bullet_speed,
         const AutoAimFsm& auto_aim_fsm
     ) {
-        auto target = _target;
-        Trajectory traj;
+        TrajectoryVec traj;
+        traj.reserve(MPC_HORIZON);
+
         target.predict(-MPC_DT * (MPC_HALF_HORIZON + 1));
         auto cp_last = choseAndGetControlPoint(target, bullet_speed, auto_aim_fsm);
         target.predict(MPC_DT);
         auto cp = choseAndGetControlPoint(target, bullet_speed, auto_aim_fsm);
+
         for (int i = 0; i < MPC_HORIZON; i++) {
             target.predict(MPC_DT);
             auto cp_next = choseAndGetControlPoint(target, bullet_speed, auto_aim_fsm);
 
-            auto yaw_vel = angles::normalize_angle(cp_next.yaw - cp_last.yaw) / (2 * MPC_DT);
-            auto pitch_vel = (cp_next.pitch - cp_last.pitch) / (2 * MPC_DT);
+            double yaw_vel = angles::normalize_angle(cp_next.yaw - cp_last.yaw) / (2 * MPC_DT);
+            double pitch_vel = (cp_next.pitch - cp_last.pitch) / (2 * MPC_DT);
 
-            traj.col(i) << angles::normalize_angle(cp.yaw - cp0.yaw), yaw_vel, cp.pitch, pitch_vel;
+            TrajPoint pt;
+            pt.yaw = angles::normalize_angle(cp.yaw - cp0.yaw);
+            pt.v_yaw = yaw_vel;
+            pt.pitch = cp.pitch;
+            pt.v_pitch = pitch_vel;
+
+            traj.push_back(pt);
 
             cp_last = cp;
             cp = cp_next;
@@ -287,27 +309,31 @@ public:
         cp.yaw = control_yaw;
         return cp;
     }
-    Eigen::Vector4d getStateAtTime(const Trajectory& traj, double t) {
-        const double total_time = (traj.cols() - 1) * MPC_DT;
-
-        if (t <= 0.0) {
-            return traj.col(0);
-        }
+    TrajPoint getStateAtTime(const TrajectoryVec& traj, double t) {
+        double total_time = (traj.size() - 1) * MPC_DT;
+        Eigen::Vector4d result_yaw_vyaw_pitch_vpitch;
+        if (t <= 0.0)
+            return traj.front();
         if (t >= total_time) {
-            return traj.col(traj.cols() - 1);
+            return traj.back();
         }
 
-        double index = t / MPC_DT;
+        double idx = t / MPC_DT;
+        int i0 = floor(idx);
+        int i1 = ceil(idx);
+        if (i0 == i1)
+            return traj[i0];
 
-        int i0 = floor(index);
-        int i1 = ceil(index);
-
-        if (i0 == i1) {
-            return traj.col(i0);
-        }
-
-        double alpha = index - i0;
-        return (1.0 - alpha) * traj.col(i0) + alpha * traj.col(i1);
+        double a = idx - i0;
+        Eigen::Vector4d s0 { traj[i0].yaw, traj[i0].v_yaw, traj[i0].pitch, traj[i0].v_pitch };
+        Eigen::Vector4d s1 { traj[i1].yaw, traj[i1].v_yaw, traj[i1].pitch, traj[i1].v_pitch };
+        result_yaw_vyaw_pitch_vpitch = (1 - a) * s0 + a * s1;
+        TrajPoint result;
+        result.yaw = result_yaw_vyaw_pitch_vpitch[0];
+        result.v_yaw = result_yaw_vyaw_pitch_vpitch[1];
+        result.pitch = result_yaw_vyaw_pitch_vpitch[2];
+        result.v_pitch = result_yaw_vyaw_pitch_vpitch[3];
+        return result;
     }
     std::tuple<double, double>
     calEnableDiff(Eigen::Vector3d aim_target_pos, double diff_yaw, const AutoAimFsm& auto_aim_fsm) {
@@ -397,7 +423,7 @@ public:
         GimbalCmd cmd;
         cmd.aim_target = fin_target_at;
         ControlPoint cp0;
-        Trajectory traj;
+        TrajectoryVec traj;
         try {
             cp0 = getControlPoint(fin_aim_pos, bullet_speed);
             cp0.id_in_target = fin_target_select;
@@ -407,17 +433,16 @@ public:
             cmd.appera = false;
             return cmd;
         }
-
+        auto traj_eigen = trajVecToEigen(traj);
         Eigen::VectorXd x0(2);
-        x0 << traj(0, 0), traj(1, 0);
+        x0 << traj_eigen(0, 0), traj_eigen(1, 0);
         tiny_set_x0(yaw_solver_, x0);
-        yaw_solver_->work->Xref = traj.block(0, 0, 2, MPC_HORIZON);
+        yaw_solver_->work->Xref = traj_eigen.block(0, 0, 2, MPC_HORIZON);
         tiny_solve(yaw_solver_);
 
-        // Solve pitch MPC
-        x0 << traj(2, 0), traj(3, 0);
+        x0 << traj_eigen(2, 0), traj_eigen(3, 0);
         tiny_set_x0(pitch_solver_, x0);
-        pitch_solver_->work->Xref = traj.block(2, 0, 2, MPC_HORIZON);
+        pitch_solver_->work->Xref = traj_eigen.block(2, 0, 2, MPC_HORIZON);
         tiny_solve(pitch_solver_);
 
         if (!yaw_solver_->work->status || !pitch_solver_->work->status) {
@@ -452,16 +477,23 @@ public:
         cmd.raw_pitch = rad2deg(target_pitch_rad);
         cmd.distance = fin_aim_pos.norm();
         auto delay_state = getStateAtTime(traj, total_time / 2.0 + control_delay_);
-        Trajectory control_traj;
-        control_traj.block(0, 0, 2, MPC_HORIZON) = yaw_solver_->work->x;
-        control_traj.block(2, 0, 2, MPC_HORIZON) = pitch_solver_->work->x;
+        TrajectoryVec control_traj;
+        control_traj.resize(MPC_HORIZON);
+        for (int i = 0; i < MPC_HORIZON; i++) {
+            TrajPoint tp;
+            tp.yaw = yaw_solver_->work->x(0, i);
+            tp.v_yaw = yaw_solver_->work->x(1, i);
+            tp.pitch = pitch_solver_->work->x(0, i);
+            tp.v_pitch = pitch_solver_->work->x(1, i);
+            control_traj[i] = tp;
+        }
         auto control_delay_state = getStateAtTime(control_traj, total_time / 2.0 + control_delay_);
         bool delay_nochange = true;
         delay_nochange = std::hypot(
-                             angles::normalize_angle(delay_state(0) + cp0.yaw)
-                                 - angles::normalize_angle(control_delay_state(0) + cp0.yaw),
-                             angles::normalize_angle(delay_state(2))
-                                 - angles::normalize_angle(control_delay_state(2))
+                             angles::normalize_angle(delay_state.yaw + cp0.yaw)
+                                 - angles::normalize_angle(control_delay_state.yaw + cp0.yaw),
+                             angles::normalize_angle(delay_state.pitch)
+                                 - angles::normalize_angle(control_delay_state.pitch)
                          )
             < enable_fire_error_;
         if (delay_nochange) {
@@ -509,17 +541,17 @@ public:
     int max_iter_ = 10;
     TinySolver* yaw_solver_;
     TinySolver* pitch_solver_;
+    minco::MINCO_S3NU1DAngle minco_yaw_;
 };
-VeryAimer::VeryAimer( const YAML::Node& config,
-        std::shared_ptr<TrajectoryCompensator> trajectory_compensator)
-{
+VeryAimer::VeryAimer(
+    const YAML::Node& config,
+    std::shared_ptr<TrajectoryCompensator> trajectory_compensator
+) {
     _impl = std::make_unique<Impl>(config, trajectory_compensator);
 }
-VeryAimer::~VeryAimer()
-{
+VeryAimer::~VeryAimer() {
     _impl.reset();
 }
-GimbalCmd VeryAimer::veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm)
-{
+GimbalCmd VeryAimer::veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm) {
     return _impl->veryAim(target, bullet_speed, auto_aim_fsm);
 }

@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include "tasks/auto_aim/armor_tracker/target.hpp"
 #include "tasks/auto_aim/auto_aim_fsm.hpp"
 #include "tasks/type_common.hpp"
@@ -26,5 +25,4 @@ public:
     GimbalCmd veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm);
     struct Impl;
     std::unique_ptr<Impl> _impl;
-
 };

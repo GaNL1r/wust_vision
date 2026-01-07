@@ -76,36 +76,6 @@ public:
         }
         return pos;
     }
-    inline double getYaw(const double& t) const {
-        Eigen::VectorXd v = getVel(t);
-        if (v.size() < 2)
-            return 0.0;
-        double vx = v(0);
-        double vy = v(1);
-        if (std::hypot(vx, vy) < 1e-6) {
-            return getYaw(0.0);
-        }
-        return std::atan2(vy, vx);
-    }
-
-    inline double getYawDot(const double& t) const {
-        // yaw 导数公式 (ax*vy - ay*vx)/(vx^2+vy^2)
-        Eigen::VectorXd v = getVel(t);
-        Eigen::VectorXd a = getAcc(t);
-        if (v.size() < 2 || a.size() < 2)
-            return 0.0;
-
-        double vx = v(0);
-        double vy = v(1);
-        double ax = a(0);
-        double ay = a(1);
-
-        double v2 = vx * vx + vy * vy;
-        if (v2 < 1e-12)
-            return 0.0;
-        return (ax * vy - ay * vx) / v2;
-    }
-
     inline Eigen::VectorXd getVel(const double& t) const {
         Eigen::VectorXd vel;
         vel.resize(Freedom);
