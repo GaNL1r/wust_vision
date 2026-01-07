@@ -527,11 +527,11 @@ void drawDebugRuneContent(
 
     // =================== 云台指令 ===================
     std::string gimbal_str = fmt::format(
-        "Pitch: {:.2f}, Yaw: {:.2f}, Pitch_diff: {:.2f}, Yaw_diff: {:.2f}, V_yaw: {:.2f}, V_pitch: {:.2f}",
+        "Pitch: {:.2f}, Yaw: {:.2f}, Enable_pitch_diff: {:.2f}, Enable_yaw_diff: {:.2f}, V_yaw: {:.2f}, V_pitch: {:.2f}",
         gimbal_cmd.pitch,
         gimbal_cmd.yaw,
-        gimbal_cmd.pitch_diff,
-        gimbal_cmd.yaw_diff,
+        gimbal_cmd.enable_pitch_diff,
+        gimbal_cmd.enable_yaw_diff,
         gimbal_cmd.v_yaw,
         gimbal_cmd.v_pitch
     );
@@ -1017,7 +1017,6 @@ void debuglog(
     log.target_v_yaw_log.push_back(target.v_yaw());
     log.control_v_pitch_log.push_back(i_use.v_pitch);
     log.control_v_yaw_log.push_back(i_use.v_yaw);
-    log.yaw_diff_log.push_back(i_use.yaw_diff);
     log.fire_log.push_back(i_use.fire_advice);
     log.rune_dis_log.push_back(rune_dis);
     if (gimbal_cmd.appera) {

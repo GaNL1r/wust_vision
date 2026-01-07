@@ -345,7 +345,9 @@ void VisionBase::timerCallback(double dt_ms) {
     } catch (const std::exception& e) {
         std::cout << "auto_aim_solve error: " << e.what() << std::endl;
     }
-
+    if (!cmd.isValid()) {
+        return;
+    }
     last_cmd_ = cmd;
 
     double cmd_pitch = cmd.pitch;

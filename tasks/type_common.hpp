@@ -178,8 +178,6 @@ struct GimbalCmd {
     float raw_pitch = 0;
     float pitch = 0;
     float yaw = 0;
-    float yaw_diff = 0;
-    float pitch_diff = 0;
     float target_yaw = 0;
     float target_pitch = 0;
     float v_yaw = 0;
@@ -189,8 +187,17 @@ struct GimbalCmd {
     float enable_yaw_diff = 0;
     float enable_pitch_diff = 0;
     bool appera = false;
-    std::vector<Eigen::Vector4d> armor_posandyaw;
     AimTarget aim_target;
+    inline bool isValid() const {
+        auto bad = [](float x) { return std::isnan(x) || std::isinf(x); };
+
+        if (bad(raw_yaw) || bad(raw_pitch) || bad(pitch) || bad(yaw) || bad(target_yaw)
+            || bad(target_pitch) || bad(target_pitch) || bad(v_yaw) || bad(v_pitch) || bad(distance)
+            || bad(enable_yaw_diff) || bad(enable_pitch_diff))
+            return false;
+
+        return true;
+    }
 };
 
 struct AutoExposureCfg {

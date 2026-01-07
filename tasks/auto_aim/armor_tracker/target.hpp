@@ -233,6 +233,13 @@ public:
         }
         return mean / all.size();
     }
+    double getArmor2CenterXYDis(int id) {
+        auto use_l_h = (armor_num_ == 4) && (id == 1 || id == 3);
+        auto r = (use_l_h)
+            ? target_state_[(int)MModel::State::R] + target_state_[(int)MModel::State::L]
+            : target_state_[(int)MModel::State::R];
+        return r;
+    }
     Eigen::Vector3d h_armor_xyz(const Eigen::VectorXd& x, int id) const {
         auto angle =
             angles::normalize_angle(x[(int)MModel::State::YAW] + id * 2 * CV_PI / armor_num_);

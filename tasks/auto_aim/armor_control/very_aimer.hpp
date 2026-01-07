@@ -18,13 +18,12 @@ constexpr int MPC_HORIZON = 300;
 constexpr double MPC_DT = 1.0 / MPC_HORIZON;
 constexpr int MPC_HALF_HORIZON = MPC_HORIZON / 2;
 
-
 class VeryAimer {
 public:
     using Ptr = std::unique_ptr<VeryAimer>;
 
     using Trajectory = Eigen::Matrix<double, 4, MPC_HORIZON>; // yaw, yaw_vel, pitch, pitch_vel
-    
+
     VeryAimer(
         const YAML::Node& config,
         std::shared_ptr<TrajectoryCompensator> trajectory_compensator
@@ -196,21 +195,20 @@ public:
         if (armor_num > 0) {
             int best_idx = -1;
 
-            // if (target.tracked_id_ != armor::ArmorNumber::OUTPOST) {
-            //     auto [com, lea] = aimer_->getCommingLeaving();
-            //     double coming_angle = com * M_PI / 180.0;
-            //     double leaving_angle = lea * M_PI / 180.0;
+            if (target.tracked_id_ != armor::ArmorNumber::OUTPOST) {
+                double coming_angle = comming_angle_ * M_PI / 180.0;
+                double leaving_angle = leaving_angle_ * M_PI / 180.0;
 
-            //     for (int i = 0; i < armor_num; ++i) {
-            //         if (std::abs(delta_angles[i]) > coming_angle)
-            //             continue;
+                for (int i = 0; i < armor_num; ++i) {
+                    if (std::abs(delta_angles[i]) > coming_angle)
+                        continue;
 
-            //         if (target.v_yaw() > 0 && delta_angles[i] < leaving_angle)
-            //             best_idx = i;
-            //         if (target.v_yaw() < 0 && delta_angles[i] > -leaving_angle)
-            //             best_idx = i;
-            //     }
-            // }
+                    if (target.v_yaw() > 0 && delta_angles[i] < leaving_angle)
+                        best_idx = i;
+                    if (target.v_yaw() < 0 && delta_angles[i] > -leaving_angle)
+                        best_idx = i;
+                }
+            }
 
             if (best_idx < 0) {
                 std::vector<int> all(armor_num);
@@ -233,7 +231,14 @@ public:
 
         if (aim_center) {
             double raw_z = aim_pos.z();
-            aim_pos = target.position();
+            double c_xy_dis = std::sqrt(
+                target.position().x() * target.position().x()
+                + target.position().y() * target.position().y()
+            );
+            double c_yaw = std::atan2(target.position().y(), target.position().x());
+            c_xy_dis -= target.getArmor2CenterXYDis(target_select);
+            aim_pos.x() = c_xy_dis * std::cos(c_yaw);
+            aim_pos.y() = c_xy_dis * std::sin(c_yaw);
             aim_pos.z() = raw_z;
         }
         ControlPoint cp = getControlPoint(aim_pos, bullet_speed);
@@ -283,8 +288,8 @@ public:
             aim_target_pos.head(2).norm(),
             aim_target_pos.z()
         );
-        control_yaw = angles::normalize_angle((control_yaw + offs[1]*M_PI/180.0) );
-        control_pitch = (control_pitch + offs[0]*M_PI/180.0);
+        control_yaw = angles::normalize_angle((control_yaw + offs[1] * M_PI / 180.0));
+        control_pitch = (control_pitch + offs[0] * M_PI / 180.0);
         cp.pitch = control_pitch;
         cp.yaw = control_yaw;
         return cp;
@@ -311,11 +316,8 @@ public:
         double alpha = index - i0;
         return (1.0 - alpha) * traj.col(i0) + alpha * traj.col(i1);
     }
-    std::tuple<double, double> calEnableDiff(
-        Eigen::Vector3d aim_target_pos,
-        double diff_yaw,
-        const AutoAimFsm& auto_aim_fsm
-    ) {
+    std::tuple<double, double>
+    calEnableDiff(Eigen::Vector3d aim_target_pos, double diff_yaw, const AutoAimFsm& auto_aim_fsm) {
         double distance = aim_target_pos.norm();
         double shooting_range_yaw = std::abs(atan2(shooting_range_w_ / 2, distance));
         double shooting_range_pitch = std::abs(atan2(shooting_range_h_ / 2, distance));
@@ -377,7 +379,14 @@ public:
 
         if (aim_center) {
             double raw_z = fin_aim_pos.z();
-            fin_aim_pos = target.position();
+            double c_xy_dis = std::sqrt(
+                target.position().x() * target.position().x()
+                + target.position().y() * target.position().y()
+            );
+            double c_yaw = std::atan2(target.position().y(), target.position().x());
+            c_xy_dis -= target.getArmor2CenterXYDis(fin_target_select);
+            fin_aim_pos.x() = c_xy_dis * std::cos(c_yaw);
+            fin_aim_pos.y() = c_xy_dis * std::sin(c_yaw);
             fin_aim_pos.z() = raw_z;
         }
         AimTarget fin_target_at;
@@ -387,16 +396,25 @@ public:
             Eigen::Vector3d euler;
             euler.x() = M_PI / 2.0;
             euler.y() = (target.tracked_id_ == armor::ArmorNumber::OUTPOST) ? -0.2618 : 0.2618;
-            euler.z() = fin_armors_xyza[fin_target_select][3];
+            euler.z() = target.yaw();
             Eigen::Quaterniond ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
             fin_target_at.ori = ori;
         }
 
         GimbalCmd cmd;
         cmd.aim_target = fin_target_at;
-        ControlPoint cp0 = getControlPoint(fin_aim_pos, bullet_speed);
-        cp0.id_in_target = fin_target_select;
-        Trajectory traj = getTrajectory(target, cp0, bullet_speed, auto_aim_fsm);
+        ControlPoint cp0;
+        Trajectory traj;
+        try {
+            cp0 = getControlPoint(fin_aim_pos, bullet_speed);
+            cp0.id_in_target = fin_target_select;
+            traj = getTrajectory(target, cp0, bullet_speed, auto_aim_fsm);
+        } catch (const std::exception& e) {
+            WUST_WARN("very_aimer") << "mpc solver error!";
+            cmd.appera = false;
+            return cmd;
+        }
+
         Eigen::VectorXd x0(2);
         x0 << traj(0, 0), traj(1, 0);
         tiny_set_x0(yaw_solver_, x0);
@@ -411,13 +429,19 @@ public:
 
         if (!yaw_solver_->work->status || !pitch_solver_->work->status) {
             WUST_WARN("very_aimer") << "mpc solver error!";
-            std::cout<<"mpc solver error!"<<std::endl;
+            std::cout << "mpc solver error!" << std::endl;
             cmd.appera = false;
             return cmd;
         }
         const double total_time = MPC_HORIZON * MPC_DT;
         double target_yaw_rad = cp0.yaw;
         double target_pitch_rad = cp0.pitch;
+        if (aim_center) {
+            auto cp_aim_center =
+                getControlPoint(fin_armors_xyza[fin_target_select].head<3>(), bullet_speed);
+            target_yaw_rad = cp_aim_center.yaw;
+            //target_pitch_rad = cp_aim_center.pitch;
+        }
         double control_yaw_rad =
             angles::normalize_angle(yaw_solver_->work->x(0, MPC_HALF_HORIZON) + cp0.yaw);
         double control_yaw_vel_rad = yaw_solver_->work->x(1, MPC_HALF_HORIZON);
@@ -448,21 +472,21 @@ public:
                          )
             < enable_fire_error_;
         if (delay_nochange) {
-            double center_yaw =std::atan2(target.position().y(), target.position().x());
-            double d_angle = angles::shortest_angular_distance(center_yaw, fin_armors_xyza[fin_target_select][3]);
-            auto [enable_yaw_diff_rad, enable_pitch_diff_rad] = calEnableDiff(
-                fin_armors_xyza[fin_target_select].head<3>(),
-                d_angle,
-                auto_aim_fsm
+            double center_yaw = std::atan2(target.position().y(), target.position().x());
+            double d_angle = angles::shortest_angular_distance(
+                center_yaw,
+                fin_armors_xyza[fin_target_select][3]
             );
+            auto [enable_yaw_diff_rad, enable_pitch_diff_rad] =
+                calEnableDiff(fin_armors_xyza[fin_target_select].head<3>(), d_angle, auto_aim_fsm);
             cmd.enable_pitch_diff = rad2deg(enable_pitch_diff_rad);
             cmd.enable_yaw_diff = rad2deg(enable_yaw_diff_rad);
-            double yaw_diff_rad = angles::shortest_angular_distance(target_yaw_rad ,control_yaw_rad);
-            double pitch_diff_rad = angles::shortest_angular_distance(target_pitch_rad ,control_pitch_rad);
-            if (std::abs(yaw_diff_rad)
-                    <= enable_yaw_diff_rad
-                && std::abs(pitch_diff_rad)
-                    <= enable_pitch_diff_rad)
+            double yaw_diff_rad =
+                angles::shortest_angular_distance(target_yaw_rad, control_yaw_rad);
+            double pitch_diff_rad =
+                angles::shortest_angular_distance(target_pitch_rad, control_pitch_rad);
+            if (std::abs(yaw_diff_rad) <= enable_yaw_diff_rad
+                && std::abs(pitch_diff_rad) <= enable_pitch_diff_rad)
             {
                 cmd.fire_advice = true;
             }

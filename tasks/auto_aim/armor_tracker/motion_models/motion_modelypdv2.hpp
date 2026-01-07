@@ -85,6 +85,7 @@ struct Predict {
         x1[(int)State::CZ] -= T(vrz) * T(dt);
 
         x1[(int)State::VCZ] *= T(0.);
+
         // v_yaw
         if (model == MotionModel::CONSTANT_VEL_ROT || model == MotionModel::CONSTANT_ROTATION) {
             // angular velocity

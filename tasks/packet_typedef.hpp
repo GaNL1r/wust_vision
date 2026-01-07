@@ -33,7 +33,7 @@ struct ReceiveAimINFO {
     float yaw; // rad
     float pitch; // rad
     float roll; // rad
-
+    float ins_sum;
     float yaw_vel; // rad/s
     float pitch_vel; // rad/s
     float roll_vel; // rad/s
