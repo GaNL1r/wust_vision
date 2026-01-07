@@ -83,7 +83,7 @@ public:
         double vx = v(0);
         double vy = v(1);
         if (std::hypot(vx, vy) < 1e-6) {
-            return getYaw(0.0); 
+            return getYaw(0.0);
         }
         return std::atan2(vy, vx);
     }
@@ -102,7 +102,7 @@ public:
 
         double v2 = vx * vx + vy * vy;
         if (v2 < 1e-12)
-            return 0.0; 
+            return 0.0;
         return (ax * vy - ay * vx) / v2;
     }
 
@@ -356,7 +356,7 @@ public:
             N = static_cast<size_t>(n_est);
         }
 
-        const size_t MAX_RESERVE = 5000; 
+        const size_t MAX_RESERVE = 5000;
         N = std::min(N, MAX_RESERVE);
 
         pts.reserve(N);
@@ -369,7 +369,7 @@ public:
                 t += dt;
             }
 
-            pts.push_back(pieces[i].getPos(T)); 
+            pts.push_back(pieces[i].getPos(T));
         }
 
         return pts;
@@ -478,14 +478,6 @@ public:
         int pieceIdx = locatePieceIdx(t);
         return pieces[pieceIdx].getPos(t);
     }
-    inline double getYaw(double t) const {
-        int pieceIdx = locatePieceIdx(t);
-        return pieces[pieceIdx].getYaw(t);
-    }
-    inline double getYawDot(double t) const {
-        int pieceIdx = locatePieceIdx(t);
-        return pieces[pieceIdx].getYawDot(t);
-    }
     inline Eigen::VectorXd getVel(double t) const {
         int pieceIdx = locatePieceIdx(t);
         return pieces[pieceIdx].getVel(t);
@@ -569,66 +561,64 @@ public:
         }
         return feasible;
     }
-    inline double getTimeByPos(const Eigen::Vector2d& pos, double eps = 1e-3) const {
-        const double phi = 0.6180339887498949; // 黄金比例
+    // inline double getTimeByPos(const Eigen::Vector2d& pos, double eps = 1e-3) const {
+    //     const double phi = 0.6180339887498949; // 黄金比例
 
-        double t_global = 0.0;
+    //     double t_global = 0.0;
 
-        for (int i = 0; i < getPieceNum(); i++) {
-            double T = pieces[i].getDuration();
+    //     for (int i = 0; i < getPieceNum(); i++) {
+    //         double T = pieces[i].getDuration();
 
-            // 黄金分割搜索 τ ∈ [0, T]
-            double left = 0.0;
-            double right = T;
-            double c = right - phi * (right - left);
-            double d = left + phi * (right - left);
+    //         double left = 0.0;
+    //         double right = T;
+    //         double c = right - phi * (right - left);
+    //         double d = left + phi * (right - left);
 
-            double tau_best = -1.0;
-            double dist_best = 1e9;
+    //         double tau_best = -1.0;
+    //         double dist_best = 1e9;
 
-            Eigen::Vector2d pc = pieces[i].getPos(c);
-            Eigen::Vector2d pd = pieces[i].getPos(d);
-            double fc = (pc - pos).norm();
-            double fd = (pd - pos).norm();
+    //         Eigen::Vector2d pc = pieces[i].getPos(c);
+    //         Eigen::Vector2d pd = pieces[i].getPos(d);
+    //         double fc = (pc - pos).norm();
+    //         double fd = (pd - pos).norm();
 
-            for (int iter = 0; iter < 30; iter++) {
-                if (fc < dist_best) {
-                    dist_best = fc;
-                    tau_best = c;
-                }
-                if (fd < dist_best) {
-                    dist_best = fd;
-                    tau_best = d;
-                }
-                if (fc < eps)
-                    return t_global + c;
-                if (fd < eps)
-                    return t_global + d;
-                if (fc > fd) {
-                    left = c;
-                    c = d;
-                    fc = fd;
-                    d = left + phi * (right - left);
-                    pc = pieces[i].getPos(d);
-                    fd = (pc - pos).norm();
-                } else {
-                    right = d;
-                    d = c;
-                    fd = fc;
-                    c = right - phi * (right - left);
-                    pd = pieces[i].getPos(c);
-                    fc = (pd - pos).norm();
-                }
-            }
+    //         for (int iter = 0; iter < 30; iter++) {
+    //             if (fc < dist_best) {
+    //                 dist_best = fc;
+    //                 tau_best = c;
+    //             }
+    //             if (fd < dist_best) {
+    //                 dist_best = fd;
+    //                 tau_best = d;
+    //             }
+    //             if (fc < eps)
+    //                 return t_global + c;
+    //             if (fd < eps)
+    //                 return t_global + d;
+    //             if (fc > fd) {
+    //                 left = c;
+    //                 c = d;
+    //                 fc = fd;
+    //                 d = left + phi * (right - left);
+    //                 pc = pieces[i].getPos(d);
+    //                 fd = (pc - pos).norm();
+    //             } else {
+    //                 right = d;
+    //                 d = c;
+    //                 fd = fc;
+    //                 c = right - phi * (right - left);
+    //                 pd = pieces[i].getPos(c);
+    //                 fc = (pd - pos).norm();
+    //             }
+    //         }
 
-            // 结束后检查最优点是否足够接近
-            if (dist_best < eps) {
-                return t_global + tau_best;
-            }
+    //         if (dist_best < eps) {
+    //             return t_global + tau_best;
+    //         }
 
-            t_global += T;
-        }
+    //         t_global += T;
+    //     }
 
-        return -1.0; // 全轨迹未找到
-    }
+    //     return -1.0; // 全轨迹未找到
+    // }
 };

@@ -44,7 +44,8 @@ bool VisionBase::init(bool debug_mode) {
     config_ = YAML::LoadFile(common_config_);
     debug_fps_ = config_["debug_fps"].as<int>(30);
     std::string log_level = config_["logger"]["log_level"].as<std::string>("INFO");
-    std::string log_path =  utils::expandEnv(config_["logger"]["log_path"].as<std::string>("wust_log"));
+    std::string log_path =
+        utils::expandEnv(config_["logger"]["log_path"].as<std::string>("wust_log"));
     bool use_logcli = config_["logger"]["use_logcli"].as<bool>();
     bool use_logfile = config_["logger"]["use_logfile"].as<bool>();
     bool use_simplelog = config_["logger"]["use_simplelog"].as<bool>();
@@ -149,7 +150,8 @@ bool VisionBase::init(bool debug_mode) {
 
     bool use_record = config_["record"]["use_record"].as<bool>(false);
     if (use_record) {
-        std::string folder_path =  utils::expandEnv(config_["record"]["folder_path"].as<std::string>());
+        std::string folder_path =
+            utils::expandEnv(config_["record"]["folder_path"].as<std::string>());
         auto file_name = utils::makeTimestampedFileName();
         std::string text_path = fmt::format("{}/{}.csv", folder_path, file_name);
         std::string video_path = fmt::format("{}/{}.avi", folder_path, file_name);

@@ -50,7 +50,8 @@ auto_aim_fsm:
   thres_down_2: 15.0
   transfer_thresh: 20
 
-planner:
+
+very_aimer:
   max_iter: 10
   control_delay: 0.01
   enable_fire_error: 0.0035
@@ -63,13 +64,11 @@ planner:
   Q_pitch: [7e6, 0]
   R_pitch: [3.0]
 
-aimer:
   prediction_delay: -0.0 
   comming_angle: 60
   leaving_angle: 20
 
-shooter:
-  yaw_limit: 30
+  yaw_limit: 40
   shooting_range_h: 0.1
   shooting_range_w: 0.1
   min_enable_pitch_deg: 0.25
@@ -97,7 +96,7 @@ shooter:
       pitch_off: 0
       yaw_off: 0
 
-
+  
 trajectory_compensator:
   compenstator_type: resistance
   gravity: 9.8

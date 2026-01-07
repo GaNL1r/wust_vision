@@ -225,6 +225,14 @@ public:
         }
         return _armor_xyza_list;
     }
+    double getMeanZ() {
+        double mean;
+        auto all = getArmorPositions();
+        for (const auto& armor: all) {
+            mean += armor.z();
+        }
+        return mean / all.size();
+    }
     Eigen::Vector3d h_armor_xyz(const Eigen::VectorXd& x, int id) const {
         auto angle =
             angles::normalize_angle(x[(int)MModel::State::YAW] + id * 2 * CV_PI / armor_num_);

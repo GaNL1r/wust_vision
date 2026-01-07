@@ -1,7 +1,5 @@
 #include "auto_aim.hpp"
-#include "tasks/auto_aim/armor_control/aimer.hpp"
-#include "tasks/auto_aim/armor_control/planner.hpp"
-#include "tasks/auto_aim/armor_control/shooter.hpp"
+#include "tasks/auto_aim/armor_control/very_aimer.hpp"
 #include "tasks/auto_aim/armor_detect/armor_pose_estimator.hpp"
 #include "tasks/auto_aim/armor_detect/detector_factory.hpp"
 #include "tasks/auto_aim/armor_tracker/tracker_manager.hpp"
@@ -108,11 +106,7 @@ struct AutoAim::Impl {
         trajectory_compensator->iteration_times_ = iteration_times_;
         trajectory_compensator->gravity_ = gravity_;
         trajectory_compensator->resistance_ = resistance_;
-        aimer_ = std::make_shared<Aimer>();
-        aimer_->init(config_, trajectory_compensator);
-        shooter_ = std::make_shared<Shooter>();
-        shooter_->init(config_, trajectory_compensator);
-        planner_ = std::make_unique<Planner>(config_["planner"], aimer_, shooter_);
+        very_aimer_ = VeryAimer::create(config["very_aimer"], trajectory_compensator);
         max_detect_armors_ = config_["max_detect_armors"].as<int>(10);
         armor_queue_ = std::make_unique<OrderedQueue<armor::Armors>>(10, 500);
         latency_averager_ = std::make_unique<Averager<double>>(100);
@@ -262,59 +256,9 @@ struct AutoAim::Impl {
         AimTarget aim_target;
         bool appear = target.checkTargetAppear();
         if (appear) {
-            auto now = time_utils::now();
-            GimbalCmd tmp_cmd =
-                aimer_->aim(target, now, shared_->bullet_speed, auto_aim_fsm_cl_.fsm_state_);
-            aim_target = tmp_cmd.aim_target;
-            auto last_att = shared_->motion_buffer->get_last();
-            gimbal_cmd = shooter_->shoot(
-                tmp_cmd,
-                0,
-                0,
-                shared_->bullet_speed,
-                true,
-                auto_aim_fsm_cl_.fsm_state_,
-                last_att->data.vyaw
-            );
-
-            gimbal_cmd.raw_yaw = gimbal_cmd.yaw;
-            gimbal_cmd.raw_pitch = gimbal_cmd.pitch;
-            auto plan = planner_->plan(target, shared_->bullet_speed, auto_aim_fsm_cl_.fsm_state_);
-            if (plan.control) {
-                gimbal_cmd.yaw = plan.yaw / M_PI * 180.0;
-                gimbal_cmd.v_yaw = plan.yaw_vel / M_PI * 180.0;
-                gimbal_cmd.pitch = plan.pitch / M_PI * 180.0;
-                gimbal_cmd.v_pitch = plan.pitch_vel / M_PI * 180.0;
-                tmp_cmd.armor_posandyaw = plan.armor_posandyaw;
-                auto only_check_fire = shooter_->shoot(
-                    tmp_cmd,
-                    gimbal_cmd.yaw * M_PI / 180.0,
-                    gimbal_cmd.pitch * M_PI / 180.0,
-                    shared_->bullet_speed,
-                    true,
-                    auto_aim_fsm_cl_.fsm_state_,
-                    last_att->data.vyaw
-                );
-                gimbal_cmd.fire_advice = only_check_fire.fire_advice;
-                if (plan.fire) {
-                    gimbal_cmd.enable_pitch_diff = only_check_fire.enable_pitch_diff;
-                    gimbal_cmd.enable_yaw_diff = only_check_fire.enable_yaw_diff;
-
-                } else {
-                    gimbal_cmd.enable_pitch_diff = 0;
-                    gimbal_cmd.enable_yaw_diff = 0;
-                }
-
-                gimbal_cmd.target_yaw = plan.target_yaw / M_PI * 180.0;
-                gimbal_cmd.target_pitch = plan.target_pitch / M_PI * 180.0;
-                gimbal_cmd.raw_yaw = gimbal_cmd.target_yaw;
-                gimbal_cmd.raw_pitch = gimbal_cmd.target_pitch;
-                aim_target = plan.aim_target;
-            } else {
-                gimbal_cmd.appera = false;
-            }
-        } else {
-            gimbal_cmd.appera = false;
+            gimbal_cmd =
+                very_aimer_->veryAim(target, shared_->bullet_speed, auto_aim_fsm_cl_.fsm_state_);
+            aim_target = gimbal_cmd.aim_target;
         }
 
         if (gimbal_cmd.fire_advice) {
@@ -428,9 +372,7 @@ struct AutoAim::Impl {
     std::unique_ptr<OrderedQueue<armor::Armors>> armor_queue_;
     std::shared_ptr<wust_vl_concurrency::MonitoredThread> processing_thread_;
     std::unique_ptr<Timer> timer_;
-    std::shared_ptr<Aimer> aimer_;
-    std::shared_ptr<Shooter> shooter_;
-    std::unique_ptr<Planner> planner_;
+    VeryAimer::Ptr very_aimer_;
     std::unique_ptr<ArmorPoseEstimator> armor_pose_estimator_;
     AutoAimFsmController auto_aim_fsm_cl_;
     AutoExposureCfg auto_exposure_cfg_;

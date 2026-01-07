@@ -305,8 +305,8 @@ cv::Rect Target::expanded(
     int base_side = std::max(rect.width, rect.height);
     int max_side = std::max(image_size.width, image_size.height);
 
-    double lost_dt = target_config_.lost_dt; 
-    double dt_clamped = std::max(0.0, std::min(dt, lost_dt)); 
+    double lost_dt = target_config_.lost_dt;
+    double dt_clamped = std::max(0.0, std::min(dt, lost_dt));
 
     int side = static_cast<int>(base_side + (max_side - base_side) * (dt_clamped / lost_dt));
 
