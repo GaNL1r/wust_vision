@@ -4,7 +4,7 @@
 #include "tasks/auto_aim/auto_aim_fsm.hpp"
 #include "tasks/type_common.hpp"
 #include "wust_vl/common/utils/trajectory_compensator.hpp"
-
+namespace auto_aim {
 class VeryAimer {
 public:
     using Ptr = std::unique_ptr<VeryAimer>;
@@ -24,3 +24,4 @@ public:
     struct Impl;
     std::unique_ptr<Impl> _impl;
 };
+}; // namespace auto_aim

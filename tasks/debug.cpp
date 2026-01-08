@@ -1019,6 +1019,7 @@ void debuglog(
     log.control_v_yaw_log.push_back(i_use.v_yaw);
     log.fire_log.push_back(i_use.fire_advice);
     log.rune_dis_log.push_back(rune_dis);
+    log.fly_time_log.push_back(i_use.fly_time);
     if (gimbal_cmd.appera) {
         last_cmd_ = gimbal_cmd;
     }
@@ -1053,6 +1054,7 @@ void debuglog(
     trim(log.yaw_diff_log);
     trim(log.fire_log);
     trim(log.rune_dis_log);
+    trim(log.fly_time_log);
     nlohmann::json j;
     {
         j["time"] = log.time_log;
@@ -1079,6 +1081,7 @@ void debuglog(
         j["yaw_diff"] = log.yaw_diff_log;
         j["fire"] = log.fire_log;
         j["rune_dis"] = log.rune_dis_log;
+        j["fly_time"] = log.fly_time_log;
     }
     std::ofstream file("/dev/shm/cmd_log.json");
     if (file.is_open()) {

@@ -33,6 +33,7 @@ const chartMap = {
   yaw_diff: { label: "Yaw Diff" },
   fire: { label: "Fire" },
   rune_dis: { label: "Rune Distance" },
+  fly_time: { label: "Fly Time" },
 };
 
 const mainCtx = document.getElementById("mainChart").getContext("2d");
@@ -74,7 +75,6 @@ const commonChartOptions = {
         weight: "bold",
       },
       callbacks: {
-        // 🚫 不使用 x label，避免 undefined
         title: () => "",
         label: (context) => `值: ${context.parsed.y.toFixed(3)}`,
       },

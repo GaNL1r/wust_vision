@@ -3,6 +3,7 @@
 #include "tasks/auto_aim/armor_control/tinympc/tiny_api.hpp"
 #include "tasks/auto_aim/armor_control/tinympc/types.hpp"
 #include "wust_vl/common/utils/manual_compensator.hpp"
+namespace auto_aim {
 struct ControlPoint {
     double yaw;
     double pitch;
@@ -55,11 +56,10 @@ public:
         prediction_delay_ = config["prediction_delay"].as<double>(0.0);
         comming_angle_ = config["comming_angle"].as<double>(5.0);
         leaving_angle_ = config["leaving_angle"].as<double>(5.0);
-        enable_fire_error_ = config["enable_fire_error"].as<double>();
         control_delay_ = config["control_delay"].as<double>();
         max_iter_ = config["max_iter"].as<int>();
         max_pitch_acc_ = config["max_pitch_acc"].as<double>();
-
+        delay_enable_fire_error_ = config["delay_enable_fire_error"].as<double>(0.0);
         auto Q_pitch = config["Q_pitch"].as<std::vector<double>>();
         auto R_pitch = config["R_pitch"].as<std::vector<double>>();
         Eigen::MatrixXd A_pitch { { 1, MPC_DT }, { 0, 1 } };
@@ -475,6 +475,7 @@ public:
         cmd.raw_yaw = rad2deg(target_yaw_rad);
         cmd.raw_pitch = rad2deg(target_pitch_rad);
         cmd.distance = fin_aim_pos.norm();
+        cmd.fly_time = fly_time + prev_fly_time;
         auto delay_state = getStateAtTime(traj, total_time / 2.0 + control_delay_);
         TrajectoryVec control_traj;
         control_traj.resize(MPC_HORIZON);
@@ -487,6 +488,7 @@ public:
             control_traj[i] = tp;
         }
         auto control_delay_state = getStateAtTime(control_traj, total_time / 2.0 + control_delay_);
+
         bool delay_noswitching = true;
         delay_noswitching = std::hypot(
                                 angles::normalize_angle(delay_state.yaw + cp0.yaw)
@@ -494,7 +496,10 @@ public:
                                 angles::normalize_angle(delay_state.pitch)
                                     - angles::normalize_angle(control_delay_state.pitch)
                             )
-            < enable_fire_error_;
+            < delay_enable_fire_error_;
+
+        static int noswitching_count = 0;
+        static int switching_count = 0;
         if (delay_noswitching) {
             double center_yaw = std::atan2(target.position().y(), target.position().x());
             double d_angle = angles::shortest_angular_distance(
@@ -514,13 +519,30 @@ public:
             {
                 cmd.fire_advice = true;
             }
-
-        } else {
+            noswitching_count++;
+        } else { //发弹延迟后进入换板阶段则该帧完全不开火
             cmd.fire_advice = false;
             cmd.enable_pitch_diff = 0;
             cmd.enable_yaw_diff = 0;
+            switching_count++;
         }
+        utils::XSecOnce(
+            [&] {
+                int total = switching_count + noswitching_count;
+                WUST_INFO("very_aimer") << "switching_count: " << switching_count << " ("
+                                        << (switching_count * 100.0) / total << "%)"
+                                        << "  |  noswitching_count: " << noswitching_count << " ("
+                                        << (noswitching_count * 100.0) / total << "%)";
+                switching_count = 0;
+                noswitching_count = 0;
+            },
+            1.0
+        );
         cmd.appera = true;
+        if (!cmd.isValid()) {
+            cmd.appera = false;
+            WUST_WARN("very_aimer") << "very_aimer  nan!";
+        }
         return cmd;
     }
 
@@ -535,9 +557,9 @@ public:
     double comming_angle_;
     double leaving_angle_;
     double control_delay_ = 0.01;
-    double enable_fire_error_ = 0.0035;
     double max_yaw_acc_, max_pitch_acc_;
     int max_iter_ = 10;
+    double delay_enable_fire_error_ = 0.0035;
     TinySolver* yaw_solver_;
     TinySolver* pitch_solver_;
     minco::MINCO_S3NU1DAngle minco_yaw_;
@@ -554,3 +576,4 @@ VeryAimer::~VeryAimer() {
 GimbalCmd VeryAimer::veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm) {
     return _impl->veryAim(target, bullet_speed, auto_aim_fsm);
 }
+} // namespace auto_aim

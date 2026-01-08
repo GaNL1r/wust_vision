@@ -174,22 +174,23 @@ struct AimTarget {
 };
 struct GimbalCmd {
     std::chrono::steady_clock::time_point timestamp;
-    float raw_yaw = 0;
-    float raw_pitch = 0;
-    float pitch = 0;
-    float yaw = 0;
-    float target_yaw = 0;
-    float target_pitch = 0;
-    float v_yaw = 0;
-    float v_pitch = 0;
-    float distance = -1;
+    double raw_yaw = 0;
+    double raw_pitch = 0;
+    double pitch = 0;
+    double yaw = 0;
+    double target_yaw = 0;
+    double target_pitch = 0;
+    double v_yaw = 0;
+    double v_pitch = 0;
+    double distance = -1;
     bool fire_advice = false;
-    float enable_yaw_diff = 0;
-    float enable_pitch_diff = 0;
+    double enable_yaw_diff = 0;
+    double enable_pitch_diff = 0;
+    double fly_time = 0;
     bool appera = false;
     AimTarget aim_target;
     inline bool isValid() const {
-        auto bad = [](float x) { return std::isnan(x) || std::isinf(x); };
+        auto bad = [](double x) { return std::isnan(x) || std::isinf(x); };
 
         if (bad(raw_yaw) || bad(raw_pitch) || bad(pitch) || bad(yaw) || bad(target_yaw)
             || bad(target_pitch) || bad(target_pitch) || bad(v_yaw) || bad(v_pitch) || bad(distance)
