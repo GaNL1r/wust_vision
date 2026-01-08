@@ -384,7 +384,7 @@ public:
         auto fin_armors_xyza = target.getArmorPosAndYaw();
         Eigen::Vector3d fin_aim_pos = fin_armors_xyza[fin_target_select].head<3>();
 
-        if (aim_center) {
+        if (aim_center) { //这里的逻辑要时刻与getControlPoint统一，这里为了获取变量写在了外面 ，该段的意义是使击打yaw为中心yaw，而击打点的xy要推回原选板
             double raw_z = fin_aim_pos.z();
             double c_xy_dis = std::sqrt(
                 target.position().x() * target.position().x()

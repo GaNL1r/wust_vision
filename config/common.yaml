@@ -12,6 +12,8 @@ control:
   pitch_avg_windows: 1
   device_name: /dev/ttyACM0
   use_serial: true
+  yaw_ramp: 0.0  #send_cmd = cmd.pos+cmd.vel*ramp
+  pitch_ramp: 0.0
   
 logger:
   log_level: INFO

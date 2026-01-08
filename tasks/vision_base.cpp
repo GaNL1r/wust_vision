@@ -171,6 +171,8 @@ bool VisionBase::init(bool debug_mode) {
         std::string csv_path = config_["record"]["read_csv_path"].as<std::string>();
         rotate_reader_ = std::make_shared<RotateReaderCSV>(csv_path);
     }
+    yaw_ramp_ = config_["control"]["yaw_ramp"].as<double>(0.0);
+    pitch_ramp_ = config_["control"]["pitch_ramp"].as<double>(0.0);
 
     return true;
 }
@@ -369,8 +371,8 @@ void VisionBase::timerCallback(double dt_ms) {
     }
 
     send_data.detect_color = detect_color_;
-    send_data.pitch = cmd_pitch;
-    send_data.yaw = cmd_yaw;
+    send_data.pitch = cmd_pitch+cmd.v_pitch*pitch_ramp_;
+    send_data.yaw = cmd_yaw+cmd.v_yaw*yaw_ramp_;
     send_data.v_pitch = cmd.v_pitch;
     send_data.v_yaw = cmd.v_yaw;
     send_data.target_yaw = cmd.target_yaw;
