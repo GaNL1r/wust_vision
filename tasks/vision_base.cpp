@@ -371,8 +371,8 @@ void VisionBase::timerCallback(double dt_ms) {
     }
 
     send_data.detect_color = detect_color_;
-    send_data.pitch = cmd_pitch+cmd.v_pitch*pitch_ramp_;
-    send_data.yaw = cmd_yaw+cmd.v_yaw*yaw_ramp_;
+    send_data.pitch = cmd_pitch + cmd.v_pitch * pitch_ramp_;
+    send_data.yaw = cmd_yaw + cmd.v_yaw * yaw_ramp_;
     send_data.v_pitch = cmd.v_pitch;
     send_data.v_yaw = cmd.v_yaw;
     send_data.target_yaw = cmd.target_yaw;

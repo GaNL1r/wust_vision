@@ -46,8 +46,8 @@ public:
     Eigen::Matrix3d R_camera2gimbal_;
     Eigen::Vector3d t_camera2gimbal_;
     GimbalCmd last_cmd_;
-    double yaw_ramp_ =0.0;
-    double pitch_ramp_ =0.0;
+    double yaw_ramp_ = 0.0;
+    double pitch_ramp_ = 0.0;
     std::unique_ptr<Averager<double>> pitch_avg_;
     std::pair<cv::Mat, cv::Mat> camera_info_;
     double bullet_speed_;
