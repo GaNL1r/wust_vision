@@ -137,6 +137,7 @@ struct ArmorObject {
 constexpr const char* K_ARMOR_NAMES[] = { "sentry", "1", "2", "3", "4", "5", "outpost", "base" };
 
 struct Armor {
+public:
     ArmorNumber number;
     std::string type;
     Eigen::Vector3d pos;
@@ -153,9 +154,9 @@ struct Armor {
     toPtsDebug(const cv::Mat& camera_intrinsic, const cv::Mat& camera_distortion);
 };
 struct Armors {
+public:
     std::vector<Armor> armors;
     std::chrono::steady_clock::time_point timestamp;
-    std::string frame_id;
     int id;
     Eigen::Vector3d v;
 };

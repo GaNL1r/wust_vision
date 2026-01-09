@@ -89,7 +89,6 @@ void drawDebugArmorContent(
 
     auto visualizeTargetProjection = [&](Target armor_target) -> armor::Armors {
         armor::Armors armor_data;
-        armor_data.frame_id = "gimbal_odom";
         armor_data.timestamp = armor_target.timestamp_;
         double debug_dt = 0.01;
 

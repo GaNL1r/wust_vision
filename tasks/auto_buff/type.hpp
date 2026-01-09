@@ -38,6 +38,7 @@ public:
 };
 
 struct RuneFan {
+public:
     bool is_valid = false;
     int id;
     bool is_big = false;
