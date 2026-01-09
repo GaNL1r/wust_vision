@@ -231,10 +231,8 @@ struct AutoAim::Impl {
 
         target = tracker_manager_->update(armors, auto_aim_fsm_cl_);
         auto now = std::chrono::steady_clock::now();
-        {
-            std::lock_guard<std::mutex> lock(armor_solver_target_mutex_);
-            armor_solver_target_ = target;
-        }
+
+        armor_solver_target_ = target;
 
         auto latency_ms = time_utils::durationMs(armors.timestamp, now);
         latency_averager_->add(latency_ms);
@@ -249,10 +247,9 @@ struct AutoAim::Impl {
     GimbalCmd solve(double dt_ms) {
         GimbalCmd gimbal_cmd;
         Target target;
-        {
-            std::lock_guard<std::mutex> lock(armor_solver_target_mutex_);
-            target = armor_solver_target_;
-        }
+
+        target = armor_solver_target_;
+
         AimTarget aim_target;
         bool appear = target.checkTargetAppear();
         if (appear) {
@@ -325,42 +322,40 @@ struct AutoAim::Impl {
         );
     }
     void autoExposureControl(const cv::Mat& frame, std::shared_ptr<wust_vl_video::Camera> camera) {
-        if (!auto_exposure_cfg_.enable || frame.empty()) {
-            return;
-        }
-        if (auto* hik = dynamic_cast<wust_vl_video::HikCamera*>(camera->getDevice())) {
-            cv::Mat i_use = frame(expanded_);
-            if (expanded_.area() < 100 || i_use.empty()) {
-                i_use = frame;
-            }
-
-            static auto last_update = std::chrono::steady_clock::now();
-
-            auto now = std::chrono::steady_clock::now();
-            double elapsed_ms =
-                std::chrono::duration_cast<std::chrono::milliseconds>(now - last_update).count();
-
-            if (elapsed_ms >= auto_exposure_cfg_.control_interval_ms) {
-                double brightness = utils::computeBrightness(i_use);
-
-                double diff = brightness - auto_exposure_cfg_.target_brightness;
-                const double exposure_min = auto_exposure_cfg_.exposure_min;
-                const double exposure_max = auto_exposure_cfg_.exposure_max;
-                double exposure_time = hik->getExposureTime();
-                if (std::fabs(diff) > auto_exposure_cfg_.tolerance && exposure_time > 0.0) {
-                    exposure_time -= diff * auto_exposure_cfg_.step_gain;
-                } else {
-                    exposure_time -= auto_exposure_cfg_.decay_step;
+        double dt = 1000.0 / auto_exposure_cfg_.control_interval_ms;
+        utils::XSecOnce(
+            [&] {
+                if (!auto_exposure_cfg_.enable || frame.empty()) {
+                    return;
                 }
-                if (exposure_time < exposure_min)
-                    exposure_time = exposure_min;
-                if (exposure_time > exposure_max)
-                    exposure_time = exposure_max;
-                hik->setExposureTime(exposure_time);
+                if (auto* hik = dynamic_cast<wust_vl_video::HikCamera*>(camera->getDevice())) {
+                    cv::Mat i_use = frame(expanded_);
+                    if (expanded_.area() < 100 || i_use.empty()) {
+                        i_use = frame;
+                    }
+                    double brightness = utils::computeBrightness(i_use);
 
-                last_update = now;
-            }
-        }
+                    double diff = brightness - auto_exposure_cfg_.target_brightness;
+                    const double exposure_min = auto_exposure_cfg_.exposure_min;
+                    const double exposure_max = auto_exposure_cfg_.exposure_max;
+                    double exposure_time = hik->getExposureTime();
+                    double last_exposure_time = exposure_time;
+                    if (std::fabs(diff) > auto_exposure_cfg_.tolerance && exposure_time > 0.0) {
+                        exposure_time -= diff * auto_exposure_cfg_.step_gain;
+                    } else {
+                        exposure_time -= auto_exposure_cfg_.decay_step;
+                    }
+                    if (exposure_time < exposure_min)
+                        exposure_time = exposure_min;
+                    if (exposure_time > exposure_max)
+                        exposure_time = exposure_max;
+                    if (std::abs(exposure_time - last_exposure_time) > 10) {
+                        hik->setExposureTime(exposure_time);
+                    }
+                }
+            },
+            dt
+        );
     }
     std::unique_ptr<ArmorDetectorBase> armor_detector_;
     std::unique_ptr<TrackerManager> tracker_manager_;
@@ -383,7 +378,6 @@ struct AutoAim::Impl {
     int timer_cout_ = 0;
     std::chrono::steady_clock::time_point last_stat_time_steady_ = std::chrono::steady_clock::now();
     Target armor_solver_target_;
-    std::mutex armor_solver_target_mutex_;
     bool debug_mode_ = false;
     DebugArmor auto_aim_debug_;
     std::mutex dbg_mutex_;
