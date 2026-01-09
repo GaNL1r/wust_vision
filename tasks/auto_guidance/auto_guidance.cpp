@@ -10,6 +10,7 @@
 namespace auto_guidance {
 struct AutoGuidance::Impl {
     ~Impl() {
+        lights_queue_->stop();
         if (processing_thread_) {
             processing_thread_->stop();
             wust_vl_concurrency::ThreadManager::instance().unregisterThread(
@@ -95,15 +96,17 @@ struct AutoGuidance::Impl {
         while (self->isAlive()) {
             if (!self->waitPoint())
                 break;
+            self->heartbeat();
             printStats();
             GreenLights lights;
-            self->heartbeat();
-            if (!lights_queue_->try_dequeue(lights)) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                continue;
+            bool skip;
+            if (lights_queue_->dequeue_wait(lights, skip)) {
+                lightsCallback(lights);
+                tracker_finish_count_++;
+                if (skip) {
+                    WUST_WARN(logger_) << "OrderQueue skip";
+                }
             }
-            lightsCallback(lights);
-            tracker_finish_count_++;
         }
     }
     GuidanceTarget getTarget() {

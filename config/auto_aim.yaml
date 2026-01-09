@@ -50,12 +50,6 @@ auto_aim_fsm:
   thres_down_2: 15.0
   transfer_thresh: 20
 
-# auto_aim_fsm:
-#   thres_up_1: 1.0
-#   thres_down_1: 0.5
-#   thres_up_2: 3.0 
-#   thres_down_2: 2.0
-#   transfer_thresh: 20
 
 very_aimer:
   max_iter: 10

@@ -10,6 +10,7 @@ namespace auto_buff {
 struct AutoBuff::Impl {
     ~Impl() {
         run_flag_ = false;
+        rune_queue_->stop();
         if (processing_thread_) {
             processing_thread_->stop();
             wust_vl_concurrency::ThreadManager::instance().unregisterThread(
@@ -232,16 +233,17 @@ struct AutoBuff::Impl {
         while (self->isAlive() && run_flag_) {
             if (!self->waitPoint())
                 break;
+            self->heartbeat();
             printStats();
             rune::RuneFan rune;
-
-            if (!rune_queue_->try_dequeue(rune)) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                continue;
+            bool skip;
+            if (rune_queue_->dequeue_wait(rune, skip)) {
+                runeTargetCallback(rune);
+                tracker_finish_count_++;
+                if (skip) {
+                    WUST_WARN(logger_) << "OrderQueue skip";
+                }
             }
-            self->heartbeat();
-            runeTargetCallback(rune);
-            tracker_finish_count_++;
         }
     }
     void setDebug(bool debug) {

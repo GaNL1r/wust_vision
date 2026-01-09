@@ -13,6 +13,7 @@ struct AutoAim::Impl {
         if (armor_detector_) {
             armor_detector_.reset();
         }
+        armor_queue_->stop();
         if (processing_thread_) {
             processing_thread_->stop();
             wust_vl_concurrency::ThreadManager::instance().unregisterThread(
@@ -271,15 +272,17 @@ struct AutoAim::Impl {
         while (self->isAlive() && run_flag_) {
             if (!self->waitPoint())
                 break;
+            self->heartbeat();
             printStats();
             armor::Armors armors;
-            self->heartbeat();
-            if (!armor_queue_->try_dequeue(armors)) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                continue;
+            bool skip;
+            if (armor_queue_->dequeue_wait(armors, skip)) {
+                armorsCallback(armors);
+                tracker_finish_count_++;
+                if (skip) {
+                    WUST_WARN(logger_) << "OrderQueue skip";
+                }
             }
-            armorsCallback(armors);
-            tracker_finish_count_++;
         }
     }
     void setDebug(bool debug) {
