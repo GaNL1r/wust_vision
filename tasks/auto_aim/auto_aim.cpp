@@ -99,13 +99,8 @@ struct AutoAim::Impl {
         auto_aim_fsm_cl_.load(config_);
         std::string comp_type =
             config["trajectory_compensator"]["compenstator_type"].as<std::string>("ideal");
-        double gravity_ = config["trajectory_compensator"]["gravity"].as<double>(10.0);
-        double resistance_ = config["trajectory_compensator"]["resistance"].as<double>(0.092);
-        int iteration_times_ = config["trajectory_compensator"]["iteration_times"].as<int>(20);
         auto trajectory_compensator = CompensatorFactory::createCompensator(comp_type);
-        trajectory_compensator->iteration_times_ = iteration_times_;
-        trajectory_compensator->gravity_ = gravity_;
-        trajectory_compensator->resistance_ = resistance_;
+        trajectory_compensator->load(config["trajectory_compensator"]);
         very_aimer_ = VeryAimer::create(config["very_aimer"], trajectory_compensator);
         max_detect_armors_ = config_["max_detect_armors"].as<int>(10);
         armor_queue_ = std::make_unique<OrderedQueue<armor::Armors>>(10, 500);

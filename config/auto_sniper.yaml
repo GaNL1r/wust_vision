@@ -3,7 +3,7 @@ trajectory_compensator:
   gravity: 9.8
   iteration_times: 20
   resistance: 0.092
-
+  k1: 0.0190 #大弹丸double k1_c = 0.47; double k1 = k1_c * 1.169 * (2 * M_PI * 0.02125 * 0.02125) / 2 / 0.041;
 
 trajectory_offset:
     - d_max: 9
