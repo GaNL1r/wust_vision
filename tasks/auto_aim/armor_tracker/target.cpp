@@ -105,25 +105,29 @@ Target::computeMeasurementCovariance(const Eigen::Matrix<double, MModel::Z_N, 1>
 }
 Eigen::Matrix<double, MModel::X_N, MModel::X_N> Target::computeProcessNoise(double dt) const {
     Eigen::Matrix<double, MModel::X_N, MModel::X_N> q;
-    double v1, v2;
+    Eigen::Vector3d q_xyz;
+    double q_yaw;
     double q_l, q_h;
     if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
-        v1 = target_config_.qxyz_output; // 前哨站加速度方差
-        v2 = target_config_.qyaw_output; // 前哨站角加速度方差
+        q_xyz = target_config_.qxyz_output; // 前哨站加速度方差
+        q_yaw = target_config_.qyaw_output; // 前哨站角加速度方差
         q_l = target_config_.q_outpost_dz;
         q_h = target_config_.q_outpost_dz;
     } else {
-        v1 = target_config_.qxyz_common; // 加速度方差
-        v2 = target_config_.qyaw_common; // 角加速度方差
+        q_xyz = target_config_.qxyz_common; // 加速度方差
+        q_yaw = target_config_.qyaw_common; // 角加速度方差
         q_l = target_config_.q_l;
         q_h = target_config_.q_h;
     }
     double t = dt;
-    double q_x_x = pow(t, 4) / 4 * v1, q_x_vx = pow(t, 3) / 2 * v1, q_vx_vx = pow(t, 2) * v1;
-    double q_y_y = pow(t, 4) / 4 * v1, q_y_vy = pow(t, 3) / 2 * v1, q_vy_vy = pow(t, 2) * v1;
-    double q_z_z = pow(t, 4) / 4 * v1, q_z_vz = pow(t, 3) / 2 * v1, q_vz_vz = pow(t, 2) * v1;
-    double q_yaw_yaw = pow(t, 4) / 4 * v2, q_yaw_vyaw = pow(t, 3) / 2 * v2,
-           q_vyaw_vyaw = pow(t, 2) * v2;
+    double q_x_x = pow(t, 4) / 4 * q_xyz.x(), q_x_vx = pow(t, 3) / 2 * q_xyz.x(),
+           q_vx_vx = pow(t, 2) * q_xyz.x();
+    double q_y_y = pow(t, 4) / 4 * q_xyz.y(), q_y_vy = pow(t, 3) / 2 * q_xyz.y(),
+           q_vy_vy = pow(t, 2) * q_xyz.y();
+    double q_z_z = pow(t, 4) / 4 * q_xyz.z(), q_z_vz = pow(t, 3) / 2 * q_xyz.z(),
+           q_vz_vz = pow(t, 2) * q_xyz.z();
+    double q_yaw_yaw = pow(t, 4) / 4 * q_yaw, q_yaw_vyaw = pow(t, 3) / 2 * q_yaw,
+           q_vyaw_vyaw = pow(t, 2) * q_yaw;
     double q_r = target_config_.q_r;
 
     // clang-format off

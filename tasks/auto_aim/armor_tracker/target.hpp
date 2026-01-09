@@ -7,9 +7,9 @@ namespace MModel = ypdv2armor_motion_model;
 
 struct TargetConfig {
     int esekf_iter_num = 2;
-    double qxyz_common = 100;
+    Eigen::Vector3d qxyz_common = { 100, 100, 100 };
     double qyaw_common = 400;
-    double qxyz_output = 10;
+    Eigen::Vector3d qxyz_output = { 10, 10, 10 };
     double qyaw_output = 0.1;
     double q_r = 0;
     double q_l = 0;
@@ -27,8 +27,10 @@ struct TargetConfig {
     void loadConfig(const YAML::Node& node) {
         esekf_iter_num = node["esekf_iter_num"].as<int>();
         qyaw_common = node["qyaw_common"].as<double>();
-        qxyz_common = node["qxyz_common"].as<double>();
-        qxyz_output = node["qxyz_output"].as<double>();
+        std::vector<double> qxyz_common_vec = node["qxyz_common"].as<std::vector<double>>();
+        qxyz_common = Eigen::Vector3d(qxyz_common_vec[0], qxyz_common_vec[1], qxyz_common_vec[2]);
+        std::vector<double> qxyz_output_vec = node["qxyz_output"].as<std::vector<double>>();
+        qxyz_output = Eigen::Vector3d(qxyz_output_vec[0], qxyz_output_vec[1], qxyz_output_vec[2]);
         qyaw_output = node["qyaw_output"].as<double>();
         q_l = node["q_l"].as<double>();
         q_h = node["q_h"].as<double>();
