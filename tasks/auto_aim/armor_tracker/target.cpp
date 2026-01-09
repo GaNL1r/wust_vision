@@ -2,20 +2,25 @@
 Target::Target() {
     target_state_ = Eigen::VectorXd::Zero(MModel::X_N);
 }
-Target::Target(
-    const armor::Armor& a,
-    const TargetConfig& target_config,
-    double radius,
-    int armor_num,
-    Eigen::DiagonalMatrix<double, MModel::X_N> p0
-):
-
-    armor_num_(armor_num),
-    radius_pre_(radius) {
+Target::Target(const armor::Armor& a, const TargetConfig& target_config) {
+    Eigen::DiagonalMatrix<double, ypdv2armor_motion_model::X_N> p0;
+    if (a.number == armor::ArmorNumber::OUTPOST) {
+        p0.diagonal() << 1, 64, 1, 64, 1, 81, 0.4, 100, 1e-4, 0.1, 0.1;
+        armor_num_ = 3;
+        radius_pre_ = 0.2765;
+    } else if (a.number == armor::ArmorNumber::BASE) {
+        p0.diagonal() << 1, 64, 1, 64, 1, 64, 0.4, 100, 1e-4, 0, 0;
+        armor_num_ = 3;
+        radius_pre_ = 0.3205;
+    } else {
+        p0.diagonal() << 1, 64, 1, 64, 1, 64, 0.4, 100, 1, 1, 1;
+        armor_num_ = 4;
+        radius_pre_ = 0.2;
+    }
     target_config_ = target_config;
     target_state_ = Eigen::VectorXd::Zero(MModel::X_N);
     auto yfv2 = MModel::Predict(0.005);
-    ctx_.armor_num = armor_num;
+    ctx_.armor_num = armor_num_;
     ctx_.id = 0;
     auto yhv2 = MModel::Measure(ctx_);
     auto yu_qv2 = [this]() {
@@ -66,7 +71,7 @@ Target::Target(
     double yaw = orientationToYaw(a.target_ori);
 
     target_state_ = Eigen::VectorXd::Zero(MModel::X_N);
-    double r = radius;
+    double r = radius_pre_;
     double xc = xa + r * cos(yaw);
     double yc = ya + r * sin(yaw);
     double zc = za;

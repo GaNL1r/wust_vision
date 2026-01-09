@@ -51,13 +51,7 @@ class Target {
 public:
     Target();
     Target& operator=(const Target&) = default;
-    Target(
-        const armor::Armor& armor,
-        const TargetConfig& target_config,
-        double radius,
-        int armor_num,
-        Eigen::DiagonalMatrix<double, MModel::X_N> p0
-    );
+    Target(const armor::Armor& armor, const TargetConfig& target_config);
     MModel::Measure::MeasureCtx ctx_;
     armor::ArmorNumber tracked_id_;
     std::string type_;

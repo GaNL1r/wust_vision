@@ -298,45 +298,39 @@ struct AutoAim::Impl {
         return auto_aim_debug_;
     }
     void printStats() {
-        using namespace std::chrono;
-        auto now = steady_clock::now();
+        utils::XSecOnce(
+            [&] {
+                double found_ratio = 0.0;
+                if (img_recv_count_ > 0) {
+                    found_ratio = static_cast<double>(tracker_manager_->tracker_v3_->found_count_)
+                        / static_cast<double>(img_recv_count_);
+                }
 
-        if (last_stat_time_steady_.time_since_epoch().count() == 0) {
-            last_stat_time_steady_ = now;
-            return;
-        }
+                WUST_INFO(logger_)
+                    << "Rec: " << img_recv_count_ << ", Det: " << detect_finish_count_
+                    << ", Fin: " << tracker_finish_count_ << ", Tc: " << timer_cout_
+                    << ", Lat: " << auto_aim_debug_.latency_ms << "ms"
+                    << ", Fire: " << fire_count_
+                    << ", Found: " << tracker_manager_->tracker_v3_->found_count_
+                    << ", Found_ratio: " << found_ratio;
 
-        auto elapsed = duration_cast<duration<double>>(now - last_stat_time_steady_);
-        if (elapsed.count() >= 1.0) {
-            double found_ratio = 0.0;
-            if (img_recv_count_ > 0) {
-                found_ratio = static_cast<double>(tracker_manager_->tracker_v3_->found_count_)
-                    / static_cast<double>(img_recv_count_);
-            }
-
-            WUST_INFO(logger_) << "Rec: " << img_recv_count_ << ", Det: " << detect_finish_count_
-                               << ", Fin: " << tracker_finish_count_ << ", Tc: " << timer_cout_
-                               << ", Lat: " << auto_aim_debug_.latency_ms << "ms"
-                               << ", Fire: " << fire_count_
-                               << ", Found: " << tracker_manager_->tracker_v3_->found_count_
-                               << ", Found_ratio: " << found_ratio;
-
-            img_recv_count_ = 0;
-            detect_finish_count_ = 0;
-            fire_count_ = 0;
-            tracker_finish_count_ = 0;
-            timer_cout_ = 0;
-            tracker_manager_->tracker_v3_->found_count_ = 0;
-
-            last_stat_time_steady_ = now;
-        }
+                img_recv_count_ = 0;
+                detect_finish_count_ = 0;
+                fire_count_ = 0;
+                tracker_finish_count_ = 0;
+                timer_cout_ = 0;
+                tracker_manager_->tracker_v3_->found_count_ = 0;
+            },
+            1.0
+        );
     }
     void autoExposureControl(const cv::Mat& frame, std::shared_ptr<wust_vl_video::Camera> camera) {
-        if (!auto_exposure_cfg_.enable || frame.empty() || frame(expanded_).empty()) {
+        if (!auto_exposure_cfg_.enable || frame.empty()) {
             return;
         }
-        if (expanded_.area() < 100) {
-            return;
+        cv::Mat i_use = frame(expanded_);
+        if (expanded_.area() < 100 || i_use.empty()) {
+            i_use = frame;
         }
 
         static auto last_update = std::chrono::steady_clock::now();
@@ -346,7 +340,7 @@ struct AutoAim::Impl {
             std::chrono::duration_cast<std::chrono::milliseconds>(now - last_update).count();
 
         if (elapsed_ms >= auto_exposure_cfg_.control_interval_ms) {
-            double brightness = utils::computeBrightness(frame(expanded_));
+            double brightness = utils::computeBrightness(i_use);
 
             double diff = brightness - auto_exposure_cfg_.target_brightness;
             const double exposure_min = auto_exposure_cfg_.exposure_min;

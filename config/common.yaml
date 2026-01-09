@@ -17,7 +17,7 @@ control:
   
 logger:
   log_level: INFO
-  log_path: ${VISION_ROOT}/log
+  log_path: log
   use_logcli: true
   use_logfile: false
   use_simplelog: true
@@ -30,7 +30,7 @@ shoot:
 
 record:
   use_record: false
-  folder_path: ${VISION_ROOT}/record
+  folder_path: record
   use_rotate_reade: false
   read_csv_path: 
 

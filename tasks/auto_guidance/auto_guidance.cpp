@@ -2,6 +2,7 @@
 #include "tasks/auto_guidance/guidance_detector/detector_base.hpp"
 #include "tasks/auto_guidance/guidance_detector/detector_factory.hpp"
 #include "tasks/auto_guidance/guidance_tracker/guidance_tracker.hpp"
+#include "tasks/utils.hpp"
 #include "wust_vl/common/concurrency/queues.hpp"
 #include "wust_vl/common/utils/logger.hpp"
 #include "wust_vl/common/utils/timer.hpp"
@@ -110,29 +111,20 @@ struct AutoGuidance::Impl {
         return guidance_target_;
     }
     void printStats() {
-        using namespace std::chrono;
-        auto now = steady_clock::now();
+        utils::XSecOnce(
+            [&] {
+                WUST_INFO(logger_)
+                    << "Rec: " << img_recv_count_ << ", Det: " << detect_finish_count_
+                    << ", Fin: " << tracker_finish_count_ << ", Lat: " << dbg_.latency_ms << "ms"
+                    << ", Tc:" << timer_count_;
 
-        if (last_stat_time_steady_.time_since_epoch().count() == 0) {
-            last_stat_time_steady_ = now;
-            return;
-        }
-
-        auto elapsed = duration_cast<duration<double>>(now - last_stat_time_steady_);
-        if (elapsed.count() >= 1.0) {
-            double found_ratio = 0.0;
-
-            WUST_INFO(logger_) << "Rec: " << img_recv_count_ << ", Det: " << detect_finish_count_
-                               << ", Fin: " << tracker_finish_count_ << ", Lat: " << dbg_.latency_ms
-                               << "ms"
-                               << ", Tc:" << timer_count_;
-
-            img_recv_count_ = 0;
-            detect_finish_count_ = 0;
-            tracker_finish_count_ = 0;
-            timer_count_ = 0;
-            last_stat_time_steady_ = now;
-        }
+                img_recv_count_ = 0;
+                detect_finish_count_ = 0;
+                tracker_finish_count_ = 0;
+                timer_count_ = 0;
+            },
+            1.0
+        );
     }
     std::unique_ptr<detector_base> detector_;
     std::string logger_ = "auto_guidance";

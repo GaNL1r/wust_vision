@@ -99,17 +99,9 @@ bool TrackerV3::initTarget(const armor::Armors& armors) {
     if (a.is_none_purple) {
         return false;
     }
-    Eigen::DiagonalMatrix<double, ypdv2armor_motion_model::X_N> p0;
-    if (a.number == armor::ArmorNumber::OUTPOST) {
-        p0.diagonal() << 1, 64, 1, 64, 1, 81, 0.4, 100, 1e-4, 0.1, 0.1;
-        target_ = Target(a, target_config_, 0.2765, 3, p0);
-    } else if (a.number == armor::ArmorNumber::BASE) {
-        p0.diagonal() << 1, 64, 1, 64, 1, 64, 0.4, 100, 1e-4, 0, 0;
-        target_ = Target(a, target_config_, 0.3205, 3, p0);
-    } else {
-        p0.diagonal() << 1, 64, 1, 64, 1, 64, 0.4, 100, 1, 1, 1;
-        target_ = Target(a, target_config_, 0.2, 4, p0);
-    }
+
+    target_ = Target(a, target_config_);
+
     tracker_state = DETECTING;
     return true;
 }
