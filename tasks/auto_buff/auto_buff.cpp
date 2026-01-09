@@ -274,34 +274,38 @@ struct AutoBuff::Impl {
         if (!auto_exposure_cfg_.enable || frame.empty()) {
             return;
         }
-        cv::Mat i_use = frame(expanded_);
-        if (expanded_.area() < 100 || i_use.empty()) {
-            i_use = frame;
-        }
-
-        static auto last_update = std::chrono::steady_clock::now();
-
-        auto now = std::chrono::steady_clock::now();
-        double elapsed_ms =
-            std::chrono::duration_cast<std::chrono::milliseconds>(now - last_update).count();
-
-        if (elapsed_ms >= auto_exposure_cfg_.control_interval_ms) {
-            double brightness = utils::computeBrightness(i_use);
-            double diff = brightness - auto_exposure_cfg_.target_brightness;
-            const double exposure_min = auto_exposure_cfg_.exposure_min;
-            const double exposure_max = auto_exposure_cfg_.exposure_max;
-            double exposure_time = camera->getHikExposureTime();
-            if (fabs(diff) > auto_exposure_cfg_.tolerance && exposure_time > 0.0) {
-                exposure_time -= diff * auto_exposure_cfg_.step_gain;
-            } else {
-                exposure_time -= auto_exposure_cfg_.decay_step;
+        if (auto* hik = dynamic_cast<wust_vl_video::HikCamera*>(camera->getDevice())) {
+            cv::Mat i_use = frame(expanded_);
+            if (expanded_.area() < 100 || i_use.empty()) {
+                i_use = frame;
             }
-            if (exposure_time < exposure_min)
-                exposure_time = exposure_min;
-            if (exposure_time > exposure_max)
-                exposure_time = exposure_max;
-            camera->setHikExposureTime(exposure_time);
-            last_update = now;
+
+            static auto last_update = std::chrono::steady_clock::now();
+
+            auto now = std::chrono::steady_clock::now();
+            double elapsed_ms =
+                std::chrono::duration_cast<std::chrono::milliseconds>(now - last_update).count();
+
+            if (elapsed_ms >= auto_exposure_cfg_.control_interval_ms) {
+                double brightness = utils::computeBrightness(i_use);
+
+                double diff = brightness - auto_exposure_cfg_.target_brightness;
+                const double exposure_min = auto_exposure_cfg_.exposure_min;
+                const double exposure_max = auto_exposure_cfg_.exposure_max;
+                double exposure_time = hik->getExposureTime();
+                if (std::fabs(diff) > auto_exposure_cfg_.tolerance && exposure_time > 0.0) {
+                    exposure_time -= diff * auto_exposure_cfg_.step_gain;
+                } else {
+                    exposure_time -= auto_exposure_cfg_.decay_step;
+                }
+                if (exposure_time < exposure_min)
+                    exposure_time = exposure_min;
+                if (exposure_time > exposure_max)
+                    exposure_time = exposure_max;
+                hik->setExposureTime(exposure_time);
+
+                last_update = now;
+            }
         }
     }
     std::mutex callback_mutex_;

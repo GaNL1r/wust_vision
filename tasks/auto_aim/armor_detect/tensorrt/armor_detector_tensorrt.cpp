@@ -18,8 +18,8 @@
 #include "wust_vl/common/utils/logger.hpp"
 #include "wust_vl/common/utils/timer.hpp"
 
-static constexpr int MAX_SRC_IMG_W = 1440;
-static constexpr int MAX_SRC_IMG_H = 1080;
+static constexpr int MAX_SRC_IMG_W = 1920;
+static constexpr int MAX_SRC_IMG_H = 1440;
 // 构造函数：初始化参数并构建引擎
 ArmorDetectTrt::ArmorDetectTrt(
     std::string model_type,

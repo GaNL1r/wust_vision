@@ -72,14 +72,31 @@ CudaInfer::~CudaInfer() {
 void CudaInfer::init(int max_src_w, int max_src_h, int input_w, int input_h) {
     input_w_ = input_w;
     input_h_ = input_h;
-    CUDA_CHECK(cudaMalloc(&d_input_bgr_, max_src_w * max_src_h * 3 * sizeof(unsigned char)));
+    max_src_h_ = max_src_h;
+    max_src_w_ = max_src_w;
+    rellocMem();
+}
+void CudaInfer::rellocMem() {
+    CUDA_CHECK(cudaMalloc(&d_input_bgr_, max_src_w_ * max_src_h_ * 3 * sizeof(unsigned char)));
     CUDA_CHECK(cudaMallocPitch(
         &d_input_bgr_pitched_,
         &input_pitch_bytes_,
-        max_src_w * 3 * sizeof(unsigned char),
-        max_src_h
+        max_src_w_ * 3 * sizeof(unsigned char),
+        max_src_h_
     ));
     CUDA_CHECK(cudaMalloc(&d_nchw_, input_w_ * input_h_ * 3 * sizeof(float)));
+    printf("Relloc memory for CudaInfer");
+}
+void CudaInfer::getOutEnoughMem(int img_w, int img_h) {
+    if (img_w > max_src_w_ || img_h > max_src_h_) {
+        if (img_w > max_src_w_) {
+            max_src_w_ = img_w;
+        }
+        if (img_h > max_src_h_) {
+            max_src_h_ = img_h;
+        }
+        rellocMem();
+    }
 }
 
 void CudaInfer::release() {
@@ -201,7 +218,6 @@ float* CudaInfer::preprocess_pitched(
     int pad_l = (input_w_ - rw) / 2;
     int pad_t = (input_h_ - rh) / 2;
     tf_matrix << 1.f / scale, 0, -pad_l / scale, 0, 1.f / scale, -pad_t / scale, 0, 0, 1;
-
     CUDA_CHECK(cudaMemcpy2DAsync(
         d_input_bgr_pitched_,
         input_pitch_bytes_,

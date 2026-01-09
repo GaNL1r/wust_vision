@@ -1,9 +1,9 @@
-type: hik_camera
+type: video_player
 
 camera_info_path: ${VISION_ROOT}/config/camera_info.yaml
 
 hik_camera:
-  target_sn: DA3038891
+  target_sn: DA1094119
   acquisition_frame_rate: 250
   adc_bit_depth: Bits_8
   exposure_time: 2000
@@ -14,13 +14,14 @@ hik_camera:
   reverse_x: false
   reverse_y: false
   use_raw: false
-  rgb: false
-  ea: false
+  use_rgb: false
+  use_ea: false
   
 video_player:
   fps: 60
   loop: true
   use_cvt: true
+  trigger_mode: false
   #path: /home/hy/wust_data/video/aaa.mp4
   #path: /home/hy/wust_data/video/jiao.avi
   #path: /home/hy/Z_LION_AutoAim2025/src/auto_aim_publisher/videos/sample.avi

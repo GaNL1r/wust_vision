@@ -171,7 +171,7 @@ bool VisionBase::init(bool debug_mode) {
     }
     yaw_ramp_ = config_["control"]["yaw_ramp"].as<double>(0.0);
     pitch_ramp_ = config_["control"]["pitch_ramp"].as<double>(0.0);
-
+    WUST_MAIN("main") << "vision init already!";
     return true;
 }
 void VisionBase::updateBulletSpeed(double bullet_speed) {

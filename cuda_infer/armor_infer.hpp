@@ -22,6 +22,8 @@ public:
     bool isInitialized() const {
         return d_input_bgr_ && d_nchw_ && d_input_bgr_pitched_;
     }
+    void getOutEnoughMem(int img_w, int img_h);
+    void rellocMem();
 
     float* preprocess(
         const unsigned char* input_bgr_host,
@@ -63,5 +65,6 @@ private:
     size_t input_pitch_bytes_ = 0;
     int input_w_;
     int input_h_;
+    int max_src_w_, max_src_h_;
 };
 } // namespace armor_cuda_infer
