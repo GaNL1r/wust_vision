@@ -104,7 +104,7 @@ struct AutoAim::Impl {
         trajectory_compensator->load(config["trajectory_compensator"]);
         very_aimer_ = VeryAimer::create(config["very_aimer"], trajectory_compensator);
         max_detect_armors_ = config_["max_detect_armors"].as<int>(10);
-        armor_queue_ = std::make_unique<OrderedQueue<armor::Armors>>(10, 500);
+        armor_queue_ = std::make_unique<OrderedQueue<armor::Armors>>(100, 500);
         latency_averager_ = std::make_unique<Averager<double>>(100);
         auto_exposure_cfg_.loadFromYaml(config_["auto_exposure"]);
         return true;
@@ -280,7 +280,7 @@ struct AutoAim::Impl {
                 armorsCallback(armors);
                 tracker_finish_count_++;
                 if (skip) {
-                    WUST_WARN(logger_) << "OrderQueue skip";
+                    WUST_DEBUG(logger_) << "OrderQueue skip";
                 }
             }
         }

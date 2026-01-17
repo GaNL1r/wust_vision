@@ -357,18 +357,18 @@ public:
         auto ap = target.getArmorPositions();
         auto now = time_utils::now();
         double dt0 = time_utils::durationSec(target.timestamp_, now);
+        auto future = now + std::chrono::microseconds(int(dt0 * 1e6));
+        target.predict(future);
         double fly_time =
             trajectory_compensator_->getFlyingTime(ap[roughly_select].head<3>(), bullet_speed);
-        double dt_total = dt0 + fly_time + prediction_delay_;
-        auto future = now + std::chrono::microseconds(int(dt_total * 1e6));
-        target.predict(future);
         std::vector<Target> iteration_target(10, target);
         bool converged = false;
-        double prev_fly_time = 0.0;
+        double prev_fly_time = fly_time;
         for (int iter = 0; iter < 10; ++iter) {
             auto predict_time = prev_fly_time;
             iteration_target[iter].predict(predict_time);
             int iter_select = selectArmor(iteration_target[iter], aim_first);
+            // int iter_select = roughly_select;
             auto iter_poss = iteration_target[iter].getArmorPositions();
             double iter_fly_time =
                 trajectory_compensator_->getFlyingTime(iter_poss[iter_select], bullet_speed);
@@ -378,7 +378,7 @@ public:
             }
             prev_fly_time = iter_fly_time;
         }
-        auto predict_time = prev_fly_time;
+        auto predict_time = prev_fly_time+prediction_delay_;
         target.predict(predict_time);
         int fin_target_select = selectArmor(target, aim_first);
         auto fin_armors_xyza = target.getArmorPosAndYaw();

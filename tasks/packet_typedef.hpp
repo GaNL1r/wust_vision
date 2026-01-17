@@ -30,42 +30,26 @@ struct ReceiveAimINFO {
     uint8_t cmd_ID; //命令码
     uint32_t time_stamp; //时间戳
 
-    float yaw; // rad
-    float pitch; // rad
-    float roll; // rad
+    float yaw; 
+    float pitch; 
+    float roll;
     float ins_sum;
-    float yaw_vel; // rad/s
-    float pitch_vel; // rad/s
-    float roll_vel; // rad/s
+    float yaw_vel; 
+    float pitch_vel; 
+    float roll_vel; 
 
     float v_x;
     float v_y;
     float v_z;
 
-    float bullet_speed; // m/s
-    float controller_delay; // s
+    float bullet_speed; 
+    float controller_delay; 
 
     uint8_t manual_reset_count;
     uint8_t detect_color; // 0 red 1 blue
 
 } __attribute__((packed));
-struct ReceiveReferee //rmul2024
-{
-    uint8_t cmd_ID; //命令码
-    uint32_t time_stamp;
-    int game_time; //gamestate 到4 从0开始，其他状态发-1
-    uint8_t my_team;
-    int max_health;
-    int cur_health;
-    int cur_bullet;
-    int r1_health;
-    int r3_health;
-    int r7_health;
-    int b1_health;
-    int b3_health;
-    int b7_health;
 
-} __attribute__((packed));
 
 struct SendRobotCmdData {
     uint8_t cmd_ID; //命令码
@@ -93,5 +77,24 @@ struct NavRobotCmdData {
     float vx;
     float vy;
     float wz;
+
+} __attribute__((packed));
+
+
+struct ReceiveReferee //rmul2024
+{
+    uint8_t cmd_ID; //命令码
+    uint32_t time_stamp;
+    int game_time; //gamestate 到4 从0开始，其他状态发-1
+    uint8_t my_team;
+    int max_health;
+    int cur_health;
+    int cur_bullet;
+    int r1_health;
+    int r3_health;
+    int r7_health;
+    int b1_health;
+    int b3_health;
+    int b7_health;
 
 } __attribute__((packed));

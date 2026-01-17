@@ -104,7 +104,7 @@ struct AutoGuidance::Impl {
                 lightsCallback(lights);
                 tracker_finish_count_++;
                 if (skip) {
-                    WUST_WARN(logger_) << "OrderQueue skip";
+                    WUST_DEBUG(logger_) << "OrderQueue skip";
                 }
             }
         }

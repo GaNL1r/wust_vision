@@ -43,7 +43,7 @@ struct AutoBuff::Impl {
             std::placeholders::_2,
             std::placeholders::_3
         ));
-        rune_queue_ = std::make_unique<OrderedQueue<rune::RuneFan>>(10, 500);
+        rune_queue_ = std::make_unique<OrderedQueue<rune::RuneFan>>(100, 500);
         rune::RuneTargetConfig rune_target_config;
         rune_target_config.loadFromYaml(config["rune_tracker"]);
 
@@ -241,7 +241,7 @@ struct AutoBuff::Impl {
                 runeTargetCallback(rune);
                 tracker_finish_count_++;
                 if (skip) {
-                    WUST_WARN(logger_) << "OrderQueue skip";
+                    WUST_DEBUG(logger_) << "OrderQueue skip";
                 }
             }
         }

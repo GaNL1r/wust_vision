@@ -116,7 +116,6 @@ find_package(rclcpp QUIET)
 find_package(geometry_msgs QUIET)
 find_package(std_msgs QUIET)
 find_package(tf2_ros QUIET)
-find_package(wust_interfaces QUIET)
 find_package(sensor_msgs QUIET)
 
 set(ROS2_CORE_FOUND FALSE)
@@ -126,7 +125,7 @@ if(ament_cmake_FOUND AND rclcpp_FOUND)
   set(ROS2_CORE_FOUND TRUE)
 endif()
 
-if(ament_cmake_FOUND AND rclcpp_FOUND  AND geometry_msgs_FOUND AND wust_interfaces_FOUND AND tf2_ros_FOUND)
+if(ament_cmake_FOUND AND rclcpp_FOUND  AND geometry_msgs_FOUND AND  tf2_ros_FOUND)
   set(ROS2_FULL_FOUND TRUE)
   
 endif()
@@ -150,7 +149,7 @@ if(ROS2_FULL_FOUND)
     tasks_common
     toros2
   )
-  ament_target_dependencies(sentry rclcpp std_msgs geometry_msgs wust_interfaces tf2_ros)
+  ament_target_dependencies(sentry rclcpp std_msgs geometry_msgs  tf2_ros)
   add_executable(hero src/hero.cpp)
   target_link_libraries(hero
     project_min_deps
@@ -162,7 +161,7 @@ if(ROS2_FULL_FOUND)
     toros2
     auto_sniper
   )
-  ament_target_dependencies(hero rclcpp std_msgs geometry_msgs wust_interfaces tf2_ros)
+  ament_target_dependencies(hero rclcpp std_msgs geometry_msgs  tf2_ros)
   add_executable(sim src/sim.cpp)
   target_link_libraries(sim
     project_min_deps
