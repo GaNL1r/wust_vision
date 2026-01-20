@@ -23,7 +23,7 @@ namespace ypdrune_motion_model {
 constexpr int X_N = 6, Z_N = 5;
 using VecZ = Eigen::Matrix<double, Z_N, 1>;
 using VecX = Eigen::Matrix<double, X_N, 1>;
-enum class Mean : uint8_t { YPD_Y = 0, YPD_P = 1, YPD_D = 2, ORI_YAW = 3, ORI_ROLL = 4, Z_N = 5 };
+enum class Meas : uint8_t { YPD_Y = 0, YPD_P = 1, YPD_D = 2, ORI_YAW = 3, ORI_ROLL = 4, Z_N = 5 };
 enum class State : uint8_t { CX = 0, CY = 1, CZ = 2, YAW = 3, ROLL = 4, VROLL = 5, X_N = 6 };
 struct Predict {
     Predict() = default;
@@ -53,11 +53,11 @@ struct Measure {
         T dist = ceres::sqrt(xy_dist * xy_dist + x[(int)State::CZ] * x[(int)State::CZ]);
 
         // Observation model
-        z[(int)Mean::YPD_Y] = ceres::atan2(x[1], x[0]); // yaw
-        z[(int)Mean::YPD_P] = ceres::atan2(x[2], xy_dist); // pitch
-        z[(int)Mean::YPD_D] = dist; // distance
-        z[(int)Mean::ORI_YAW] = x[(int)State::YAW]; // orientation_yaw
-        z[(int)Mean::ORI_ROLL] = normalize_angle_t(x[(int)State::ROLL] + id * 2 * M_PI / 5); // roll
+        z[(int)Meas::YPD_Y] = ceres::atan2(x[1], x[0]); // yaw
+        z[(int)Meas::YPD_P] = ceres::atan2(x[2], xy_dist); // pitch
+        z[(int)Meas::YPD_D] = dist; // distance
+        z[(int)Meas::ORI_YAW] = x[(int)State::YAW]; // orientation_yaw
+        z[(int)Meas::ORI_ROLL] = normalize_angle_t(x[(int)State::ROLL] + id * 2 * M_PI / 5); // roll
     }
     void h(const VecX& x, VecZ& z) const {
         assert(x.size() == X_N);

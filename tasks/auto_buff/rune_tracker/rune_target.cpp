@@ -24,17 +24,17 @@ RuneTarget::RuneTarget(
     esekf_ypd_ = ypdrune_motion_model::RuneESKF(f, h, u_q, u_r, p0);
     esekf_ypd_.setResidualFunc([](const Eigen::VectorXd& z_pred, const Eigen::VectorXd& z) {
         Eigen::VectorXd r = z - z_pred;
-        r[(int)ypdrune_motion_model::Mean::YPD_Y] = angles::shortest_angular_distance(
-            z_pred[(int)ypdrune_motion_model::Mean::YPD_Y],
-            z[(int)ypdrune_motion_model::Mean::YPD_Y]
+        r[(int)ypdrune_motion_model::Meas::YPD_Y] = angles::shortest_angular_distance(
+            z_pred[(int)ypdrune_motion_model::Meas::YPD_Y],
+            z[(int)ypdrune_motion_model::Meas::YPD_Y]
         ); // yaw
-        r[(int)ypdrune_motion_model::Mean::ORI_YAW] = angles::shortest_angular_distance(
-            z_pred[(int)ypdrune_motion_model::Mean::ORI_YAW],
-            z[(int)ypdrune_motion_model::Mean::ORI_YAW]
+        r[(int)ypdrune_motion_model::Meas::ORI_YAW] = angles::shortest_angular_distance(
+            z_pred[(int)ypdrune_motion_model::Meas::ORI_YAW],
+            z[(int)ypdrune_motion_model::Meas::ORI_YAW]
         ); // ori_yaw
-        r[(int)ypdrune_motion_model::Mean::ORI_ROLL] = angles::shortest_angular_distance(
-            z_pred[(int)ypdrune_motion_model::Mean::ORI_ROLL],
-            z[(int)ypdrune_motion_model::Mean::ORI_ROLL]
+        r[(int)ypdrune_motion_model::Meas::ORI_ROLL] = angles::shortest_angular_distance(
+            z_pred[(int)ypdrune_motion_model::Meas::ORI_ROLL],
+            z[(int)ypdrune_motion_model::Meas::ORI_ROLL]
         ); // ori_roll
         return r;
     });
@@ -42,18 +42,18 @@ RuneTarget::RuneTarget(
     esekf_ypd_.setInjectFunc([](const Eigen::Matrix<double, ypdrune_motion_model::X_N, 1>& delta,
                                 Eigen::Matrix<double, ypdrune_motion_model::X_N, 1>& nominal) {
         for (int i = 0; i < ypdrune_motion_model::X_N; i++) {
-            if (i == (int)ypdrune_motion_model::Mean::ORI_YAW
-                || i == (int)ypdrune_motion_model::Mean::ORI_ROLL)
+            if (i == (int)ypdrune_motion_model::Meas::ORI_YAW
+                || i == (int)ypdrune_motion_model::Meas::ORI_ROLL)
                 continue;
             nominal[i] += delta[i];
         }
-        nominal[(int)ypdrune_motion_model::Mean::ORI_YAW] = angles::normalize_angle(
-            nominal[(int)ypdrune_motion_model::Mean::ORI_YAW]
-            + delta[(int)ypdrune_motion_model::Mean::ORI_YAW]
+        nominal[(int)ypdrune_motion_model::Meas::ORI_YAW] = angles::normalize_angle(
+            nominal[(int)ypdrune_motion_model::Meas::ORI_YAW]
+            + delta[(int)ypdrune_motion_model::Meas::ORI_YAW]
         );
-        nominal[(int)ypdrune_motion_model::Mean::ORI_ROLL] = angles::normalize_angle(
-            nominal[(int)ypdrune_motion_model::Mean::ORI_ROLL]
-            + delta[(int)ypdrune_motion_model::Mean::ORI_ROLL]
+        nominal[(int)ypdrune_motion_model::Meas::ORI_ROLL] = angles::normalize_angle(
+            nominal[(int)ypdrune_motion_model::Meas::ORI_ROLL]
+            + delta[(int)ypdrune_motion_model::Meas::ORI_ROLL]
         );
     });
 
@@ -267,14 +267,14 @@ RuneTarget::match(const std::vector<rune::RuneFan::Simple>& fans) {
             measure.h(target_state_, z_pred);
 
             ypdrune_motion_model::VecZ nu = meas_list[j] - z_pred;
-            nu[(int)ypdrune_motion_model::Mean::YPD_Y] =
-                angles::normalize_angle(nu[(int)ypdrune_motion_model::Mean::YPD_Y]);
-            nu[(int)ypdrune_motion_model::Mean::YPD_P] =
-                angles::normalize_angle(nu[(int)ypdrune_motion_model::Mean::YPD_P]);
-            nu[(int)ypdrune_motion_model::Mean::ORI_YAW] =
-                angles::normalize_angle(nu[(int)ypdrune_motion_model::Mean::ORI_YAW]);
-            nu[(int)ypdrune_motion_model::Mean::ORI_ROLL] =
-                angles::normalize_angle(nu[(int)ypdrune_motion_model::Mean::ORI_ROLL]);
+            nu[(int)ypdrune_motion_model::Meas::YPD_Y] =
+                angles::normalize_angle(nu[(int)ypdrune_motion_model::Meas::YPD_Y]);
+            nu[(int)ypdrune_motion_model::Meas::YPD_P] =
+                angles::normalize_angle(nu[(int)ypdrune_motion_model::Meas::YPD_P]);
+            nu[(int)ypdrune_motion_model::Meas::ORI_YAW] =
+                angles::normalize_angle(nu[(int)ypdrune_motion_model::Meas::ORI_YAW]);
+            nu[(int)ypdrune_motion_model::Meas::ORI_ROLL] =
+                angles::normalize_angle(nu[(int)ypdrune_motion_model::Meas::ORI_ROLL]);
             auto R = computeMeasurementCovariance(z_pred);
             auto Rinv = R.inverse();
 

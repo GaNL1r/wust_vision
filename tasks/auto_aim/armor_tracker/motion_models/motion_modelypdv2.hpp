@@ -29,7 +29,7 @@ enum class MotionModel {
 constexpr int X_N = 11, Z_N = 4;
 using VecZ = Eigen::Matrix<double, Z_N, 1>;
 using VecX = Eigen::Matrix<double, X_N, 1>;
-enum class Mean : uint8_t { YPD_Y = 0, YPD_P = 1, YPD_D = 2, ORI_YAW = 3, Z_N = 4 };
+enum class Meas : uint8_t { YPD_Y = 0, YPD_P = 1, YPD_D = 2, ORI_YAW = 3, Z_N = 4 };
 enum class State : uint8_t {
     CX = 0,
     VCX = 1,
@@ -130,10 +130,10 @@ struct Measure {
         T dist = ceres::sqrt(xy_dist * xy_dist + armor_z * armor_z);
 
         // Observation model
-        z[(int)Mean::YPD_Y] = ceres::atan2(armor_y, armor_x); // yaw
-        z[(int)Mean::YPD_P] = ceres::atan2(armor_z, xy_dist); // pitch
-        z[(int)Mean::YPD_D] = dist; // distance
-        z[(int)Mean::ORI_YAW] = angle; // orientation_yaw
+        z[(int)Meas::YPD_Y] = ceres::atan2(armor_y, armor_x); // yaw
+        z[(int)Meas::YPD_P] = ceres::atan2(armor_z, xy_dist); // pitch
+        z[(int)Meas::YPD_D] = dist; // distance
+        z[(int)Meas::ORI_YAW] = angle; // orientation_yaw
     }
     template<typename T>
     T getoutpost_armor_z(const T x[X_N]) const {

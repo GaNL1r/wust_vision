@@ -40,12 +40,12 @@ Target::Target(const armor::Armor& a, const TargetConfig& target_config) {
                                ) {
         Eigen::Matrix<double, MModel::Z_N, 1> r = z - z_pred;
         r[0] = angles::shortest_angular_distance(
-            z_pred[(int)MModel::Mean::YPD_Y],
-            z[(int)MModel::Mean::YPD_Y]
+            z_pred[(int)MModel::Meas::YPD_Y],
+            z[(int)MModel::Meas::YPD_Y]
         ); // yaw
         r[3] = angles::shortest_angular_distance(
-            z_pred[(int)MModel::Mean::ORI_YAW],
-            z[(int)MModel::Mean::ORI_YAW]
+            z_pred[(int)MModel::Meas::ORI_YAW],
+            z[(int)MModel::Meas::ORI_YAW]
         ); // ori_yaw
         return r;
     });
@@ -351,10 +351,10 @@ std::vector<std::pair<int, armor::Armor>> Target::match(const std::vector<armor:
             measure.h(target_state_, z_pred);
 
             MModel::VecZ nu = meas_list[j] - z_pred;
-            nu[(int)MModel::Mean::YPD_Y] = angles::normalize_angle(nu[(int)MModel::Mean::YPD_Y]);
-            nu[(int)MModel::Mean::YPD_P] = angles::normalize_angle(nu[(int)MModel::Mean::YPD_P]);
-            nu[(int)MModel::Mean::ORI_YAW] =
-                angles::normalize_angle(nu[(int)MModel::Mean::ORI_YAW]);
+            nu[(int)MModel::Meas::YPD_Y] = angles::normalize_angle(nu[(int)MModel::Meas::YPD_Y]);
+            nu[(int)MModel::Meas::YPD_P] = angles::normalize_angle(nu[(int)MModel::Meas::YPD_P]);
+            nu[(int)MModel::Meas::ORI_YAW] =
+                angles::normalize_angle(nu[(int)MModel::Meas::ORI_YAW]);
             auto R = computeMeasurementCovariance(z_pred);
             auto Rinv = R.inverse();
 
