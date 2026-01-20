@@ -151,7 +151,6 @@ struct AutoBuff::Impl {
 
         rune_queue_->enqueue(copy_fan);
         if (debug_mode_) {
-            std::lock_guard<std::mutex> lock(dbg_mutex_);
             auto_buff_debug_.src_img = { std::move(debug_img), frame.timestamp };
             auto_buff_debug_.T_camera_to_odom = T_camera_to_odom_;
             auto_buff_debug_.expanded = frame.expanded;
@@ -183,7 +182,6 @@ struct AutoBuff::Impl {
         if (debug_mode_) {
             static double last_unwrapped_roll = 0.0;
             static double last_raw_roll = 0.0;
-            std::lock_guard<std::mutex> lock(dbg_mutex_);
             const double raw_roll = rune_target.roll();
             const double raw_pred = rune_target.predictAngle(0.5);
             const double obs_angle =
@@ -217,7 +215,6 @@ struct AutoBuff::Impl {
         }
         gimbal_cmd.appera = rune_target.checkTargetAppear();
         if (debug_mode_) {
-            std::lock_guard<std::mutex> lock(dbg_mutex_);
             auto_buff_debug_.gimbal_cmd = gimbal_cmd;
             auto_buff_debug_.aim_target = gimbal_cmd.aim_target;
         }
@@ -249,7 +246,6 @@ struct AutoBuff::Impl {
         debug_mode_ = debug;
     }
     DebugRune getDebugFrame() {
-        std::lock_guard<std::mutex> lock(dbg_mutex_);
         return auto_buff_debug_;
     }
     void printStats() {
@@ -323,10 +319,8 @@ struct AutoBuff::Impl {
     int timer_cout_ = 0;
     int fire_count_;
     std::chrono::steady_clock::time_point last_rune_target_time_;
-    std::chrono::steady_clock::time_point last_stat_time_steady_ = std::chrono::steady_clock::now();
     bool debug_mode_ = false;
     DebugRune auto_buff_debug_;
-    std::mutex dbg_mutex_;
     std::unique_ptr<Averager<double>> latency_averager_;
     Eigen::Matrix3d R_camera2gimbal_;
     Eigen::Vector3d t_camera2gimbal_;

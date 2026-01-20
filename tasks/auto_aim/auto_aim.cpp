@@ -122,7 +122,7 @@ struct AutoAim::Impl {
     void pushInput(CommonFrame& frame) {
         img_recv_count_++;
 
-        auto bbox = armor_solver_target_.expanded(
+        auto bbox = target_.expanded(
             T_camera_to_odom_,
             camera_info_.first,
             camera_info_.second,
@@ -204,7 +204,6 @@ struct AutoAim::Impl {
         armor_queue_->enqueue(armors);
         detect_finish_count_++;
         if (debug_mode_) {
-            std::lock_guard<std::mutex> lock(dbg_mutex_);
             auto_aim_debug_.src_img.img = std::move(frame.src_img);
             auto_aim_debug_.src_img.timestamp = armors.timestamp;
             auto_aim_debug_.armors = armors;
@@ -228,13 +227,12 @@ struct AutoAim::Impl {
         target = tracker_manager_->update(armors, auto_aim_fsm_cl_);
         auto now = std::chrono::steady_clock::now();
 
-        armor_solver_target_ = target;
+        target_ = target;
 
         auto latency_ms = time_utils::durationMs(armors.timestamp, now);
         latency_averager_->add(latency_ms);
         auto_aim_debug_.latency_ms = latency_averager_->average();
         if (debug_mode_) {
-            std::lock_guard<std::mutex> lock(dbg_mutex_);
             auto_aim_debug_.target = target;
             auto_aim_debug_.fsm = auto_aim_fsm_cl_.fsm_state_;
         }
@@ -244,7 +242,7 @@ struct AutoAim::Impl {
         GimbalCmd gimbal_cmd;
         Target target;
 
-        target = armor_solver_target_;
+        target = target_;
 
         AimTarget aim_target;
         bool appear = target.checkTargetAppear();
@@ -258,7 +256,6 @@ struct AutoAim::Impl {
             fire_count_++;
         }
         if (debug_mode_) {
-            std::lock_guard<std::mutex> lock(dbg_mutex_);
             auto_aim_debug_.gimbal_cmd = gimbal_cmd;
             auto_aim_debug_.aim_target = aim_target;
         }
@@ -289,7 +286,6 @@ struct AutoAim::Impl {
         debug_mode_ = debug;
     }
     DebugArmor getDebugFrame() {
-        std::lock_guard<std::mutex> lock(dbg_mutex_);
         return auto_aim_debug_;
     }
     void printStats() {
@@ -374,11 +370,9 @@ struct AutoAim::Impl {
     int tracker_finish_count_ = 0;
     int fire_count_ = 0;
     int timer_cout_ = 0;
-    std::chrono::steady_clock::time_point last_stat_time_steady_ = std::chrono::steady_clock::now();
-    Target armor_solver_target_;
+    Target target_;
     bool debug_mode_ = false;
     DebugArmor auto_aim_debug_;
-    std::mutex dbg_mutex_;
     std::unique_ptr<Averager<double>> latency_averager_;
     Eigen::Matrix3d R_camera2gimbal_;
     Eigen::Vector3d t_camera2gimbal_;

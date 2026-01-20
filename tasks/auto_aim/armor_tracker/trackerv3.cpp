@@ -95,12 +95,19 @@ bool TrackerV3::initTarget(const armor::Armors& armors) {
     if (armors.armors.empty()) {
         return false;
     }
-    auto a = armors.armors.front();
-    if (a.is_none_purple) {
+    bool found = false;
+    armor::Armor init_target ;
+    for(auto& a: armors.armors){
+        if(!a.is_none_purple){
+            init_target = a;
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
         return false;
     }
-
-    target_ = Target(a, target_config_);
+    target_ = Target(init_target, target_config_);
 
     tracker_state = DETECTING;
     return true;
@@ -123,16 +130,16 @@ bool TrackerV3::updateTarget(const armor::Armors& armors) {
         return false;
     found_count = 0;
     auto matched_armors = target_.match(valid_armors);
-    for (auto [id, armor]: matched_armors) {
-        if (armor.is_none_purple) {
+    for (auto a: matched_armors) {
+        if (a.second.is_none_purple) {
             is_none_purple_count_++;
         } else {
             is_none_purple_count_ = 0;
         }
-        if (is_none_purple_count_ > 100 && armor.is_none_purple) {
+        if (is_none_purple_count_ > 100 && a.second.is_none_purple) {
             continue;
         }
-        if (target_.update(std::make_pair(id, armor))) {
+        if (target_.update(a)) {
             found_count++;
         }
     }
