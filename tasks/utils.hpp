@@ -16,14 +16,13 @@
 
 #pragma once
 
-// #include "tasks/auto_aim/type.hpp"
-#include "tasks/type_common.hpp"
 #include "wust_vl/common/utils/logger.hpp"
 #include "wust_vl/video/image.hpp"
+#include <Eigen/Dense>
 #include <opencv2/core/eigen.hpp>
 #include <pwd.h>
 #include <regex>
-
+#include <yaml-cpp/yaml.h>
 // util functions
 namespace utils {
 // Convert euler angles to rotation matrix
@@ -99,7 +98,6 @@ std::tuple<double, double, double> ypd2xyz_rad(double yaw, double pitch, double 
 
 std::tuple<double, double, double> xyz2ypd_deg(double x, double y, double z);
 std::tuple<double, double, double> ypd2xyz_deg(double yaw_deg, double pitch_deg, double distance);
-CommonFrame toCommonFrame(wust_vl_video::ImageFrame& frame);
 Eigen::Vector3d xyz2ypd(const Eigen::Vector3d& xyz);
 template<typename Point>
 Point getCenter(const std::vector<Point>& points);

@@ -96,9 +96,9 @@ bool TrackerV3::initTarget(const armor::Armors& armors) {
         return false;
     }
     bool found = false;
-    armor::Armor init_target ;
-    for(auto& a: armors.armors){
-        if(!a.is_none_purple){
+    armor::Armor init_target;
+    for (auto& a: armors.armors) {
+        if (!a.is_none_purple) {
             init_target = a;
             found = true;
             break;

@@ -398,15 +398,6 @@ std::tuple<double, double, double> ypd2xyz_deg(double yaw_deg, double pitch_deg,
     double z = distance * std::sin(pitch);
     return std::make_tuple(x, y, z);
 }
-CommonFrame toCommonFrame(wust_vl_video::ImageFrame& frame) {
-    CommonFrame common_frame;
-    common_frame.timestamp = frame.timestamp;
-    if (frame.src_img.empty()) {
-        return common_frame;
-    }
-    common_frame.src_img = std::move(frame.src_img);
-    return common_frame;
-}
 Eigen::Vector3d xyz2ypd(const Eigen::Vector3d& xyz) {
     auto x = xyz[0], y = xyz[1], z = xyz[2];
     auto yaw = std::atan2(y, x);
