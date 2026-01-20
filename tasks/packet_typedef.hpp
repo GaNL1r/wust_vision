@@ -30,26 +30,25 @@ struct ReceiveAimINFO {
     uint8_t cmd_ID; //命令码
     uint32_t time_stamp; //时间戳
 
-    float yaw; 
-    float pitch; 
+    float yaw;
+    float pitch;
     float roll;
     float ins_sum;
-    float yaw_vel; 
-    float pitch_vel; 
-    float roll_vel; 
+    float yaw_vel;
+    float pitch_vel;
+    float roll_vel;
 
     float v_x;
     float v_y;
     float v_z;
 
-    float bullet_speed; 
-    float controller_delay; 
+    float bullet_speed;
+    float controller_delay;
 
     uint8_t manual_reset_count;
     uint8_t detect_color; // 0 red 1 blue
 
 } __attribute__((packed));
-
 
 struct SendRobotCmdData {
     uint8_t cmd_ID; //命令码
@@ -79,7 +78,6 @@ struct NavRobotCmdData {
     float wz;
 
 } __attribute__((packed));
-
 
 struct ReceiveReferee //rmul2024
 {

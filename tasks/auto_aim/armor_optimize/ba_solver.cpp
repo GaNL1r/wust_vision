@@ -162,7 +162,7 @@ double BaSolver::goldenYaw(
     double f1 = reprojectionErrorYaw(y1, obj, lm, Rci, pitch, roll, t, K, camera_info_.second);
     double f2 = reprojectionErrorYaw(y2, obj, lm, Rci, pitch, roll, t, K, camera_info_.second);
 
-    while (r - l > 0.0001) { // stop threshold ~0.005 degree
+    while (r - l > 0.0001) {
         if (f1 < f2) {
             r = y2;
             y2 = y1;

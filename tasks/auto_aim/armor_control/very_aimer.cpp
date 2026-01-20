@@ -378,7 +378,7 @@ public:
             }
             prev_fly_time = iter_fly_time;
         }
-        auto predict_time = prev_fly_time+prediction_delay_;
+        auto predict_time = prev_fly_time + prediction_delay_;
         target.predict(predict_time);
         int fin_target_select = selectArmor(target, aim_first);
         auto fin_armors_xyza = target.getArmorPosAndYaw();
@@ -476,7 +476,7 @@ public:
         cmd.raw_yaw = rad2deg(target_yaw_rad);
         cmd.raw_pitch = rad2deg(target_pitch_rad);
         cmd.distance = fin_aim_pos.norm();
-        cmd.fly_time = fly_time + prev_fly_time;
+        cmd.fly_time = prev_fly_time;
         auto delay_state = getStateAtTime(traj, total_time / 2.0 + control_delay_);
         TrajectoryVec control_traj;
         control_traj.resize(MPC_HORIZON);

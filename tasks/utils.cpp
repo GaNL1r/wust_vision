@@ -527,21 +527,21 @@ cv::Mat letterbox(
     cv::Mat resized;
     cv::resize(img, resized, cv::Size(resize_w, resize_h), 0, 0, cv::INTER_LINEAR);
 
-
     cv::Mat out;
     cv::copyMakeBorder(
-        resized, out,
-        top, pad_h - top,
-        left, pad_w - left,
+        resized,
+        out,
+        top,
+        pad_h - top,
+        left,
+        pad_w - left,
         cv::BORDER_CONSTANT,
-        cv::Scalar(114,114,114)
+        cv::Scalar(114, 114, 114)
     );
 
     const float inv_scale = 1.0f / scale;
 
-    transform_matrix << inv_scale, 0, -left * inv_scale,
-                        0, inv_scale, -top  * inv_scale,
-                        0, 0, 1;
+    transform_matrix << inv_scale, 0, -left * inv_scale, 0, inv_scale, -top * inv_scale, 0, 0, 1;
 
     return out;
 }

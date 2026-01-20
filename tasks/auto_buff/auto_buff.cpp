@@ -129,7 +129,6 @@ struct AutoBuff::Impl {
                 cv::SOLVEPNP_IPPE //平移更稳定，（旋转这里纯靠后面优化）
 
             );
-
             cv::Mat R_cv;
             cv::Rodrigues(rvec, R_cv);
             Eigen::Matrix3d R = utils::cvToEigen(R_cv);
