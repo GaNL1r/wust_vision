@@ -2,6 +2,7 @@
 #include "gcopter/minco.hpp"
 #include "tasks/auto_aim/armor_control/tinympc/tiny_api.hpp"
 #include "tasks/auto_aim/armor_control/tinympc/types.hpp"
+#include "traj.hpp"
 #include "wust_vl/common/utils/manual_compensator.hpp"
 namespace auto_aim {
 struct ControlPoint {
@@ -9,21 +10,41 @@ struct ControlPoint {
     double pitch;
     int id_in_target;
 };
+struct GimbalPoint {
+    double yaw;
+    double v_yaw;
+    double pitch;
+    double v_pitch;
+
+    static GimbalPoint lerp(const GimbalPoint& p0, const GimbalPoint& p1, double a) {
+        GimbalPoint r;
+        r.yaw = (1.0 - a) * p0.yaw + a * p1.yaw;
+        r.v_yaw = (1.0 - a) * p0.v_yaw + a * p1.v_yaw;
+        r.pitch = (1.0 - a) * p0.pitch + a * p1.pitch;
+        r.v_pitch = (1.0 - a) * p0.v_pitch + a * p1.v_pitch;
+        return r;
+    }
+};
+struct GimbalPointWithAcc {
+    double a_yaw;
+    double a_pitch;
+    GimbalPoint gimbal_point;
+    static GimbalPointWithAcc
+    lerp(const GimbalPointWithAcc& p0, const GimbalPointWithAcc& p1, double a) {
+        GimbalPointWithAcc r;
+        r.a_pitch = (1.0 - a) * p0.a_pitch + a * p1.a_pitch;
+        r.a_yaw = (1.0 - a) * p0.a_yaw + a * p1.a_yaw;
+        r.gimbal_point = GimbalPoint::lerp(p0.gimbal_point, p1.gimbal_point, a);
+        return r;
+    }
+};
 constexpr int MPC_HORIZON = 300;
 constexpr double MPC_DT = 1.0 / MPC_HORIZON;
 constexpr int MPC_HALF_HORIZON = MPC_HORIZON / 2;
-struct TrajPoint {
-    double yaw;
 
-    double v_yaw;
-
-    double pitch;
-
-    double v_pitch;
-};
 struct VeryAimer::Impl {
 public:
-    using TrajectoryVec = std::vector<TrajPoint>;
+    using TrajectoryVec = std::vector<GimbalPoint>;
 
     Impl(const YAML::Node& config, std::shared_ptr<TrajectoryCompensator> trajectory_compensator) {
         trajectory_compensator_ = trajectory_compensator;
@@ -251,14 +272,17 @@ public:
         cp.id_in_target = target_select;
         return cp;
     }
-    TrajectoryVec getTrajectory(
+    Trajectory<GimbalPoint> getTrajectory(
         Target& target,
         const ControlPoint& cp0,
         double bullet_speed,
         const AutoAimFsm& auto_aim_fsm
     ) {
-        TrajectoryVec traj;
-        traj.reserve(MPC_HORIZON);
+        Trajectory<GimbalPoint> traj;
+        std::vector<GimbalPoint> cp_vec;
+        std::vector<double> dt_vec;
+        cp_vec.reserve(MPC_HORIZON);
+        dt_vec.reserve(MPC_HORIZON);
 
         target.predict(-MPC_DT * (MPC_HALF_HORIZON + 1));
         auto cp_last = choseAndGetControlPoint(target, bullet_speed, auto_aim_fsm);
@@ -272,18 +296,18 @@ public:
             double yaw_vel = angles::normalize_angle(cp_next.yaw - cp_last.yaw) / (2 * MPC_DT);
             double pitch_vel = (cp_next.pitch - cp_last.pitch) / (2 * MPC_DT);
 
-            TrajPoint pt;
+            GimbalPoint pt;
             pt.yaw = angles::normalize_angle(cp.yaw - cp0.yaw);
             pt.v_yaw = yaw_vel;
             pt.pitch = cp.pitch;
             pt.v_pitch = pitch_vel;
-
-            traj.push_back(pt);
+            cp_vec.push_back(pt);
+            dt_vec.push_back(MPC_DT);
 
             cp_last = cp;
             cp = cp_next;
         }
-
+        traj.set(cp_vec, dt_vec);
         return traj;
     }
     ControlPoint getControlPoint(Eigen::Vector3d aim_target_pos, double bullet_speed) {
@@ -312,32 +336,6 @@ public:
         cp.yaw = control_yaw;
         return cp;
     }
-    TrajPoint getStateAtTime(const TrajectoryVec& traj, double t) {
-        double total_time = (traj.size() - 1) * MPC_DT;
-        Eigen::Vector4d result_yaw_vyaw_pitch_vpitch;
-        if (t <= 0.0)
-            return traj.front();
-        if (t >= total_time) {
-            return traj.back();
-        }
-
-        const double idx = t / MPC_DT;
-        int i0 = floor(idx);
-        int i1 = ceil(idx);
-        if (i0 == i1)
-            return traj[i0];
-
-        const double a = idx - i0;
-        const Eigen::Vector4d s0 { traj[i0].yaw, traj[i0].v_yaw, traj[i0].pitch, traj[i0].v_pitch };
-        const Eigen::Vector4d s1 { traj[i1].yaw, traj[i1].v_yaw, traj[i1].pitch, traj[i1].v_pitch };
-        result_yaw_vyaw_pitch_vpitch = (1 - a) * s0 + a * s1;
-        TrajPoint result;
-        result.yaw = result_yaw_vyaw_pitch_vpitch[0];
-        result.v_yaw = result_yaw_vyaw_pitch_vpitch[1];
-        result.pitch = result_yaw_vyaw_pitch_vpitch[2];
-        result.v_pitch = result_yaw_vyaw_pitch_vpitch[3];
-        return result;
-    }
     std::tuple<double, double>
     calEnableDiff(Eigen::Vector3d aim_target_pos, double diff_yaw, const AutoAimFsm& auto_aim_fsm) {
         const double distance = aim_target_pos.norm();
@@ -365,6 +363,52 @@ public:
     inline double rad2deg(double r) {
         return r / M_PI * 180.0;
     }
+    Trajectory<GimbalPointWithAcc> solveTrajectory(const Trajectory<GimbalPoint>& traj) {
+        const double total_time = traj.getTotalDuration();
+        auto trajVecToEigen = [&](const Trajectory<GimbalPoint>& traj) {
+            Eigen::Matrix<double, 4, Eigen::Dynamic> mat(4, MPC_HORIZON);
+
+            const double half_t = total_time * 0.5;
+            for (int k = 0; k < MPC_HORIZON; ++k) {
+                int i = k - MPC_HALF_HORIZON;
+                double t = i * MPC_DT + half_t;
+                auto state = traj.getStateAtTime(t);
+                mat(0, k) = state.yaw;
+                mat(1, k) = state.v_yaw;
+                mat(2, k) = state.pitch;
+                mat(3, k) = state.v_pitch;
+            }
+            return mat;
+        };
+
+        auto traj_eigen = trajVecToEigen(traj);
+        Eigen::VectorXd x0(2);
+        x0 << traj_eigen(0, 0), traj_eigen(1, 0);
+        tiny_set_x0(yaw_solver_, x0);
+        yaw_solver_->work->Xref = traj_eigen.block(0, 0, 2, MPC_HORIZON);
+        tiny_solve(yaw_solver_);
+
+        x0 << traj_eigen(2, 0), traj_eigen(3, 0);
+        tiny_set_x0(pitch_solver_, x0);
+        pitch_solver_->work->Xref = traj_eigen.block(2, 0, 2, MPC_HORIZON);
+        tiny_solve(pitch_solver_);
+
+        Trajectory<GimbalPointWithAcc> control_traj;
+        control_traj.reserve(MPC_HORIZON);
+        for (int i = 0; i < MPC_HORIZON; i++) {
+            GimbalPointWithAcc tp;
+            tp.gimbal_point.yaw = yaw_solver_->work->x(0, i);
+            tp.gimbal_point.v_yaw = yaw_solver_->work->x(1, i);
+            tp.gimbal_point.pitch = pitch_solver_->work->x(0, i);
+            tp.gimbal_point.v_pitch = pitch_solver_->work->x(1, i);
+            tp.a_yaw = yaw_solver_->work->u(0, i);
+            tp.a_pitch = pitch_solver_->work->u(0, i);
+            control_traj.push_back(tp, traj.dt_vec[i]);
+        }
+        return control_traj;
+    }
+    double calTrajectoryFireTime(const Trajectory<GimbalPoint>& traj) {}
+
     GimbalCmd veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm) {
         const bool aim_first = (auto_aim_fsm == AutoAimFsm::AIM_SINGLE_ARMOR);
         const bool aim_center = (auto_aim_fsm == AutoAimFsm::AIM_WHOLE_CAR_CENTER);
@@ -428,46 +472,18 @@ public:
         GimbalCmd cmd;
         cmd.aim_target = fin_target_at;
         ControlPoint cp0;
-        TrajectoryVec traj;
+        Trajectory<GimbalPoint> target_traj;
         try {
             cp0 = getControlPoint(fin_aim_pos, bullet_speed);
             cp0.id_in_target = fin_target_select;
-            traj = getTrajectory(target, cp0, bullet_speed, auto_aim_fsm);
+            target_traj = getTrajectory(target, cp0, bullet_speed, auto_aim_fsm);
         } catch (const std::exception& e) {
             WUST_WARN("very_aimer") << "mpc solver error!";
             cmd.appera = false;
             return cmd;
         }
-        auto trajVecToEigen = [](const TrajectoryVec& traj) {
-            int N = traj.size();
-            Eigen::Matrix<double, 4, Eigen::Dynamic> mat(4, N);
-            for (int i = 0; i < N; i++) {
-                mat(0, i) = traj[i].yaw;
-                mat(1, i) = traj[i].v_yaw;
-                mat(2, i) = traj[i].pitch;
-                mat(3, i) = traj[i].v_pitch;
-            }
-            return mat;
-        };
-        auto traj_eigen = trajVecToEigen(traj);
-        Eigen::VectorXd x0(2);
-        x0 << traj_eigen(0, 0), traj_eigen(1, 0);
-        tiny_set_x0(yaw_solver_, x0);
-        yaw_solver_->work->Xref = traj_eigen.block(0, 0, 2, MPC_HORIZON);
-        tiny_solve(yaw_solver_);
-
-        x0 << traj_eigen(2, 0), traj_eigen(3, 0);
-        tiny_set_x0(pitch_solver_, x0);
-        pitch_solver_->work->Xref = traj_eigen.block(2, 0, 2, MPC_HORIZON);
-        tiny_solve(pitch_solver_);
-
-        if (!yaw_solver_->work->status || !pitch_solver_->work->status) {
-            WUST_WARN("very_aimer") << "mpc solver error!";
-            std::cout << "mpc solver error!" << std::endl;
-            cmd.appera = false;
-            return cmd;
-        }
-        const double total_time = MPC_HORIZON * MPC_DT;
+        const auto control_traj = solveTrajectory(target_traj);
+        const double total_time = target_traj.getTotalDuration();
         double target_yaw_rad = cp0.yaw;
         double target_pitch_rad = cp0.pitch;
         if (aim_center) {
@@ -476,13 +492,14 @@ public:
             target_yaw_rad = cp_aim_center.yaw;
             target_pitch_rad = cp_aim_center.pitch;
         }
+        const auto control_state = control_traj.getStateAtTime(total_time * 0.5);
         const double control_yaw_rad =
-            angles::normalize_angle(yaw_solver_->work->x(0, MPC_HALF_HORIZON) + cp0.yaw);
-        const double control_yaw_vel_rad = yaw_solver_->work->x(1, MPC_HALF_HORIZON);
-        const double control_yaw_acc_rad = yaw_solver_->work->u(0, MPC_HALF_HORIZON);
-        const double control_pitch_rad = pitch_solver_->work->x(0, MPC_HALF_HORIZON);
-        const double control_pitch_vel_rad = pitch_solver_->work->x(1, MPC_HALF_HORIZON);
-        const double control_pitch_acc_rad = pitch_solver_->work->u(0, MPC_HALF_HORIZON);
+            angles::normalize_angle(control_state.gimbal_point.yaw + cp0.yaw);
+        const double control_yaw_vel_rad = control_state.gimbal_point.v_yaw;
+        const double control_yaw_acc_rad = control_state.a_yaw;
+        const double control_pitch_rad = control_state.gimbal_point.pitch;
+        const double control_pitch_vel_rad = control_state.gimbal_point.v_pitch;
+        const double control_pitch_acc_rad = control_state.a_pitch;
         cmd.yaw = rad2deg(control_yaw_rad);
         cmd.v_yaw = rad2deg(control_yaw_vel_rad);
         cmd.pitch = rad2deg(control_pitch_rad);
@@ -493,27 +510,20 @@ public:
         cmd.raw_pitch = rad2deg(target_pitch_rad);
         cmd.distance = fin_aim_pos.norm();
         cmd.fly_time = prev_fly_time;
-        auto delay_state = getStateAtTime(traj, total_time / 2.0 + control_delay_);
-        TrajectoryVec control_traj;
-        control_traj.resize(MPC_HORIZON);
-        for (int i = 0; i < MPC_HORIZON; i++) {
-            TrajPoint tp;
-            tp.yaw = yaw_solver_->work->x(0, i);
-            tp.v_yaw = yaw_solver_->work->x(1, i);
-            tp.pitch = pitch_solver_->work->x(0, i);
-            tp.v_pitch = pitch_solver_->work->x(1, i);
-            control_traj[i] = tp;
-        }
+        const auto target_delay_state =
+            target_traj.getStateAtTime(total_time / 2.0 + control_delay_);
+
         const auto control_delay_state =
-            getStateAtTime(control_traj, total_time / 2.0 + control_delay_);
+            control_traj.getStateAtTime(total_time / 2.0 + control_delay_);
 
         bool delay_noswitching = true;
-        delay_noswitching = std::hypot(
-                                angles::normalize_angle(delay_state.yaw + cp0.yaw)
-                                    - angles::normalize_angle(control_delay_state.yaw + cp0.yaw),
-                                angles::normalize_angle(delay_state.pitch)
-                                    - angles::normalize_angle(control_delay_state.pitch)
-                            )
+        delay_noswitching =
+            std::hypot(
+                angles::normalize_angle(target_delay_state.yaw + cp0.yaw)
+                    - angles::normalize_angle(control_delay_state.gimbal_point.yaw + cp0.yaw),
+                angles::normalize_angle(target_delay_state.pitch)
+                    - angles::normalize_angle(control_delay_state.gimbal_point.pitch)
+            )
             < delay_enable_fire_error_;
 
         static int noswitching_count = 0;
