@@ -89,7 +89,10 @@ ArmorDetectOpenVino::~ArmorDetectOpenVino() {
 void ArmorDetectOpenVino::setCallback(DetectorCallback callback) {
     infer_callback_ = callback;
 }
-bool ArmorDetectOpenVino::processCallback(const CommonFrame& frame) {
+bool ArmorDetectOpenVino::processCallback(
+    const CommonFrame& frame,
+    const std::optional<armor::ArmorNumber>& target_number
+) {
     auto start = std::chrono::steady_clock::now();
     Eigen::Matrix3f transform_matrix;
     auto roi = frame.src_img(frame.expanded);
@@ -113,8 +116,13 @@ bool ArmorDetectOpenVino::processCallback(const CommonFrame& frame) {
 
     std::vector<armor::ArmorObject> armors;
     if (use_armor_detect_common_ && roi.data != nullptr) {
-        armors = armor_detect_common_
-                     ->detectNet(resized_img, objs_result, transform_matrix, frame.detect_color);
+        armors = armor_detect_common_->detectNet(
+            resized_img,
+            objs_result,
+            transform_matrix,
+            frame.detect_color,
+            target_number
+        );
         // Call callback function
         if (this->infer_callback_) {
             this->infer_callback_(armors, frame);
@@ -139,7 +147,10 @@ bool ArmorDetectOpenVino::processCallback(const CommonFrame& frame) {
 
     return false;
 }
-void ArmorDetectOpenVino::pushInput(CommonFrame& frame) {
+void ArmorDetectOpenVino::pushInput(
+    CommonFrame& frame,
+    const std::optional<armor::ArmorNumber>& target_number
+) {
     frame.id = current_id_++;
-    processCallback(frame);
+    processCallback(frame, target_number);
 }

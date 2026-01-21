@@ -149,7 +149,10 @@ cv::Mat ncnnMatToCvMat(const ncnn::Mat& m) {
 void ArmorDetectNCNN::setCallback(DetectorCallback callback) {
     infer_callback_ = callback;
 }
-bool ArmorDetectNCNN::processCallback(const CommonFrame& frame) {
+bool ArmorDetectNCNN::processCallback(
+    const CommonFrame& frame,
+    const std::optional<armor::ArmorNumber>& target_number
+) {
     // Eigen::Matrix3f transform_matrix;
     // cv::Mat resized_img = letterbox(frame.src_img, transform_matrix);
     // ncnn::Mat in =
@@ -173,8 +176,13 @@ bool ArmorDetectNCNN::processCallback(const CommonFrame& frame) {
     auto objs_result = armor_infer_->postProcess(output_buffer, transform_matrix, grid_strides_);
     std::vector<armor::ArmorObject> armors;
     if (use_armor_detect_common_) {
-        armors = armor_detect_common_
-                     ->detectNet(resized_img, objs_result, transform_matrix, frame.detect_color);
+        armors = armor_detect_common_->detectNet(
+            resized_img,
+            objs_result,
+            transform_matrix,
+            frame.detect_color,
+            target_number
+        );
         // Call callback function
         if (this->infer_callback_) {
             this->infer_callback_(armors, frame);
@@ -199,7 +207,10 @@ bool ArmorDetectNCNN::processCallback(const CommonFrame& frame) {
 
     return false;
 }
-void ArmorDetectNCNN::pushInput(CommonFrame& frame) {
+void ArmorDetectNCNN::pushInput(
+    CommonFrame& frame,
+    const std::optional<armor::ArmorNumber>& target_number
+) {
     frame.id = current_id_++;
-    processCallback(frame);
+    processCallback(frame, target_number);
 }

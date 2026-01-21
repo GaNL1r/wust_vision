@@ -52,7 +52,10 @@ ArmorDetectOnnxRuntime::~ArmorDetectOnnxRuntime() {
 void ArmorDetectOnnxRuntime::setCallback(DetectorCallback callback) {
     infer_callback_ = callback;
 }
-bool ArmorDetectOnnxRuntime::processCallback(const CommonFrame& frame) {
+bool ArmorDetectOnnxRuntime::processCallback(
+    const CommonFrame& frame,
+    const std::optional<armor::ArmorNumber>& target_number
+) {
     Eigen::Matrix3f transform_matrix;
     auto roi = frame.src_img(frame.expanded);
     cv::Mat resized_img = utils::letterbox(
@@ -82,8 +85,13 @@ bool ArmorDetectOnnxRuntime::processCallback(const CommonFrame& frame) {
     objs_result = armor_infer_->postProcess(output_buffer, transform_matrix, grid_strides_);
     std::vector<armor::ArmorObject> armors;
     if (use_armor_detect_common_) {
-        armors = armor_detect_common_
-                     ->detectNet(resized_img, objs_result, transform_matrix, frame.detect_color);
+        armors = armor_detect_common_->detectNet(
+            resized_img,
+            objs_result,
+            transform_matrix,
+            frame.detect_color,
+            target_number
+        );
         // Call callback function
         if (this->infer_callback_) {
             this->infer_callback_(armors, frame);
@@ -108,7 +116,10 @@ bool ArmorDetectOnnxRuntime::processCallback(const CommonFrame& frame) {
 
     return false;
 }
-void ArmorDetectOnnxRuntime::pushInput(CommonFrame& frame) {
+void ArmorDetectOnnxRuntime::pushInput(
+    CommonFrame& frame,
+    const std::optional<armor::ArmorNumber>& target_number
+) {
     frame.id = current_id_++;
-    processCallback(frame);
+    processCallback(frame, target_number);
 }

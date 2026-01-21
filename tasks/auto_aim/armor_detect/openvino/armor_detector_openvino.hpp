@@ -38,9 +38,12 @@ public:
     ~ArmorDetectOpenVino();
 
     void init();
-    bool processCallback(const CommonFrame& frame);
+    bool processCallback(
+        const CommonFrame& frame,
+        const std::optional<armor::ArmorNumber>& target_number
+    );
 
-    void pushInput(CommonFrame& frame);
+    void pushInput(CommonFrame& frame, const std::optional<armor::ArmorNumber>& target_number);
 
     void setCallback(DetectorCallback callback);
 

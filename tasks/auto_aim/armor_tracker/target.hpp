@@ -90,7 +90,12 @@ public:
     Eigen::Matrix<double, MModel::Z_N, MModel::Z_N>
     computeMeasurementCovariance(const Eigen::Matrix<double, MModel::Z_N, 1>& z) const;
     Eigen::Matrix<double, MModel::X_N, MModel::X_N> computeProcessNoise(double dt) const;
-
+    std::optional<armor::ArmorNumber> getArmorNumber() const {
+        if (!checkTargetAppear()) {
+            return std::nullopt;
+        }
+        return tracked_id_;
+    }
     double orientationToYaw(const Eigen::Quaterniond& q) noexcept {
         double roll, pitch, yaw;
         Eigen::Vector3d euler = utils::quatToEuler(q, utils::EulerOrder::ZYX, false);
@@ -159,7 +164,7 @@ public:
         return target_state_((int)MModel::State::H);
     }
 
-    inline bool checkTargetAppear() {
+    inline bool checkTargetAppear() const {
         bool appear = is_tracking
             && time_utils::durationSec(timestamp_, time_utils::now()) < target_config_.lost_dt;
         return appear;

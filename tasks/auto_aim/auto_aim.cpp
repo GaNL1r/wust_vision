@@ -133,9 +133,9 @@ struct AutoAim::Impl {
             frame.offset = cv::Point2f(bbox.x, bbox.y);
         }
         expanded_ = frame.expanded;
-
+        std::optional<armor::ArmorNumber> target_number = target_.getArmorNumber();
         if (armor_detector_) {
-            armor_detector_->pushInput(frame);
+            armor_detector_->pushInput(frame, target_number);
         }
     }
 
@@ -155,7 +155,6 @@ struct AutoAim::Impl {
                     return a.confidence > b.confidence;
                 }
             );
-
             sorted_objs.resize(max_detect_armors_);
         }
         for (auto& obj: sorted_objs) {

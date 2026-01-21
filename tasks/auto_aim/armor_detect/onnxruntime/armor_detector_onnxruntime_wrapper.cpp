@@ -86,8 +86,11 @@ ArmorDetectorOrtWrapper::ArmorDetectorOrtWrapper(
 
 ArmorDetectorOrtWrapper::~ArmorDetectorOrtWrapper() = default;
 
-void ArmorDetectorOrtWrapper::pushInput(CommonFrame& frame) {
-    detector_->pushInput(frame);
+void ArmorDetectorOrtWrapper::pushInput(
+    CommonFrame& frame,
+    const std::optional<armor::ArmorNumber>& target_number
+) {
+    detector_->pushInput(frame, target_number);
 }
 
 void ArmorDetectorOrtWrapper::setCallback(DetectorCallback cb) {

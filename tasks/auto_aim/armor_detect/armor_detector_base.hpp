@@ -19,7 +19,8 @@ class ArmorDetectorBase {
 public:
     virtual ~ArmorDetectorBase() = default;
 
-    virtual void pushInput(CommonFrame& frame) = 0;
+    virtual void
+    pushInput(CommonFrame& frame, const std::optional<armor::ArmorNumber>& target_number) = 0;
 
     using DetectorCallback =
         std::function<void(const std::vector<armor::ArmorObject>&, const CommonFrame&)>;

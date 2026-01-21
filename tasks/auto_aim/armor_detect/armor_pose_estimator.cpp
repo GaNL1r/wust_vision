@@ -48,9 +48,9 @@ std::vector<armor::Armor> ArmorPoseEstimator::extractArmorPoses(
     std::vector<armor::Armor> armors_msg;
 
     const Eigen::Matrix3d R_imu_cam = T_camera_to_odom.block<3, 3>(0, 0);
-    auto makeArmorMsg = [&](const armor::ArmorObject& obj,
-                            const Eigen::Vector3d& t,
-                            const Eigen::Matrix3d& R) {
+    auto makeArmor = [&](const armor::ArmorObject& obj,
+                         const Eigen::Vector3d& t,
+                         const Eigen::Matrix3d& R) {
         armor::Armor msg;
         msg.type = (obj.number == armor::ArmorNumber::NO1 || obj.number == armor::ArmorNumber::BASE)
             ? "large"
@@ -111,7 +111,7 @@ std::vector<armor::Armor> ArmorPoseEstimator::extractArmorPoses(
             R = ba_solver_->solveBa_R(a, t, R, R_imu_cam, type);
         }
 
-        armors_msg.push_back(makeArmorMsg(a, t, R));
+        armors_msg.push_back(makeArmor(a, t, R));
     }
 
     return armors_msg;
@@ -126,78 +126,62 @@ void ArmorPoseEstimator::sortPnPResult(
     const cv::Mat& camera_distortion
 ) const {
     constexpr double ERR_RATIO_TH = 3.0;
-    constexpr double ROLL_TH_RAD = 10.0 * M_PI / 180.0;
-
+    constexpr double ROLL_TH_RAD = 10.0 * M_PI / 180.0; // 保留接口一致性
     if (rvecs.size() < 2 || tvecs.size() < 2)
         return;
-
-    struct Candidate {
-        cv::Mat& rvec;
-        cv::Mat& tvec;
-        Eigen::Matrix3d R;
-        Eigen::Vector3d rpy;
-        double reprojErr = std::numeric_limits<double>::infinity();
-    } c[2] = { { rvecs[0], tvecs[0] }, { rvecs[1], tvecs[1] } };
-
-    // 计算旋转、RPY 和重投影误差
-    for (int i = 0; i < 2; ++i) {
-        cv::Mat R_cv;
-        cv::Rodrigues(c[i].rvec, R_cv);
-        c[i].R = utils::cvToEigen(R_cv);
-        c[i].rpy = utils::matrixToEuler(R_gimbal_camera_ * c[i].R, utils::EulerOrder::ZXY);
-
-        c[i].reprojErr = pnp_solver_->calculateReprojectionError(
-            armor.landmarks(),
-            c[i].rvec,
-            c[i].tvec,
-            coord_frame_name,
-            camera_intrinsic,
-            camera_distortion
-        );
-    }
-
-    // 如果误差比过大或任一解的 roll 超限，则不调整
-    if (c[1].reprojErr / c[0].reprojErr > ERR_RATIO_TH || std::abs(c[0].rpy(0)) > ROLL_TH_RAD
-        || std::abs(c[1].rpy(0)) > ROLL_TH_RAD)
-    {
+    double err0 = pnp_solver_->calculateReprojectionError(
+        armor.landmarks(),
+        rvecs[0],
+        tvecs[0],
+        coord_frame_name,
+        camera_intrinsic,
+        camera_distortion
+    );
+    double err1 = pnp_solver_->calculateReprojectionError(
+        armor.landmarks(),
+        rvecs[1],
+        tvecs[1],
+        coord_frame_name,
+        camera_intrinsic,
+        camera_distortion
+    );
+    if (err0 <= 0.0 || err1 <= 0.0)
         return;
-    }
+    if (err1 / err0 > ERR_RATIO_TH)
+        return;
+    cv::Mat R0_cv, R1_cv;
+    cv::Rodrigues(rvecs[0], R0_cv);
+    cv::Rodrigues(rvecs[1], R1_cv);
+
+    Eigen::Matrix3d R0 = R_gimbal_camera_ * utils::cvToEigen(R0_cv);
+    Eigen::Matrix3d R1 = R_gimbal_camera_ * utils::cvToEigen(R1_cv);
+
+    // yaw = atan2(r21, r11)
+    double yaw0 = std::atan2(R0(1, 0), R0(0, 0));
+    double yaw1 = std::atan2(R1(1, 0), R1(0, 0));
+
+    double boardTilt = 0.0;
+
     if (armor.is_ok) {
         double l_ang = std::atan2(armor.lights[0].axis.y, armor.lights[0].axis.x) * 180.0 / M_PI;
         double r_ang = std::atan2(armor.lights[1].axis.y, armor.lights[1].axis.x) * 180.0 / M_PI;
-        double boardTilt = (l_ang + r_ang) * 0.5 + 90.0;
-        if (armor.number == armor::ArmorNumber::OUTPOST)
-            boardTilt = -boardTilt;
-
-        // 根据倾斜方向选解：左倾时选 yaw<0 解，右倾时选 yaw>0 解
-        bool leftTilt = boardTilt > 0;
-        double yaw0 = c[0].rpy(2), yaw1 = c[1].rpy(2);
-        if ((leftTilt && yaw0 > 0 && yaw1 < 0) || (!leftTilt && yaw0 < 0 && yaw1 > 0)) {
-            std::swap(rvecs[0], rvecs[1]);
-            std::swap(tvecs[0], tvecs[1]);
-        }
+        boardTilt = (l_ang + r_ang) * 0.5 + 90.0;
     } else {
         auto corners = armor.sortCorners(armor.pts);
-
-        // 左右边方向向量
         cv::Point2f leftVec = corners[1] - corners[0]; // 左上 - 左下
         cv::Point2f rightVec = corners[2] - corners[3]; // 右上 - 右下
-
-        // 边方向角度
         double l_ang = std::atan2(leftVec.y, leftVec.x) * 180.0 / M_PI;
         double r_ang = std::atan2(rightVec.y, rightVec.x) * 180.0 / M_PI;
+        boardTilt = (l_ang + r_ang) * 0.5 + 90.0;
+    }
 
-        // 平均角度 + 90°
-        double boardTilt = (l_ang + r_ang) * 0.5 + 90.0;
-        if (armor.number == armor::ArmorNumber::OUTPOST)
-            boardTilt = -boardTilt;
+    if (armor.number == armor::ArmorNumber::OUTPOST)
+        boardTilt = -boardTilt;
 
-        // 根据倾斜方向选解：左倾时选 yaw<0，右倾时选 yaw>0
-        bool leftTilt = boardTilt > 0;
-        double yaw0 = c[0].rpy(2), yaw1 = c[1].rpy(2);
-        if ((leftTilt && yaw0 > 0 && yaw1 < 0) || (!leftTilt && yaw0 < 0 && yaw1 > 0)) {
-            std::swap(rvecs[0], rvecs[1]);
-            std::swap(tvecs[0], tvecs[1]);
-        }
+    bool leftTilt = boardTilt > 0.0;
+
+    if ((leftTilt && yaw0 > 0 && yaw1 < 0) || (!leftTilt && yaw0 < 0 && yaw1 > 0)) {
+        std::swap(rvecs[0], rvecs[1]);
+        std::swap(tvecs[0], tvecs[1]);
     }
 }

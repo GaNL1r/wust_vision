@@ -46,7 +46,8 @@ public:
         const cv::Mat& src_img,
         std::vector<armor::ArmorObject>& objs_result,
         Eigen::Matrix3f transform_matrix,
-        int detect_color
+        int detect_color,
+        const std::optional<armor::ArmorNumber>& target_number = std::nullopt
     );
     bool extractNetImage(const cv::Mat& src, armor::ArmorObject& armor);
     bool refineLightsFromArmorPts(armor::ArmorObject& armor) const;

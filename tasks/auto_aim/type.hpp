@@ -50,15 +50,15 @@ struct ArmorParams {
 
 enum class ArmorColor { BLUE = 0, RED, NONE, PURPLE };
 
-int formArmorColor(ArmorColor color);
+int formArmorColor(const ArmorColor& color);
 enum class ArmorNumber { SENTRY = 0, NO1, NO2, NO3, NO4, NO5, OUTPOST, BASE, UNKNOWN };
-std::ostream& operator<<(std::ostream& os, ArmorNumber number);
+std::ostream& operator<<(std::ostream& os, const ArmorNumber& number);
 
-int formArmorNumber(ArmorNumber number);
-std::string armorNumberToString(ArmorNumber num);
-int retypetotracker(ArmorNumber a);
-bool isSameTarget(ArmorNumber a, ArmorNumber b);
-
+int formArmorNumber(const ArmorNumber& number);
+std::string armorNumberToString(const ArmorNumber& num);
+ArmorNumber armorNumberFromString(const std::string& s);
+int retypetotracker(const ArmorNumber& a);
+bool isSameTarget(const ArmorNumber& a, const ArmorNumber& b);
 enum class ArmorsNum { NORMAL_4 = 4, OUTPOST_3 = 3 };
 
 enum class ArmorType { SMALL, LARGE, INVALID };

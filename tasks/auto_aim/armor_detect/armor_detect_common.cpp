@@ -308,7 +308,8 @@ std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
     const cv::Mat& src_img,
     std::vector<armor::ArmorObject>& objs_result,
     Eigen::Matrix3f transform_matrix,
-    int detect_color
+    int detect_color,
+    const std::optional<armor::ArmorNumber>& target_number
 ) {
     std::vector<armor::ArmorObject> armors;
 
@@ -339,7 +340,11 @@ std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
             continue;
 
         number_classifier_->classifyNumber(armor);
-
+        if (target_number.has_value()) {
+            if (!armor::isSameTarget(target_number.value(), armor.number)) {
+                continue;
+            }
+        }
         if (armor.confidence < params_.classifier_threshold)
             continue;
         if (armor.color == armor::ArmorColor::NONE || armor.color == armor::ArmorColor::PURPLE) {

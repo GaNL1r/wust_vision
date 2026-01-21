@@ -37,8 +37,11 @@ ArmorDetectOpenCV::ArmorDetectOpenCV(
     number_classifier_ =
         std::make_unique<NumberClassifier>(classify_model_path, classify_label_path);
 }
-std::vector<armor::ArmorObject>
-ArmorDetectOpenCV::detect(const cv::Mat& input, int detect_color) noexcept {
+std::vector<armor::ArmorObject> ArmorDetectOpenCV::detect(
+    const cv::Mat& input,
+    int detect_color,
+    const std::optional<armor::ArmorNumber>& target_number
+) noexcept {
     if (input.empty())
         return {};
 
@@ -58,7 +61,11 @@ ArmorDetectOpenCV::detect(const cv::Mat& input, int detect_color) noexcept {
 
             if (!number_classifier_->classifyNumber(armor))
                 continue;
-
+            if (target_number.has_value()) {
+                if (!armor::isSameTarget(target_number.value(), armor.number)) {
+                    continue;
+                }
+            }
             if (armor.confidence < classifier_threshold_)
                 continue;
 
@@ -107,12 +114,7 @@ std::vector<armor::Light>
 ArmorDetectOpenCV::findLights(const cv::Mat& img, const cv::Mat& binary_img) noexcept {
     std::vector<std::vector<cv::Point>> contours;
     contours.reserve(64);
-    cv::findContours(
-        binary_img,
-        contours,
-        cv::RETR_EXTERNAL,
-        cv::CHAIN_APPROX_SIMPLE 
-    );
+    cv::findContours(binary_img, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
     cv::Mat color_img;
     if (img.channels() == 3) {
         color_img = img;
@@ -357,7 +359,10 @@ static bool isUpscaled(const cv::Rect& roi, int model_w, int model_h) {
     return scale > 1.0f;
 }
 
-void ArmorDetectOpenCV::pushInput(CommonFrame& frame) {
+void ArmorDetectOpenCV::pushInput(
+    CommonFrame& frame,
+    const std::optional<armor::ArmorNumber>& target_number
+) {
     frame.id = current_id_++;
     std::vector<armor::ArmorObject> objs_result;
     auto roi = frame.src_img(frame.expanded);
@@ -365,12 +370,12 @@ void ArmorDetectOpenCV::pushInput(CommonFrame& frame) {
     if (is_up) {
         Eigen::Matrix3f transform_matrix;
         auto resized = utils::letterbox(roi, transform_matrix, target_width_, target_height_);
-        objs_result = detect(resized, frame.detect_color);
+        objs_result = detect(resized, frame.detect_color, target_number);
         for (auto& obj: objs_result) {
             obj.transform(transform_matrix);
         }
     } else {
-        objs_result = detect(roi, frame.detect_color);
+        objs_result = detect(roi, frame.detect_color, target_number);
     }
 
     if (this->infer_callback_) {

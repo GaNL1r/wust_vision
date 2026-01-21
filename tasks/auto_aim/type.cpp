@@ -57,14 +57,11 @@ void Light::transform(const Eigen::Matrix<float, 3, 3>& transform_matrix) {
     axis = p1_t - p0_t;
     axis /= cv::norm(axis);
 
-    // axis = (top - bottom) / cv::norm(top - bottom);
-
     tilt_angle =
         std::atan2(std::abs(top.x - bottom.x), std::abs(top.y - bottom.y)) / CV_PI * 180.0f;
-    // axis = map_point(axis.x, axis.y);
     center = map_point(center.x, center.y);
 }
-int formArmorColor(ArmorColor color) {
+int formArmorColor(const ArmorColor& color) {
     switch (color) {
         case ArmorColor::RED:
             return 0;
@@ -77,7 +74,7 @@ int formArmorColor(ArmorColor color) {
     }
 }
 
-std::ostream& operator<<(std::ostream& os, ArmorNumber number) {
+std::ostream& operator<<(std::ostream& os, const ArmorNumber& number) {
     switch (number) {
         case ArmorNumber::SENTRY:
             return os << "SENTRY";
@@ -102,7 +99,7 @@ std::ostream& operator<<(std::ostream& os, ArmorNumber number) {
     }
 }
 
-int formArmorNumber(ArmorNumber number) {
+int formArmorNumber(const ArmorNumber& number) {
     switch (number) {
         case ArmorNumber::SENTRY:
             return 0;
@@ -124,7 +121,27 @@ int formArmorNumber(ArmorNumber number) {
             return 8;
     }
 }
-std::string armorNumberToString(ArmorNumber num) {
+ArmorNumber armorNumberFromString(const std::string& s) {
+    if (s == "SENTRY")
+        return ArmorNumber::SENTRY;
+    if (s == "BASE")
+        return ArmorNumber::BASE;
+    if (s == "OUTPOST")
+        return ArmorNumber::OUTPOST;
+    if (s == "NO1")
+        return ArmorNumber::NO1;
+    if (s == "NO2")
+        return ArmorNumber::NO2;
+    if (s == "NO3")
+        return ArmorNumber::NO3;
+    if (s == "NO4")
+        return ArmorNumber::NO4;
+    if (s == "NO5")
+        return ArmorNumber::NO5;
+    return ArmorNumber::UNKNOWN;
+}
+
+std::string armorNumberToString(const ArmorNumber& num) {
     switch (num) {
         case ArmorNumber::SENTRY:
             return "SENTRY";
@@ -146,26 +163,38 @@ std::string armorNumberToString(ArmorNumber num) {
             return "UNKNOWN";
     }
 }
+namespace {
+    std::unordered_map<std::string, int> armor_map;
+    std::unordered_map<int, std::vector<ArmorNumber>> tracker_to_armors;
+    bool loaded = false;
 
-int retypetotracker(ArmorNumber a) {
-    // 静态缓存，只加载一次
-    static std::unordered_map<std::string, int> armor_map;
-    static bool loaded = false;
+    void loadArmorMapOnce() {
+        if (loaded)
+            return;
 
-    if (!loaded) {
         try {
             YAML::Node config = YAML::LoadFile(AUTO_AIM_CONFIG)["armor_map"];
+
             for (auto it = config.begin(); it != config.end(); ++it) {
-                armor_map[it->first.as<std::string>()] = it->second.as<int>();
+                const std::string key = it->first.as<std::string>();
+                const int tracker_id = it->second.as<int>();
+
+                ArmorNumber armor_num = armorNumberFromString(key);
+
+                armor_map[key] = tracker_id;
+                tracker_to_armors[tracker_id].emplace_back(armor_num);
             }
             loaded = true;
         } catch (const std::exception& e) {
-            std::cerr << "[retypetotracker] Failed to load armor_map.yaml: " << e.what()
-                      << std::endl;
+            std::cerr << "[ArmorMap] Failed to load armor_map.yaml: " << e.what() << std::endl;
         }
     }
+} // namespace
 
-    std::string key = armorNumberToString(a);
+int retypetotracker(const ArmorNumber& a) {
+    loadArmorMapOnce();
+
+    const std::string key = armorNumberToString(a);
     auto it = armor_map.find(key);
     if (it != armor_map.end())
         return it->second;
@@ -173,7 +202,8 @@ int retypetotracker(ArmorNumber a) {
     std::cerr << "[retypetotracker] Invalid ArmorNumber: " << static_cast<int>(a) << std::endl;
     return -1;
 }
-bool isSameTarget(ArmorNumber a, ArmorNumber b) {
+
+bool isSameTarget(const ArmorNumber& a, const ArmorNumber& b) {
     return retypetotracker(a) == retypetotracker(b);
 }
 

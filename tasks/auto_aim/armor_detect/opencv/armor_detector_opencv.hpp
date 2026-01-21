@@ -35,8 +35,12 @@ public:
         const armor::ArmorParams& a
     );
 
-    std::vector<armor::ArmorObject> detect(const cv::Mat& input, int detect_color) noexcept;
-    void pushInput(CommonFrame& frame);
+    std::vector<armor::ArmorObject> detect(
+        const cv::Mat& input,
+        int detect_color,
+        const std::optional<armor::ArmorNumber>& target_number
+    ) noexcept;
+    void pushInput(CommonFrame& frame, const std::optional<armor::ArmorNumber>& target_number);
 
     std::tuple<cv::Mat, cv::Mat> preprocessImage(const cv::Mat& input) noexcept;
     std::vector<armor::Light>

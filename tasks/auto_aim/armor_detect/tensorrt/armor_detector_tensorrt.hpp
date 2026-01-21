@@ -50,9 +50,13 @@ public:
 
     ~ArmorDetectTrt();
 
-    void pushInput(CommonFrame& frame);
+    void pushInput(CommonFrame& frame, const std::optional<armor::ArmorNumber>& target_number);
 
-    bool processCallback(const CommonFrame& frame, Infer* infer);
+    bool processCallback(
+        const CommonFrame& frame,
+        Infer* infer,
+        const std::optional<armor::ArmorNumber>& target_number
+    );
     void setCallback(DetectorCallback callback);
 
 private:

@@ -88,8 +88,11 @@ ArmorDetectorOpenvinoWrapper::ArmorDetectorOpenvinoWrapper(
 
 ArmorDetectorOpenvinoWrapper::~ArmorDetectorOpenvinoWrapper() = default;
 
-void ArmorDetectorOpenvinoWrapper::pushInput(CommonFrame& frame) {
-    detector_->pushInput(frame);
+void ArmorDetectorOpenvinoWrapper::pushInput(
+    CommonFrame& frame,
+    const std::optional<armor::ArmorNumber>& target_number
+) {
+    detector_->pushInput(frame, target_number);
 }
 
 void ArmorDetectorOpenvinoWrapper::setCallback(DetectorCallback cb) {

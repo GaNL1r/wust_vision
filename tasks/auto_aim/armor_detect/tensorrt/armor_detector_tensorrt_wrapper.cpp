@@ -90,8 +90,11 @@ ArmorDetectorTrtWrapper::ArmorDetectorTrtWrapper(
 
 ArmorDetectorTrtWrapper::~ArmorDetectorTrtWrapper() = default;
 
-void ArmorDetectorTrtWrapper::pushInput(CommonFrame& frame) {
-    detector_->pushInput(frame);
+void ArmorDetectorTrtWrapper::pushInput(
+    CommonFrame& frame,
+    const std::optional<armor::ArmorNumber>& target_number
+) {
+    detector_->pushInput(frame, target_number);
 }
 
 void ArmorDetectorTrtWrapper::setCallback(DetectorCallback cb) {

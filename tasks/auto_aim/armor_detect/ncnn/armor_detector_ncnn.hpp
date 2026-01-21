@@ -38,10 +38,13 @@ public:
     );
     ~ArmorDetectNCNN();
     void init(int device_id);
-    bool processCallback(const CommonFrame& frame);
+    bool processCallback(
+        const CommonFrame& frame,
+        const std::optional<armor::ArmorNumber>& target_number
+    );
 
     void setCallback(DetectorCallback callback);
-    void pushInput(CommonFrame& frame);
+    void pushInput(CommonFrame& frame, const std::optional<armor::ArmorNumber>& target_number);
 
 private:
     std::string model_path_param_;

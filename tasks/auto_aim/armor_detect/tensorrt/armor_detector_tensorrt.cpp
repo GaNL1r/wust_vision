@@ -177,7 +177,11 @@ ArmorDetectTrt::~ArmorDetectTrt() {
 void ArmorDetectTrt::setCallback(DetectorCallback callback) {
     infer_callback_ = callback;
 }
-bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
+bool ArmorDetectTrt::processCallback(
+    const CommonFrame& frame,
+    Infer* infer,
+    const std::optional<armor::ArmorNumber>& target_number
+) {
     auto t0 = time_utils::now();
     Eigen::Matrix3f transform_matrix;
     std::vector<armor::ArmorObject> objs_tmp, objs_result;
@@ -237,8 +241,13 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
     infer_pool_->release(infer);
     std::vector<armor::ArmorObject> armors;
     if (use_armor_detect_common_) {
-        armors = armor_detect_common_
-                     ->detectNet(resized_img, objs_result, transform_matrix, frame.detect_color);
+        armors = armor_detect_common_->detectNet(
+            resized_img,
+            objs_result,
+            transform_matrix,
+            frame.detect_color,
+            target_number
+        );
         // Call callback function
         if (this->infer_callback_) {
             this->infer_callback_(armors, frame);
@@ -264,12 +273,15 @@ bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
     return true;
 }
 
-void ArmorDetectTrt::pushInput(CommonFrame& frame) {
+void ArmorDetectTrt::pushInput(
+    CommonFrame& frame,
+    const std::optional<armor::ArmorNumber>& target_number
+) {
     if (infer_pool_) {
         auto infer_ptr = infer_pool_->acquire();
         if (infer_ptr != nullptr) {
             frame.id = current_id_++;
-            this->processCallback(frame, infer_ptr);
+            this->processCallback(frame, infer_ptr, target_number);
         }
     }
 }

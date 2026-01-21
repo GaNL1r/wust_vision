@@ -100,8 +100,11 @@ ArmorDetectorNCNNWrapper::ArmorDetectorNCNNWrapper(
 
 ArmorDetectorNCNNWrapper::~ArmorDetectorNCNNWrapper() = default;
 
-void ArmorDetectorNCNNWrapper::pushInput(CommonFrame& frame) {
-    detector_->pushInput(frame);
+void ArmorDetectorNCNNWrapper::pushInput(
+    CommonFrame& frame,
+    const std::optional<armor::ArmorNumber>& target_number
+) {
+    detector_->pushInput(frame, target_number);
 }
 
 void ArmorDetectorNCNNWrapper::setCallback(DetectorCallback cb) {
