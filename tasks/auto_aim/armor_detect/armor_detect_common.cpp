@@ -334,11 +334,15 @@ std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
         }
 
         bool ok = false;
-        ok = extractNetImage(src_img, armor);
+        try {
+            ok = extractNetImage(src_img, armor);
+        } catch (...) {
+            std::cout << "extractNetImage wrong" << std::endl;
+        }
 
-        if (!ok)
+        if (!ok) {
             continue;
-
+        }
         number_classifier_->classifyNumber(armor);
         if (target_number.has_value()) {
             if (!armor::isSameTarget(target_number.value(), armor.number)) {

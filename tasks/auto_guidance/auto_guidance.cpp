@@ -100,13 +100,19 @@ struct AutoGuidance::Impl {
             printStats();
             GreenLights lights;
             bool skip;
-            if (lights_queue_->dequeue_wait(lights, skip)) {
-                lightsCallback(lights);
-                tracker_finish_count_++;
-                if (skip) {
-                    WUST_DEBUG(logger_) << "OrderQueue skip";
-                }
+            // if (lights_queue_->dequeue_wait(lights, skip)) {
+            //     lightsCallback(lights);
+            //     tracker_finish_count_++;
+            //     if (skip) {
+            //         WUST_DEBUG(logger_) << "OrderQueue skip";
+            //     }
+            // }
+            if (!lights_queue_->try_dequeue(lights)) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(3));
+                continue;
             }
+            lightsCallback(lights);
+            tracker_finish_count_++;
         }
     }
     GuidanceTarget getTarget() {

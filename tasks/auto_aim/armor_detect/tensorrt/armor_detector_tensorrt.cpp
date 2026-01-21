@@ -181,7 +181,7 @@ bool ArmorDetectTrt::processCallback(
     const CommonFrame& frame,
     Infer* infer,
     const std::optional<armor::ArmorNumber>& target_number
-) const{
+) const {
     auto t0 = time_utils::now();
     Eigen::Matrix3f transform_matrix;
     std::vector<armor::ArmorObject> objs_tmp, objs_result;

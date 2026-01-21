@@ -104,7 +104,7 @@ struct AutoAim::Impl {
         trajectory_compensator->load(config["trajectory_compensator"]);
         very_aimer_ = VeryAimer::create(config["very_aimer"], trajectory_compensator);
         max_detect_armors_ = config_["max_detect_armors"].as<int>(10);
-        armor_queue_ = std::make_unique<OrderedQueue<armor::Armors>>(100, 500);
+        armor_queue_ = std::make_unique<OrderedQueue<armor::Armors>>(50, 500);
         latency_averager_ = std::make_unique<Averager<double>>(100);
         auto_exposure_cfg_.loadFromYaml(config_["auto_exposure"]);
         return true;
@@ -206,7 +206,7 @@ struct AutoAim::Impl {
             auto_aim_debug_.armors = armors;
             auto_aim_debug_.T_camera_to_odom = T_camera_to_odom_;
             auto_aim_debug_.detect_color = frame.detect_color;
-            auto_aim_debug_.armor_objs = sorted_objs;
+            auto_aim_debug_.armor_objs = std::move(sorted_objs);
             auto_aim_debug_.expanded = frame.expanded;
         }
     }
@@ -215,9 +215,7 @@ struct AutoAim::Impl {
             WUST_WARN(logger_) << "Received out-of-order armor data, discarded.";
             return;
         }
-        Target target;
-
-        target = tracker_manager_->update(armors, auto_aim_fsm_cl_);
+        Target target = tracker_manager_->update(armors, auto_aim_fsm_cl_);
         auto now = std::chrono::steady_clock::now();
 
         target_ = target;
@@ -233,14 +231,20 @@ struct AutoAim::Impl {
 
     GimbalCmd solve(double dt_ms) {
         GimbalCmd gimbal_cmd;
-        Target target;
-        target = target_;
+        Target target = target_;
         AimTarget aim_target;
         bool appear = target.checkTargetAppear();
         if (appear) {
-            gimbal_cmd =
-                very_aimer_->veryAim(target, shared_->bullet_speed, auto_aim_fsm_cl_.fsm_state_);
-            aim_target = gimbal_cmd.aim_target;
+            try {
+                gimbal_cmd = very_aimer_->veryAim(
+                    target,
+                    shared_->bullet_speed,
+                    auto_aim_fsm_cl_.fsm_state_
+                );
+                aim_target = gimbal_cmd.aim_target;
+            } catch (...) {
+                WUST_ERROR(logger_) << "VeryAim error";
+            }
         }
         if (gimbal_cmd.fire_advice) {
             fire_count_++;
@@ -263,13 +267,19 @@ struct AutoAim::Impl {
             printStats();
             armor::Armors armors;
             bool skip;
-            if (armor_queue_->dequeue_wait(armors, skip)) {
-                armorsCallback(armors);
-                tracker_finish_count_++;
-                if (skip) {
-                    WUST_DEBUG(logger_) << "OrderQueue skip";
-                }
+            // if (armor_queue_->dequeue_wait(armors, skip)) {
+            //     armorsCallback(armors);
+            //     tracker_finish_count_++;
+            //     if (skip) {
+            //         WUST_DEBUG(logger_) << "OrderQueue skip";
+            //     }
+            // }
+            if (!armor_queue_->try_dequeue(armors)) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(3));
+                continue;
             }
+            armorsCallback(armors);
+            tracker_finish_count_++;
         }
     }
     void setDebug(bool debug) {
@@ -306,7 +316,7 @@ struct AutoAim::Impl {
         );
     }
     void autoExposureControl(const cv::Mat& frame, std::shared_ptr<wust_vl_video::Camera> camera) {
-        double dt = 1000.0 / auto_exposure_cfg_.control_interval_ms;
+        const double dt = auto_exposure_cfg_.control_interval_ms / 1000.0;
         utils::XSecOnce(
             [&] {
                 if (!auto_exposure_cfg_.enable || frame.empty()) {

@@ -56,7 +56,7 @@ public:
         const CommonFrame& frame,
         Infer* infer,
         const std::optional<armor::ArmorNumber>& target_number
-    )const;
+    ) const;
     void setCallback(DetectorCallback callback);
 
 private:

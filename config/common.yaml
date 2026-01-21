@@ -1,5 +1,5 @@
 max_infer_running: 6
-detect_color: 1
+detect_color: 0
 attack_mode: 0
 debug_fps: 60
 tf:
@@ -16,7 +16,7 @@ control:
   pitch_ramp: 0.0
   
 logger:
-  log_level: INFO
+  log_level: DEBUG
   log_path: log
   use_logcli: true
   use_logfile: false

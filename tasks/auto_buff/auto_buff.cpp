@@ -43,7 +43,7 @@ struct AutoBuff::Impl {
             std::placeholders::_2,
             std::placeholders::_3
         ));
-        rune_queue_ = std::make_unique<OrderedQueue<rune::RuneFan>>(100, 500);
+        rune_queue_ = std::make_unique<OrderedQueue<rune::RuneFan>>(50, 500);
         rune::RuneTargetConfig rune_target_config;
         rune_target_config.loadFromYaml(config["rune_tracker"]);
 
@@ -233,13 +233,19 @@ struct AutoBuff::Impl {
             printStats();
             rune::RuneFan rune;
             bool skip;
-            if (rune_queue_->dequeue_wait(rune, skip)) {
-                runeTargetCallback(rune);
-                tracker_finish_count_++;
-                if (skip) {
-                    WUST_DEBUG(logger_) << "OrderQueue skip";
-                }
+            // if (rune_queue_->dequeue_wait(rune, skip)) {
+            //     runeTargetCallback(rune);
+            //     tracker_finish_count_++;
+            //     if (skip) {
+            //         WUST_DEBUG(logger_) << "OrderQueue skip";
+            //     }
+            // }
+            if (!rune_queue_->try_dequeue(rune)) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(3));
+                continue;
             }
+            runeTargetCallback(rune);
+            tracker_finish_count_++;
         }
     }
     void setDebug(bool debug) {
@@ -266,7 +272,7 @@ struct AutoBuff::Impl {
         );
     }
     void autoExposureControl(const cv::Mat& frame, std::shared_ptr<wust_vl_video::Camera> camera) {
-        double dt = 1000.0 / auto_exposure_cfg_.control_interval_ms;
+        const double dt = auto_exposure_cfg_.control_interval_ms / 1000.0;
         utils::XSecOnce(
             [&] {
                 if (!auto_exposure_cfg_.enable || frame.empty()) {

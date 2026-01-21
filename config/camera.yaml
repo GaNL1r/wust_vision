@@ -22,7 +22,7 @@ hik_camera:
   trigger_activation: 0
   use_raw: false
   use_rgb: false
-  use_ea: false
+  use_ea: true
   
 video_player:
   fps: 60

@@ -353,12 +353,6 @@ void ArmorDetectOpenCV::topts(armor::ArmorObject& armor) {
     armor.pts[3] = armor.lights[1].top;
 }
 
-static bool isUpscaled(const cv::Rect& roi, int model_w, int model_h) {
-    float scale = std::min(model_w / float(roi.width), model_h / float(roi.height));
-
-    return scale > 1.0f;
-}
-
 void ArmorDetectOpenCV::pushInput(
     CommonFrame& frame,
     const std::optional<armor::ArmorNumber>& target_number
@@ -366,17 +360,8 @@ void ArmorDetectOpenCV::pushInput(
     frame.id = current_id_++;
     std::vector<armor::ArmorObject> objs_result;
     auto roi = frame.src_img(frame.expanded);
-    bool is_up = isUpscaled(frame.expanded, target_width_, target_height_);
-    if (is_up) {
-        Eigen::Matrix3f transform_matrix;
-        auto resized = utils::letterbox(roi, transform_matrix, target_width_, target_height_);
-        objs_result = detect(resized, frame.detect_color, target_number);
-        for (auto& obj: objs_result) {
-            obj.transform(transform_matrix);
-        }
-    } else {
-        objs_result = detect(roi, frame.detect_color, target_number);
-    }
+
+    objs_result = detect(roi, frame.detect_color, target_number);
 
     if (this->infer_callback_) {
         this->infer_callback_(objs_result, frame);

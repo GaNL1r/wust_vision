@@ -123,13 +123,16 @@ cv::Mat letterbox(
     const int new_shape_h
 );
 template<typename Func>
-void XSecOnce(Func func, double dt) {
-    static auto last_call = std::chrono::steady_clock::now(); // static 变量存上次调用时间
+void XSecOnce(Func&& func, double dt) {
+    static auto last_call = std::chrono::steady_clock::now();
 
     auto now = std::chrono::steady_clock::now();
-    if (std::chrono::duration_cast<std::chrono::seconds>(now - last_call).count() >= dt) {
+    double elapsed = std::chrono::duration<double>(now - last_call).count();
+
+    if (elapsed >= dt) {
         last_call = now;
         func();
     }
 }
+
 } // namespace utils

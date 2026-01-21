@@ -71,4 +71,4 @@ auto_exposure:
   decay_step: 1.0
   exposure_min: 100.0
   exposure_max: 2500.0
-  control_interval_ms: 50
+  control_interval_ms: 300
