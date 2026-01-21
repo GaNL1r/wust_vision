@@ -53,7 +53,11 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, armor::ArmorObject& 
     const bool is_large = center_dist > params_.armor_params.min_large_center_distance;
 
     const cv::Rect bbox = cv::boundingRect(armor.pts);
+    if (bbox.width <= 0 || bbox.height <= 0)
+        return false;
 
+    if (bbox.width > src.cols || bbox.height > src.rows)
+        return false;
     const int dw = static_cast<int>(bbox.width * (params_.expand_ratio_w - 1.f));
     const int dh = static_cast<int>(bbox.height * (params_.expand_ratio_h - 1.f));
 
@@ -75,13 +79,20 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, armor::ArmorObject& 
         return false;
 
     cv::Mat litroi_gray;
-    cv::cvtColor(litroi_color, litroi_gray, cv::COLOR_BGR2GRAY);
+    try {
+        cv::cvtColor(litroi_color, litroi_gray, cv::COLOR_BGR2GRAY);
+    } catch (...) {
+        return false;
+    }
 
     armor.whole_gray_img = litroi_gray;
 
     cv::Mat litroi_binary;
-    cv::threshold(litroi_gray, litroi_binary, params_.binary_thres, 255, cv::THRESH_BINARY);
-
+    try {
+        cv::threshold(litroi_gray, litroi_binary, params_.binary_thres, 255, cv::THRESH_BINARY);
+    } catch (...) {
+        return false;
+    }
     const cv::Point2f offset(static_cast<float>(new_x), static_cast<float>(new_y));
 
     cv::Point2f src_vertices[4] = { armor.pts[1] - offset,
@@ -92,7 +103,8 @@ bool ArmorDetectCommon::extractNetImage(const cv::Mat& src, armor::ArmorObject& 
     const int warp_width = is_large ? large_armor_width : small_armor_width;
     const int top_light_y = (warp_height - light_length) / 2 - 1;
     const int bottom_light_y = top_light_y + light_length;
-
+    if (warp_width <= 0 || warp_height <= 0)
+        return false;
     cv::Point2f dst_vertices[4] = {
         { 0.f, static_cast<float>(bottom_light_y) },
         { 0.f, static_cast<float>(top_light_y) },
@@ -332,68 +344,90 @@ std::vector<armor::ArmorObject> ArmorDetectCommon::detectNet(
         {
             continue;
         }
-
-        bool ok = false;
         try {
-            ok = extractNetImage(src_img, armor);
-        } catch (...) {
-            std::cout << "extractNetImage wrong" << std::endl;
-        }
+            bool ok = false;
 
-        if (!ok) {
-            continue;
-        }
-        number_classifier_->classifyNumber(armor);
-        if (target_number.has_value()) {
-            if (!armor::isSameTarget(target_number.value(), armor.number)) {
+            try {
+                ok = extractNetImage(src_img, armor);
+            } catch (const cv::Exception& e) {
+                std::cerr << "[detectNet] OpenCV exception in extractNetImage: " << e.what()
+                          << std::endl;
+                continue;
+            } catch (const std::exception& e) {
+                std::cerr << "[detectNet] exception in extractNetImage: " << e.what() << std::endl;
+                continue;
+            } catch (...) {
+                std::cerr << "[detectNet] unknown error in extractNetImage." << std::endl;
                 continue;
             }
-        }
-        if (armor.confidence < params_.classifier_threshold)
-            continue;
-        if (armor.color == armor::ArmorColor::NONE || armor.color == armor::ArmorColor::PURPLE) {
-            armor.is_ok = false;
-            armor.transform(transform_matrix);
-            armors.emplace_back(armor);
-            continue;
-        }
 
-        findLights(armor.whole_rgb_img, armor.whole_binary_img, armor);
-
-        if (refineLightsFromArmorPts(armor)) {
-            if (isArmor(armor.lights[0], armor.lights[1])) {
-                armor.is_ok = true;
-                corner_corrector_->correctCorners(armor, armor.whole_gray_img);
-                for (auto& light: armor.lights) {
-                    const cv::Point2f offset { static_cast<float>(armor.new_x),
-                                               static_cast<float>(armor.new_y) };
-                    light.addOffset(offset);
+            if (!ok)
+                continue;
+            try {
+                number_classifier_->classifyNumber(armor);
+            } catch (const std::exception& e) {
+                std::cerr << "[detectNet] exception in classifyNumber: " << e.what() << std::endl;
+                continue;
+            } catch (...) {
+                std::cerr << "[detectNet] unknown error in classifyNumber." << std::endl;
+                continue;
+            }
+            if (target_number.has_value()) {
+                if (!armor::isSameTarget(target_number.value(), armor.number)) {
+                    continue;
                 }
             }
-        }
-
-        if (armor.is_ok) {
-            armor.is_ok = armor.checkOkptsRight(params_.max_pts_error);
-        }
-
-        if (!armor.is_ok) {
-            auto ordered = armor.sortCorners(armor.pts);
-
-            armor::Light l1, l2;
-            l1.length = cv::norm(ordered[1] - ordered[0]);
-            l1.center = (ordered[0] + ordered[1]) / 2.0;
-
-            l2.length = cv::norm(ordered[2] - ordered[3]);
-            l2.center = (ordered[2] + ordered[3]) / 2.0;
-
-            if (!isArmor(l1, l2)) {
+            if (armor.confidence < params_.classifier_threshold)
+                continue;
+            if (armor.color == armor::ArmorColor::NONE || armor.color == armor::ArmorColor::PURPLE)
+            {
+                armor.is_ok = false;
+                armor.transform(transform_matrix);
+                armors.emplace_back(armor);
                 continue;
             }
+
+            findLights(armor.whole_rgb_img, armor.whole_binary_img, armor);
+
+            if (refineLightsFromArmorPts(armor)) {
+                if (isArmor(armor.lights[0], armor.lights[1])) {
+                    armor.is_ok = true;
+                    corner_corrector_->correctCorners(armor, armor.whole_gray_img);
+                    for (auto& light: armor.lights) {
+                        const cv::Point2f offset { static_cast<float>(armor.new_x),
+                                                   static_cast<float>(armor.new_y) };
+                        light.addOffset(offset);
+                    }
+                }
+            }
+
+            if (armor.is_ok) {
+                armor.is_ok = armor.checkOkptsRight(params_.max_pts_error);
+            }
+
+            if (!armor.is_ok) {
+                auto ordered = armor.sortCorners(armor.pts);
+
+                armor::Light l1, l2;
+                l1.length = cv::norm(ordered[1] - ordered[0]);
+                l1.center = (ordered[0] + ordered[1]) / 2.0;
+
+                l2.length = cv::norm(ordered[2] - ordered[3]);
+                l2.center = (ordered[2] + ordered[3]) / 2.0;
+
+                if (!isArmor(l1, l2)) {
+                    continue;
+                }
+            }
+
+            armor.transform(transform_matrix);
+
+            armors.emplace_back(armor);
+
+        } catch (...) {
+            std::cerr << "[ArmorDetectCommon::detectNet] something failed (unexpected)."
+                      << std::endl;
         }
-
-        armor.transform(transform_matrix);
-
-        armors.emplace_back(armor);
     }
 
     return armors;

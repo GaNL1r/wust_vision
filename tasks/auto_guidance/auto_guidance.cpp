@@ -56,6 +56,7 @@ struct AutoGuidance::Impl {
         lights_queue_->enqueue(lights);
 
         if (debug_) {
+            std::lock_guard<std::mutex> lock(dbg_mutex_);
             dbg_.lights = lights;
             dbg_.src_img = frame.src_img;
         }
@@ -68,13 +69,18 @@ struct AutoGuidance::Impl {
         }
         GuidanceTarget target;
         target = tracker_->track(lights);
-        guidance_target_ = target;
+
+        {
+            std::lock_guard<std::mutex> lock(target_mutex_);
+            guidance_target_ = target;
+        }
         auto now = std::chrono::steady_clock::now();
 
         auto latency_ms = time_utils::durationMs(lights.timestamp, now);
         latency_averager_->add(latency_ms);
         dbg_.latency_ms = latency_averager_->average();
         if (debug_) {
+            std::lock_guard<std::mutex> lock(dbg_mutex_);
             dbg_.target = target;
         }
     }
@@ -117,6 +123,9 @@ struct AutoGuidance::Impl {
     }
     GuidanceTarget getTarget() {
         timer_count_++;
+
+        std::lock_guard<std::mutex> lock(target_mutex_);
+
         return guidance_target_;
     }
     void printStats() {
@@ -152,6 +161,8 @@ struct AutoGuidance::Impl {
     std::unique_ptr<Averager<double>> latency_averager_;
     std::pair<cv::Mat, cv::Mat> camera_info_;
     AutoGuidanceDebug dbg_;
+    std::mutex target_mutex_;
+    std::mutex dbg_mutex_;
 };
 AutoGuidance::AutoGuidance(): _impl(std::make_unique<Impl>()) {}
 AutoGuidance::~AutoGuidance() {
@@ -170,6 +181,7 @@ void AutoGuidance::setDebug(bool debug) {
     _impl->debug_ = debug;
 }
 AutoGuidanceDebug AutoGuidance::getDebug() {
+    std::lock_guard<std::mutex> lock(_impl->dbg_mutex_);
     return _impl->dbg_;
 }
 GuidanceTarget AutoGuidance::getTarget() {

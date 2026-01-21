@@ -141,15 +141,12 @@ struct AutoAim::Impl {
 
     void
     ArmorDetectCallback(const std::vector<armor::ArmorObject>& objs, const CommonFrame& frame) {
-        std::vector<armor::ArmorObject> sorted_objs;
-        sorted_objs.reserve(std::min((int)objs.size(), max_detect_armors_));
+        std::vector<armor::ArmorObject> sorted_objs = objs;
 
-        if (objs.size() <= max_detect_armors_) {
-            sorted_objs = objs;
-        } else {
-            WUST_WARN(logger_) << "Detected " << objs.size() << " objects, too many, keeping top "
-                               << max_detect_armors_;
-            sorted_objs = objs;
+        if (sorted_objs.size() > max_detect_armors_) {
+            WUST_WARN(logger_) << "Detected " << sorted_objs.size()
+                               << " objects, too many, keeping top " << max_detect_armors_;
+
             std::partial_sort(
                 sorted_objs.begin(),
                 sorted_objs.begin() + max_detect_armors_,
@@ -158,6 +155,7 @@ struct AutoAim::Impl {
                     return a.confidence > b.confidence;
                 }
             );
+
             sorted_objs.resize(max_detect_armors_);
         }
         for (auto& obj: sorted_objs) {
@@ -201,12 +199,13 @@ struct AutoAim::Impl {
         armor_queue_->enqueue(armors);
         ++detect_finish_count_;
         if (debug_mode_) {
-            auto_aim_debug_.src_img.img = std::move(frame.src_img);
+            std::lock_guard<std::mutex> lock(dbg_mutex_);
+            auto_aim_debug_.src_img.img = frame.src_img;
             auto_aim_debug_.src_img.timestamp = armors.timestamp;
             auto_aim_debug_.armors = armors;
             auto_aim_debug_.T_camera_to_odom = T_camera_to_odom_;
             auto_aim_debug_.detect_color = frame.detect_color;
-            auto_aim_debug_.armor_objs = std::move(sorted_objs);
+            auto_aim_debug_.armor_objs = sorted_objs;
             auto_aim_debug_.expanded = frame.expanded;
         }
     }
@@ -218,12 +217,16 @@ struct AutoAim::Impl {
         Target target = tracker_manager_->update(armors, auto_aim_fsm_cl_);
         auto now = std::chrono::steady_clock::now();
 
-        target_ = target;
+        {
+            std::lock_guard<std::mutex> lock(target_mutex_);
+            target_ = target;
+        }
 
         auto latency_ms = time_utils::durationMs(armors.timestamp, now);
         latency_averager_->add(latency_ms);
         auto_aim_debug_.latency_ms = latency_averager_->average();
         if (debug_mode_) {
+            std::lock_guard<std::mutex> lock(dbg_mutex_);
             auto_aim_debug_.target = target;
             auto_aim_debug_.fsm = auto_aim_fsm_cl_.fsm_state_;
         }
@@ -231,10 +234,14 @@ struct AutoAim::Impl {
 
     GimbalCmd solve(double dt_ms) {
         GimbalCmd gimbal_cmd;
-        Target target = target_;
+        Target target;
+        {
+            std::lock_guard<std::mutex> lock(target_mutex_);
+            target = target_;
+        }
         AimTarget aim_target;
         bool appear = target.checkTargetAppear();
-        if (appear) {
+        if (appear && target.position().norm() > 0.5) {
             try {
                 gimbal_cmd = very_aimer_->veryAim(
                     target,
@@ -250,6 +257,7 @@ struct AutoAim::Impl {
             fire_count_++;
         }
         if (debug_mode_) {
+            std::lock_guard<std::mutex> lock(dbg_mutex_);
             auto_aim_debug_.gimbal_cmd = gimbal_cmd;
             auto_aim_debug_.aim_target = aim_target;
         }
@@ -286,6 +294,7 @@ struct AutoAim::Impl {
         debug_mode_ = debug;
     }
     DebugArmor getDebugFrame() {
+        std::lock_guard<std::mutex> lock(dbg_mutex_);
         return auto_aim_debug_;
     }
     void printStats() {
@@ -381,6 +390,8 @@ struct AutoAim::Impl {
     std::shared_ptr<wust_vl_utils::ConfigBinder> config_binder_;
     std::shared_ptr<AutoAimShared> shared_;
     Eigen::Matrix4d T_camera_to_odom_;
+    std::mutex target_mutex_;
+    std::mutex dbg_mutex_;
     void setShared(std::shared_ptr<AutoAimShared> shared) {
         shared_ = shared;
     }

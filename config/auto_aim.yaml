@@ -49,7 +49,7 @@ auto_aim_fsm:
   thres_up_2: 16.5 
   thres_down_2: 15.0
   transfer_thresh: 20
-
+  high_speed_mode: pair
 
 very_aimer:
   max_iter: 10

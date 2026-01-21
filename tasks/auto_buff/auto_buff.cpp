@@ -151,6 +151,7 @@ struct AutoBuff::Impl {
 
         rune_queue_->enqueue(copy_fan);
         if (debug_mode_) {
+            std::lock_guard<std::mutex> lock(dbg_mutex_);
             auto_buff_debug_.src_img = { std::move(debug_img), frame.timestamp };
             auto_buff_debug_.T_camera_to_odom = T_camera_to_odom_;
             auto_buff_debug_.expanded = frame.expanded;
@@ -169,8 +170,10 @@ struct AutoBuff::Impl {
 
         auto rune_target = rune_tracker_->track(fan);
 
-        rune_target_ = rune_target;
-
+        {
+            std::lock_guard<std::mutex> lock(target_mutex_);
+            rune_target_ = rune_target;
+        }
         auto now = std::chrono::steady_clock::now();
         auto latency_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
                               std::chrono::steady_clock::now() - fan.timestamp
@@ -180,6 +183,7 @@ struct AutoBuff::Impl {
         latency_averager_->add(latency_ms);
         auto_buff_debug_.latency_ms = latency_averager_->average();
         if (debug_mode_) {
+            std::lock_guard<std::mutex> lock(dbg_mutex_);
             static double last_unwrapped_roll = 0.0;
             static double last_raw_roll = 0.0;
             const double raw_roll = rune_target.roll();
@@ -204,7 +208,10 @@ struct AutoBuff::Impl {
         GimbalCmd gimbal_cmd;
         rune::RuneTarget rune_target;
 
-        rune_target = rune_target_;
+        {
+            std::lock_guard<std::mutex> lock(target_mutex_);
+            rune_target = rune_target_;
+        }
 
         if (gimbal_cmd.fire_advice) {
             fire_count_++;
@@ -215,6 +222,7 @@ struct AutoBuff::Impl {
         }
         gimbal_cmd.appera = rune_target.checkTargetAppear();
         if (debug_mode_) {
+            std::lock_guard<std::mutex> lock(dbg_mutex_);
             auto_buff_debug_.gimbal_cmd = gimbal_cmd;
             auto_buff_debug_.aim_target = gimbal_cmd.aim_target;
         }
@@ -252,6 +260,7 @@ struct AutoBuff::Impl {
         debug_mode_ = debug;
     }
     DebugRune getDebugFrame() {
+        std::lock_guard<std::mutex> lock(dbg_mutex_);
         return auto_buff_debug_;
     }
     void printStats() {
@@ -334,6 +343,8 @@ struct AutoBuff::Impl {
     YAML::Node config_;
     Eigen::Matrix4d T_camera_to_odom_;
     std::shared_ptr<AutoBuffShared> shared_;
+    std::mutex target_mutex_;
+    std::mutex dbg_mutex_;
     void setShared(std::shared_ptr<AutoBuffShared> shared) {
         shared_ = shared;
     }

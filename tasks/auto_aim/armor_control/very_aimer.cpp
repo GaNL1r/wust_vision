@@ -27,17 +27,21 @@ public:
 
     Impl(const YAML::Node& config, std::shared_ptr<TrajectoryCompensator> trajectory_compensator) {
         trajectory_compensator_ = trajectory_compensator;
-        shooting_range_w_ = config["shooting_range_w"].as<double>(0.12);
-        shooting_range_h_ = config["shooting_range_h"].as<double>(0.12);
-        double yaw_limit_deg = config["yaw_limit"].as<double>(0.0);
+        config_ = config;
+        reset();
+    }
+    void reset() {
+        shooting_range_w_ = config_["shooting_range_w"].as<double>(0.12);
+        shooting_range_h_ = config_["shooting_range_h"].as<double>(0.12);
+        double yaw_limit_deg = config_["yaw_limit"].as<double>(0.0);
         yaw_limit = yaw_limit_deg / 180.0 * M_PI;
-        min_enable_pitch_deg_ = config["min_enable_pitch_deg"].as<double>(0.0);
-        min_enable_yaw_deg_ = config["min_enable_yaw_deg"].as<double>(0.0);
+        min_enable_pitch_deg_ = config_["min_enable_pitch_deg"].as<double>(0.0);
+        min_enable_yaw_deg_ = config_["min_enable_yaw_deg"].as<double>(0.0);
         manual_compensator_ = std::make_unique<ManualCompensator>();
         std::vector<OffsetEntry> entries;
 
-        if (config["trajectory_offset"]) {
-            for (const auto& node: config["trajectory_offset"]) {
+        if (config_["trajectory_offset"]) {
+            for (const auto& node: config_["trajectory_offset"]) {
                 OffsetEntry e;
                 e.d_min = node["d_min"].as<double>();
                 e.d_max = node["d_max"].as<double>();
@@ -47,21 +51,21 @@ public:
                 e.yaw_off = node["yaw_off"].as<double>();
                 entries.push_back(e);
             }
-            manual_compensator_->setBasePitch(config["base_offset"]["pitch"].as<double>());
-            manual_compensator_->setBaseYaw(config["base_offset"]["yaw"].as<double>());
+            manual_compensator_->setBasePitch(config_["base_offset"]["pitch"].as<double>());
+            manual_compensator_->setBaseYaw(config_["base_offset"]["yaw"].as<double>());
         }
         if (!manual_compensator_->updateMapFlow(entries) || entries.size() < 1) {
             std::cout << "Trajectory compensator init failed" << std::endl;
         }
-        prediction_delay_ = config["prediction_delay"].as<double>(0.0);
-        comming_angle_ = config["comming_angle"].as<double>(5.0);
-        leaving_angle_ = config["leaving_angle"].as<double>(5.0);
-        control_delay_ = config["control_delay"].as<double>();
-        max_iter_ = config["max_iter"].as<int>();
-        max_pitch_acc_ = config["max_pitch_acc"].as<double>();
-        delay_enable_fire_error_ = config["delay_enable_fire_error"].as<double>(0.0);
-        auto Q_pitch = config["Q_pitch"].as<std::vector<double>>();
-        auto R_pitch = config["R_pitch"].as<std::vector<double>>();
+        prediction_delay_ = config_["prediction_delay"].as<double>(0.0);
+        comming_angle_ = config_["comming_angle"].as<double>(5.0);
+        leaving_angle_ = config_["leaving_angle"].as<double>(5.0);
+        control_delay_ = config_["control_delay"].as<double>();
+        max_iter_ = config_["max_iter"].as<int>();
+        max_pitch_acc_ = config_["max_pitch_acc"].as<double>();
+        delay_enable_fire_error_ = config_["delay_enable_fire_error"].as<double>(0.0);
+        auto Q_pitch = config_["Q_pitch"].as<std::vector<double>>();
+        auto R_pitch = config_["R_pitch"].as<std::vector<double>>();
         Eigen::MatrixXd A_pitch { { 1, MPC_DT }, { 0, 1 } };
         Eigen::MatrixXd B_pitch { { 0 }, { MPC_DT } };
         Eigen::VectorXd f_pitch { { 0, 0 } };
@@ -95,9 +99,9 @@ public:
         );
 
         pitch_solver_->settings->max_iter = max_iter_;
-        max_yaw_acc_ = config["max_yaw_acc"].as<double>();
-        auto Q_yaw = config["Q_yaw"].as<std::vector<double>>();
-        auto R_yaw = config["R_yaw"].as<std::vector<double>>();
+        max_yaw_acc_ = config_["max_yaw_acc"].as<double>();
+        auto Q_yaw = config_["Q_yaw"].as<std::vector<double>>();
+        auto R_yaw = config_["R_yaw"].as<std::vector<double>>();
 
         Eigen::MatrixXd A_yaw { { 1, MPC_DT }, { 0, 1 } };
         Eigen::MatrixXd B_yaw { { 0 }, { MPC_DT } };
@@ -132,7 +136,7 @@ public:
     ) {
         return std::make_unique<VeryAimer>(config, trajectory_compensator);
     }
-    int selectArmor(const Target& target, bool aim_first) {
+    int selectArmor(const Target& target, bool aim_first, bool aim_pair) {
         static int lock_id = -1;
 
         auto armor_list = target.getArmorPosAndYaw();
@@ -210,6 +214,12 @@ public:
                 std::iota(all.begin(), all.end(), 0);
                 best_idx = pick_best_by_min_abs(all);
             }
+            if (aim_pair) {
+                std::vector<int> all;
+                all.push_back(0);
+                all.push_back(2);
+                best_idx = pick_best_by_min_abs(all);
+            }
 
             i_chosen = best_idx;
         }
@@ -218,9 +228,10 @@ public:
     }
     ControlPoint
     choseAndGetControlPoint(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm) {
-        bool aim_first = (auto_aim_fsm == AutoAimFsm::AIM_SINGLE_ARMOR);
-        bool aim_center = (auto_aim_fsm == AutoAimFsm::AIM_WHOLE_CAR_CENTER);
-        int target_select = selectArmor(target, aim_first);
+        const bool aim_first = (auto_aim_fsm == AutoAimFsm::AIM_SINGLE_ARMOR);
+        const bool aim_center = (auto_aim_fsm == AutoAimFsm::AIM_WHOLE_CAR_CENTER);
+        const bool aim_pair = (auto_aim_fsm == AutoAimFsm::AIM_WHOLE_CAR_PAIR);
+        int target_select = selectArmor(target, aim_first, aim_pair);
         auto armors_xyza = target.getArmorPosAndYaw();
         Eigen::Vector3d aim_pos = armors_xyza[target_select].head<3>();
 
@@ -284,7 +295,11 @@ public:
                 aim_target_pos.x() * aim_target_pos.x() + aim_target_pos.y() * aim_target_pos.y()
             )
         );
-        trajectory_compensator_->compensate(aim_target_pos, raw_pitch, bullet_speed);
+        try {
+            trajectory_compensator_->compensate(aim_target_pos, raw_pitch, bullet_speed);
+        } catch (std::exception& e) {
+            std::cout << "compensate error: " << e.what() << std::endl;
+        }
 
         double control_pitch = raw_pitch;
         auto offs = manual_compensator_->angleHardCorrect(
@@ -306,15 +321,15 @@ public:
             return traj.back();
         }
 
-        double idx = t / MPC_DT;
+        const double idx = t / MPC_DT;
         int i0 = floor(idx);
         int i1 = ceil(idx);
         if (i0 == i1)
             return traj[i0];
 
-        double a = idx - i0;
-        Eigen::Vector4d s0 { traj[i0].yaw, traj[i0].v_yaw, traj[i0].pitch, traj[i0].v_pitch };
-        Eigen::Vector4d s1 { traj[i1].yaw, traj[i1].v_yaw, traj[i1].pitch, traj[i1].v_pitch };
+        const double a = idx - i0;
+        const Eigen::Vector4d s0 { traj[i0].yaw, traj[i0].v_yaw, traj[i0].pitch, traj[i0].v_pitch };
+        const Eigen::Vector4d s1 { traj[i1].yaw, traj[i1].v_yaw, traj[i1].pitch, traj[i1].v_pitch };
         result_yaw_vyaw_pitch_vpitch = (1 - a) * s0 + a * s1;
         TrajPoint result;
         result.yaw = result_yaw_vyaw_pitch_vpitch[0];
@@ -325,11 +340,11 @@ public:
     }
     std::tuple<double, double>
     calEnableDiff(Eigen::Vector3d aim_target_pos, double diff_yaw, const AutoAimFsm& auto_aim_fsm) {
-        double distance = aim_target_pos.norm();
+        const double distance = aim_target_pos.norm();
         double shooting_range_yaw = std::abs(atan2(shooting_range_w_ / 2, distance));
         double shooting_range_pitch = std::abs(atan2(shooting_range_h_ / 2, distance));
         double yaw_factor = 0.0;
-        double yaw_rad = diff_yaw;
+        const double yaw_rad = diff_yaw;
         if (auto_aim_fsm != AutoAimFsm::AIM_SINGLE_ARMOR) {
             if (std::abs(yaw_rad) <= yaw_limit) {
                 yaw_factor = std::cos(yaw_rad);
@@ -338,7 +353,7 @@ public:
             yaw_factor = std::cos(yaw_rad);
         }
 
-        double pitch_factor = std::cos(15.0 * M_PI / 180);
+        const double pitch_factor = std::cos(15.0 * M_PI / 180);
 
         shooting_range_yaw = std::max(shooting_range_yaw, min_enable_yaw_deg_ * M_PI / 180);
         shooting_range_pitch = std::max(shooting_range_pitch, min_enable_pitch_deg_ * M_PI / 180);
@@ -351,15 +366,16 @@ public:
         return r / M_PI * 180.0;
     }
     GimbalCmd veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm) {
-        bool aim_first = (auto_aim_fsm == AutoAimFsm::AIM_SINGLE_ARMOR);
-        bool aim_center = (auto_aim_fsm == AutoAimFsm::AIM_WHOLE_CAR_CENTER);
-        int roughly_select = selectArmor(target, aim_first);
-        auto ap = target.getArmorPositions();
-        auto now = time_utils::now();
-        double dt0 = time_utils::durationSec(target.timestamp_, now);
-        auto future = now + std::chrono::microseconds(int(dt0 * 1e6));
+        const bool aim_first = (auto_aim_fsm == AutoAimFsm::AIM_SINGLE_ARMOR);
+        const bool aim_center = (auto_aim_fsm == AutoAimFsm::AIM_WHOLE_CAR_CENTER);
+        const bool aim_pair = (auto_aim_fsm == AutoAimFsm::AIM_WHOLE_CAR_PAIR);
+        const int roughly_select = selectArmor(target, aim_first, aim_pair);
+        const auto ap = target.getArmorPositions();
+        const auto now = time_utils::now();
+        const double dt0 = time_utils::durationSec(target.timestamp_, now);
+        const auto future = now + std::chrono::microseconds(int(dt0 * 1e6));
         target.predict(future);
-        double fly_time =
+        const double fly_time =
             trajectory_compensator_->getFlyingTime(ap[roughly_select].head<3>(), bullet_speed);
         std::vector<Target> iteration_target(10, target);
         bool converged = false;
@@ -367,8 +383,7 @@ public:
         for (int iter = 0; iter < 10; ++iter) {
             auto predict_time = prev_fly_time;
             iteration_target[iter].predict(predict_time);
-            int iter_select = selectArmor(iteration_target[iter], aim_first);
-            // int iter_select = roughly_select;
+            int iter_select = selectArmor(iteration_target[iter], aim_first, aim_pair);
             auto iter_poss = iteration_target[iter].getArmorPositions();
             double iter_fly_time =
                 trajectory_compensator_->getFlyingTime(iter_poss[iter_select], bullet_speed);
@@ -380,8 +395,8 @@ public:
         }
         auto predict_time = prev_fly_time + prediction_delay_;
         target.predict(predict_time);
-        int fin_target_select = selectArmor(target, aim_first);
-        auto fin_armors_xyza = target.getArmorPosAndYaw();
+        const int fin_target_select = selectArmor(target, aim_first, aim_pair);
+        const auto fin_armors_xyza = target.getArmorPosAndYaw();
         Eigen::Vector3d fin_aim_pos = fin_armors_xyza[fin_target_select].head<3>();
 
         if (aim_center)
@@ -397,6 +412,7 @@ public:
             fin_aim_pos.y() = c_xy_dis * std::sin(c_yaw);
             fin_aim_pos.z() = raw_z;
         }
+
         AimTarget fin_target_at;
         {
             fin_target_at.pos = fin_aim_pos;
@@ -460,13 +476,13 @@ public:
             target_yaw_rad = cp_aim_center.yaw;
             target_pitch_rad = cp_aim_center.pitch;
         }
-        double control_yaw_rad =
+        const double control_yaw_rad =
             angles::normalize_angle(yaw_solver_->work->x(0, MPC_HALF_HORIZON) + cp0.yaw);
-        double control_yaw_vel_rad = yaw_solver_->work->x(1, MPC_HALF_HORIZON);
-        double control_yaw_acc_rad = yaw_solver_->work->u(0, MPC_HALF_HORIZON);
-        double control_pitch_rad = pitch_solver_->work->x(0, MPC_HALF_HORIZON);
-        double control_pitch_vel_rad = pitch_solver_->work->x(1, MPC_HALF_HORIZON);
-        double control_pitch_acc_rad = pitch_solver_->work->u(0, MPC_HALF_HORIZON);
+        const double control_yaw_vel_rad = yaw_solver_->work->x(1, MPC_HALF_HORIZON);
+        const double control_yaw_acc_rad = yaw_solver_->work->u(0, MPC_HALF_HORIZON);
+        const double control_pitch_rad = pitch_solver_->work->x(0, MPC_HALF_HORIZON);
+        const double control_pitch_vel_rad = pitch_solver_->work->x(1, MPC_HALF_HORIZON);
+        const double control_pitch_acc_rad = pitch_solver_->work->u(0, MPC_HALF_HORIZON);
         cmd.yaw = rad2deg(control_yaw_rad);
         cmd.v_yaw = rad2deg(control_yaw_vel_rad);
         cmd.pitch = rad2deg(control_pitch_rad);
@@ -488,7 +504,8 @@ public:
             tp.v_pitch = pitch_solver_->work->x(1, i);
             control_traj[i] = tp;
         }
-        auto control_delay_state = getStateAtTime(control_traj, total_time / 2.0 + control_delay_);
+        const auto control_delay_state =
+            getStateAtTime(control_traj, total_time / 2.0 + control_delay_);
 
         bool delay_noswitching = true;
         delay_noswitching = std::hypot(
@@ -507,13 +524,13 @@ public:
                 center_yaw,
                 fin_armors_xyza[fin_target_select][3]
             );
-            auto [enable_yaw_diff_rad, enable_pitch_diff_rad] =
+            const auto [enable_yaw_diff_rad, enable_pitch_diff_rad] =
                 calEnableDiff(fin_armors_xyza[fin_target_select].head<3>(), d_angle, auto_aim_fsm);
             cmd.enable_pitch_diff = rad2deg(enable_pitch_diff_rad);
             cmd.enable_yaw_diff = rad2deg(enable_yaw_diff_rad);
-            double yaw_diff_rad =
+            const double yaw_diff_rad =
                 angles::shortest_angular_distance(target_yaw_rad, control_yaw_rad);
-            double pitch_diff_rad =
+            const double pitch_diff_rad =
                 angles::shortest_angular_distance(target_pitch_rad, control_pitch_rad);
             if (std::abs(yaw_diff_rad) <= enable_yaw_diff_rad
                 && std::abs(pitch_diff_rad) <= enable_pitch_diff_rad)
@@ -542,6 +559,7 @@ public:
         cmd.appera = true;
         if (!cmd.isValid()) {
             cmd.appera = false;
+            reset();
             WUST_WARN("very_aimer") << "very_aimer  nan!";
         }
         return cmd;
@@ -564,6 +582,7 @@ public:
     TinySolver* yaw_solver_;
     TinySolver* pitch_solver_;
     minco::MINCO_S3NU1DAngle minco_yaw_;
+    YAML::Node config_;
 };
 VeryAimer::VeryAimer(
     const YAML::Node& config,

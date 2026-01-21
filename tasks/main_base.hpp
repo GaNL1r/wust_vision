@@ -61,11 +61,12 @@ inline int runVisionMain(int argc, char** argv) {
                 auto all_status =
                     wust_vl_concurrency::ThreadManager::instance().getAllThreadStatuses();
                 v.checkStateMatchMode();
-
                 for (auto& status: all_status) {
                     if (status.second == wust_vl_concurrency::MonitoredThread::Status::Hung) {
                         std::cerr << status.first << " is Hunging! Exiting program..." << std::endl;
                         exit_code = -1;
+                        std::exit(exit_code);
+
                         break;
                     }
                 }

@@ -1,7 +1,12 @@
 #pragma once
 
 #include <yaml-cpp/yaml.h>
-enum class AutoAimFsm { AIM_WHOLE_CAR_ARMOR, AIM_WHOLE_CAR_CENTER, AIM_SINGLE_ARMOR };
+enum class AutoAimFsm {
+    AIM_WHOLE_CAR_ARMOR,
+    AIM_WHOLE_CAR_CENTER,
+    AIM_SINGLE_ARMOR,
+    AIM_WHOLE_CAR_PAIR
+};
 inline std::string auto_aim_fsm_to_string(AutoAimFsm state) {
     switch (state) {
         case AutoAimFsm::AIM_WHOLE_CAR_ARMOR:
@@ -10,6 +15,8 @@ inline std::string auto_aim_fsm_to_string(AutoAimFsm state) {
             return "AIM_WHOLE_CAR_CENTER";
         case AutoAimFsm::AIM_SINGLE_ARMOR:
             return "AIM_SINGLE_ARMOR";
+        case AutoAimFsm::AIM_WHOLE_CAR_PAIR:
+            return "AIM_WHOLE_CAR_PAIR";
         default:
             return "UNKNOWN";
     }
@@ -26,12 +33,20 @@ public:
 
     double thres_up_2 = 6.0; // WHOLE_ARMOR -> CENTER
     double thres_down_2 = 5.0; // CENTER -> WHOLE_ARMOR
+    enum class HighSpeedMode { PAIR, CENTER } high_mode_ = HighSpeedMode::PAIR;
     void load(const YAML::Node& config) {
         thres_up_1 = config["auto_aim_fsm"]["thres_up_1"].as<double>(1.0);
         thres_down_1 = config["auto_aim_fsm"]["thres_down_1"].as<double>(0.5);
         thres_up_2 = config["auto_aim_fsm"]["thres_up_2"].as<double>(6.0);
         thres_down_2 = config["auto_aim_fsm"]["thres_down_2"].as<double>(5.0);
         transfer_thresh_ = config["auto_aim_fsm"]["transfer_thresh"].as<int>(5.0);
+        std::string high_speed_mode =
+            config["auto_aim_fsm"]["high_speed_mode"].as<std::string>("pair");
+        if (high_speed_mode == "pair") {
+            high_mode_ = HighSpeedMode::PAIR;
+        } else if (high_speed_mode == "center") {
+            high_mode_ = HighSpeedMode::CENTER;
+        }
     }
     AutoAimFsmController(
         double up1 = 1.0,
@@ -73,14 +88,19 @@ public:
 
                 if (overflow_count_ > transfer_thresh_) {
                     if (std::abs(v_yaw) > thres_up_2) {
-                        fsm_state_ = AutoAimFsm::AIM_WHOLE_CAR_CENTER;
+                        if (high_mode_ == HighSpeedMode::CENTER) {
+                            fsm_state_ = AutoAimFsm::AIM_WHOLE_CAR_CENTER;
+
+                        } else if (high_mode_ == HighSpeedMode::PAIR) {
+                            fsm_state_ = AutoAimFsm::AIM_WHOLE_CAR_PAIR;
+                        }
                     } else {
                         fsm_state_ = AutoAimFsm::AIM_SINGLE_ARMOR;
                     }
                     overflow_count_ = 0;
                 }
                 break;
-
+            case AutoAimFsm::AIM_WHOLE_CAR_PAIR:
             case AutoAimFsm::AIM_WHOLE_CAR_CENTER:
                 if (std::abs(v_yaw) < thres_down_2)
                     ++overflow_count_;
