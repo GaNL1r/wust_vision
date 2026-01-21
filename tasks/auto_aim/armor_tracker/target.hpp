@@ -24,7 +24,7 @@ struct TargetConfig {
     double yaw_r_log_ratio = 0.005;
     double match_gate = 10;
     double lost_dt = 0.5;
-    void loadConfig(const YAML::Node& node) {
+    void loadConfig(const YAML::Node& node) noexcept {
         esekf_iter_num = node["esekf_iter_num"].as<int>();
         qyaw_common = node["qyaw_common"].as<double>();
         std::vector<double> qxyz_common_vec = node["qxyz_common"].as<std::vector<double>>();
@@ -51,7 +51,7 @@ class Target {
 public:
     Target();
     Target& operator=(const Target&) = default;
-    Target(const armor::Armor& armor, const TargetConfig& target_config);
+    Target(const armor::Armor& armor, const TargetConfig& target_config) noexcept;
     MModel::Measure::MeasureCtx ctx_;
     armor::ArmorNumber tracked_id_;
     std::string type_;
@@ -80,17 +80,17 @@ public:
         const cv::Mat& camera_intrinsic,
         const cv::Mat& camera_distortion,
         const cv::Size& image_size
-    );
+    ) const noexcept;
     void predict(
         std::chrono::steady_clock::time_point t,
         Eigen::Vector3d self_v = Eigen::Vector3d::Zero()
-    );
-    void predict(double dt, Eigen::Vector3d self_v = Eigen::Vector3d::Zero());
-    bool update(const std::pair<int, armor::Armor>& armor);
+    ) noexcept;
+    void predict(double dt, Eigen::Vector3d self_v = Eigen::Vector3d::Zero()) noexcept;
+    bool update(const std::pair<int, armor::Armor>& armor) noexcept;
     Eigen::Matrix<double, MModel::Z_N, MModel::Z_N>
-    computeMeasurementCovariance(const Eigen::Matrix<double, MModel::Z_N, 1>& z) const;
-    Eigen::Matrix<double, MModel::X_N, MModel::X_N> computeProcessNoise(double dt) const;
-    std::optional<armor::ArmorNumber> getArmorNumber() const {
+    computeMeasurementCovariance(const Eigen::Matrix<double, MModel::Z_N, 1>& z) const noexcept;
+    Eigen::Matrix<double, MModel::X_N, MModel::X_N> computeProcessNoise(double dt) const noexcept;
+    std::optional<armor::ArmorNumber> getArmorNumber() const noexcept {
         if (!checkTargetAppear()) {
             return std::nullopt;
         }
@@ -104,7 +104,7 @@ public:
         this->last_yaw_ = yaw;
         return yaw;
     }
-    std::vector<double> getArmorYaws() const {
+    std::vector<double> getArmorYaws() const noexcept {
         std::vector<double> yaw_list;
 
         for (int i = 0; i < armor_num_; i++) {
@@ -113,17 +113,17 @@ public:
         }
         return yaw_list;
     }
-    Eigen::Vector3d position() const {
+    Eigen::Vector3d position() const noexcept {
         return { target_state_[(int)MModel::State::CX],
                  target_state_[(int)MModel::State::CY],
                  target_state_[(int)MModel::State::CZ] };
     }
-    Eigen::Vector3d velocity() const {
+    Eigen::Vector3d velocity() const noexcept {
         return { target_state_[(int)MModel::State::VCX],
                  target_state_[(int)MModel::State::VCY],
                  target_state_[(int)MModel::State::VCZ] };
     }
-    std::vector<Eigen::Vector3d> getArmorPositions() const {
+    std::vector<Eigen::Vector3d> getArmorPositions() const noexcept {
         std::vector<Eigen::Vector3d> armor_positions;
 
         for (int i = 0; i < armor_num_; i++) {
@@ -135,7 +135,7 @@ public:
         }
         return armor_positions;
     }
-    std::vector<Eigen::Vector3d> getArmorVelocities() const {
+    std::vector<Eigen::Vector3d> getArmorVelocities() const noexcept {
         std::vector<Eigen::Vector3d> armor_velocities;
 
         for (int i = 0; i < armor_num_; i++) {
@@ -147,32 +147,33 @@ public:
         }
         return armor_velocities;
     }
-    std::vector<std::pair<int, armor::Armor>> match(const std::vector<armor::Armor>& armors);
-    double yaw() const {
+    std::vector<std::pair<int, armor::Armor>> match(const std::vector<armor::Armor>& armors
+    ) noexcept;
+    double yaw() const noexcept {
         return target_state_((int)MModel::State::YAW);
     }
-    double v_yaw() const {
+    double v_yaw() const noexcept {
         return target_state_((int)MModel::State::VYAW);
     }
-    double r() const {
+    double r() const noexcept {
         return target_state_((int)MModel::State::R);
     }
-    double l() const {
+    double l() const noexcept {
         return target_state_((int)MModel::State::L);
     }
-    double h() const {
+    double h() const noexcept {
         return target_state_((int)MModel::State::H);
     }
 
-    inline bool checkTargetAppear() const {
+    inline bool checkTargetAppear() const noexcept {
         bool appear = is_tracking
             && time_utils::durationSec(timestamp_, time_utils::now()) < target_config_.lost_dt;
         return appear;
     }
-    bool diverged() const {
+    bool diverged() const noexcept {
         return diverged(target_state_);
     }
-    bool diverged(Eigen::VectorXd target_state) const {
+    bool diverged(Eigen::VectorXd target_state) const noexcept {
         auto r_ok =
             target_state[(int)MModel::State::R] > 0.05 && target_state[(int)MModel::State::R] < 0.5;
         auto l_ok = target_state[(int)MModel::State::R] + target_state[(int)MModel::State::L] > 0.05
@@ -216,7 +217,7 @@ public:
         esekf_ypd_.setState(state);
     }
 
-    std::vector<Eigen::Vector4d> getArmorPosAndYaw() const {
+    std::vector<Eigen::Vector4d> getArmorPosAndYaw() const noexcept {
         std::vector<Eigen::Vector4d> _armor_xyza_list;
 
         for (int i = 0; i < armor_num_; i++) {
@@ -226,7 +227,7 @@ public:
         }
         return _armor_xyza_list;
     }
-    double getMeanZ() {
+    double getMeanZ() const noexcept {
         double mean;
         auto all = getArmorPositions();
         for (const auto& armor: all) {
@@ -234,14 +235,14 @@ public:
         }
         return mean / all.size();
     }
-    double getArmor2CenterXYDis(int id) {
+    double getArmor2CenterXYDis(int id) const noexcept {
         auto use_l_h = (armor_num_ == 4) && (id == 1 || id == 3);
         auto r = (use_l_h)
             ? target_state_[(int)MModel::State::R] + target_state_[(int)MModel::State::L]
             : target_state_[(int)MModel::State::R];
         return r;
     }
-    Eigen::Vector3d h_armor_xyz(const Eigen::VectorXd& x, int id) const {
+    Eigen::Vector3d h_armor_xyz(const Eigen::VectorXd& x, int id) const noexcept {
         auto angle =
             angles::normalize_angle(x[(int)MModel::State::YAW] + id * 2 * CV_PI / armor_num_);
         auto use_l_h = (armor_num_ == 4) && (id == 1 || id == 3);
@@ -257,14 +258,14 @@ public:
 
         return { armor_x, armor_y, armor_z };
     }
-    double getoutpost_armor_z(int id, const Eigen::VectorXd x) const {
+    double getoutpost_armor_z(int id, const Eigen::VectorXd x) const noexcept {
         return (id == 0) ? x[(int)MModel::State::CZ]
             : (id == 1)  ? x[(int)MModel::State::CZ] + x[(int)MModel::State::outpost01DZ]
             : (id == 2)  ? x[(int)MModel::State::CZ] + x[(int)MModel::State::outpost02DZ]
                          : x[(int)MModel::State::CZ];
     }
 
-    Eigen::Vector3d h_armor_vxyz(const Eigen::VectorXd& x, int id) const {
+    Eigen::Vector3d h_armor_vxyz(const Eigen::VectorXd& x, int id) const noexcept {
         Eigen::Vector3d v_center(
             x[(int)MModel::State::CX],
             x[(int)MModel::State::CY],
@@ -289,7 +290,7 @@ public:
         Eigen::Vector3d v_rot = omega.cross(p);
         return v_center + v_rot;
     }
-    Eigen::Matrix<double, MModel::Z_N, 1> getmean(const armor::Armor& a) {
+    Eigen::Matrix<double, MModel::Z_N, 1> getmean(const armor::Armor& a) noexcept {
         auto p = a.target_pos;
         double measured_yaw = orientationToYaw(a.target_ori);
         double ypd_y = std::atan2(p.y(), p.x());

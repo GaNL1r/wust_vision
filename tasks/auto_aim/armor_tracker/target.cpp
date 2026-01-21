@@ -2,7 +2,7 @@
 Target::Target() {
     target_state_ = Eigen::VectorXd::Zero(MModel::X_N);
 }
-Target::Target(const armor::Armor& a, const TargetConfig& target_config) {
+Target::Target(const armor::Armor& a, const TargetConfig& target_config) noexcept {
     Eigen::DiagonalMatrix<double, ypdv2armor_motion_model::X_N> p0;
     if (a.number == armor::ArmorNumber::OUTPOST) {
         p0.diagonal() << 1, 64, 1, 64, 1, 81, 0.4, 100, 1e-4, 0.1, 0.1;
@@ -64,17 +64,17 @@ Target::Target(const armor::Armor& a, const TargetConfig& target_config) {
         );
     });
 
-    double xa = a.target_pos.x();
-    double ya = a.target_pos.y();
-    double za = a.target_pos.z();
+    const double xa = a.target_pos.x();
+    const double ya = a.target_pos.y();
+    const double za = a.target_pos.z();
     last_yaw_ = 0;
-    double yaw = orientationToYaw(a.target_ori);
+    const double yaw = orientationToYaw(a.target_ori);
 
     target_state_ = Eigen::VectorXd::Zero(MModel::X_N);
-    double r = radius_pre_;
-    double xc = xa + r * cos(yaw);
-    double yc = ya + r * sin(yaw);
-    double zc = za;
+    const double r = radius_pre_;
+    const double xc = xa + r * cos(yaw);
+    const double yc = ya + r * sin(yaw);
+    const double zc = za;
     target_state_ << xc, 0, yc, 0, zc, 0, yaw, 0, r, 0, 0;
 
     esekf_ypd_.setState(target_state_);
@@ -85,10 +85,11 @@ Target::Target(const armor::Armor& a, const TargetConfig& target_config) {
     is_inited = true;
 }
 Eigen::Matrix<double, MModel::Z_N, MModel::Z_N>
-Target::computeMeasurementCovariance(const Eigen::Matrix<double, MModel::Z_N, 1>& z) const {
+Target::computeMeasurementCovariance(const Eigen::Matrix<double, MModel::Z_N, 1>& z
+) const noexcept {
     Eigen::Matrix<double, MModel::Z_N, MModel::Z_N> r;
-    double delta_angle = angles::normalize_angle(z[3] - z[0]);
-    double abs_delta = std::abs(delta_angle);
+    const double delta_angle = angles::normalize_angle(z[3] - z[0]);
+    const double abs_delta = std::abs(delta_angle);
 
     // sin插值函数，小值慢、大值快
     auto sinInterp = [](double x, double x0, double x1, double y0, double y1) -> double {
@@ -108,7 +109,8 @@ Target::computeMeasurementCovariance(const Eigen::Matrix<double, MModel::Z_N, 1>
     // clang-format on
     return r;
 }
-Eigen::Matrix<double, MModel::X_N, MModel::X_N> Target::computeProcessNoise(double dt) const {
+Eigen::Matrix<double, MModel::X_N, MModel::X_N> Target::computeProcessNoise(double dt
+) const noexcept {
     Eigen::Matrix<double, MModel::X_N, MModel::X_N> q;
     Eigen::Vector3d q_xyz;
     double q_yaw;
@@ -124,16 +126,16 @@ Eigen::Matrix<double, MModel::X_N, MModel::X_N> Target::computeProcessNoise(doub
         q_l = target_config_.q_l;
         q_h = target_config_.q_h;
     }
-    double t = dt;
-    double q_x_x = pow(t, 4) / 4 * q_xyz.x(), q_x_vx = pow(t, 3) / 2 * q_xyz.x(),
-           q_vx_vx = pow(t, 2) * q_xyz.x();
-    double q_y_y = pow(t, 4) / 4 * q_xyz.y(), q_y_vy = pow(t, 3) / 2 * q_xyz.y(),
-           q_vy_vy = pow(t, 2) * q_xyz.y();
-    double q_z_z = pow(t, 4) / 4 * q_xyz.z(), q_z_vz = pow(t, 3) / 2 * q_xyz.z(),
-           q_vz_vz = pow(t, 2) * q_xyz.z();
-    double q_yaw_yaw = pow(t, 4) / 4 * q_yaw, q_yaw_vyaw = pow(t, 3) / 2 * q_yaw,
-           q_vyaw_vyaw = pow(t, 2) * q_yaw;
-    double q_r = target_config_.q_r;
+    const double t = dt;
+    const double q_x_x = pow(t, 4) / 4 * q_xyz.x(), q_x_vx = pow(t, 3) / 2 * q_xyz.x(),
+                 q_vx_vx = pow(t, 2) * q_xyz.x();
+    const double q_y_y = pow(t, 4) / 4 * q_xyz.y(), q_y_vy = pow(t, 3) / 2 * q_xyz.y(),
+                 q_vy_vy = pow(t, 2) * q_xyz.y();
+    const double q_z_z = pow(t, 4) / 4 * q_xyz.z(), q_z_vz = pow(t, 3) / 2 * q_xyz.z(),
+                 q_vz_vz = pow(t, 2) * q_xyz.z();
+    const double q_yaw_yaw = pow(t, 4) / 4 * q_yaw, q_yaw_vyaw = pow(t, 3) / 2 * q_yaw,
+                 q_vyaw_vyaw = pow(t, 2) * q_yaw;
+    const double q_r = target_config_.q_r;
 
     // clang-format off
             //      xc      v_xc    yc      v_yc    zc      v_zc    yaw         v_yaw       r       l   h
@@ -152,14 +154,14 @@ Eigen::Matrix<double, MModel::X_N, MModel::X_N> Target::computeProcessNoise(doub
     return q;
 }
 
-void Target::predict(std::chrono::steady_clock::time_point t, Eigen::Vector3d self_v) {
-    double dt = time_utils::durationSec(last_t_, t);
+void Target::predict(std::chrono::steady_clock::time_point t, Eigen::Vector3d self_v) noexcept {
+    const double dt = time_utils::durationSec(last_t_, t);
 
     predict(dt, self_v);
 
     last_t_ = t;
 }
-void Target::predict(double dt, Eigen::Vector3d self_v) {
+void Target::predict(double dt, Eigen::Vector3d self_v) noexcept {
     dt_ = dt;
 
     if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
@@ -213,9 +215,9 @@ void Target::predict(double dt, Eigen::Vector3d self_v) {
     }
 }
 
-bool Target::update(const std::pair<int, armor::Armor>& a) {
-    auto armor = a.second;
-    auto id = a.first;
+bool Target::update(const std::pair<int, armor::Armor>& a) noexcept {
+    const auto armor = a.second;
+    const auto id = a.first;
     auto yu_rv2 = [this](const Eigen::Matrix<double, MModel::Z_N, 1>& z) {
         return this->computeMeasurementCovariance(z);
     };
@@ -249,8 +251,8 @@ cv::Rect Target::expanded(
     const cv::Mat& camera_intrinsic,
     const cv::Mat& camera_distortion,
     const cv::Size& image_size
-) {
-    double dt = time_utils::durationSec(timestamp_, time_utils::now());
+) const noexcept {
+    const double dt = time_utils::durationSec(timestamp_, time_utils::now());
     if (!is_inited || dt > target_config_.lost_dt) {
         return cv::Rect(0, 0, 0, 0);
     }
@@ -276,18 +278,18 @@ cv::Rect Target::expanded(
         return cv::Rect(0, 0, 0, 0);
     }
 
-    cv::Mat tvec = (cv::Mat_<double>(3, 1) << pos_cam.x(), pos_cam.y(), pos_cam.z());
+    const cv::Mat tvec = (cv::Mat_<double>(3, 1) << pos_cam.x(), pos_cam.y(), pos_cam.z());
 
     Eigen::Vector3d euler;
     euler.z() = M_PI / 2.0;
     euler.y() = 0;
     euler.x() = std::atan2(pos_odom.y(), pos_odom.x());
 
-    Eigen::Quaterniond ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
-    auto target_ori = utils::transformOrientation(ori, T_odom_to_camera);
-    Eigen::Matrix3d tf_rot = target_ori.toRotationMatrix();
+    const Eigen::Quaterniond ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
+    const auto target_ori = utils::transformOrientation(ori, T_odom_to_camera);
+    const Eigen::Matrix3d tf_rot = target_ori.toRotationMatrix();
 
-    cv::Mat rot_mat =
+    const cv::Mat rot_mat =
         (cv::Mat_<double>(3, 3) << tf_rot(0, 0),
          tf_rot(0, 1),
          tf_rot(0, 2),
@@ -304,18 +306,18 @@ cv::Rect Target::expanded(
     std::vector<cv::Point2f> pts_2d;
     cv::projectPoints(CAR_BOX, rvec, tvec, camera_intrinsic, camera_distortion, pts_2d);
 
-    cv::Rect rect = cv::boundingRect(pts_2d);
+    const cv::Rect rect = cv::boundingRect(pts_2d);
 
-    cv::Rect img_rect(0, 0, image_size.width, image_size.height);
+    const cv::Rect img_rect(0, 0, image_size.width, image_size.height);
     if ((rect & img_rect).area() <= 0) {
         return cv::Rect(0, 0, 0, 0);
     }
 
-    int base_side = std::max(rect.width, rect.height);
-    int max_side = std::max(image_size.width, image_size.height);
+    const int base_side = std::max(rect.width, rect.height);
+    const int max_side = std::max(image_size.width, image_size.height);
 
-    double lost_dt = target_config_.lost_dt;
-    double dt_clamped = std::max(0.0, std::min(dt, lost_dt));
+    const double lost_dt = target_config_.lost_dt;
+    const double dt_clamped = std::max(0.0, std::min(dt, lost_dt));
 
     int side = static_cast<int>(base_side + (max_side - base_side) * (dt_clamped / lost_dt));
 
@@ -323,8 +325,8 @@ cv::Rect Target::expanded(
         side = max_side;
     }
 
-    int cx = rect.x + rect.width / 2;
-    int cy = rect.y + rect.height / 2;
+    const int cx = rect.x + rect.width / 2;
+    const int cy = rect.y + rect.height / 2;
     cv::Rect square(cx - side / 2, cy - side / 2, side, side);
 
     square &= img_rect;
@@ -332,7 +334,8 @@ cv::Rect Target::expanded(
     return square;
 }
 
-std::vector<std::pair<int, armor::Armor>> Target::match(const std::vector<armor::Armor>& armors) {
+std::vector<std::pair<int, armor::Armor>> Target::match(const std::vector<armor::Armor>& armors
+) noexcept {
     std::vector<std::pair<int, armor::Armor>> result;
     const int n_obs = static_cast<int>(armors.size());
     const int armors_num = armor_num_;

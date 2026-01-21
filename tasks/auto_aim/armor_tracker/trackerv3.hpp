@@ -3,16 +3,17 @@
 #include "target.hpp"
 class TrackerV3 {
 public:
-    TrackerV3(const YAML::Node& config);
-    Target track(const armor::Armors& armors_msg);
+    TrackerV3(const YAML::Node& config) noexcept;
+    Target track(const armor::Armors& armors_msg) noexcept;
+    void updateFsm(bool found) noexcept;
     enum State {
         LOST,
         DETECTING,
         TRACKING,
         TEMP_LOST,
     } tracker_state = LOST;
-    bool initTarget(const armor::Armors& armors);
-    bool updateTarget(const armor::Armors& armors);
+    bool initTarget(const armor::Armors& armors) noexcept;
+    bool updateTarget(const armor::Armors& armors) noexcept;
     int tracking_thres_;
     int lost_thres_;
     int detect_count_ = 0;

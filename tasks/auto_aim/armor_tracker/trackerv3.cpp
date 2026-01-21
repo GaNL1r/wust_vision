@@ -1,5 +1,5 @@
 #include "trackerv3.hpp"
-TrackerV3::TrackerV3(const YAML::Node& config) {
+TrackerV3::TrackerV3(const YAML::Node& config) noexcept {
     tracker_state = LOST;
     target_ = Target();
     tracking_thres_ = config["armor_tracker"]["tracking_thres"].as<int>(5);
@@ -8,7 +8,7 @@ TrackerV3::TrackerV3(const YAML::Node& config) {
     max_dis_diff_ = config["armor_tracker"]["max_dis_diff"].as<double>(0.5);
     target_config_.loadConfig(config["armor_tracker"]);
 }
-Target TrackerV3::track(const armor::Armors& armors_msg) {
+Target TrackerV3::track(const armor::Armors& armors_msg) noexcept {
     double dt = std::chrono::duration<double>(armors_msg.timestamp - last_time_).count();
     last_time_ = armors_msg.timestamp;
     lost_thres_ = std::abs(static_cast<int>(lost_dt_ / dt));
@@ -42,56 +42,60 @@ Target TrackerV3::track(const armor::Armors& armors_msg) {
     } else {
         found = updateTarget(armors);
     }
-    if (tracker_state == DETECTING) {
-        if (found) {
-            detect_count_++;
-            if (detect_count_ > tracking_thres_) {
-                detect_count_ = 0;
-                tracker_state = TRACKING;
-            }
-        } else {
-            detect_count_ = 0;
-            tracker_state = LOST;
-        }
-    } else if (tracker_state == TRACKING) {
-        if (!found) {
-            tracker_state = TEMP_LOST;
-            lost_count_++;
-        }
-    } else if (tracker_state == TEMP_LOST) {
-        if (!found) {
-            lost_count_++;
-            if (lost_count_ > lost_thres_) {
-                lost_count_ = 0;
-                tracker_state = LOST;
-            }
-        } else {
-            tracker_state = TRACKING;
-            lost_count_ = 0;
-        }
-    }
+    updateFsm(found);
     if ((target_.diverged()) && tracker_state != LOST) {
         initTarget(armors);
         tracker_state = TRACKING;
         WUST_WARN("tracker") << "Target diverged!";
     }
-    if (tracker_state == LOST || tracker_state == DETECTING) {
-        target_.is_tracking = false;
-    } else {
-        target_.is_tracking = true;
-    }
-    if (tracker_state == TEMP_LOST) {
-        target_.is_temp_lost_ = true;
-    } else {
-        target_.is_temp_lost_ = false;
-    }
-    if (found) {
-        found_count_++;
-    }
 
     return target_;
 }
-bool TrackerV3::initTarget(const armor::Armors& armors) {
+void TrackerV3::updateFsm(bool found) noexcept {
+    switch (tracker_state) {
+        case DETECTING:
+            if (found) {
+                if (++detect_count_ > tracking_thres_) {
+                    detect_count_ = 0;
+                    tracker_state = TRACKING;
+                }
+            } else {
+                detect_count_ = 0;
+                tracker_state = LOST;
+            }
+            break;
+
+        case TRACKING:
+            if (!found) {
+                tracker_state = TEMP_LOST;
+                lost_count_ = 1;
+            }
+            break;
+
+        case TEMP_LOST:
+            if (!found) {
+                if (++lost_count_ > lost_thres_) {
+                    lost_count_ = 0;
+                    tracker_state = LOST;
+                }
+            } else {
+                lost_count_ = 0;
+                tracker_state = TRACKING;
+            }
+            break;
+
+        default:
+            break;
+    }
+
+    target_.is_tracking = (tracker_state == TRACKING || tracker_state == TEMP_LOST);
+    target_.is_temp_lost_ = (tracker_state == TEMP_LOST);
+
+    if (found)
+        ++found_count_;
+}
+
+bool TrackerV3::initTarget(const armor::Armors& armors) noexcept {
     if (armors.armors.empty()) {
         return false;
     }
@@ -115,39 +119,38 @@ bool TrackerV3::initTarget(const armor::Armors& armors) {
     tracker_state = DETECTING;
     return true;
 }
-bool TrackerV3::updateTarget(const armor::Armors& armors) {
-    if (armors.armors.empty()) {
+bool TrackerV3::updateTarget(const armor::Armors& armors) noexcept {
+    if (armors.armors.empty())
         return false;
-    }
-    int found_count = 0;
+
     target_.predict(armors.timestamp, armors.v);
 
-    std::vector<armor::Armor> valid_armors;
-    for (const auto& armor: armors.armors) {
-        if (!armor::isSameTarget(armor.number, target_.tracked_id_) || armor.is_none_purple)
-            continue;
-        found_count++;
-        valid_armors.push_back(armor);
+    std::vector<armor::Armor> candidates;
+    candidates.reserve(armors.armors.size());
+
+    for (const auto& a: armors.armors) {
+        if (armor::isSameTarget(a.number, target_.tracked_id_) && !a.is_none_purple) {
+            candidates.emplace_back(a);
+        }
     }
-    if (found_count == 0)
+
+    if (candidates.empty())
         return false;
-    found_count = 0;
-    auto matched_armors = target_.match(valid_armors);
-    for (auto a: matched_armors) {
-        if (a.second.is_none_purple) {
-            is_none_purple_count_++;
+
+    int updated = 0;
+    auto matches = target_.match(candidates);
+
+    for (const auto& m: matches) {
+        if (m.second.is_none_purple) {
+            if (++is_none_purple_count_ > 100)
+                continue;
         } else {
             is_none_purple_count_ = 0;
         }
-        if (is_none_purple_count_ > 100 && a.second.is_none_purple) {
-            continue;
-        }
-        if (target_.update(a)) {
-            found_count++;
-        }
+
+        if (target_.update(m))
+            ++updated;
     }
 
-    if (found_count == 0)
-        return false;
-    return true;
+    return updated > 0;
 }
