@@ -20,7 +20,7 @@
 
 static constexpr int MAX_SRC_IMG_W = 1920;
 static constexpr int MAX_SRC_IMG_H = 1440;
-// 构造函数：初始化参数并构建引擎
+
 ArmorDetectTrt::ArmorDetectTrt(
     std::string model_type,
     const std::string& onnx_path,
@@ -177,7 +177,6 @@ ArmorDetectTrt::~ArmorDetectTrt() {
 void ArmorDetectTrt::setCallback(DetectorCallback callback) {
     infer_callback_ = callback;
 }
-// 推理函数
 bool ArmorDetectTrt::processCallback(const CommonFrame& frame, Infer* infer) {
     auto t0 = time_utils::now();
     Eigen::Matrix3f transform_matrix;

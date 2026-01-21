@@ -91,17 +91,13 @@ std::tuple<cv::Mat, cv::Mat> ArmorDetectOpenCV::preprocessImage(const cv::Mat& i
     }
 
     if (img.channels() == 3) {
-        // 彩色图，RGB -> 灰度
         cv::cvtColor(img, gray_img, cv::COLOR_RGB2GRAY);
     } else if (img.channels() == 1) {
-        // 单通道图，假设是 BayerRG
         cv::cvtColor(img, gray_img, cv::COLOR_BayerRG2GRAY);
     } else {
-        // 非法通道数，直接返回空
         return { binary_img, gray_img };
     }
 
-    // 二值化
     cv::threshold(gray_img, binary_img, binary_thres_, 255, cv::THRESH_BINARY);
 
     return { binary_img, gray_img };
@@ -109,12 +105,14 @@ std::tuple<cv::Mat, cv::Mat> ArmorDetectOpenCV::preprocessImage(const cv::Mat& i
 
 std::vector<armor::Light>
 ArmorDetectOpenCV::findLights(const cv::Mat& img, const cv::Mat& binary_img) noexcept {
-    using std::vector;
-    vector<vector<cv::Point>> contours;
-    vector<cv::Vec4i> hierarchy;
-    cv::findContours(binary_img, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
-
-    vector<armor::Light> lights;
+    std::vector<std::vector<cv::Point>> contours;
+    contours.reserve(64);
+    cv::findContours(
+        binary_img,
+        contours,
+        cv::RETR_EXTERNAL,
+        cv::CHAIN_APPROX_SIMPLE 
+    );
     cv::Mat color_img;
     if (img.channels() == 3) {
         color_img = img;
@@ -123,78 +121,87 @@ ArmorDetectOpenCV::findLights(const cv::Mat& img, const cv::Mat& binary_img) noe
     } else {
         return {};
     }
+    std::vector<armor::Light> lights;
+    lights.reserve(contours.size());
 
     for (const auto& contour: contours) {
-        if (contour.size() < 6)
+        const int n = static_cast<int>(contour.size());
+        if (n < 6)
+            continue;
+        armor::Light light(contour);
+        if (!isLight(light))
+            continue;
+        int sum_r = 0;
+        int sum_b = 0;
+        for (const auto& pt: contour) {
+            const cv::Vec3b& pix = color_img.at<cv::Vec3b>(pt);
+            sum_r += pix[0];
+            sum_b += pix[2];
+        }
+
+        const int avg_diff = std::abs(sum_r - sum_b) / n;
+        if (avg_diff <= light_params_.color_diff_thresh)
             continue;
 
-        auto light = armor::Light(contour);
-
-        if (isLight(light)) {
-            // 统计 R/B 通道
-            int sum_r = 0, sum_b = 0;
-            for (const auto& point: contour) {
-                const cv::Vec3b* row_ptr = color_img.ptr<cv::Vec3b>(point.y);
-                const cv::Vec3b& pixel = row_ptr[point.x];
-                sum_r += pixel[0];
-                sum_b += pixel[2];
-            }
-
-            // 判断颜色
-            if (std::abs(sum_r - sum_b) / static_cast<int>(contour.size())
-                > light_params_.color_diff_thresh) {
-                light.color = sum_r > sum_b ? 0 : 1; // 0=红, 1=蓝
-                lights.emplace_back(light);
-            }
-        }
+        light.color = (sum_r > sum_b) ? 0 : 1;
+        lights.emplace_back(std::move(light));
     }
-    std::sort(lights.begin(), lights.end(), [](const armor::Light& l1, const armor::Light& l2) {
-        return l1.center.x < l2.center.x;
+
+    std::sort(lights.begin(), lights.end(), [](const armor::Light& a, const armor::Light& b) {
+        return a.center.x < b.center.x;
     });
+
     return lights;
 }
+
 bool ArmorDetectOpenCV::isLight(const armor::Light& light) noexcept {
-    // The ratio of light (short side / long side)
-    float ratio = light.width / light.length;
-    bool ratio_ok = light_params_.min_ratio < ratio && ratio < light_params_.max_ratio;
+    // width / length 比例
+    const float ratio = light.width / light.length;
 
-    bool angle_ok = light.tilt_angle < light_params_.max_angle;
+    if (ratio <= light_params_.min_ratio || ratio >= light_params_.max_ratio)
+        return false;
 
-    bool is_light = ratio_ok && angle_ok;
+    if (light.tilt_angle >= light_params_.max_angle)
+        return false;
 
-    return is_light;
+    return true;
 }
 
 std::vector<armor::ArmorObject>
 ArmorDetectOpenCV::matchLights(const std::vector<armor::Light>& lights, int detect_color) noexcept {
+    const int n = static_cast<int>(lights.size());
     std::vector<armor::ArmorObject> armors;
-    // Loop all the pairing of lights
-    for (auto light_1 = lights.begin(); light_1 != lights.end(); light_1++) {
-        if (light_1->color != detect_color)
-            continue;
-        double max_iter_width = light_1->length * armor_params_.max_large_center_distance;
+    armors.reserve(n);
 
-        for (auto light_2 = light_1 + 1; light_2 != lights.end(); light_2++) {
-            if (light_2->color != detect_color)
+    for (int i = 0; i < n; ++i) {
+        const armor::Light& l1 = lights[i];
+        if (l1.color != detect_color)
+            continue;
+
+        const float max_dx = l1.length * armor_params_.max_large_center_distance;
+
+        for (int j = i + 1; j < n; ++j) {
+            const armor::Light& l2 = lights[j];
+
+            if (l2.color != detect_color)
                 continue;
-            if (containLight(light_1 - lights.begin(), light_2 - lights.begin(), lights)) {
-                continue;
-            }
-            if (light_2->center.x - light_1->center.x > max_iter_width)
+
+            const float dx = l2.center.x - l1.center.x;
+            if (dx > max_dx)
                 break;
 
-            auto type = isArmor(*light_1, *light_2);
-            if (type != armor::ArmorType::INVALID) {
-                armor::ArmorObject armor(*light_1, *light_2);
-                armor.type = type;
-                if (detect_color == 0) {
-                    armor.color = armor::ArmorColor::RED;
-                } else {
-                    armor.color = armor::ArmorColor::BLUE;
-                }
+            armor::ArmorType type = isArmor(l1, l2);
+            if (type == armor::ArmorType::INVALID)
+                continue;
 
-                armors.emplace_back(armor);
-            }
+            if (containLight(i, j, lights))
+                continue;
+
+            armor::ArmorObject armor(l1, l2);
+            armor.type = type;
+            armor.color = (detect_color == 0) ? armor::ArmorColor::RED : armor::ArmorColor::BLUE;
+
+            armors.emplace_back(std::move(armor));
         }
     }
 
@@ -207,34 +214,27 @@ bool ArmorDetectOpenCV::containLight(
     const int j,
     const std::vector<armor::Light>& lights
 ) noexcept {
-    if (i < 0 || j < 0 || i >= static_cast<int>(lights.size())
-        || j >= static_cast<int>(lights.size()) || i >= j)
-    {
-        std::cerr << "[containLight] index out of range: i=" << i << ", j=" << j
-                  << ", lights.size=" << lights.size() << std::endl;
-        return false;
-    }
+    const armor::Light& l1 = lights[i];
+    const armor::Light& l2 = lights[j];
 
-    const armor::Light &light_1 = lights[i], light_2 = lights[j];
-    auto points =
-        std::vector<cv::Point2f> { light_1.top, light_1.bottom, light_2.top, light_2.bottom };
-    auto bounding_rect = cv::boundingRect(points);
-    double avg_length = (light_1.length + light_2.length) / 2.0;
-    double avg_width = (light_1.width + light_2.width) / 2.0;
+    float min_x = std::min({ l1.top.x, l1.bottom.x, l2.top.x, l2.bottom.x });
+    float max_x = std::max({ l1.top.x, l1.bottom.x, l2.top.x, l2.bottom.x });
+    float min_y = std::min({ l1.top.y, l1.bottom.y, l2.top.y, l2.bottom.y });
+    float max_y = std::max({ l1.top.y, l1.bottom.y, l2.top.y, l2.bottom.y });
 
-    for (int k = i + 1; k < j; k++) {
-        const armor::Light& test_light = lights[k];
+    const float avg_len = 0.5f * (l1.length + l2.length);
+    const float avg_wid = 0.5f * (l1.width + l2.width);
 
-        if (test_light.width > 2 * avg_width) {
+    for (int k = i + 1; k < j; ++k) {
+        const armor::Light& t = lights[k];
+
+        if (t.width > 2.0f * avg_wid)
             continue;
-        }
-        if (test_light.length < 0.5 * avg_length) {
+        if (t.length < 0.5f * avg_len)
             continue;
-        }
 
-        if (bounding_rect.contains(test_light.top) || bounding_rect.contains(test_light.bottom)
-            || bounding_rect.contains(test_light.center))
-        {
+        const cv::Point2f& c = t.center;
+        if (c.x >= min_x && c.x <= max_x && c.y >= min_y && c.y <= max_y) {
             return true;
         }
     }
@@ -242,81 +242,99 @@ bool ArmorDetectOpenCV::containLight(
 }
 
 armor::ArmorType
-ArmorDetectOpenCV::isArmor(const armor::Light& light_1, const armor::Light& light_2) noexcept {
-    // Ratio of the length of 2 lights (short side / long side)
-    float light_length_ratio = light_1.length < light_2.length ? light_1.length / light_2.length
-                                                               : light_2.length / light_1.length;
-    bool light_ratio_ok = light_length_ratio > armor_params_.min_light_ratio;
+ArmorDetectOpenCV::isArmor(const armor::Light& l1, const armor::Light& l2) noexcept {
+    const float len1 = l1.length;
+    const float len2 = l2.length;
+    if (len1 <= 1e-3f || len2 <= 1e-3f)
+        return armor::ArmorType::INVALID;
 
-    // Distance between the center of 2 lights (unit : light length)
-    float avg_light_length = (light_1.length + light_2.length) / 2;
-    float center_distance = cv::norm(light_1.center - light_2.center) / avg_light_length;
-    bool center_distance_ok = (armor_params_.min_small_center_distance <= center_distance
-                               && center_distance < armor_params_.max_small_center_distance)
-        || (armor_params_.min_large_center_distance <= center_distance
-            && center_distance < armor_params_.max_large_center_distance);
+    const float min_len = (len1 < len2) ? len1 : len2;
+    const float max_len = (len1 < len2) ? len2 : len1;
+    if (min_len / max_len <= armor_params_.min_light_ratio)
+        return armor::ArmorType::INVALID;
+    const cv::Point2f d = l1.center - l2.center;
+    const float dist2 = d.dot(d);
 
-    // Angle of light center connection
-    cv::Point2f diff = light_1.center - light_2.center;
-    float angle = std::abs(std::atan(diff.y / diff.x)) / CV_PI * 180;
-    bool angle_ok = angle < armor_params_.max_angle;
-    float delta_angle = std::fabs(light_1.angle - light_2.angle);
+    const float avg_len = 0.5f * (len1 + len2);
+
+    const float min_small = armor_params_.min_small_center_distance * avg_len;
+    const float max_small = armor_params_.max_small_center_distance * avg_len;
+    const float min_large = armor_params_.min_large_center_distance * avg_len;
+    const float max_large = armor_params_.max_large_center_distance * avg_len;
+
+    const float min_small2 = min_small * min_small;
+    const float max_small2 = max_small * max_small;
+    const float min_large2 = min_large * min_large;
+    const float max_large2 = max_large * max_large;
+
+    const bool small_ok = (dist2 >= min_small2 && dist2 < max_small2);
+    const bool large_ok = (dist2 >= min_large2 && dist2 < max_large2);
+
+    if (!(small_ok || large_ok))
+        return armor::ArmorType::INVALID;
+
+    static const float tan_max_angle = std::tan(armor_params_.max_angle * CV_PI / 180.0f);
+
+    if (std::abs(d.y) >= std::abs(d.x) * tan_max_angle)
+        return armor::ArmorType::INVALID;
+
+    float delta_angle = std::fabs(l1.angle - l2.angle);
     if (delta_angle > 90.0f)
-        delta_angle = 180.0f - delta_angle; // 对称性补偿
-    bool parallel_ok = delta_angle < light_params_.max_angle_diff;
-    bool is_armor = light_ratio_ok && center_distance_ok && angle_ok && parallel_ok;
+        delta_angle = 180.0f - delta_angle;
 
-    // Judge armor type
-    armor::ArmorType type;
-    if (is_armor) {
-        type = center_distance > armor_params_.min_large_center_distance ? armor::ArmorType::LARGE
-                                                                         : armor::ArmorType::SMALL;
-    } else {
-        type = armor::ArmorType::INVALID;
-    }
+    if (delta_angle >= light_params_.max_angle_diff)
+        return armor::ArmorType::INVALID;
 
-    return type;
+    return large_ok ? armor::ArmorType::LARGE : armor::ArmorType::SMALL;
 }
 
 cv::Mat ArmorDetectOpenCV::extractNumber(const cv::Mat& src, const armor::ArmorObject& armor)
     const noexcept {
-    // Light length in image
-    const int light_length = 12;
-    // Image size after warp
-    const int warp_height = 28;
-    const int small_armor_width = 32;
-    const int large_armor_width = 54;
-    // Number ROI size
+    constexpr int light_length = 12;
+    constexpr int warp_height = 28;
+    constexpr int small_armor_width = 32;
+    constexpr int large_armor_width = 54;
     const cv::Size roi_size(20, 28);
 
-    // Warp perspective transform
-    cv::Point2f lights_vertices[4] = { armor.lights[0].bottom,
-                                       armor.lights[0].top,
-                                       armor.lights[1].top,
-                                       armor.lights[1].bottom };
+    cv::Point2f src_pts[4] = { armor.lights[0].bottom,
+                               armor.lights[0].top,
+                               armor.lights[1].top,
+                               armor.lights[1].bottom };
 
-    const int top_light_y = (warp_height - light_length) / 2 - 1;
-    const int bottom_light_y = top_light_y + light_length;
     const int warp_width =
-        armor.type == armor::ArmorType::SMALL ? small_armor_width : large_armor_width;
-    cv::Point2f target_vertices[4] = {
-        cv::Point(0, bottom_light_y),
-        cv::Point(0, top_light_y),
-        cv::Point(warp_width - 1, top_light_y),
-        cv::Point(warp_width - 1, bottom_light_y),
-    };
-    cv::Mat number_image;
-    auto rotation_matrix = cv::getPerspectiveTransform(lights_vertices, target_vertices);
-    cv::warpPerspective(src, number_image, rotation_matrix, cv::Size(warp_width, warp_height));
+        (armor.type == armor::ArmorType::SMALL) ? small_armor_width : large_armor_width;
 
-    // Get ROI
-    number_image =
-        number_image(cv::Rect(cv::Point((warp_width - roi_size.width) / 2, 0), roi_size));
+    const int top_y = (warp_height - light_length) / 2 - 1;
+    const int bottom_y = top_y + light_length;
 
-    // Binarize
-    cv::threshold(number_image, number_image, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+    cv::Point2f dst_pts[4] = { { 0.f, static_cast<float>(bottom_y) },
+                               { 0.f, static_cast<float>(top_y) },
+                               { static_cast<float>(warp_width - 1), static_cast<float>(top_y) },
+                               { static_cast<float>(warp_width - 1),
+                                 static_cast<float>(bottom_y) } };
 
-    return number_image;
+    cv::Mat warp_mat = cv::getPerspectiveTransform(src_pts, dst_pts);
+
+    cv::Mat warped;
+    cv::warpPerspective(
+        src,
+        warped,
+        warp_mat,
+        cv::Size(warp_width, warp_height),
+        cv::INTER_LINEAR,
+        cv::BORDER_CONSTANT,
+        0
+    );
+
+    const int roi_x = (warp_width - roi_size.width) >> 1;
+    if (roi_x < 0 || roi_x + roi_size.width > warp_width)
+        return cv::Mat();
+
+    cv::Mat number = warped(cv::Rect(roi_x, 0, roi_size.width, roi_size.height));
+
+    cv::threshold(number, number, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+
+    return number;
 }
 
 void ArmorDetectOpenCV::setCallback(DetectorCallback callback) {
