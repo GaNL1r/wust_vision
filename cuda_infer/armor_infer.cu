@@ -85,7 +85,7 @@ void CudaInfer::rellocMem() {
         max_src_h_
     ));
     CUDA_CHECK(cudaMalloc(&d_nchw_, input_w_ * input_h_ * 3 * sizeof(float)));
-    printf("Relloc memory for CudaInfer");
+    printf("Relloc memory for CudaInfer\n");
 }
 void CudaInfer::getOutEnoughMem(int img_w, int img_h) {
     if (img_w > max_src_w_ || img_h > max_src_h_) {

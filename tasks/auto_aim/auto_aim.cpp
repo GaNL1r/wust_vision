@@ -133,7 +133,7 @@ struct AutoAim::Impl {
             frame.offset = cv::Point2f(bbox.x, bbox.y);
         }
         expanded_ = frame.expanded;
-        std::optional<armor::ArmorNumber> target_number = target_.getArmorNumber();
+        const std::optional<armor::ArmorNumber> target_number = target_.getArmorNumber();
         if (armor_detector_) {
             armor_detector_->pushInput(frame, target_number);
         }
@@ -141,12 +141,15 @@ struct AutoAim::Impl {
 
     void
     ArmorDetectCallback(const std::vector<armor::ArmorObject>& objs, const CommonFrame& frame) {
-        std::vector<armor::ArmorObject> sorted_objs = objs;
+        std::vector<armor::ArmorObject> sorted_objs;
+        sorted_objs.reserve(std::min((int)objs.size(), max_detect_armors_));
 
-        if (sorted_objs.size() > max_detect_armors_) {
-            WUST_WARN(logger_) << "Detected " << sorted_objs.size()
-                               << " objects, too many, keeping top " << max_detect_armors_;
-
+        if (objs.size() <= max_detect_armors_) {
+            sorted_objs = objs;
+        } else {
+            WUST_WARN(logger_) << "Detected " << objs.size() << " objects, too many, keeping top "
+                               << max_detect_armors_;
+            sorted_objs = objs;
             std::partial_sort(
                 sorted_objs.begin(),
                 sorted_objs.begin() + max_detect_armors_,
@@ -160,32 +163,29 @@ struct AutoAim::Impl {
         for (auto& obj: sorted_objs) {
             obj.addOffset(frame.offset);
         }
+
         armor::Armors armors;
         armors.timestamp = frame.timestamp;
+        armors.id = frame.id;
         Eigen::Vector3d v = Eigen::Vector3d::Zero();
         Eigen::Matrix3d R_gimbal2odom = Eigen::Matrix3d::Identity();
-        Eigen::Vector3d gimbal = Eigen::Vector3d::Zero();
         if (shared_->motion_buffer) {
+            const auto delay = std::chrono::microseconds(
+                static_cast<int64_t>(shared_->communication_delay_μs + 0.5)
+            );
+            const auto t_query = armors.timestamp + delay;
             auto apply_motion = [&](const auto& att) {
-                v = Eigen::Vector3d(att.data.vx, att.data.vy, att.data.vz);
+                v << att.data.vx, att.data.vy, att.data.vz;
                 R_gimbal2odom = Eigen::AngleAxisd(att.data.yaw, Eigen::Vector3d::UnitZ())
                     * Eigen::AngleAxisd(-att.data.pitch, Eigen::Vector3d::UnitY())
                     * Eigen::AngleAxisd(att.data.roll, Eigen::Vector3d::UnitX());
-                gimbal.x() = att.data.yaw;
-                gimbal.y() = att.data.pitch;
-                gimbal.z() = att.data.roll;
             };
-            auto delay = std::chrono::microseconds(
-                static_cast<int64_t>(std::round(shared_->communication_delay_μs))
-            );
-            auto t_query = armors.timestamp + delay;
             if (auto past_att = shared_->motion_buffer->get_interpolated(t_query)) {
                 apply_motion(*past_att);
             } else if (auto last_att = shared_->motion_buffer->get_last()) {
                 apply_motion(*last_att);
             }
         }
-
         T_camera_to_odom_ =
             utils::computeCameraToOdomTransform(R_gimbal2odom, R_camera2gimbal_, t_camera2gimbal_);
         armors.armors = armor_pose_estimator_->extractArmorPoses(
@@ -194,14 +194,12 @@ struct AutoAim::Impl {
             camera_info_.first,
             camera_info_.second
         );
-
         armors.v = v;
-        armors.id = frame.id;
         for (auto& armor: armors.armors) {
             armor.timestamp = armors.timestamp;
         }
         armor_queue_->enqueue(armors);
-        detect_finish_count_++;
+        ++detect_finish_count_;
         if (debug_mode_) {
             auto_aim_debug_.src_img.img = std::move(frame.src_img);
             auto_aim_debug_.src_img.timestamp = armors.timestamp;
@@ -218,10 +216,6 @@ struct AutoAim::Impl {
             return;
         }
         Target target;
-        if (!tracker_manager_) {
-            std::cout << "cao" << std::endl;
-            return;
-        }
 
         target = tracker_manager_->update(armors, auto_aim_fsm_cl_);
         auto now = std::chrono::steady_clock::now();
@@ -240,9 +234,7 @@ struct AutoAim::Impl {
     GimbalCmd solve(double dt_ms) {
         GimbalCmd gimbal_cmd;
         Target target;
-
         target = target_;
-
         AimTarget aim_target;
         bool appear = target.checkTargetAppear();
         if (appear) {
@@ -250,7 +242,6 @@ struct AutoAim::Impl {
                 very_aimer_->veryAim(target, shared_->bullet_speed, auto_aim_fsm_cl_.fsm_state_);
             aim_target = gimbal_cmd.aim_target;
         }
-
         if (gimbal_cmd.fire_advice) {
             fire_count_++;
         }

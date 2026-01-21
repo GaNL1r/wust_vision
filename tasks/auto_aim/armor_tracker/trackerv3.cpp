@@ -97,18 +97,21 @@ bool TrackerV3::initTarget(const armor::Armors& armors) {
     }
     bool found = false;
     armor::Armor init_target;
+    armor::Armors others = armors;
+    others.armors.clear();
     for (auto& a: armors.armors) {
-        if (!a.is_none_purple) {
+        if (!a.is_none_purple && !found) {
             init_target = a;
             found = true;
-            break;
+            continue;
         }
+        others.armors.push_back(a);
     }
     if (!found) {
         return false;
     }
     target_ = Target(init_target, target_config_);
-
+    updateTarget(others);
     tracker_state = DETECTING;
     return true;
 }
