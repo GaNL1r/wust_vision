@@ -1,7 +1,9 @@
 #pragma once
-#include "3rdparty/angles.h"
 #include <Eigen/Dense>
+#include <algorithm>
+#include <cassert>
 #include <vector>
+
 namespace auto_aim {
 
 template<typename T>
@@ -10,41 +12,50 @@ concept HasStaticLerp = requires(const T& a, const T& b, double t) {
         T::lerp(a, b, t)
         } -> std::same_as<T>;
 };
+
 template<HasStaticLerp PointT>
 class Trajectory {
 public:
-    void push_back(const PointT& p, double dt) {
+    void reserve(size_t n) {
+        cp_vec.reserve(n);
+        dt_vec.reserve(n > 0 ? n - 1 : 0);
+        prefix_time.reserve(n);
+    }
+
+    void clear() {
+        cp_vec.clear();
+        dt_vec.clear();
+        prefix_time.clear();
+        total_duration_ = 0.0;
+    }
+
+    void push_back(const PointT& p, double dt = 0.0) {
         if (cp_vec.empty()) {
             cp_vec.push_back(p);
-            dt_vec.push_back(dt);
-
-            prefix_time.clear();
-            prefix_time.push_back(0.0); // t = 0
+            prefix_time.push_back(0.0);
             total_duration_ = 0.0;
             return;
         }
 
+        assert(dt >= 0.0);
+
         cp_vec.push_back(p);
         dt_vec.push_back(dt);
 
-        double last_t = prefix_time.back();
-        double new_t = last_t + dt;
-
-        prefix_time.push_back(new_t);
-        total_duration_ = new_t;
+        total_duration_ += dt;
+        prefix_time.push_back(total_duration_);
     }
 
-    void reserve(int n) {
-        cp_vec.reserve(n);
-        dt_vec.reserve(n);
-        prefix_time.reserve(n);
-    }
     void set(const std::vector<PointT>& c, const std::vector<double>& t) {
+        assert(!c.empty());
+        assert(c.size() == t.size() + 1);
+
         cp_vec = c;
         dt_vec = t;
 
-        prefix_time.resize(dt_vec.size() + 1);
+        prefix_time.resize(cp_vec.size());
         prefix_time[0] = 0.0;
+
         for (size_t i = 0; i < dt_vec.size(); ++i)
             prefix_time[i + 1] = prefix_time[i] + dt_vec[i];
 
@@ -62,8 +73,8 @@ public:
             return cp_vec.back();
 
         auto it = std::lower_bound(prefix_time.begin(), prefix_time.end(), t);
-        int i1 = int(it - prefix_time.begin());
-        int i0 = i1 - 1;
+        size_t i1 = std::distance(prefix_time.begin(), it);
+        size_t i0 = i1 - 1;
 
         double dt = dt_vec[i0];
         if (dt <= 1e-9)
@@ -78,8 +89,8 @@ public:
     double getTotalDuration() const {
         return total_duration_;
     }
-    int getSize() const {
-        return int(cp_vec.size());
+    size_t size() const {
+        return cp_vec.size();
     }
 
     std::vector<PointT> cp_vec;
