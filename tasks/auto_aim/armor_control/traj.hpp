@@ -61,6 +61,12 @@ public:
 
         total_duration_ = prefix_time.back();
     }
+    double getPrefixTimeAtIdx(int i) const {
+        return prefix_time[i];
+    }
+    PointT getStateAtIdx(int i) const {
+        return cp_vec[i];
+    }
 
     PointT getStateAtTime(double t) const {
         if (cp_vec.empty())

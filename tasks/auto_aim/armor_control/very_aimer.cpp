@@ -428,236 +428,231 @@ public:
         }
         return control_traj;
     }
+    struct FireContext {
+        const Trajectory<GimbalPoint>& target_traj;
+        const Trajectory<GimbalPointWithAcc>& control_traj;
+        const Trajectory<AimPoint>& aim_traj;
+        const ControlPoint& cp0;
+        const AutoAimFsm& fsm;
+    };
+    struct FireResult {
+        bool fire;
+        double enable_yaw_diff;
+        double enable_pitch_diff;
+        FireResult(bool f, double ey, double ep):
+            fire(f),
+            enable_yaw_diff(ey),
+            enable_pitch_diff(ep) {}
+    };
+    inline FireResult canFireAtTime(const FireContext& ctx, double t) {
+        const auto target_delay = ctx.target_traj.getStateAtTime(t + control_delay_);
+        const auto control_delay = ctx.control_traj.getStateAtTime(t + control_delay_);
+
+        if (std::hypot(
+                angles::normalize_angle(target_delay.yaw + ctx.cp0.yaw)
+                    - angles::normalize_angle(control_delay.gimbal_point.yaw + ctx.cp0.yaw),
+                angles::normalize_angle(target_delay.pitch)
+                    - angles::normalize_angle(control_delay.gimbal_point.pitch)
+            )
+            >= delay_enable_fire_error_)
+        {
+            return { false, 0, 0 };
+        }
+
+        const auto gimbal = ctx.target_traj.getStateAtTime(t);
+        const auto control = ctx.control_traj.getStateAtTime(t);
+        const auto aim = ctx.aim_traj.getStateAtTime(t);
+
+        const double target_yaw = angles::normalize_angle(gimbal.yaw + ctx.cp0.yaw);
+        const double control_yaw = angles::normalize_angle(control.gimbal_point.yaw + ctx.cp0.yaw);
+
+        const auto [enable_yaw, enable_pitch] = calEnableDiff(aim.pos, aim.d_angle, ctx.fsm);
+
+        return {
+            std::abs(angles::shortest_angular_distance(target_yaw, control_yaw)) <= enable_yaw
+                && std::abs(
+                       angles::shortest_angular_distance(gimbal.pitch, control.gimbal_point.pitch)
+                   ) <= enable_pitch,
+            enable_yaw,
+            enable_pitch
+        };
+    }
+
     double calTrajectoryFireTime(
         const Trajectory<GimbalPoint>& traj_gimbal,
-        const Trajectory<GimbalPointWithAcc> control_traj,
+        const Trajectory<GimbalPointWithAcc>& control_traj,
         const Trajectory<AimPoint>& traj_aim,
-        const ControlPoint cp0,
+        const ControlPoint& cp0,
         const AutoAimFsm& auto_aim_fsm
     ) {
-        const double half_t = traj_gimbal.getTotalDuration() * 0.5;
-        bool aim_center = auto_aim_fsm == AutoAimFsm::AIM_WHOLE_CAR_CENTER;
+        FireContext ctx { traj_gimbal, control_traj, traj_aim, cp0, auto_aim_fsm };
+
+        const double half_t = traj_gimbal.getPrefixTimeAtIdx(MPC_HALF_HORIZON);
+
         int fire_count = 0;
+
         for (int i = -MPC_HALF_HORIZON; i < MPC_HALF_HORIZON; ++i) {
             const double t = i * MPC_DT + half_t;
-
-            const auto target_delay_state = traj_gimbal.getStateAtTime(t + control_delay_);
-
-            const auto control_delay_state = control_traj.getStateAtTime(t + control_delay_);
-
-            bool delay_noswitching = true;
-            delay_noswitching =
-                std::hypot(
-                    angles::normalize_angle(target_delay_state.yaw + cp0.yaw)
-                        - angles::normalize_angle(control_delay_state.gimbal_point.yaw + cp0.yaw),
-                    angles::normalize_angle(target_delay_state.pitch)
-                        - angles::normalize_angle(control_delay_state.gimbal_point.pitch)
-                )
-                < delay_enable_fire_error_;
-            if (delay_noswitching) {
-                const auto gimbal_state = traj_gimbal.getStateAtTime(t);
-                const auto aim_state = traj_aim.getStateAtTime(t);
-                const auto control_state = control_traj.getStateAtTime(t);
-                const double control_yaw_rad =
-                    angles::normalize_angle(control_state.gimbal_point.yaw + cp0.yaw);
-                const double control_pitch_rad = control_state.gimbal_point.pitch;
-                double target_yaw_rad = angles::normalize_angle(gimbal_state.yaw + cp0.yaw);
-                double target_pitch_rad = gimbal_state.pitch;
-                const auto [enable_yaw_diff_rad, enable_pitch_diff_rad] =
-                    calEnableDiff(aim_state.pos, aim_state.d_angle, auto_aim_fsm);
-                const double yaw_diff_rad =
-                    angles::shortest_angular_distance(target_yaw_rad, control_yaw_rad);
-                const double pitch_diff_rad =
-                    angles::shortest_angular_distance(target_pitch_rad, control_pitch_rad);
-                if (std::abs(yaw_diff_rad) <= enable_yaw_diff_rad
-                    && std::abs(pitch_diff_rad) <= enable_pitch_diff_rad)
-                {
-                    fire_count++;
-                }
-            }
+            auto fire_r = canFireAtTime(ctx, t);
+            fire_count += fire_r.fire;
         }
-        double fire_time = fire_count * MPC_DT;
-        return fire_time;
+
+        return fire_count * MPC_DT;
     }
     std::tuple<bool, bool, bool> getAimStatus(const AutoAimFsm& auto_aim_fsm) {
         const bool aim_first = (auto_aim_fsm == AutoAimFsm::AIM_SINGLE_ARMOR);
         const bool aim_center = (auto_aim_fsm == AutoAimFsm::AIM_WHOLE_CAR_CENTER);
-        const bool aim_pair = true;
+        const bool aim_pair = (auto_aim_fsm == AutoAimFsm::AIM_WHOLE_CAR_PAIR);
         // const bool aim_first = false;
         // const bool aim_center = false;
         // const bool aim_pair = false;
         return std::make_tuple(aim_first, aim_center, aim_pair);
     }
     GimbalCmd veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm) {
+        GimbalCmd cmd;
+
         const auto [aim_first, aim_center, aim_pair] = getAimStatus(auto_aim_fsm);
         const int roughly_select = selectArmor(target, aim_first, aim_pair);
-        const auto ap = target.getArmorPositions();
+
         const auto now = time_utils::now();
         const double dt0 = time_utils::durationSec(target.timestamp_, now);
-        const auto future = now + std::chrono::microseconds(int(dt0 * 1e6));
-        target.predict(future);
-        const double fly_time =
+        target.predict(now + std::chrono::microseconds(int(dt0 * 1e6)));
+
+        const auto ap = target.getArmorPositions();
+        double fly_time =
             trajectory_compensator_->getFlyingTime(ap[roughly_select].head<3>(), bullet_speed);
-        std::vector<Target> iteration_target(10, target);
-        bool converged = false;
+
         double prev_fly_time = fly_time;
+        std::vector<Target> iteration_target(10, target);
+
         for (int iter = 0; iter < 10; ++iter) {
-            auto predict_time = prev_fly_time;
-            iteration_target[iter].predict(predict_time);
-            int iter_select = selectArmor(iteration_target[iter], aim_first, aim_pair);
-            auto iter_poss = iteration_target[iter].getArmorPositions();
-            double iter_fly_time =
+            iteration_target[iter].predict(prev_fly_time);
+
+            const int iter_select = selectArmor(iteration_target[iter], aim_first, aim_pair);
+
+            const auto iter_poss = iteration_target[iter].getArmorPositions();
+            const double iter_fly_time =
                 trajectory_compensator_->getFlyingTime(iter_poss[iter_select], bullet_speed);
-            if (std::abs(iter_fly_time - prev_fly_time) < 0.001) {
-                converged = true;
+
+            if (std::abs(iter_fly_time - prev_fly_time) < 0.001)
                 break;
-            }
+
             prev_fly_time = iter_fly_time;
         }
-        auto predict_time = prev_fly_time + prediction_delay_;
+
+        const double predict_time = prev_fly_time + prediction_delay_;
         target.predict(predict_time);
+
         const int fin_target_select = selectArmor(target, aim_first, aim_pair);
+
         const auto fin_armors_xyza = target.getArmorPosAndYaw();
         Eigen::Vector3d fin_aim_pos = fin_armors_xyza[fin_target_select].head<3>();
 
-        if (aim_center)
-        { //这里的逻辑要时刻与getControlPoint统一，这里为了获取变量写在了外面 ，该段的意义是使击打yaw为中心yaw，而击打点的xy要推回原选板
-            double raw_z = fin_aim_pos.z();
-            double c_xy_dis = std::sqrt(
-                target.position().x() * target.position().x()
-                + target.position().y() * target.position().y()
-            );
-            double c_yaw = std::atan2(target.position().y(), target.position().x());
+        if (aim_center) {
+            const double raw_z = fin_aim_pos.z();
+            double c_xy_dis = std::hypot(target.position().x(), target.position().y());
+            const double c_yaw = std::atan2(target.position().y(), target.position().x());
+
             c_xy_dis -= target.getArmor2CenterXYDis(fin_target_select);
+
             fin_aim_pos.x() = c_xy_dis * std::cos(c_yaw);
             fin_aim_pos.y() = c_xy_dis * std::sin(c_yaw);
             fin_aim_pos.z() = raw_z;
         }
 
-        AimTarget fin_target_at;
         {
-            fin_target_at.pos = fin_aim_pos;
-            fin_target_at.valid = true;
+            AimTarget at;
+            at.pos = fin_aim_pos;
+            at.valid = true;
+
             Eigen::Vector3d euler;
             euler.x() = M_PI / 2.0;
             euler.y() = (target.tracked_id_ == armor::ArmorNumber::OUTPOST) ? -0.2618 : 0.2618;
             euler.z() = target.yaw();
-            Eigen::Quaterniond ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
-            fin_target_at.ori = ori;
+
+            at.ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
+            cmd.aim_target = at;
         }
-        double center_yaw = std::atan2(target.position().y(), target.position().x());
-        double d_angle =
+
+        const double center_yaw = std::atan2(target.position().y(), target.position().x());
+
+        const double d_angle =
             angles::shortest_angular_distance(center_yaw, fin_armors_xyza[fin_target_select][3]);
-        GimbalCmd cmd;
-        cmd.aim_target = fin_target_at;
+
         ControlPoint cp0;
         Trajectory<GimbalPoint> target_traj;
         Trajectory<AimPoint> aim_traj;
+
         try {
             cp0 = getControlPoint(fin_aim_pos, d_angle, bullet_speed);
             cp0.id_in_target = fin_target_select;
             cp0.xyza = fin_armors_xyza[fin_target_select];
+
             auto traj = getTrajectory(target, cp0, bullet_speed, auto_aim_fsm);
             target_traj = traj.first;
             aim_traj = traj.second;
-        } catch (const std::exception& e) {
+        } catch (...) {
             WUST_WARN("very_aimer") << "mpc solver error!";
             cmd.appera = false;
             return cmd;
         }
+
         const auto control_traj = solveTrajectory(target_traj);
 
-        // std::cout << "fire time: " << fire_time << std::endl;
-        const double total_time = target_traj.getTotalDuration();
         double target_yaw_rad = cp0.yaw;
         double target_pitch_rad = cp0.pitch;
+
         if (aim_center) {
-            auto cp_aim_center = getControlPoint(
+            auto cp_center = getControlPoint(
                 fin_armors_xyza[fin_target_select].head<3>(),
                 d_angle,
                 bullet_speed
             );
-            target_yaw_rad = cp_aim_center.yaw;
-            target_pitch_rad = cp_aim_center.pitch;
+            target_yaw_rad = cp_center.yaw;
+            target_pitch_rad = cp_center.pitch;
         }
-        const auto control_state = control_traj.getStateAtTime(total_time * 0.5);
+
+        const double half_t = target_traj.getPrefixTimeAtIdx(MPC_HALF_HORIZON);
+
+        const auto control_state = control_traj.getStateAtTime(half_t);
+
         const double control_yaw_rad =
             angles::normalize_angle(control_state.gimbal_point.yaw + cp0.yaw);
-        const double control_yaw_vel_rad = control_state.gimbal_point.v_yaw;
-        const double control_yaw_acc_rad = control_state.a_yaw;
-        const double control_pitch_rad = control_state.gimbal_point.pitch;
-        const double control_pitch_vel_rad = control_state.gimbal_point.v_pitch;
-        const double control_pitch_acc_rad = control_state.a_pitch;
+
         cmd.yaw = rad2deg(control_yaw_rad);
-        cmd.v_yaw = rad2deg(control_yaw_vel_rad);
-        cmd.pitch = rad2deg(control_pitch_rad);
-        cmd.v_pitch = rad2deg(control_pitch_vel_rad);
+        cmd.v_yaw = rad2deg(control_state.gimbal_point.v_yaw);
+        cmd.pitch = rad2deg(control_state.gimbal_point.pitch);
+        cmd.v_pitch = rad2deg(control_state.gimbal_point.v_pitch);
         cmd.target_yaw = rad2deg(target_yaw_rad);
         cmd.target_pitch = rad2deg(target_pitch_rad);
-        cmd.raw_yaw = rad2deg(target_yaw_rad);
-        cmd.raw_pitch = rad2deg(target_pitch_rad);
+        cmd.raw_yaw = cmd.target_yaw;
+        cmd.raw_pitch = cmd.target_pitch;
         cmd.distance = fin_aim_pos.norm();
         cmd.fly_time = prev_fly_time;
-        const auto target_delay_state =
-            target_traj.getStateAtTime(total_time / 2.0 + control_delay_);
 
-        const auto control_delay_state =
-            control_traj.getStateAtTime(total_time / 2.0 + control_delay_);
+        FireContext ctx { target_traj, control_traj, aim_traj, cp0, auto_aim_fsm };
 
-        bool delay_noswitching = true;
-        delay_noswitching =
-            std::hypot(
-                angles::normalize_angle(target_delay_state.yaw + cp0.yaw)
-                    - angles::normalize_angle(control_delay_state.gimbal_point.yaw + cp0.yaw),
-                angles::normalize_angle(target_delay_state.pitch)
-                    - angles::normalize_angle(control_delay_state.gimbal_point.pitch)
-            )
-            < delay_enable_fire_error_;
+        const double t_fire = target_traj.getPrefixTimeAtIdx(MPC_HALF_HORIZON);
 
-        static int noswitching_count = 0;
-        static int switching_count = 0;
-        if (delay_noswitching) {
-            const auto [enable_yaw_diff_rad, enable_pitch_diff_rad] =
-                calEnableDiff(fin_armors_xyza[fin_target_select].head<3>(), d_angle, auto_aim_fsm);
-            cmd.enable_pitch_diff = rad2deg(enable_pitch_diff_rad);
-            cmd.enable_yaw_diff = rad2deg(enable_yaw_diff_rad);
-            const double yaw_diff_rad =
-                angles::shortest_angular_distance(target_yaw_rad, control_yaw_rad);
-            const double pitch_diff_rad =
-                angles::shortest_angular_distance(target_pitch_rad, control_pitch_rad);
-            if (std::abs(yaw_diff_rad) <= enable_yaw_diff_rad
-                && std::abs(pitch_diff_rad) <= enable_pitch_diff_rad)
-            {
-                cmd.fire_advice = true;
-            }
-            noswitching_count++;
-        } else { //发弹延迟后进入换板阶段则该帧完全不开火
-            cmd.fire_advice = false;
-            cmd.enable_pitch_diff = 0;
-            cmd.enable_yaw_diff = 0;
-            switching_count++;
-        }
+        const auto fire_now = canFireAtTime(ctx, t_fire);
+        cmd.enable_yaw_diff = fire_now.enable_yaw_diff;
+        cmd.enable_pitch_diff = fire_now.enable_pitch_diff;
+        cmd.fire_advice = fire_now.fire;
         utils::XSecOnce(
             [&] {
                 const double fire_time =
                     calTrajectoryFireTime(target_traj, control_traj, aim_traj, cp0, auto_aim_fsm);
-                int total = switching_count + noswitching_count;
-                WUST_INFO("very_aimer") << "switching_count: " << switching_count << " ("
-                                        << (switching_count * 100.0) / total << "%)"
-                                        << "  |  noswitching_count: " << noswitching_count << " ("
-                                        << (noswitching_count * 100.0) / total << "%)"
-                                        << " traj fire_time: " << fire_time;
-                switching_count = 0;
-                noswitching_count = 0;
+                WUST_INFO("very_aimer") << " traj fire_time: " << fire_time;
             },
             1.0
         );
-        cmd.appera = true;
-        if (!cmd.isValid()) {
-            cmd.appera = false;
+
+        cmd.appera = cmd.isValid();
+        if (!cmd.appera) {
             reset();
-            WUST_WARN("very_aimer") << "very_aimer  nan!";
+            WUST_WARN("very_aimer") << "very_aimer nan!";
         }
+
         return cmd;
     }
 

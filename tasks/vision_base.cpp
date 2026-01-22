@@ -221,8 +221,10 @@ void VisionBase::processAimData(const ReceiveAimINFO& aim_data) {
         Motion motion { yaw, pitch, roll, 0.0, v_pitch, v_roll, v_x, v_y, v_z };
         motion_buffer_->push(motion, now);
     }
+    if (debug_mode_) {
+        writeSerialLogToJson(aim_data);
+    }
 
-    writeSerialLogToJson(aim_data);
     static auto last_push_time = std::chrono::steady_clock::now();
     auto elapsed =
         std::chrono::duration_cast<std::chrono::milliseconds>(now - last_push_time).count();

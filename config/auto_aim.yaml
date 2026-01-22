@@ -44,12 +44,13 @@ armor_tracker:
   esekf_iter_num: 5
 
 auto_aim_fsm:
-  thres_up_1: 3.5
-  thres_down_1: 2.0
-  thres_up_2: 16.5 
-  thres_down_2: 15.0
-  transfer_thresh: 20
-  high_speed_mode: pair
+  single_whole_up: 2.5 
+  single_whole_down: 1.0
+  whole_pair_up: 7.5 
+  whole_pair_down: 6.5 #1s内至少换2次板子  2pi  否则轨迹规划无意义
+  pair_center_up: 16.5
+  pair_center_down: 15.0
+  transfer_thresh: 50
 
 very_aimer:
   max_iter: 10
@@ -68,7 +69,7 @@ very_aimer:
   comming_angle: 60
   leaving_angle: 20
 
-  yaw_limit: 40
+  yaw_limit: 60
   shooting_range_h: 0.1
   shooting_range_w: 0.1
   min_enable_pitch_deg: 0.25
