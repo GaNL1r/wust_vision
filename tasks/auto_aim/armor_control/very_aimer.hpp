@@ -20,7 +20,12 @@ public:
     ) {
         return std::make_unique<VeryAimer>(config, trajectory_compensator);
     }
-    GimbalCmd veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm);
+    GimbalCmd veryAim(
+        Target target,
+        double bullet_speed,
+        const AutoAimFsm& auto_aim_fsm,
+        bool need_cal_score = false
+    );
     struct Impl;
     std::unique_ptr<Impl> _impl;
 };

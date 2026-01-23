@@ -173,14 +173,14 @@ public:
     ) {
         return std::make_unique<VeryAimer>(config, trajectory_compensator);
     }
-    int selectArmor(const Target& target, bool aim_first, bool aim_pair) {
+    int selectArmor(const Target& target, const AutoAimFsm& auto_aim_fsm) {
         static int lock_id = -1;
-
-        auto armor_list = target.getArmorPosAndYaw();
-        int armor_num = static_cast<int>(armor_list.size());
+        const auto [aim_first, aim_center, aim_pair] = getAimStatus(auto_aim_fsm);
+        const auto armor_list = target.getArmorPosAndYaw();
+        const int armor_num = static_cast<int>(armor_list.size());
         int i_chosen = 0;
 
-        double center_yaw = std::atan2(target.position().y(), target.position().x());
+        const double center_yaw = std::atan2(target.position().y(), target.position().x());
 
         std::vector<double> delta_angles;
         delta_angles.reserve(armor_num);
@@ -188,11 +188,11 @@ public:
             delta_angles.push_back(angles::normalize_angle(armor_list[i][3] - center_yaw));
         }
 
-        auto pick_best_by_min_abs = [&](const std::vector<int>& idxs) -> int {
+        const auto pick_best_by_min_abs = [&](const std::vector<int>& idxs) -> int {
             int best = -1;
             double best_val = std::numeric_limits<double>::infinity();
             for (int i: idxs) {
-                double val = std::abs(delta_angles[i]);
+                const double val = std::abs(delta_angles[i]);
                 if (val < best_val) {
                     best_val = val;
                     best = i;
@@ -232,8 +232,8 @@ public:
             int best_idx = -1;
 
             if (target.tracked_id_ != armor::ArmorNumber::OUTPOST) {
-                double coming_angle = comming_angle_ * M_PI / 180.0;
-                double leaving_angle = leaving_angle_ * M_PI / 180.0;
+                const double coming_angle = comming_angle_ * M_PI / 180.0;
+                const double leaving_angle = leaving_angle_ * M_PI / 180.0;
 
                 for (int i = 0; i < armor_num; ++i) {
                     if (std::abs(delta_angles[i]) > coming_angle)
@@ -263,27 +263,30 @@ public:
 
         return i_chosen;
     }
-    ControlPoint
-    choseAndGetControlPoint(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm) {
+    ControlPoint choseAndGetControlPoint(
+        const Target& target,
+        double bullet_speed,
+        const AutoAimFsm& auto_aim_fsm
+    ) {
         const auto [aim_first, aim_center, aim_pair] = getAimStatus(auto_aim_fsm);
-        int target_select = selectArmor(target, aim_first, aim_pair);
-        auto armors_xyza = target.getArmorPosAndYaw();
+        const int target_select = selectArmor(target, auto_aim_fsm);
+        const auto armors_xyza = target.getArmorPosAndYaw();
         Eigen::Vector3d aim_pos = armors_xyza[target_select].head<3>();
 
         if (aim_center) {
-            double raw_z = aim_pos.z();
+            const double raw_z = aim_pos.z();
             double c_xy_dis = std::sqrt(
                 target.position().x() * target.position().x()
                 + target.position().y() * target.position().y()
             );
-            double c_yaw = std::atan2(target.position().y(), target.position().x());
+            const double c_yaw = std::atan2(target.position().y(), target.position().x());
             c_xy_dis -= target.getArmor2CenterXYDis(target_select);
             aim_pos.x() = c_xy_dis * std::cos(c_yaw);
             aim_pos.y() = c_xy_dis * std::sin(c_yaw);
             aim_pos.z() = raw_z;
         }
-        double center_yaw = std::atan2(target.position().y(), target.position().x());
-        double d_angle =
+        const double center_yaw = std::atan2(target.position().y(), target.position().x());
+        const double d_angle =
             angles::shortest_angular_distance(center_yaw, armors_xyza[target_select][3]);
         ControlPoint cp = getControlPoint(aim_pos, d_angle, bullet_speed);
         cp.id_in_target = target_select;
@@ -298,18 +301,24 @@ public:
         Trajectory<GimbalPoint> traj;
         Trajectory<AimPoint> aim_traj;
         traj.reserve(MPC_HORIZON);
+        aim_traj.reserve(MPC_HORIZON);
 
+        // prepare: roll the target back so we start from same relative time as original impl
         target.predict(-MPC_DT * (MPC_HALF_HORIZON + 1));
+
+        // compute first two cps (target state is mutated between calls but choseAndGetControlPoint takes const&)
         auto cp_last = choseAndGetControlPoint(target, bullet_speed, auto_aim_fsm);
         target.predict(MPC_DT);
         auto cp = choseAndGetControlPoint(target, bullet_speed, auto_aim_fsm);
 
-        for (int i = 0; i < MPC_HORIZON; i++) {
+        for (int i = 0; i < MPC_HORIZON; ++i) {
             target.predict(MPC_DT);
-            auto cp_next = choseAndGetControlPoint(target, bullet_speed, auto_aim_fsm);
+            const auto cp_next = choseAndGetControlPoint(target, bullet_speed, auto_aim_fsm);
 
-            double yaw_vel = angles::normalize_angle(cp_next.yaw - cp_last.yaw) / (2 * MPC_DT);
-            double pitch_vel = (cp_next.pitch - cp_last.pitch) / (2 * MPC_DT);
+            // compute velocities with centered difference; dividing by (2 * MPC_DT)
+            const double yaw_vel =
+                angles::normalize_angle(cp_next.yaw - cp_last.yaw) / (2.0 * MPC_DT);
+            const double pitch_vel = (cp_next.pitch - cp_last.pitch) / (2.0 * MPC_DT);
 
             GimbalPoint pt;
             pt.yaw = angles::normalize_angle(cp.yaw - cp0.yaw);
@@ -318,14 +327,16 @@ public:
             pt.v_pitch = pitch_vel;
 
             traj.push_back(pt, MPC_DT);
+
             AimPoint aim_pt;
             aim_pt.d_angle = cp.xyza[3];
             aim_pt.pos = cp.xyza.head<3>();
             aim_traj.push_back(aim_pt, MPC_DT);
+
             cp_last = cp;
             cp = cp_next;
         }
-        return std::make_pair(traj, aim_traj);
+        return { std::move(traj), std::move(aim_traj) };
     }
     ControlPoint
     getControlPoint(Eigen::Vector3d aim_target_pos, double diff_yaw, double bullet_speed) {
@@ -344,7 +355,7 @@ public:
         }
 
         double control_pitch = raw_pitch;
-        auto offs = manual_compensator_->angleHardCorrect(
+        const auto offs = manual_compensator_->angleHardCorrect(
             aim_target_pos.head(2).norm(),
             aim_target_pos.z()
         );
@@ -385,7 +396,7 @@ public:
     }
     Trajectory<GimbalPointWithAcc> solveTrajectory(const Trajectory<GimbalPoint>& traj) {
         const double total_time = traj.getTotalDuration();
-        auto trajVecToEigen = [&](const Trajectory<GimbalPoint>& traj) {
+        const auto trajVecToEigen = [&](const Trajectory<GimbalPoint>& traj) {
             Eigen::Matrix<double, 4, Eigen::Dynamic> mat(4, MPC_HORIZON);
 
             const double half_t = total_time * 0.5;
@@ -478,41 +489,106 @@ public:
         };
     }
 
-    double calTrajectoryFireTime(
+    double calTrajectoryScore(
         const Trajectory<GimbalPoint>& traj_gimbal,
         const Trajectory<GimbalPointWithAcc>& control_traj,
         const Trajectory<AimPoint>& traj_aim,
         const ControlPoint& cp0,
         const AutoAimFsm& auto_aim_fsm
     ) {
-        FireContext ctx { traj_gimbal, control_traj, traj_aim, cp0, auto_aim_fsm };
+        const FireContext ctx { traj_gimbal, control_traj, traj_aim, cp0, auto_aim_fsm };
 
         const double half_t = traj_gimbal.getPrefixTimeAtIdx(MPC_HALF_HORIZON);
 
-        int fire_count = 0;
+        double score = 0;
 
         for (int i = -MPC_HALF_HORIZON; i < MPC_HALF_HORIZON; ++i) {
             const double t = i * MPC_DT + half_t;
             auto fire_r = canFireAtTime(ctx, t);
-            fire_count += fire_r.fire;
+            if (fire_r.fire) {
+                score += fire_r.enable_yaw_diff;
+            }
         }
 
-        return fire_count * MPC_DT;
+        return score;
     }
     std::tuple<bool, bool, bool> getAimStatus(const AutoAimFsm& auto_aim_fsm) {
         const bool aim_first = (auto_aim_fsm == AutoAimFsm::AIM_SINGLE_ARMOR);
         const bool aim_center = (auto_aim_fsm == AutoAimFsm::AIM_WHOLE_CAR_CENTER);
         const bool aim_pair = (auto_aim_fsm == AutoAimFsm::AIM_WHOLE_CAR_PAIR);
-        // const bool aim_first = false;
-        // const bool aim_center = false;
-        // const bool aim_pair = false;
         return std::make_tuple(aim_first, aim_center, aim_pair);
     }
-    GimbalCmd veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm) {
+    struct AimBuildResult {
+        Eigen::Vector3d fin_aim_pos;
+        AimTarget aim_target;
+        ControlPoint cp0;
+        Trajectory<GimbalPoint> target_traj;
+        Trajectory<AimPoint> aim_traj;
+    };
+    AimBuildResult buildAimAndTrajectory(
+        Target& target,
+        int fin_target_select,
+        double bullet_speed,
+        const AutoAimFsm& auto_aim_fsm
+    ) {
+        AimBuildResult res;
+
+        const auto fin_armors_xyza = target.getArmorPosAndYaw();
+        res.fin_aim_pos = fin_armors_xyza[fin_target_select].head<3>();
+
+        const auto [aim_first, aim_center, aim_pair] = getAimStatus(auto_aim_fsm);
+        if (aim_center) {
+            const double raw_z = res.fin_aim_pos.z();
+            double c_xy_dis = std::hypot(target.position().x(), target.position().y());
+            const double c_yaw = std::atan2(target.position().y(), target.position().x());
+
+            c_xy_dis -= target.getArmor2CenterXYDis(fin_target_select);
+
+            res.fin_aim_pos.x() = c_xy_dis * std::cos(c_yaw);
+            res.fin_aim_pos.y() = c_xy_dis * std::sin(c_yaw);
+            res.fin_aim_pos.z() = raw_z;
+        }
+
+        {
+            AimTarget at;
+            at.pos = res.fin_aim_pos;
+            at.valid = true;
+
+            Eigen::Vector3d euler;
+            euler.x() = M_PI / 2.0;
+            euler.y() = (target.tracked_id_ == armor::ArmorNumber::OUTPOST) ? -0.2618 : 0.2618;
+            euler.z() = target.yaw();
+
+            at.ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
+            res.aim_target = at;
+        }
+
+        const double center_yaw = std::atan2(target.position().y(), target.position().x());
+
+        const double d_angle =
+            angles::shortest_angular_distance(center_yaw, fin_armors_xyza[fin_target_select][3]);
+
+        res.cp0 = getControlPoint(res.fin_aim_pos, d_angle, bullet_speed);
+        res.cp0.id_in_target = fin_target_select;
+        res.cp0.xyza = fin_armors_xyza[fin_target_select];
+
+        const auto traj = getTrajectory(target, res.cp0, bullet_speed, auto_aim_fsm);
+        res.target_traj = traj.first;
+        res.aim_traj = traj.second;
+
+        return res;
+    }
+
+    GimbalCmd veryAim(
+        Target target,
+        double bullet_speed,
+        const AutoAimFsm& auto_aim_fsm,
+        bool need_cal_score
+    ) {
         GimbalCmd cmd;
 
         const auto [aim_first, aim_center, aim_pair] = getAimStatus(auto_aim_fsm);
-        const int roughly_select = selectArmor(target, aim_first, aim_pair);
+        const int roughly_select = selectArmor(target, auto_aim_fsm);
 
         const auto now = time_utils::now();
         const double dt0 = time_utils::durationSec(target.timestamp_, now);
@@ -528,7 +604,7 @@ public:
         for (int iter = 0; iter < 10; ++iter) {
             iteration_target[iter].predict(prev_fly_time);
 
-            const int iter_select = selectArmor(iteration_target[iter], aim_first, aim_pair);
+            const int iter_select = selectArmor(iteration_target[iter], auto_aim_fsm);
 
             const auto iter_poss = iteration_target[iter].getArmorPositions();
             const double iter_fly_time =
@@ -542,67 +618,37 @@ public:
 
         const double predict_time = prev_fly_time + prediction_delay_;
         target.predict(predict_time);
-
-        const int fin_target_select = selectArmor(target, aim_first, aim_pair);
-
         const auto fin_armors_xyza = target.getArmorPosAndYaw();
-        Eigen::Vector3d fin_aim_pos = fin_armors_xyza[fin_target_select].head<3>();
 
-        if (aim_center) {
-            const double raw_z = fin_aim_pos.z();
-            double c_xy_dis = std::hypot(target.position().x(), target.position().y());
-            const double c_yaw = std::atan2(target.position().y(), target.position().x());
+        const int fin_target_select = selectArmor(target, auto_aim_fsm);
 
-            c_xy_dis -= target.getArmor2CenterXYDis(fin_target_select);
-
-            fin_aim_pos.x() = c_xy_dis * std::cos(c_yaw);
-            fin_aim_pos.y() = c_xy_dis * std::sin(c_yaw);
-            fin_aim_pos.z() = raw_z;
-        }
-
-        {
-            AimTarget at;
-            at.pos = fin_aim_pos;
-            at.valid = true;
-
-            Eigen::Vector3d euler;
-            euler.x() = M_PI / 2.0;
-            euler.y() = (target.tracked_id_ == armor::ArmorNumber::OUTPOST) ? -0.2618 : 0.2618;
-            euler.z() = target.yaw();
-
-            at.ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
-            cmd.aim_target = at;
-        }
-
-        const double center_yaw = std::atan2(target.position().y(), target.position().x());
-
-        const double d_angle =
-            angles::shortest_angular_distance(center_yaw, fin_armors_xyza[fin_target_select][3]);
-
-        ControlPoint cp0;
-        Trajectory<GimbalPoint> target_traj;
-        Trajectory<AimPoint> aim_traj;
-
+        AimBuildResult build;
         try {
-            cp0 = getControlPoint(fin_aim_pos, d_angle, bullet_speed);
-            cp0.id_in_target = fin_target_select;
-            cp0.xyza = fin_armors_xyza[fin_target_select];
-
-            auto traj = getTrajectory(target, cp0, bullet_speed, auto_aim_fsm);
-            target_traj = traj.first;
-            aim_traj = traj.second;
+            build = buildAimAndTrajectory(target, fin_target_select, bullet_speed, auto_aim_fsm);
+        } catch (const std::exception& e) {
+            WUST_WARN("very_aimer") << "mpc solver error: " << e.what();
+            cmd.appera = false;
+            return cmd;
         } catch (...) {
-            WUST_WARN("very_aimer") << "mpc solver error!";
+            WUST_WARN("very_aimer") << "mpc solver unknown error";
             cmd.appera = false;
             return cmd;
         }
 
-        const auto control_traj = solveTrajectory(target_traj);
+        cmd.aim_target = build.aim_target;
 
-        double target_yaw_rad = cp0.yaw;
-        double target_pitch_rad = cp0.pitch;
+        const auto control_traj = solveTrajectory(build.target_traj);
+
+        double target_yaw_rad = build.cp0.yaw;
+        double target_pitch_rad = build.cp0.pitch;
 
         if (aim_center) {
+            const double center_yaw = std::atan2(target.position().y(), target.position().x());
+
+            const double d_angle = angles::shortest_angular_distance(
+                center_yaw,
+                fin_armors_xyza[fin_target_select][3]
+            );
             auto cp_center = getControlPoint(
                 fin_armors_xyza[fin_target_select].head<3>(),
                 d_angle,
@@ -612,12 +658,12 @@ public:
             target_pitch_rad = cp_center.pitch;
         }
 
-        const double half_t = target_traj.getPrefixTimeAtIdx(MPC_HALF_HORIZON);
+        const double half_t = build.target_traj.getPrefixTimeAtIdx(MPC_HALF_HORIZON);
 
         const auto control_state = control_traj.getStateAtTime(half_t);
 
         const double control_yaw_rad =
-            angles::normalize_angle(control_state.gimbal_point.yaw + cp0.yaw);
+            angles::normalize_angle(control_state.gimbal_point.yaw + build.cp0.yaw);
 
         cmd.yaw = rad2deg(control_yaw_rad);
         cmd.v_yaw = rad2deg(control_state.gimbal_point.v_yaw);
@@ -627,25 +673,29 @@ public:
         cmd.target_pitch = rad2deg(target_pitch_rad);
         cmd.raw_yaw = cmd.target_yaw;
         cmd.raw_pitch = cmd.target_pitch;
-        cmd.distance = fin_aim_pos.norm();
+        cmd.distance = build.fin_aim_pos.norm();
         cmd.fly_time = prev_fly_time;
 
-        FireContext ctx { target_traj, control_traj, aim_traj, cp0, auto_aim_fsm };
+        FireContext ctx { build.target_traj,
+                          control_traj,
+                          build.aim_traj,
+                          build.cp0,
+                          auto_aim_fsm };
 
-        const double t_fire = target_traj.getPrefixTimeAtIdx(MPC_HALF_HORIZON);
-
+        const double t_fire = build.target_traj.getPrefixTimeAtIdx(MPC_HALF_HORIZON);
         const auto fire_now = canFireAtTime(ctx, t_fire);
         cmd.enable_yaw_diff = fire_now.enable_yaw_diff;
         cmd.enable_pitch_diff = fire_now.enable_pitch_diff;
         cmd.fire_advice = fire_now.fire;
-        utils::XSecOnce(
-            [&] {
-                const double fire_time =
-                    calTrajectoryFireTime(target_traj, control_traj, aim_traj, cp0, auto_aim_fsm);
-                WUST_INFO("very_aimer") << " traj fire_time: " << fire_time;
-            },
-            1.0
-        );
+        if (need_cal_score) {
+            cmd.score = calTrajectoryScore(
+                build.target_traj,
+                control_traj,
+                build.aim_traj,
+                build.cp0,
+                auto_aim_fsm
+            );
+        }
 
         cmd.appera = cmd.isValid();
         if (!cmd.appera) {
@@ -684,7 +734,12 @@ VeryAimer::VeryAimer(
 VeryAimer::~VeryAimer() {
     _impl.reset();
 }
-GimbalCmd VeryAimer::veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm) {
-    return _impl->veryAim(target, bullet_speed, auto_aim_fsm);
+GimbalCmd VeryAimer::veryAim(
+    Target target,
+    double bullet_speed,
+    const AutoAimFsm& auto_aim_fsm,
+    bool need_cal_score
+) {
+    return _impl->veryAim(target, bullet_speed, auto_aim_fsm, need_cal_score);
 }
 } // namespace auto_aim

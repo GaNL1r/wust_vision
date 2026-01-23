@@ -243,10 +243,29 @@ struct AutoAim::Impl {
         bool appear = target.checkTargetAppear();
         if (appear && target.position().norm() > 0.5) {
             try {
+                // if (auto_aim_fsm_cl_.fsm_state_ == AutoAimFsm::AIM_WHOLE_CAR_ARMOR
+                //     || auto_aim_fsm_cl_.fsm_state_ == AutoAimFsm::AIM_WHOLE_CAR_PAIR)
+                // {
+                //     auto whole_cmd = very_aimer_->veryAim(
+                //         target,
+                //         shared_->bullet_speed,
+                //         AutoAimFsm::AIM_WHOLE_CAR_ARMOR,
+                //         true
+                //     );
+                //     auto pair_cmd = very_aimer_->veryAim(
+                //         target,
+                //         shared_->bullet_speed,
+                //         AutoAimFsm::AIM_WHOLE_CAR_PAIR,
+                //         true
+                //     );
+                //     std::cout << "whole score: " << whole_cmd.score
+                //               << " pair score: " << pair_cmd.score << std::endl;
+                // }
                 gimbal_cmd = very_aimer_->veryAim(
                     target,
                     shared_->bullet_speed,
-                    auto_aim_fsm_cl_.fsm_state_
+                    auto_aim_fsm_cl_.fsm_state_,
+                    false
                 );
                 aim_target = gimbal_cmd.aim_target;
             } catch (...) {

@@ -225,6 +225,7 @@ struct GimbalCmd {
     double fly_time = 0;
     bool appera = false;
     AimTarget aim_target;
+    double score = 0;
     inline bool isValid() const {
         auto bad = [](double x) { return std::isnan(x) || std::isinf(x); };
 
