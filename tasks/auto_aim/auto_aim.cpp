@@ -1,5 +1,6 @@
 #include "auto_aim.hpp"
 #include "tasks/auto_aim/armor_control/very_aimer.hpp"
+#include "tasks/auto_aim/armor_control/very_aimer_opt.hpp"
 #include "tasks/auto_aim/armor_detect/armor_pose_estimator.hpp"
 #include "tasks/auto_aim/armor_detect/detector_factory.hpp"
 #include "tasks/auto_aim/armor_tracker/tracker_manager.hpp"
@@ -102,7 +103,8 @@ struct AutoAim::Impl {
             config["trajectory_compensator"]["compenstator_type"].as<std::string>("ideal");
         auto trajectory_compensator = CompensatorFactory::createCompensator(comp_type);
         trajectory_compensator->load(config["trajectory_compensator"]);
-        very_aimer_ = VeryAimer::create(config["very_aimer"], trajectory_compensator);
+        very_aimer_ =
+            very_aimer_opt::VeryAimerOpt::create(config["very_aimer"], trajectory_compensator);
         max_detect_armors_ = config_["max_detect_armors"].as<int>(10);
         armor_queue_ = std::make_unique<OrderedQueue<armor::Armors>>(50, 500);
         latency_averager_ = std::make_unique<Averager<double>>(100);
@@ -243,29 +245,10 @@ struct AutoAim::Impl {
         bool appear = target.checkTargetAppear();
         if (appear && target.position().norm() > 0.5) {
             try {
-                // if (auto_aim_fsm_cl_.fsm_state_ == AutoAimFsm::AIM_WHOLE_CAR_ARMOR
-                //     || auto_aim_fsm_cl_.fsm_state_ == AutoAimFsm::AIM_WHOLE_CAR_PAIR)
-                // {
-                //     auto whole_cmd = very_aimer_->veryAim(
-                //         target,
-                //         shared_->bullet_speed,
-                //         AutoAimFsm::AIM_WHOLE_CAR_ARMOR,
-                //         true
-                //     );
-                //     auto pair_cmd = very_aimer_->veryAim(
-                //         target,
-                //         shared_->bullet_speed,
-                //         AutoAimFsm::AIM_WHOLE_CAR_PAIR,
-                //         true
-                //     );
-                //     std::cout << "whole score: " << whole_cmd.score
-                //               << " pair score: " << pair_cmd.score << std::endl;
-                // }
                 gimbal_cmd = very_aimer_->veryAim(
                     target,
                     shared_->bullet_speed,
-                    auto_aim_fsm_cl_.fsm_state_,
-                    false
+                    auto_aim_fsm_cl_.fsm_state_
                 );
                 aim_target = gimbal_cmd.aim_target;
             } catch (...) {
@@ -385,7 +368,7 @@ struct AutoAim::Impl {
     std::unique_ptr<OrderedQueue<armor::Armors>> armor_queue_;
     std::shared_ptr<wust_vl_concurrency::MonitoredThread> processing_thread_;
     std::unique_ptr<Timer> timer_;
-    VeryAimer::Ptr very_aimer_;
+    very_aimer_opt::VeryAimerOpt::Ptr very_aimer_;
     std::unique_ptr<ArmorPoseEstimator> armor_pose_estimator_;
     AutoAimFsmController auto_aim_fsm_cl_;
     AutoExposureCfg auto_exposure_cfg_;

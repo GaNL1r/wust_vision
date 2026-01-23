@@ -5,27 +5,26 @@
 #include "tasks/type_common.hpp"
 #include "wust_vl/common/utils/trajectory_compensator.hpp"
 namespace auto_aim {
-namespace very_aimer {
-    class VeryAimer {
+namespace very_aimer_opt {
+    class VeryAimerOpt {
     public:
-        using Ptr = std::unique_ptr<VeryAimer>;
+        using Ptr = std::unique_ptr<VeryAimerOpt>;
 
-        VeryAimer(
+        VeryAimerOpt(
             const YAML::Node& config,
             std::shared_ptr<TrajectoryCompensator> trajectory_compensator
         );
-        ~VeryAimer();
+        ~VeryAimerOpt();
         static Ptr create(
             const YAML::Node& config,
             std::shared_ptr<TrajectoryCompensator> trajectory_compensator
         ) {
-            return std::make_unique<VeryAimer>(config, trajectory_compensator);
+            return std::make_unique<VeryAimerOpt>(config, trajectory_compensator);
         }
         GimbalCmd veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm);
-
         struct Impl;
         std::unique_ptr<Impl> _impl;
     };
-} // namespace very_aimer
+} // namespace very_aimer_opt
 
 }; // namespace auto_aim

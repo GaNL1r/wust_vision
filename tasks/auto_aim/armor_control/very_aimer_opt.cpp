@@ -1,11 +1,11 @@
-#include "very_aimer.hpp"
+#include "very_aimer_opt.hpp"
 #include "gcopter/minco.hpp"
 #include "tasks/auto_aim/armor_control/tinympc/tiny_api.hpp"
 #include "tasks/auto_aim/armor_control/tinympc/types.hpp"
 #include "traj.hpp"
 #include "wust_vl/common/utils/manual_compensator.hpp"
 namespace auto_aim {
-namespace very_aimer {
+namespace very_aimer_opt {
     static inline double lerpAngle(double a0, double a1, double t) {
         double d = std::remainder(a1 - a0, 2.0 * M_PI);
         return a0 + t * d;
@@ -33,10 +33,11 @@ namespace very_aimer {
         double v_pitch = 0.0;
         double a_yaw = 0.0;
         double a_pitch = 0.0;
+        int aim_id = 0;
 
         static GimbalState lerp(const GimbalState& s0, const GimbalState& s1, double a) {
             GimbalState r;
-
+            r.aim_id = (a > 0.5) ? s0.aim_id : s1.aim_id;
             r.yaw = lerpAngle(s0.yaw, s1.yaw, a);
             r.pitch = lerpAngle(s0.pitch, s1.pitch, a);
 
@@ -54,6 +55,8 @@ namespace very_aimer {
         double T = 0.0;
         Eigen::Matrix<double, 6, 1> cyaw;
         Eigen::Matrix<double, 6, 1> cpitch;
+        GimbalState head;
+        GimbalState tail;
 
         static Eigen::Matrix<double, 6, 1>
         solve1d(double p0, double v0, double a0, double p1, double v1, double a1, double T) {
@@ -62,15 +65,18 @@ namespace very_aimer {
 
             double T2 = T * T, T3 = T2 * T, T4 = T3 * T, T5 = T4 * T;
 
+            // Rows: p(0)=p0, p'(0)=v0, p''(0)=a0,
+            //       p(T)=p1, p'(T)=v1, p''(T)=a1
             A << 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, T, T2, T3, T4, T5, 0, 1,
                 2 * T, 3 * T2, 4 * T3, 5 * T4, 0, 0, 2, 6 * T, 12 * T2, 20 * T3;
 
             b << p0, v0, a0, p1, v1, a1;
             return A.fullPivLu().solve(b);
         }
-
         static QuinticSegment build(const GimbalState& s0, const GimbalState& s1, double T) {
             QuinticSegment seg;
+            seg.head = s0;
+            seg.tail = s1;
             seg.T = T;
             seg.cyaw = solve1d(s0.yaw, s0.v_yaw, s0.a_yaw, s1.yaw, s1.v_yaw, s1.a_yaw, T);
             seg.cpitch =
@@ -78,25 +84,93 @@ namespace very_aimer {
             return seg;
         }
 
-        static void
-        evalPoly(const Eigen::Matrix<double, 6, 1>& c, double t, double& p, double& v, double& a) {
-            double t2 = t * t, t3 = t2 * t, t4 = t3 * t;
-            p = c[0] + c[1] * t + c[2] * t2 + c[3] * t3 + c[4] * t4 + c[5] * t4 * t;
-            v = c[1] + 2 * c[2] * t + 3 * c[3] * t2 + 4 * c[4] * t3 + 5 * c[5] * t4;
-            a = 2 * c[2] + 6 * c[3] * t + 12 * c[4] * t2 + 20 * c[5] * t3;
+        static double evalAcc(const Eigen::Matrix<double, 6, 1>& c, double t) {
+            return 2 * c[2] + 6 * c[3] * t + 12 * c[4] * t * t + 20 * c[5] * t * t * t;
+        }
+        static double maxAbsAcc(const Eigen::Matrix<double, 6, 1>& c, double T) {
+            if (T <= 0.0)
+                return 0.0;
+
+            auto acc = [&](double t) {
+                return 2 * c[2] + 6 * c[3] * t + 12 * c[4] * t * t + 20 * c[5] * t * t * t;
+            };
+
+            auto safe_update = [&](double t, double& max_acc) {
+                if (t <= 0.0 || t >= T)
+                    return;
+                double a = acc(t);
+                if (std::isfinite(a))
+                    max_acc = std::max(max_acc, std::abs(a));
+            };
+
+            double max_acc = 0.0;
+            safe_update(0.0, max_acc);
+            safe_update(T, max_acc);
+
+            // jerk = 6c3 + 24c4 t + 60c5 t^2
+            double A = 60.0 * c[5];
+            double B = 24.0 * c[4];
+            double C = 6.0 * c[3];
+
+            const double eps = 1e-9; // 放宽阈值
+
+            if (std::abs(A) < eps) {
+                if (std::abs(B) > eps) {
+                    safe_update(-C / B, max_acc);
+                }
+            } else {
+                double D = B * B - 4 * A * C;
+                if (D >= 0.0) {
+                    double sqrtD = std::sqrt(D);
+                    safe_update((-B + sqrtD) / (2 * A), max_acc);
+                    safe_update((-B - sqrtD) / (2 * A), max_acc);
+                }
+            }
+
+            if (!std::isfinite(max_acc))
+                return 0.0;
+
+            return max_acc;
+        }
+        double duration() const {
+            return T;
         }
 
+        double yawMaxAcc(void) const {
+            return QuinticSegment::maxAbsAcc(cyaw, T);
+        }
         GimbalState eval(double t) const {
-            t = std::clamp(t, 0.0, T);
             GimbalState s;
-            evalPoly(cyaw, t, s.yaw, s.v_yaw, s.a_yaw);
-            evalPoly(cpitch, t, s.pitch, s.v_pitch, s.a_pitch);
+            if (T <= 0.0)
+                return s;
+            t = std::clamp(t, 0.0, T);
+            double t2 = t * t, t3 = t2 * t, t4 = t3 * t, t5 = t4 * t;
+
+            s.yaw =
+                cyaw[0] + cyaw[1] * t + cyaw[2] * t2 + cyaw[3] * t3 + cyaw[4] * t4 + cyaw[5] * t5;
+            s.v_yaw =
+                cyaw[1] + 2 * cyaw[2] * t + 3 * cyaw[3] * t2 + 4 * cyaw[4] * t3 + 5 * cyaw[5] * t4;
+            s.a_yaw = evalAcc(cyaw, t);
+
+            s.pitch = cpitch[0] + cpitch[1] * t + cpitch[2] * t2 + cpitch[3] * t3 + cpitch[4] * t4
+                + cpitch[5] * t5;
+            s.v_pitch = cpitch[1] + 2 * cpitch[2] * t + 3 * cpitch[3] * t2 + 4 * cpitch[4] * t3
+                + 5 * cpitch[5] * t4;
+            s.a_pitch = evalAcc(cpitch, t);
+            // aim_id left as default; caller can set if needed
             return s;
         }
     };
 
-    class QuinticTrajectory: public auto_aim::Trajectory<GimbalState> {
+    class LimitTrajectory: public Trajectory<GimbalState> {
     public:
+        double a_max_yaw_ = 40.0;
+        double a_max_pitch_ = 50.0;
+
+        std::vector<QuinticSegment> segs;
+        std::vector<double> seg_dt;
+        std::vector<double> seg_prefix_time;
+
         static double angleDiff(double a, double b) {
             double d = a - b;
             while (d > M_PI)
@@ -108,6 +182,13 @@ namespace very_aimer {
 
         static double unwrapAngle(double prev, double curr) {
             return prev + angleDiff(curr, prev);
+        }
+
+        static double wrapAngle(double a) {
+            double r = std::fmod(a + M_PI, 2.0 * M_PI);
+            if (r < 0)
+                r += 2.0 * M_PI;
+            return r - M_PI;
         }
 
         void unwrapStates(std::vector<GimbalState>& s) {
@@ -122,6 +203,9 @@ namespace very_aimer {
             size_t N = gp.size();
             std::vector<GimbalState> s = gp;
 
+            if (N < 2)
+                return s;
+
             // 边界速度
             s.front().v_yaw = s.front().v_pitch = 0.0;
             s.back().v_yaw = s.back().v_pitch = 0.0;
@@ -129,8 +213,15 @@ namespace very_aimer {
             for (size_t i = 1; i + 1 < N; ++i) {
                 double dt0 = dt[i - 1];
                 double dt1 = dt[i];
-                double w0 = dt1 / (dt0 + dt1);
-                double w1 = dt0 / (dt0 + dt1);
+                double denom = dt0 + dt1;
+
+                if (denom < 1e-6) {
+                    s[i].v_yaw = s[i].v_pitch = 0.0;
+                    continue;
+                }
+
+                double w0 = dt1 / denom;
+                double w1 = dt0 / denom;
 
                 s[i].v_yaw =
                     w0 * (gp[i].yaw - gp[i - 1].yaw) / dt0 + w1 * (gp[i + 1].yaw - gp[i].yaw) / dt1;
@@ -146,47 +237,166 @@ namespace very_aimer {
             for (size_t i = 1; i + 1 < N; ++i) {
                 double dt0 = dt[i - 1];
                 double dt1 = dt[i];
+                double denom = dt0 + dt1;
+
+                if (denom < 1e-6) {
+                    s[i].a_yaw = s[i].a_pitch = 0.0;
+                    continue;
+                }
 
                 s[i].a_yaw = 2.0
                     * ((gp[i + 1].yaw - gp[i].yaw) / dt1 - (gp[i].yaw - gp[i - 1].yaw) / dt0)
-                    / (dt0 + dt1);
+                    / denom;
 
                 s[i].a_pitch = 2.0
                     * ((gp[i + 1].pitch - gp[i].pitch) / dt1 - (gp[i].pitch - gp[i - 1].pitch) / dt0
                     )
-                    / (dt0 + dt1);
+                    / denom;
             }
 
             return s;
         }
-
-        void buildByPosPoints() {
-            buildByPosPoints(cp_vec, dt_vec);
-        }
-
-        void buildByPosPoints(const std::vector<GimbalState>& g, const std::vector<double>& d) {
-            assert(g.size() >= 2);
-            assert(d.size() + 1 == g.size());
-
-            cp_vec = g;
-            unwrapStates(cp_vec);
-            dt_vec = d;
-
-            auto states = computeNodeStates(cp_vec, dt_vec);
-
+        void build() {
             segs.clear();
-            prefix_time.clear();
+            seg_dt.clear();
+            seg_prefix_time.clear();
 
-            double acc_t = 0.0;
-            for (size_t i = 0; i < dt_vec.size(); ++i) {
-                auto seg = QuinticSegment::build(states[i], states[i + 1], dt_vec[i]);
+            unwrapStates(cp_vec);
+            auto s = computeNodeStates(cp_vec, dt_vec);
 
-                segs.push_back(seg);
-                acc_t += seg.T;
-                prefix_time.push_back(acc_t);
+            const size_t offset = 2;
+            const int N = static_cast<int>(s.size());
+            if (N < 2)
+                return;
+
+            std::vector<int> change_segs_start_idx;
+            std::vector<int> change_segs_end_idx;
+            std::vector<QuinticSegment> change_segs;
+
+            const double mid_time = 0.5 * total_duration_;
+
+            int best_front_idx = -1;
+            int best_back_idx = -1;
+            double best_front_dist = 1e100;
+            double best_back_dist = 1e100;
+
+            for (size_t i = offset; i + offset + 1 < s.size(); ++i) {
+                if (s[i].aim_id == s[i + 1].aim_id)
+                    continue;
+
+                double seg_mid = 0.5 * (prefix_time[i] + prefix_time[i + 1]);
+                double dist = std::abs(seg_mid - mid_time);
+
+                if (seg_mid <= mid_time) {
+                    if (dist < best_front_dist) {
+                        best_front_dist = dist;
+                        best_front_idx = static_cast<int>(i);
+                    }
+                } else {
+                    if (dist < best_back_dist) {
+                        best_back_dist = dist;
+                        best_back_idx = static_cast<int>(i);
+                    }
+                }
             }
 
-            total_duration_ = prefix_time.back();
+            auto push_change_seg = [&](int idx) {
+                if (idx < 0)
+                    return;
+
+                change_segs_start_idx.push_back(idx);
+                change_segs_end_idx.push_back(idx + 1);
+                change_segs.push_back(QuinticSegment::build(
+                    s[idx],
+                    s[idx + 1],
+                    prefix_time[idx + 1] - prefix_time[idx]
+                ));
+            };
+
+            push_change_seg(best_front_idx);
+            push_change_seg(best_back_idx);
+
+            bool updated = true;
+            while (updated) {
+                updated = false;
+
+                for (size_t i = 0; i < change_segs.size(); ++i) {
+                    if (change_segs[i].yawMaxAcc() <= a_max_yaw_)
+                        continue;
+
+                    int old_l = change_segs_start_idx[i];
+                    int old_r = change_segs_end_idx[i];
+
+                    int new_l = std::max(0, old_l - 1);
+                    int new_r = std::min(N - 1, old_r + 1);
+
+                    if (new_l == old_l && new_r == old_r)
+                        continue;
+
+                    change_segs_start_idx[i] = new_l;
+                    change_segs_end_idx[i] = new_r;
+
+                    change_segs[i] = QuinticSegment::build(
+                        s[new_l],
+                        s[new_r],
+                        prefix_time[new_r] - prefix_time[new_l]
+                    );
+
+                    updated = true;
+                }
+
+                for (size_t i = 0; i < change_segs.size(); ++i) {
+                    for (size_t j = i + 1; j < change_segs.size();) {
+                        if (change_segs_start_idx[j] <= change_segs_end_idx[i]
+                            && change_segs_start_idx[i] <= change_segs_end_idx[j])
+                        {
+                            int l = std::min(change_segs_start_idx[i], change_segs_start_idx[j]);
+                            int r = std::max(change_segs_end_idx[i], change_segs_end_idx[j]);
+
+                            change_segs_start_idx[i] = l;
+                            change_segs_end_idx[i] = r;
+
+                            change_segs[i] =
+                                QuinticSegment::build(s[l], s[r], prefix_time[r] - prefix_time[l]);
+
+                            change_segs_start_idx.erase(change_segs_start_idx.begin() + j);
+                            change_segs_end_idx.erase(change_segs_end_idx.begin() + j);
+                            change_segs.erase(change_segs.begin() + j);
+
+                            updated = true;
+                        } else {
+                            ++j;
+                        }
+                    }
+                }
+            }
+
+            std::vector<bool> covered(N - 1, false);
+            for (size_t i = 0; i < change_segs.size(); ++i) {
+                for (int j = change_segs_start_idx[i]; j < change_segs_end_idx[i]; ++j)
+                    covered[j] = true;
+            }
+
+            size_t change_idx = 0;
+            for (int i = 0; i < N - 1; ++i) {
+                if (change_idx < change_segs.size() && i == change_segs_start_idx[change_idx]) {
+                    segs.push_back(change_segs[change_idx]);
+                    ++change_idx;
+                    continue;
+                }
+
+                if (!covered[i]) {
+                    segs.push_back(QuinticSegment::build(s[i], s[i + 1], dt_vec[i]));
+                }
+            }
+
+            for (const auto& seg: segs)
+                seg_dt.push_back(seg.duration());
+
+            seg_prefix_time.resize(segs.size() + 1);
+            seg_prefix_time[0] = 0.0;
+            for (size_t i = 0; i < seg_dt.size(); ++i)
+                seg_prefix_time[i + 1] = seg_prefix_time[i] + seg_dt[i];
         }
 
         GimbalState getStateAtTime(double t) const {
@@ -199,13 +409,14 @@ namespace very_aimer {
             if (t >= total_duration_)
                 return segs.back().eval(segs.back().T);
 
-            auto it = std::lower_bound(prefix_time.begin(), prefix_time.end(), t);
-            size_t i = std::distance(prefix_time.begin(), it);
-            double t0 = (i == 0 ? 0.0 : prefix_time[i - 1]);
+            auto it = std::upper_bound(seg_prefix_time.begin(), seg_prefix_time.end(), t);
+
+            size_t i = std::distance(seg_prefix_time.begin(), it) - 1;
+            i = std::min(i, segs.size() - 1);
+
+            double t0 = seg_prefix_time[i];
             return segs[i].eval(t - t0);
         }
-
-        std::vector<QuinticSegment> segs;
     };
 
     class VerAimerTraj {
@@ -217,8 +428,7 @@ namespace very_aimer {
         static Ptr create() {
             return std::make_shared<VerAimerTraj>();
         }
-        QuinticTrajectory target_traj;
-        Trajectory<GimbalState> control_traj;
+        LimitTrajectory target_traj;
         Trajectory<AimPoint> aim_traj;
         ControlPoint cp0;
         AutoAimFsm fsm;
@@ -226,7 +436,7 @@ namespace very_aimer {
         AimTarget aim_target;
     };
 
-    struct VeryAimer::Impl {
+    struct VeryAimerOpt::Impl {
     public:
         Impl(
             const YAML::Node& config,
@@ -273,73 +483,7 @@ namespace very_aimer {
             max_iter_ = config_["max_iter"].as<int>();
             max_pitch_acc_ = config_["max_pitch_acc"].as<double>();
             delay_enable_fire_error_ = config_["delay_enable_fire_error"].as<double>(0.0);
-            auto Q_pitch = config_["Q_pitch"].as<std::vector<double>>();
-            auto R_pitch = config_["R_pitch"].as<std::vector<double>>();
-            Eigen::MatrixXd A_pitch { { 1, MPC_DT }, { 0, 1 } };
-            Eigen::MatrixXd B_pitch { { 0 }, { MPC_DT } };
-            Eigen::VectorXd f_pitch { { 0, 0 } };
-            Eigen::Matrix<double, 2, 1> Q_p(Q_pitch.data());
-            Eigen::Matrix<double, 1, 1> R_p(R_pitch.data());
-            tiny_setup(
-                &pitch_solver_,
-                A_pitch,
-                B_pitch,
-                f_pitch,
-                Q_p.asDiagonal(),
-                R_p.asDiagonal(),
-                1.0,
-                2,
-                1,
-                MPC_HORIZON,
-                0
-            );
-
-            Eigen::MatrixXd x_min_pitch = Eigen::MatrixXd::Constant(2, MPC_HORIZON, -1e17);
-            Eigen::MatrixXd x_max_pitch = Eigen::MatrixXd::Constant(2, MPC_HORIZON, 1e17);
-            Eigen::MatrixXd u_min_pitch =
-                Eigen::MatrixXd::Constant(1, MPC_HORIZON - 1, -max_pitch_acc_);
-            Eigen::MatrixXd u_max_pitch =
-                Eigen::MatrixXd::Constant(1, MPC_HORIZON - 1, max_pitch_acc_);
-            tiny_set_bound_constraints(
-                pitch_solver_,
-                x_min_pitch,
-                x_max_pitch,
-                u_min_pitch,
-                u_max_pitch
-            );
-
-            pitch_solver_->settings->max_iter = max_iter_;
             max_yaw_acc_ = config_["max_yaw_acc"].as<double>();
-            auto Q_yaw = config_["Q_yaw"].as<std::vector<double>>();
-            auto R_yaw = config_["R_yaw"].as<std::vector<double>>();
-
-            Eigen::MatrixXd A_yaw { { 1, MPC_DT }, { 0, 1 } };
-            Eigen::MatrixXd B_yaw { { 0 }, { MPC_DT } };
-            Eigen::VectorXd f_yaw { { 0, 0 } };
-            Eigen::Matrix<double, 2, 1> Q_y(Q_yaw.data());
-            Eigen::Matrix<double, 1, 1> R_y(R_yaw.data());
-            tiny_setup(
-                &yaw_solver_,
-                A_yaw,
-                B_yaw,
-                f_yaw,
-                Q_y.asDiagonal(),
-                R_y.asDiagonal(),
-                1.0,
-                2,
-                1,
-                MPC_HORIZON,
-                0
-            );
-
-            Eigen::MatrixXd x_min_yaw = Eigen::MatrixXd::Constant(2, MPC_HORIZON, -1e17);
-            Eigen::MatrixXd x_max_yaw = Eigen::MatrixXd::Constant(2, MPC_HORIZON, 1e17);
-            Eigen::MatrixXd u_min_yaw =
-                Eigen::MatrixXd::Constant(1, MPC_HORIZON - 1, -max_yaw_acc_);
-            Eigen::MatrixXd u_max_yaw = Eigen::MatrixXd::Constant(1, MPC_HORIZON - 1, max_yaw_acc_);
-            tiny_set_bound_constraints(yaw_solver_, x_min_yaw, x_max_yaw, u_min_yaw, u_max_yaw);
-
-            yaw_solver_->settings->max_iter = max_iter_;
         }
         int selectArmor(const Target& target, const AutoAimFsm& auto_aim_fsm) {
             static int lock_id = -1;
@@ -461,13 +605,13 @@ namespace very_aimer {
             cp.id_in_target = target_select;
             return cp;
         }
-        std::pair<QuinticTrajectory, Trajectory<AimPoint>> getTrajectory(
+        std::pair<LimitTrajectory, Trajectory<AimPoint>> getTrajectory(
             Target& target,
             const ControlPoint& cp0,
             double bullet_speed,
             const AutoAimFsm& auto_aim_fsm
         ) {
-            QuinticTrajectory traj;
+            LimitTrajectory traj;
             Trajectory<AimPoint> aim_traj;
             traj.reserve(MPC_HORIZON);
             aim_traj.reserve(MPC_HORIZON);
@@ -486,6 +630,7 @@ namespace very_aimer {
                 GimbalState pt;
                 pt.yaw = angles::normalize_angle(cp.yaw - cp0.yaw);
                 pt.pitch = cp.pitch;
+                pt.aim_id = cp.id_in_target;
                 traj.push_back(pt, MPC_DT);
                 AimPoint aim_pt;
                 aim_pt.d_angle = cp.xyza[3];
@@ -494,7 +639,7 @@ namespace very_aimer {
                 cp_last = cp;
                 cp = cp_next;
             }
-            traj.buildByPosPoints();
+            traj.build();
             return { std::move(traj), std::move(aim_traj) };
         }
         ControlPoint
@@ -558,51 +703,6 @@ namespace very_aimer {
         inline double rad2deg(double r) {
             return r / M_PI * 180.0;
         }
-        Trajectory<GimbalState> solveTrajectory(const Trajectory<GimbalState>& traj) {
-            const double total_time = traj.getTotalDuration();
-            const auto trajVecToEigen = [&](const Trajectory<GimbalState>& traj) {
-                Eigen::Matrix<double, 4, Eigen::Dynamic> mat(4, MPC_HORIZON);
-
-                const double half_t = total_time * 0.5;
-                for (int k = 0; k < MPC_HORIZON; ++k) {
-                    int i = k - MPC_HALF_HORIZON;
-                    double t = i * MPC_DT + half_t;
-                    auto state = traj.getStateAtTime(t);
-                    mat(0, k) = state.yaw;
-                    mat(1, k) = state.v_yaw;
-                    mat(2, k) = state.pitch;
-                    mat(3, k) = state.v_pitch;
-                }
-                return mat;
-            };
-
-            auto traj_eigen = trajVecToEigen(traj);
-            Eigen::VectorXd x0(2);
-            x0 << traj_eigen(0, 0), traj_eigen(1, 0);
-            tiny_set_x0(yaw_solver_, x0);
-            yaw_solver_->work->Xref = traj_eigen.block(0, 0, 2, MPC_HORIZON);
-            tiny_solve(yaw_solver_);
-
-            x0 << traj_eigen(2, 0), traj_eigen(3, 0);
-            tiny_set_x0(pitch_solver_, x0);
-            pitch_solver_->work->Xref = traj_eigen.block(2, 0, 2, MPC_HORIZON);
-            tiny_solve(pitch_solver_);
-
-            Trajectory<GimbalState> control_traj;
-            control_traj.reserve(MPC_HORIZON);
-            for (int i = 0; i < MPC_HORIZON; i++) {
-                GimbalState tp;
-                tp.yaw = yaw_solver_->work->x(0, i);
-                tp.v_yaw = yaw_solver_->work->x(1, i);
-                tp.pitch = pitch_solver_->work->x(0, i);
-                tp.v_pitch = pitch_solver_->work->x(1, i);
-                tp.a_yaw = yaw_solver_->work->u(0, i);
-                tp.a_pitch = pitch_solver_->work->u(0, i);
-
-                control_traj.push_back(tp, traj.dt_vec[i]);
-            }
-            return control_traj;
-        }
 
         struct FireResult {
             bool fire;
@@ -614,8 +714,10 @@ namespace very_aimer {
                 enable_pitch_diff(ep) {}
         };
         inline FireResult canFireAtTime(const VerAimerTraj::Ptr& traj, double t) {
-            const auto target_delay = traj->target_traj.getStateAtTime(t + control_delay_);
-            const auto control_delay = traj->control_traj.getStateAtTime(t + control_delay_);
+            const auto target_delay =
+                traj->target_traj.LimitTrajectory::getStateAtTime(t + control_delay_);
+            const auto control_delay =
+                traj->target_traj.Trajectory::getStateAtTime(t + control_delay_);
 
             if (std::hypot(
                     angles::normalize_angle(target_delay.yaw + traj->cp0.yaw)
@@ -628,8 +730,8 @@ namespace very_aimer {
                 return { false, 0, 0 };
             }
 
-            const auto gimbal = traj->target_traj.getStateAtTime(t);
-            const auto control = traj->control_traj.getStateAtTime(t);
+            const auto gimbal = traj->target_traj.LimitTrajectory::getStateAtTime(t);
+            const auto control = traj->target_traj.Trajectory::getStateAtTime(t);
             const auto aim = traj->aim_traj.getStateAtTime(t);
 
             const double target_yaw = angles::normalize_angle(gimbal.yaw + traj->cp0.yaw);
@@ -720,7 +822,6 @@ namespace very_aimer {
             const auto traj = getTrajectory(target, res->cp0, bullet_speed, auto_aim_fsm);
             res->target_traj = traj.first;
             res->aim_traj = traj.second;
-            res->control_traj = solveTrajectory(res->target_traj);
             return res;
         }
 
@@ -798,7 +899,7 @@ namespace very_aimer {
 
             const double half_t = build->target_traj.getPrefixTimeAtIdx(MPC_HALF_HORIZON);
 
-            const auto control_state = build->control_traj.getStateAtTime(half_t);
+            const auto control_state = build->target_traj.LimitTrajectory::getStateAtTime(half_t);
 
             const double control_yaw_rad =
                 angles::normalize_angle(control_state.yaw + build->cp0.yaw);
@@ -842,23 +943,20 @@ namespace very_aimer {
         double max_yaw_acc_, max_pitch_acc_;
         int max_iter_ = 10;
         double delay_enable_fire_error_ = 0.0035;
-        TinySolver* yaw_solver_;
-        TinySolver* pitch_solver_;
-        minco::MINCO_S3NU1DAngle minco_yaw_;
         YAML::Node config_;
     };
-    VeryAimer::VeryAimer(
+    VeryAimerOpt::VeryAimerOpt(
         const YAML::Node& config,
         std::shared_ptr<TrajectoryCompensator> trajectory_compensator
     ) {
         _impl = std::make_unique<Impl>(config, trajectory_compensator);
     }
-    VeryAimer::~VeryAimer() {
+    VeryAimerOpt::~VeryAimerOpt() {
         _impl.reset();
     }
     GimbalCmd
-    VeryAimer::veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm) {
+    VeryAimerOpt::veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm) {
         return _impl->veryAim(target, bullet_speed, auto_aim_fsm);
     }
-} // namespace very_aimer
+} // namespace very_aimer_opt
 } // namespace auto_aim

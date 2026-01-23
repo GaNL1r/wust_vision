@@ -35,6 +35,7 @@ target_sources(auto_aim PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/auto_aim.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/type.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_control/very_aimer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/armor_control/very_aimer_opt.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/tracker_manager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/trackerv3.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/target.cpp
