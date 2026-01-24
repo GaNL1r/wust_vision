@@ -93,46 +93,44 @@ namespace very_aimer_opt {
                 return 0.0;
 
             auto acc = [&](double t) {
-                return 2 * c[2] + 6 * c[3] * t + 12 * c[4] * t * t + 20 * c[5] * t * t * t;
+                double t2 = t * t;
+                return 2 * c[2] + 6 * c[3] * t + 12 * c[4] * t2 + 20 * c[5] * t2 * t;
             };
 
-            auto safe_update = [&](double t, double& max_acc) {
-                if (t <= 0.0 || t >= T)
-                    return;
-                double a = acc(t);
-                if (std::isfinite(a))
-                    max_acc = std::max(max_acc, std::abs(a));
-            };
-
-            double max_acc = 0.0;
-            safe_update(0.0, max_acc);
-            safe_update(T, max_acc);
+            double max_acc = std::max(std::abs(acc(0.0)), std::abs(acc(T)));
 
             // jerk = 6c3 + 24c4 t + 60c5 t^2
             double A = 60.0 * c[5];
             double B = 24.0 * c[4];
             double C = 6.0 * c[3];
 
-            const double eps = 1e-9; // 放宽阈值
+            const double eps = 1e-9;
 
             if (std::abs(A) < eps) {
                 if (std::abs(B) > eps) {
-                    safe_update(-C / B, max_acc);
+                    double t = -C / B;
+                    if (t > 0.0 && t < T)
+                        max_acc = std::max(max_acc, std::abs(acc(t)));
                 }
             } else {
                 double D = B * B - 4 * A * C;
                 if (D >= 0.0) {
                     double sqrtD = std::sqrt(D);
-                    safe_update((-B + sqrtD) / (2 * A), max_acc);
-                    safe_update((-B - sqrtD) / (2 * A), max_acc);
+                    double inv2A = 1.0 / (2 * A);
+
+                    double t1 = (-B + sqrtD) * inv2A;
+                    double t2 = (-B - sqrtD) * inv2A;
+
+                    if (t1 > 0.0 && t1 < T)
+                        max_acc = std::max(max_acc, std::abs(acc(t1)));
+                    if (t2 > 0.0 && t2 < T)
+                        max_acc = std::max(max_acc, std::abs(acc(t2)));
                 }
             }
 
-            if (!std::isfinite(max_acc))
-                return 0.0;
-
-            return max_acc;
+            return std::isfinite(max_acc) ? max_acc : 0.0;
         }
+
         double duration() const {
             return T;
         }
@@ -175,7 +173,7 @@ namespace very_aimer_opt {
             return prev + angleDiff(curr, prev);
         }
 
-        void unwrapStates(std::vector<GimbalState>& s) {
+        void unwrapStates(std::vector<GimbalState>& s) const {
             for (size_t i = 1; i < s.size(); ++i) {
                 s[i].yaw_state.p = unwrapAngle(s[i - 1].yaw_state.p, s[i].yaw_state.p);
                 s[i].pitch_state.p = unwrapAngle(s[i - 1].pitch_state.p, s[i].pitch_state.p);
@@ -183,7 +181,7 @@ namespace very_aimer_opt {
         }
 
         std::pair<std::vector<GimbalState::State>, std::vector<GimbalState::State>>
-        computeNodeStates(const std::vector<GimbalState>& gp, const std::vector<double>& dt) {
+        computeNodeStates(const std::vector<GimbalState>& gp, const std::vector<double>& dt) const {
             size_t N = gp.size();
             std::vector<GimbalState::State> yaw_states;
             std::vector<GimbalState::State> pitch_states;
@@ -259,104 +257,152 @@ namespace very_aimer_opt {
             traj.segs.clear();
             traj.seg_dt.clear();
             traj.seg_prefix_time.clear();
-            std::vector<int> change_segs_start_idx;
-            std::vector<int> change_segs_end_idx;
-            std::vector<QuinticSegment> change_segs;
+
             const int N = static_cast<int>(s.size());
+            if (N <= 1)
+                return;
             const auto& _prefix_time = prefix_time;
             const auto& _dt_vec = dt_vec;
-            auto push_change_seg = [&](int idx) {
+            std::vector<std::pair<int, int>> intervals;
+            auto push_initial = [&](int idx) {
                 if (idx < 0)
                     return;
-
-                change_segs_start_idx.push_back(idx);
-                change_segs_end_idx.push_back(idx + 1);
-                change_segs.push_back(QuinticSegment::build(
-                    s[idx],
-                    s[idx + 1],
-                    _prefix_time[idx + 1] - _prefix_time[idx]
-                ));
+                int l = idx;
+                int r = idx + 1; // 保持 [l, r] 形式，其中 r 为样本 index（与原实现语义一致）
+                if (l < 0)
+                    l = 0;
+                if (r >= N)
+                    r = N - 1;
+                if (l >= r)
+                    return;
+                intervals.emplace_back(l, r);
             };
-
-            push_change_seg(best_front_idx);
-            push_change_seg(best_back_idx);
-
-            bool updated = true;
-            while (updated) {
-                updated = false;
-
-                for (size_t i = 0; i < change_segs.size(); ++i) {
-                    if (change_segs[i].MaxAcc() <= max_acc)
-                        continue;
-
-                    int old_l = change_segs_start_idx[i];
-                    int old_r = change_segs_end_idx[i];
-
-                    int new_l = std::max(0, old_l - 1);
-                    int new_r = std::min(N - 1, old_r + 1);
-
-                    if (new_l == old_l && new_r == old_r)
-                        continue;
-
-                    change_segs_start_idx[i] = new_l;
-                    change_segs_end_idx[i] = new_r;
-
-                    change_segs[i] = QuinticSegment::build(
-                        s[new_l],
-                        s[new_r],
-                        _prefix_time[new_r] - _prefix_time[new_l]
-                    );
-
-                    updated = true;
+            push_initial(best_front_idx);
+            push_initial(best_back_idx);
+            if (intervals.empty()) {
+                traj.segs.reserve(N - 1);
+                for (int i = 0; i < N - 1; ++i) {
+                    traj.segs.push_back(QuinticSegment::build(s[i], s[i + 1], _dt_vec[i]));
                 }
-
-                for (size_t i = 0; i < change_segs.size(); ++i) {
-                    for (size_t j = i + 1; j < change_segs.size();) {
-                        if (change_segs_start_idx[j] <= change_segs_end_idx[i]
-                            && change_segs_start_idx[i] <= change_segs_end_idx[j])
-                        {
-                            int l = std::min(change_segs_start_idx[i], change_segs_start_idx[j]);
-                            int r = std::max(change_segs_end_idx[i], change_segs_end_idx[j]);
-
-                            change_segs_start_idx[i] = l;
-                            change_segs_end_idx[i] = r;
-
-                            change_segs[i] = QuinticSegment::build(
-                                s[l],
-                                s[r],
-                                _prefix_time[r] - _prefix_time[l]
-                            );
-
-                            change_segs_start_idx.erase(change_segs_start_idx.begin() + j);
-                            change_segs_end_idx.erase(change_segs_end_idx.begin() + j);
-                            change_segs.erase(change_segs.begin() + j);
-
-                            updated = true;
-                        } else {
-                            ++j;
+                traj.seg_dt.reserve(traj.segs.size());
+                for (const auto& seg: traj.segs)
+                    traj.seg_dt.push_back(seg.duration());
+                traj.seg_prefix_time.resize(traj.segs.size() + 1);
+                traj.seg_prefix_time[0] = 0.0;
+                for (size_t i = 0; i < traj.seg_dt.size(); ++i)
+                    traj.seg_prefix_time[i + 1] = traj.seg_prefix_time[i] + traj.seg_dt[i];
+                return;
+            }
+            for (auto& pr: intervals) {
+                int l = pr.first;
+                int r = pr.second;
+                QuinticSegment seg =
+                    QuinticSegment::build(s[l], s[r], _prefix_time[r] - _prefix_time[l]);
+                while (seg.MaxAcc() > max_acc) {
+                    bool expanded = false;
+                    int nl = std::max(0, l - 1);
+                    int nr = std::min(N - 1, r + 1);
+                    if (nl != l || nr != r) {
+                        QuinticSegment segBoth = QuinticSegment::build(
+                            s[nl],
+                            s[nr],
+                            _prefix_time[nr] - _prefix_time[nl]
+                        );
+                        if (segBoth.MaxAcc() <= seg.MaxAcc()) { 
+                            l = nl;
+                            r = nr;
+                            seg = std::move(segBoth);
+                            expanded = true;
+                            if (seg.MaxAcc() <= max_acc)
+                                break;
                         }
                     }
+                    if (!expanded) {
+                        if (l > 0) {
+                            int nl2 = l - 1;
+                            QuinticSegment segL = QuinticSegment::build(
+                                s[nl2],
+                                s[r],
+                                _prefix_time[r] - _prefix_time[nl2]
+                            );
+                            if (segL.MaxAcc() <= seg.MaxAcc()) {
+                                l = nl2;
+                                seg = std::move(segL);
+                                expanded = true;
+                                if (seg.MaxAcc() <= max_acc)
+                                    break;
+                            }
+                        }
+                        if (!expanded && r < N - 1) {
+                            int nr2 = r + 1;
+                            QuinticSegment segR = QuinticSegment::build(
+                                s[l],
+                                s[nr2],
+                                _prefix_time[nr2] - _prefix_time[l]
+                            );
+                            if (segR.MaxAcc() <= seg.MaxAcc()) {
+                                r = nr2;
+                                seg = std::move(segR);
+                                expanded = true;
+                                if (seg.MaxAcc() <= max_acc)
+                                    break;
+                            }
+                        }
+                    }
+                    if (!expanded) {
+                        if (l > 0)
+                            --l;
+                        if (r < N - 1)
+                            ++r;
+                        QuinticSegment segForce =
+                            QuinticSegment::build(s[l], s[r], _prefix_time[r] - _prefix_time[l]);
+                        if (!((segForce.MaxAcc() < seg.MaxAcc()) || (l == 0 && r == N - 1))) {
+                            break;
+                        }
+                        seg = std::move(segForce);
+                        if (seg.MaxAcc() <= max_acc)
+                            break;
+                    }
+                    if (l == 0 && r == N - 1 && seg.MaxAcc() > max_acc)
+                        break;
+                }
+                pr.first = l;
+                pr.second = r;
+            }
+            std::sort(
+                intervals.begin(),
+                intervals.end(),
+                [](const std::pair<int, int>& a, const std::pair<int, int>& b) {
+                    if (a.first != b.first)
+                        return a.first < b.first;
+                    return a.second < b.second;
+                }
+            );
+            std::vector<std::pair<int, int>> merged;
+            merged.reserve(intervals.size());
+            for (const auto& it: intervals) {
+                if (merged.empty() || it.first > merged.back().second) {
+                    merged.push_back(it);
+                } else {
+                    merged.back().second = std::max(merged.back().second, it.second);
                 }
             }
-            std::vector<bool> covered(N - 1, false);
-            for (size_t i = 0; i < change_segs.size(); ++i) {
-                for (int j = change_segs_start_idx[i]; j < change_segs_end_idx[i]; ++j)
-                    covered[j] = true;
-            }
-
+            traj.segs.reserve(N - 1);
             size_t change_idx = 0;
             for (int i = 0; i < N - 1; ++i) {
-                if (change_idx < change_segs.size() && i == change_segs_start_idx[change_idx]) {
-                    traj.segs.push_back(change_segs[change_idx]);
+                if (change_idx < merged.size() && i == merged[change_idx].first) {
+                    int l = merged[change_idx].first;
+                    int r = merged[change_idx].second;
+                    traj.segs.push_back(
+                        QuinticSegment::build(s[l], s[r], _prefix_time[r] - _prefix_time[l])
+                    );
+                    i = r - 1;
                     ++change_idx;
-                    continue;
-                }
-
-                if (!covered[i]) {
+                } else {
                     traj.segs.push_back(QuinticSegment::build(s[i], s[i + 1], _dt_vec[i]));
                 }
             }
-
+            traj.seg_dt.reserve(traj.segs.size());
             for (const auto& seg: traj.segs)
                 traj.seg_dt.push_back(seg.duration());
 
@@ -491,7 +537,7 @@ namespace very_aimer_opt {
             delay_enable_fire_error_ = config_["delay_enable_fire_error"].as<double>(0.0);
             max_yaw_acc_ = config_["max_yaw_acc"].as<double>();
         }
-        int selectArmor(const Target& target, const AutoAimFsm& auto_aim_fsm) {
+        int selectArmor(const Target& target, const AutoAimFsm& auto_aim_fsm) const {
             static int lock_id = -1;
             const auto [aim_first, aim_center, aim_pair] = getAimStatus(auto_aim_fsm);
             const auto armor_list = target.getArmorPosAndYaw();
@@ -586,7 +632,7 @@ namespace very_aimer_opt {
             const Target& target,
             double bullet_speed,
             const AutoAimFsm& auto_aim_fsm
-        ) {
+        ) const {
             const auto [aim_first, aim_center, aim_pair] = getAimStatus(auto_aim_fsm);
             const int target_select = selectArmor(target, auto_aim_fsm);
             const auto armors_xyza = target.getArmorPosAndYaw();
@@ -616,7 +662,7 @@ namespace very_aimer_opt {
             const ControlPoint& cp0,
             double bullet_speed,
             const AutoAimFsm& auto_aim_fsm
-        ) {
+        ) const {
             LimitTrajectory traj;
             Trajectory<AimPoint> aim_traj;
             traj.reserve(MPC_HORIZON);
@@ -649,7 +695,8 @@ namespace very_aimer_opt {
             return { std::move(traj), std::move(aim_traj) };
         }
         ControlPoint
-        getControlPoint(Eigen::Vector3d aim_target_pos, double diff_yaw, double bullet_speed) {
+        getControlPoint(Eigen::Vector3d aim_target_pos, double diff_yaw, double bullet_speed)
+            const {
             ControlPoint cp;
             double control_yaw = std::atan2(aim_target_pos.y(), aim_target_pos.x());
             double raw_pitch = std::atan2(
@@ -771,19 +818,19 @@ namespace very_aimer_opt {
 
             return score;
         }
-        std::tuple<bool, bool, bool> getAimStatus(const AutoAimFsm& auto_aim_fsm) {
+        std::tuple<bool, bool, bool> getAimStatus(const AutoAimFsm& auto_aim_fsm) const noexcept {
             const bool aim_first = (auto_aim_fsm == AutoAimFsm::AIM_SINGLE_ARMOR);
             const bool aim_center = (auto_aim_fsm == AutoAimFsm::AIM_WHOLE_CAR_CENTER);
             const bool aim_pair = (auto_aim_fsm == AutoAimFsm::AIM_WHOLE_CAR_PAIR);
             return std::make_tuple(aim_first, aim_center, aim_pair);
         }
 
-        VerAimerTraj::Ptr buildAimAndTrajectory(
+        VerAimerTraj::Ptr buildVerAimerTraj(
             Target& target,
             int fin_target_select,
             double bullet_speed,
             const AutoAimFsm& auto_aim_fsm
-        ) {
+        ) const {
             VerAimerTraj::Ptr res;
             res = VerAimerTraj::create();
 
@@ -827,8 +874,8 @@ namespace very_aimer_opt {
             res->cp0 = getControlPoint(res->fin_aim_pos, d_angle, bullet_speed);
             res->cp0.id_in_target = fin_target_select;
             res->cp0.xyza = fin_armors_xyza[fin_target_select];
-
             const auto traj = getTrajectory(target, res->cp0, bullet_speed, auto_aim_fsm);
+
             res->target_traj = traj.first;
             res->aim_traj = traj.second;
             return res;
@@ -874,8 +921,7 @@ namespace very_aimer_opt {
 
             VerAimerTraj::Ptr build;
             try {
-                build =
-                    buildAimAndTrajectory(target, fin_target_select, bullet_speed, auto_aim_fsm);
+                build = buildVerAimerTraj(target, fin_target_select, bullet_speed, auto_aim_fsm);
             } catch (const std::exception& e) {
                 WUST_WARN("very_aimer") << "mpc solver error: " << e.what();
                 cmd.appera = false;
