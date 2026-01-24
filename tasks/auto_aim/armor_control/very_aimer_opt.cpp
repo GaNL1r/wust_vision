@@ -182,71 +182,44 @@ namespace very_aimer_opt {
 
         std::pair<std::vector<GimbalState::State>, std::vector<GimbalState::State>>
         computeNodeStates(const std::vector<GimbalState>& gp, const std::vector<double>& dt) const {
-            size_t N = gp.size();
-            std::vector<GimbalState::State> yaw_states;
-            std::vector<GimbalState::State> pitch_states;
-            yaw_states.reserve(N);
-            pitch_states.reserve(N);
+            const size_t N = gp.size();
+            std::vector<GimbalState::State> yaw(N), pitch(N);
             for (size_t i = 0; i < N; ++i) {
-                yaw_states.push_back(gp[i].yaw_state);
-                pitch_states.push_back(gp[i].pitch_state);
+                yaw[i] = gp[i].yaw_state;
+                pitch[i] = gp[i].pitch_state;
             }
+            if (N < 2)
+                return { yaw, pitch };
+            auto compute_va = [&](std::vector<GimbalState::State>& s) {
+                // 边界
+                s.front().v = s.back().v = 0.0;
+                s.front().a = s.back().a = 0.0;
 
-            if (N < 2) {
-                return std::make_pair(yaw_states, pitch_states);
-            }
+                for (size_t i = 1; i + 1 < N; ++i) {
+                    const double dt0 = dt[i - 1];
+                    const double dt1 = dt[i];
+                    const double denom = dt0 + dt1;
 
-            // 边界速度
-            yaw_states.front().v = pitch_states.front().v = 0.0;
-            yaw_states.back().v = pitch_states.back().v = 0.0;
+                    if (denom < 1e-6) {
+                        s[i].v = s[i].a = 0.0;
+                        continue;
+                    }
 
-            for (size_t i = 1; i + 1 < N; ++i) {
-                double dt0 = dt[i - 1];
-                double dt1 = dt[i];
-                double denom = dt0 + dt1;
+                    const double w0 = dt1 / denom;
+                    const double w1 = dt0 / denom;
 
-                if (denom < 1e-6) {
-                    yaw_states[i].v = pitch_states[i].v = 0.0;
-                    continue;
+                    s[i].v = w0 * (s[i].p - s[i - 1].p) / dt0 + w1 * (s[i + 1].p - s[i].p) / dt1;
+
+                    s[i].a =
+                        2.0 * ((s[i + 1].p - s[i].p) / dt1 - (s[i].p - s[i - 1].p) / dt0) / denom;
                 }
+            };
+            compute_va(yaw);
+            compute_va(pitch);
 
-                double w0 = dt1 / denom;
-                double w1 = dt0 / denom;
-
-                yaw_states[i].v = w0 * (gp[i].yaw_state.p - gp[i - 1].yaw_state.p) / dt0
-                    + w1 * (gp[i + 1].yaw_state.p - gp[i].yaw_state.p) / dt1;
-
-                pitch_states[i].v = w0 * (gp[i].pitch_state.p - gp[i - 1].pitch_state.p) / dt0
-                    + w1 * (gp[i + 1].pitch_state.p - gp[i].pitch_state.p) / dt1;
-            }
-
-            // 边界加速度
-            yaw_states.front().a = pitch_states.front().a = 0.0;
-            yaw_states.back().a = pitch_states.back().a = 0.0;
-
-            for (size_t i = 1; i + 1 < N; ++i) {
-                double dt0 = dt[i - 1];
-                double dt1 = dt[i];
-                double denom = dt0 + dt1;
-
-                if (denom < 1e-6) {
-                    yaw_states[i].a = pitch_states[i].a = 0.0;
-                    continue;
-                }
-
-                yaw_states[i].a = 2.0
-                    * ((gp[i + 1].yaw_state.p - gp[i].yaw_state.p) / dt1
-                       - (gp[i].yaw_state.p - gp[i - 1].yaw_state.p) / dt0)
-                    / denom;
-
-                pitch_states[i].a = 2.0
-                    * ((gp[i + 1].pitch_state.p - gp[i].pitch_state.p) / dt1
-                       - (gp[i].pitch_state.p - gp[i - 1].pitch_state.p) / dt0)
-                    / denom;
-            }
-
-            return std::make_pair(yaw_states, pitch_states);
+            return { yaw, pitch };
         }
+
         void limitTraj(
             Traj& traj,
             const std::vector<GimbalState::State>& s,
@@ -308,7 +281,7 @@ namespace very_aimer_opt {
                             s[nr],
                             _prefix_time[nr] - _prefix_time[nl]
                         );
-                        if (segBoth.MaxAcc() <= seg.MaxAcc()) { 
+                        if (segBoth.MaxAcc() <= seg.MaxAcc()) {
                             l = nl;
                             r = nr;
                             seg = std::move(segBoth);
@@ -498,9 +471,9 @@ namespace very_aimer_opt {
             config_ = config;
             reset();
         }
-        static constexpr int MPC_HORIZON = 300;
-        static constexpr double MPC_DT = 1.0 / MPC_HORIZON;
-        static constexpr int MPC_HALF_HORIZON = MPC_HORIZON / 2;
+        static constexpr int HORIZON = 300;
+        static constexpr double DT = 1.0 / HORIZON;
+        static constexpr int HALF_HORIZON = HORIZON / 2;
         void reset() {
             shooting_range_w_ = config_["shooting_range_w"].as<double>(0.12);
             shooting_range_h_ = config_["shooting_range_h"].as<double>(0.12);
@@ -533,8 +506,8 @@ namespace very_aimer_opt {
             leaving_angle_ = config_["leaving_angle"].as<double>(5.0);
             control_delay_ = config_["control_delay"].as<double>();
             max_iter_ = config_["max_iter"].as<int>();
-            max_pitch_acc_ = config_["max_pitch_acc"].as<double>();
             delay_enable_fire_error_ = config_["delay_enable_fire_error"].as<double>(0.0);
+            max_pitch_acc_ = config_["max_pitch_acc"].as<double>();
             max_yaw_acc_ = config_["max_yaw_acc"].as<double>();
         }
         int selectArmor(const Target& target, const AutoAimFsm& auto_aim_fsm) const {
@@ -665,29 +638,29 @@ namespace very_aimer_opt {
         ) const {
             LimitTrajectory traj;
             Trajectory<AimPoint> aim_traj;
-            traj.reserve(MPC_HORIZON);
-            aim_traj.reserve(MPC_HORIZON);
+            traj.reserve(HORIZON);
+            aim_traj.reserve(HORIZON);
 
             // prepare: roll the target back so we start from same relative time as original impl
-            target.predict(-MPC_DT * (MPC_HALF_HORIZON + 1));
+            target.predict(-DT * (HALF_HORIZON + 1));
 
             // compute first two cps (target state is mutated between calls but choseAndGetControlPoint takes const&)
             auto cp_last = choseAndGetControlPoint(target, bullet_speed, auto_aim_fsm);
-            target.predict(MPC_DT);
+            target.predict(DT);
             auto cp = choseAndGetControlPoint(target, bullet_speed, auto_aim_fsm);
 
-            for (int i = 0; i < MPC_HORIZON; ++i) {
-                target.predict(MPC_DT);
+            for (int i = 0; i < HORIZON; ++i) {
+                target.predict(DT);
                 const auto cp_next = choseAndGetControlPoint(target, bullet_speed, auto_aim_fsm);
                 GimbalState pt;
                 pt.yaw_state.p = angles::normalize_angle(cp.yaw - cp0.yaw);
                 pt.pitch_state.p = cp.pitch;
                 pt.aim_id = cp.id_in_target;
-                traj.push_back(pt, MPC_DT);
+                traj.push_back(pt, DT);
                 AimPoint aim_pt;
                 aim_pt.d_angle = cp.xyza[3];
                 aim_pt.pos = cp.xyza.head<3>();
-                aim_traj.push_back(aim_pt, MPC_DT);
+                aim_traj.push_back(aim_pt, DT);
                 cp_last = cp;
                 cp = cp_next;
             }
@@ -804,12 +777,12 @@ namespace very_aimer_opt {
         }
 
         double calTrajectoryScore(const VerAimerTraj::Ptr& traj) {
-            const double half_t = traj->target_traj.getPrefixTimeAtIdx(MPC_HALF_HORIZON);
+            const double half_t = traj->target_traj.getPrefixTimeAtIdx(HORIZON);
 
             double score = 0;
 
-            for (int i = -MPC_HALF_HORIZON; i < MPC_HALF_HORIZON; ++i) {
-                const double t = i * MPC_DT + half_t;
+            for (int i = -HORIZON; i < HORIZON; ++i) {
+                const double t = i * DT + half_t;
                 auto fire_r = canFireAtTime(traj, t);
                 if (fire_r.fire) {
                     score += fire_r.enable_yaw_diff;
@@ -952,7 +925,7 @@ namespace very_aimer_opt {
                 target_pitch_rad = cp_center.pitch;
             }
 
-            const double half_t = build->target_traj.getPrefixTimeAtIdx(MPC_HALF_HORIZON);
+            const double half_t = build->target_traj.getPrefixTimeAtIdx(HALF_HORIZON);
 
             const auto control_state = build->target_traj.LimitTrajectory::getStateAtTime(half_t);
 
