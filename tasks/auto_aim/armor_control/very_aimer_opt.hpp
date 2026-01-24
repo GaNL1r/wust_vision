@@ -22,7 +22,7 @@ namespace very_aimer_opt {
             return std::make_unique<VeryAimerOpt>(config, trajectory_compensator);
         }
         GimbalCmd veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm);
-        struct Impl;
+        class Impl;
         std::unique_ptr<Impl> _impl;
     };
 } // namespace very_aimer_opt
