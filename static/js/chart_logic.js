@@ -34,6 +34,8 @@ const chartMap = {
   fire: { label: "Fire" },
   rune_dis: { label: "Rune Distance" },
   fly_time: { label: "Fly Time" },
+  control_a_yaw: { label: "Control A Yaw" },
+  control_a_pitch: { label: "Control A Pitch" },
 };
 
 const mainCtx = document.getElementById("mainChart").getContext("2d");

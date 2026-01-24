@@ -54,17 +54,15 @@ auto_aim_fsm:
   transfer_thresh: 50
 
 very_aimer:
-  max_iter: 10
+  type: "seg" #seg or mpc
+  
   control_delay: 0.01
   delay_enable_fire_error: 0.0035
+  
   max_yaw_acc: 40
   #全向yaw加速度测算37
-  Q_yaw: [7e6, 0]
-  R_yaw: [3.0]
-
   max_pitch_acc: 25
-  Q_pitch: [7e6, 0]
-  R_pitch: [3.0]
+  
 
   prediction_delay: -0.0 
   comming_angle: 60
@@ -97,6 +95,13 @@ very_aimer:
       h_min: -1
       pitch_off: 0
       yaw_off: 0
+  #---mpc only
+  max_iter: 10
+  Q_yaw: [7e6, 0]
+  R_yaw: [3.0]
+  Q_pitch: [7e6, 0]
+  R_pitch: [3.0]
+
 
   
 trajectory_compensator:

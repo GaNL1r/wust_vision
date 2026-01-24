@@ -61,6 +61,9 @@ struct DebugLogs {
     std::vector<double> fire_log;
     std::vector<double> rune_dis_log;
     std::vector<double> fly_time_log;
+    std::vector<double> control_a_yaw_log;
+    std::vector<double> control_a_pitch_log;
+
     void clear() {
         time_log.clear();
         raw_yaw_log.clear();
@@ -86,6 +89,8 @@ struct DebugLogs {
         fire_log.clear();
         rune_dis_log.clear();
         fly_time_log.clear();
+        control_a_yaw_log.clear();
+        control_a_pitch_log.clear();
     }
 };
 

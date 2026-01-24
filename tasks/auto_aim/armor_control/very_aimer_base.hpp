@@ -419,13 +419,12 @@ public:
         traj.segs.clear();
         traj.seg_dt.clear();
         traj.seg_prefix_time.clear();
-        const auto& _prefix_time = prefix_time;
-        const auto& _dt_vec = dt_vec;
+
         const int N = static_cast<int>(s.size());
         if (N <= 1)
             return;
         for (int i = 0; i < N - 1; ++i) {
-            traj.segs.push_back(QuinticSegment::build(s[i], s[i + 1], _dt_vec[i]));
+            traj.segs.push_back(QuinticSegment::build(s[i], s[i + 1], dt_vec[i]));
         }
         traj.seg_dt.reserve(traj.segs.size());
         for (const auto& seg: traj.segs)
@@ -481,6 +480,10 @@ public:
 };
 class VeryAimerBase {
 public:
+    static constexpr int HORIZON = 300;
+    static constexpr double DT = 1.0 / HORIZON;
+    static constexpr int HALF_HORIZON = HORIZON / 2;
+    using Ptr = std::unique_ptr<VeryAimerBase>;
     VeryAimerBase() {}
     VeryAimerBase(
         const YAML::Node& config,
@@ -488,7 +491,6 @@ public:
     ) {
         trajectory_compensator_ = trajectory_compensator;
         config_ = config;
-        reset();
     }
     struct FireResult {
         bool fire;
@@ -517,7 +519,14 @@ public:
         double bullet_speed,
         const AutoAimFsm& auto_aim_fsm
     ) const;
-
+    std::pair<LimitTrajectory, Trajectory<AimPoint>> getTrajectory(
+        Target& target,
+        const ControlPoint& cp0,
+        double bullet_speed,
+        const AutoAimFsm& auto_aim_fsm
+    ) const;
+    virtual GimbalCmd
+    veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm) = 0;
     std::shared_ptr<TrajectoryCompensator> trajectory_compensator_;
     std::unique_ptr<ManualCompensator> manual_compensator_;
     double shooting_range_w_ = 0.135;

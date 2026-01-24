@@ -218,6 +218,8 @@ struct GimbalCmd {
     double target_pitch = 0;
     double v_yaw = 0;
     double v_pitch = 0;
+    double a_yaw = 0;
+    double a_pitch = 0;
     double distance = -1;
     bool fire_advice = false;
     double enable_yaw_diff = 0;

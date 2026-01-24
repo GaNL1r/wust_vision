@@ -249,4 +249,46 @@ VeryAimerBase::canFireAtTime(const VeryAimerTrajBase::Ptr& traj, double t) const
         enable_pitch
     };
 }
+std::pair<LimitTrajectory, Trajectory<AimPoint>> VeryAimerBase::getTrajectory(
+    Target& target,
+    const ControlPoint& cp0,
+    double bullet_speed,
+    const AutoAimFsm& auto_aim_fsm
+) const {
+    LimitTrajectory traj;
+    Trajectory<AimPoint> aim_traj;
+    traj.reserve(HORIZON);
+    aim_traj.reserve(HORIZON);
+
+    // prepare: roll the target back so we start from same relative time as original impl
+    target.predict(-DT * (HALF_HORIZON + 1));
+
+    // compute first two cps (target state is mutated between calls but choseAndGetControlPoint takes const&)
+    auto cp_last = choseAndGetControlPoint(target, bullet_speed, auto_aim_fsm);
+    target.predict(DT);
+    auto cp = choseAndGetControlPoint(target, bullet_speed, auto_aim_fsm);
+
+    for (int i = 0; i < HORIZON; ++i) {
+        target.predict(DT);
+        const auto cp_next = choseAndGetControlPoint(target, bullet_speed, auto_aim_fsm);
+        const double yaw_vel = angles::normalize_angle(cp_next.yaw - cp_last.yaw) / (2.0 * DT);
+        const double pitch_vel = (cp_next.pitch - cp_last.pitch) / (2.0 * DT);
+        GimbalState pt;
+        pt.yaw_state.p = angles::normalize_angle(cp.yaw - cp0.yaw);
+        pt.pitch_state.p = cp.pitch;
+        pt.yaw_state.v = yaw_vel;
+        pt.pitch_state.v = pitch_vel;
+        pt.aim_id = cp.id_in_target;
+        traj.push_back(pt, DT);
+        AimPoint aim_pt;
+        aim_pt.d_angle = cp.xyza[3];
+        aim_pt.pos = cp.xyza.head<3>();
+        aim_traj.push_back(aim_pt, DT);
+        cp_last = cp;
+        cp = cp_next;
+    }
+
+    return { std::move(traj), std::move(aim_traj) };
+}
+
 } // namespace auto_aim
