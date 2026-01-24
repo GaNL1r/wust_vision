@@ -47,11 +47,12 @@ armor_tracker:
 auto_aim_fsm:
   single_whole_up: 2.5 
   single_whole_down: 1.0
-  whole_pair_up: 4.5 
-  whole_pair_down: 3.5 #1s内至少换2次板子  2pi  否则轨迹规划无意义
+  whole_pair_up: 7.5 
+  whole_pair_down: 6.5 #1s内至少换2次板子  2pi  否则轨迹规划无意义
   pair_center_up: 16.5
   pair_center_down: 15.0
   transfer_thresh: 50
+
 very_aimer:
   max_iter: 10
   control_delay: 0.01
