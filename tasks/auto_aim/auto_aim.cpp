@@ -63,16 +63,10 @@ struct AutoAim::Impl {
         };
 
         auto getConfigPath = [](const std::string& backend) -> std::string {
-            if (backend == "openvino")
-                return OPENVINO_CONFIG;
-            if (backend == "tensorrt")
-                return TENSORRT_CONFIG;
-            if (backend == "ncnn")
-                return NCNN_CONFIG;
-            if (backend == "onnxruntime")
-                return ONNXRUNTIME_CONFIG;
             if (backend == "opencv")
                 return OPENCV_CONFIG;
+            else
+                return ML_CONFIG;
             return "";
         };
 

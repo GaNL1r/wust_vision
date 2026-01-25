@@ -10,18 +10,19 @@ public:
         if (use_armor_detect_common) {
             armor_detect_common_ = std::make_unique<ArmorDetectorCommon>(config);
         }
-        std::string model_type = config["model"]["model_type"].as<std::string>();
+        std::string model_type = config["onnxruntime"]["model_type"].as<std::string>();
         auto model = armor_infer::modeFromString(model_type);
-        float conf_threshold = config["model"]["conf_threshold"].as<float>();
-        int top_k = config["model"]["top_k"].as<int>();
-        float nms_threshold = config["model"]["nms_threshold"].as<float>();
+        float conf_threshold = config["onnxruntime"]["conf_threshold"].as<float>();
+        int top_k = config["onnxruntime"]["top_k"].as<int>();
+        float nms_threshold = config["onnxruntime"]["nms_threshold"].as<float>();
         armor_infer_ =
             std::make_unique<armor_infer::ArmorInfer>(model, conf_threshold, nms_threshold, top_k);
-        std::string provider = config["model"]["provider"].as<std::string>("CPU");
+        std::string provider = config["onnxruntime"]["provider"].as<std::string>("CPU");
         provider_ = string2OrtProvider(provider);
         onnxruntime_net_ = std::make_unique<ml_net::OnnxRuntimeNet>();
         ml_net::OnnxRuntimeNet::Params params;
-        std::string model_path = utils::expandEnv(config["model"]["model_path"].as<std::string>());
+        std::string model_path =
+            utils::expandEnv(config["onnxruntime"]["model_path"].as<std::string>());
         params.model_path = model_path;
         params.provider = provider_;
         onnxruntime_net_->init(params);

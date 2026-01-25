@@ -25,12 +25,12 @@ public:
         if (use_armor_detect_common) {
             armor_detect_common_ = std::make_unique<ArmorDetectorCommon>(config);
         }
-        std::string model_type = config["model"]["model_type"].as<std::string>();
+        std::string model_type = config["openvino"]["model_type"].as<std::string>();
         auto model = armor_infer::modeFromString(model_type);
-        float conf_threshold = config["model"]["conf_threshold"].as<float>();
-        int top_k = config["model"]["top_k"].as<int>();
-        float nms_threshold = config["model"]["nms_threshold"].as<float>();
-        bool use_throughputmode = config["model"]["use_throughputmode"].as<bool>();
+        float conf_threshold = config["openvino"]["conf_threshold"].as<float>();
+        int top_k = config["openvino"]["top_k"].as<int>();
+        float nms_threshold = config["openvino"]["nms_threshold"].as<float>();
+        bool use_throughputmode = config["openvino"]["use_throughputmode"].as<bool>();
         armor_infer_ =
             std::make_unique<armor_infer::ArmorInfer>(model, conf_threshold, nms_threshold, top_k);
         openvino_net_ = std::make_unique<ml_net::OpenvinoNet>();
@@ -52,9 +52,10 @@ public:
 
             ppp.output().tensor().set_element_type(ov::element::f32);
         };
-        std::string model_path = utils::expandEnv(config["model"]["model_path"].as<std::string>());
+        std::string model_path =
+            utils::expandEnv(config["openvino"]["model_path"].as<std::string>());
         ml_net::OpenvinoNet::Params params;
-        auto device_name = config["model"]["device_name"].as<std::string>();
+        auto device_name = config["openvino"]["device_name"].as<std::string>();
         params.model_path = model_path;
         params.device_name = device_name;
         params.mode = use_throughputmode ? ov::hint::PerformanceMode::THROUGHPUT

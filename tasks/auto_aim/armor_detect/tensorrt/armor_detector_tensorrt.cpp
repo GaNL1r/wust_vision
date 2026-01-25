@@ -35,16 +35,17 @@ public:
         if (use_armor_detect_common) {
             armor_detect_common_ = std::make_unique<ArmorDetectorCommon>(config);
         }
-        double conf_threshold = config["model"]["conf_threshold"].as<float>();
-        double nms_threshold = config["model"]["nms_threshold"].as<float>();
-        int top_k = config["model"]["top_k"].as<int>();
-        int max_infer_running = config["model"]["max_infer_running"].as<int>();
-        double min_free_mem_ratio = config["model"]["min_free_mem_ratio"].as<double>();
-        use_cuda_pre_ = config["model"]["use_cuda_pre"].as<bool>();
-        log_time_ = config["model"]["log_time"].as<bool>();
-        std::string model_type = config["model"]["model_type"].as<std::string>();
-        std::string model_path = utils::expandEnv(config["model"]["model_path"].as<std::string>());
-        int device_id = config["model"]["device_id"].as<int>();
+        double conf_threshold = config["tensorrt"]["conf_threshold"].as<float>();
+        double nms_threshold = config["tensorrt"]["nms_threshold"].as<float>();
+        int top_k = config["tensorrt"]["top_k"].as<int>();
+        int max_infer_running = config["tensorrt"]["max_infer_running"].as<int>();
+        double min_free_mem_ratio = config["tensorrt"]["min_free_mem_ratio"].as<double>();
+        use_cuda_pre_ = config["tensorrt"]["use_cuda_pre"].as<bool>();
+        log_time_ = config["tensorrt"]["log_time"].as<bool>();
+        std::string model_type = config["tensorrt"]["model_type"].as<std::string>();
+        std::string model_path =
+            utils::expandEnv(config["tensorrt"]["model_path"].as<std::string>());
+        int device_id = config["tensorrt"]["device_id"].as<int>();
         cudaSetDevice(device_id);
         const auto model = armor_infer::modeFromString(model_type);
         armor_infer_ =

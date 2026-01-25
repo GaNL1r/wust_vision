@@ -11,23 +11,23 @@ public:
         if (use_armor_detect_common) {
             armor_detect_common_ = ArmorDetectorCommon::create(config);
         }
-        std::string model_type = config["model"]["model_type"].as<std::string>();
+        std::string model_type = config["ncnn"]["model_type"].as<std::string>();
         auto model = armor_infer::modeFromString(model_type);
-        float conf_threshold = config["model"]["conf_threshold"].as<float>();
-        int top_k = config["model"]["top_k"].as<int>();
-        float nms_threshold = config["model"]["nms_threshold"].as<float>();
+        float conf_threshold = config["ncnn"]["conf_threshold"].as<float>();
+        int top_k = config["ncnn"]["top_k"].as<int>();
+        float nms_threshold = config["ncnn"]["nms_threshold"].as<float>();
         armor_infer_ =
             std::make_unique<armor_infer::ArmorInfer>(model, conf_threshold, nms_threshold, top_k);
         std::string model_path_param =
-            utils::expandEnv(config["model"]["model_path_param"].as<std::string>());
+            utils::expandEnv(config["ncnn"]["model_path_param"].as<std::string>());
         std::string model_path_bin =
-            utils::expandEnv(config["model"]["model_path_bin"].as<std::string>());
-        bool use_gpu = config["model"]["use_gpu"].as<bool>();
-        int cpu_threads = config["model"]["cpu_threads"].as<int>();
-        bool use_lightmode = config["model"]["use_lightmode"].as<bool>();
-        auto input_name = config["model"]["input_name"].as<std::string>();
-        auto output_name = config["model"]["output_name"].as<std::string>();
-        int device_id = config["model"]["device_id"].as<int>();
+            utils::expandEnv(config["ncnn"]["model_path_bin"].as<std::string>());
+        bool use_gpu = config["ncnn"]["use_gpu"].as<bool>();
+        int cpu_threads = config["ncnn"]["cpu_threads"].as<int>();
+        bool use_lightmode = config["ncnn"]["use_lightmode"].as<bool>();
+        auto input_name = config["ncnn"]["input_name"].as<std::string>();
+        auto output_name = config["ncnn"]["output_name"].as<std::string>();
+        int device_id = config["ncnn"]["device_id"].as<int>();
         ml_net::NCNNNet::Params params;
         params.model_path_param = model_path_param;
         params.model_path_bin = model_path_bin;

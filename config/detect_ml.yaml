@@ -21,7 +21,7 @@ armor_detector:
     max_pts_error: 20.0
     max_angle_diff: 20.0
     color_diff_thresh: 0
-  model:
+  tensorrt:
     conf_threshold: 0.2
     model_path: ${VISION_ROOT}/model/opt-1208-001.onnx
     device_id: 0
@@ -31,4 +31,32 @@ armor_detector:
     min_free_mem_ratio: 0.1
     use_cuda_pre: true
     log_time: false
+    model_type: tup
+  openvino:
+    conf_threshold: 0.2
+    device_type: CPU
+    model_path: ${VISION_ROOT}/model/opt-1208-001.onnx
+    nms_threshold: 0.3
+    top_k: 128
+    use_throughputmode: true
+    model_type: tup
+  onnxruntime:
+    conf_threshold: 0.2
+    model_path: ${VISION_ROOT}/model/opt-1208-001.onnx
+    nms_threshold: 0.3
+    top_k: 128
+    model_type: tup
+    provider: CUDA
+  ncnn:
+    conf_threshold: 0.2
+    model_path_param: ${VISION_ROOT}/model/opt-1208-001.param
+    model_path_bin: ${VISION_ROOT}/model/opt-1208-001.bin
+    input_name: images
+    output_name: output
+    use_gpu: true
+    use_lightmode: false
+    device_id: 0
+    cpu_threads: 1
+    nms_threshold: 0.3
+    top_k: 128
     model_type: tup
