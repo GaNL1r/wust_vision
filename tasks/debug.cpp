@@ -16,24 +16,24 @@ void drawDebugArmorContent(
         std::cout << "debug_img is empty" << std::endl;
         return;
     }
-    auto now = std::chrono::steady_clock::now();
-    auto armors = dbg.armors;
-    auto gimbal_cmd = dbg.gimbal_cmd;
-    auto target = dbg.target;
+    const auto now = std::chrono::steady_clock::now();
+    const auto& armors = dbg.armors;
+    const auto& gimbal_cmd = dbg.gimbal_cmd;
+    const auto& target = dbg.target;
     auto aim_target = dbg.aim_target;
-    auto armor_objs = dbg.armor_objs;
-    cv::Rect img_rect(0, 0, debug_img.cols, debug_img.rows);
-    cv::Rect roi = dbg.expanded & img_rect;
+    const auto& armor_objs = dbg.armor_objs;
+    const cv::Rect img_rect(0, 0, debug_img.cols, debug_img.rows);
+    const cv::Rect roi = dbg.expanded & img_rect;
     cv::rectangle(debug_img, roi, cv::Scalar(255, 255, 255), 2);
 
     static const int next_indices[] = { 2, 0, 3, 1 };
 
     // =================== 绘制装甲板 ===================
     for (size_t i = 0; i < armor_objs.size(); i++) {
-        auto pts = armor_objs[i].toPts();
+        const auto pts = armor_objs[i].toPts();
 
         for (size_t j = 0; j < 4; ++j) {
-            cv::Scalar color =
+            const cv::Scalar color =
                 armor_objs[i].is_ok ? cv::Scalar(50, 255, 50) : cv::Scalar(50, 255, 255);
             cv::line(debug_img, pts[j], pts[next_indices[j]], color, 2);
         }
@@ -61,7 +61,7 @@ void drawDebugArmorContent(
             }
         };
 
-        std::string armor_str = armorName(armor_objs[i].number);
+        const std::string armor_str = armorName(armor_objs[i].number);
         cv::putText(
             debug_img,
             armor_str,
@@ -73,7 +73,7 @@ void drawDebugArmorContent(
         );
     }
 
-    std::string latency_str = fmt::format("Latency: {:.2f}ms", dbg.latency_ms);
+    const std::string latency_str = fmt::format("Latency: {:.2f}ms", dbg.latency_ms);
     cv::putText(
         debug_img,
         latency_str,
@@ -94,28 +94,30 @@ void drawDebugArmorContent(
 
         if (armor_target.is_tracking) {
             Eigen::Vector3d pos = armor_target.position();
-            Eigen::Vector3d vel = armor_target.velocity();
+            const Eigen::Vector3d vel = armor_target.velocity();
             utils::addPosFromVelDt(pos, vel, debug_dt);
             if (pos.norm() > 0.5) {
                 armor_data.armors.clear();
-                size_t a_n = armor_target.armor_num_;
+                const size_t a_n = armor_target.armor_num_;
                 armor_data.armors.reserve(a_n);
-                auto now = time_utils::now();
-                double dt0 = time_utils::durationSec(armor_target.timestamp_, now);
-                std::chrono::steady_clock::time_point future =
+                const auto now = time_utils::now();
+                const double dt0 = time_utils::durationSec(armor_target.timestamp_, now);
+                const std::chrono::steady_clock::time_point future =
                     now + std::chrono::microseconds(int(dt0 * 1e6));
-                armor_target.predict(future);
-                std::vector<Eigen::Vector4d> armors_posandyaw = armor_target.getArmorPosAndYaw();
+                armor_target.predictSimple(future);
+                const std::vector<Eigen::Vector4d> armors_posandyaw =
+                    armor_target.getArmorPosAndYaw();
                 for (size_t i = 0; i < a_n; ++i) {
-                    Eigen::Vector3d pos = { armors_posandyaw[i][0],
-                                            armors_posandyaw[i][1],
-                                            armors_posandyaw[i][2] };
+                    const Eigen::Vector3d pos = { armors_posandyaw[i][0],
+                                                  armors_posandyaw[i][1],
+                                                  armors_posandyaw[i][2] };
                     Eigen::Vector3d euler;
                     euler.z() = M_PI / 2.0;
                     euler.y() = (armor_target.tracked_id_ == armor::ArmorNumber::OUTPOST) ? -0.2618
                                                                                           : 0.2618;
                     euler.x() = armors_posandyaw[i][3];
-                    Eigen::Quaterniond ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
+                    const Eigen::Quaterniond ori =
+                        utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
                     armor_data.armors.emplace_back(armor::Armor {
                         .type = armor_target.type_,
                         .pos = pos,
@@ -160,18 +162,21 @@ void drawDebugArmorContent(
         if (is_ok) {
             all_corners.insert(all_corners.end(), pts.begin(), pts.end());
         }
-        Eigen::Vector3d euler = ori.toRotationMatrix().eulerAngles(2, 1, 0);
-        double yaw = euler[0];
-        double distance = std::sqrt(pos.x() * pos.x() + pos.y() * pos.y() + pos.z() * pos.z());
+        const Eigen::Vector3d euler = ori.toRotationMatrix().eulerAngles(2, 1, 0);
+        const double yaw = euler[0];
+        const double distance =
+            std::sqrt(pos.x() * pos.x() + pos.y() * pos.y() + pos.z() * pos.z());
 
-        std::vector<std::string> info_lines = { fmt::format("Dis: {:.1f}cm", distance * 100),
-                                                fmt::format("X: {:.2f}", pos.x()),
-                                                fmt::format("Y: {:.2f}", pos.y()),
-                                                fmt::format("Z: {:.2f}", pos.z()),
-                                                fmt::format("Yaw: {:.2f}", yaw * 180.0 / M_PI),
-                                                fmt::format("ID: {:d}", id) };
+        const std::vector<std::string> info_lines = {
+            fmt::format("Dis: {:.1f}cm", distance * 100),
+            fmt::format("X: {:.2f}", pos.x()),
+            fmt::format("Y: {:.2f}", pos.y()),
+            fmt::format("Z: {:.2f}", pos.z()),
+            fmt::format("Yaw: {:.2f}", yaw * 180.0 / M_PI),
+            fmt::format("ID: {:d}", id)
+        };
 
-        cv::Point2f text_org = pts[0] + cv::Point2f(0, 200);
+        const cv::Point2f text_org = pts[0] + cv::Point2f(0, 200);
         for (int k = 0; k < info_lines.size(); ++k) {
             cv::putText(
                 debug_img,
@@ -186,7 +191,7 @@ void drawDebugArmorContent(
     }
     aim_target.tf(dbg.T_camera_to_odom.inverse());
     if (!aim_target.is_old) {
-        auto pts = aim_target.toPts(camera_info.first, camera_info.second);
+        const auto pts = aim_target.toPts(camera_info.first, camera_info.second);
         if (!pts.empty()) {
             cv::Scalar color = cv::Scalar(255, 255, 255);
             for (int i = 0; i < 4; i++)
@@ -223,15 +228,15 @@ void drawDebugArmorContent(
                 );
             }
 
-            double scale = 10.0;
-            double v_yaw = gimbal_cmd.v_yaw;
-            double v_pitch = gimbal_cmd.v_pitch;
-            double dx = -scale * v_yaw;
-            double dy = scale * v_pitch;
+            const double scale = 10.0;
+            const double v_yaw = gimbal_cmd.v_yaw;
+            const double v_pitch = gimbal_cmd.v_pitch;
+            const double dx = -scale * v_yaw;
+            const double dy = scale * v_pitch;
 
-            cv::Point2f start_pt = center;
-            cv::Point2f end_pt = start_pt + cv::Point2f(dx, dy);
-            cv::Scalar color_x =
+            const cv::Point2f start_pt = center;
+            const cv::Point2f end_pt = start_pt + cv::Point2f(dx, dy);
+            const cv::Scalar color_x =
                 dbg.detect_color ? cv::Scalar(255, 50, 50) : cv::Scalar(50, 50, 255);
             cv::arrowedLine(debug_img, start_pt, end_pt, color_x, 4, cv::LINE_AA, 0, 0.2);
         }
@@ -244,10 +249,10 @@ void drawDebugArmorContent(
         avg *= 1.0f / all_corners.size();
         cv::circle(debug_img, avg, 10, cv::Scalar(50, 255, 50), -1);
 
-        double scale = 50.0;
-        double dy = scale * target.v_yaw();
-        cv::Point2f start_pt = avg;
-        cv::Point2f end_pt = start_pt + cv::Point2f(0, dy);
+        const double scale = 50.0;
+        const double dy = scale * target.v_yaw();
+        const cv::Point2f start_pt = avg;
+        const cv::Point2f end_pt = start_pt + cv::Point2f(0, dy);
         cv::arrowedLine(
             debug_img,
             start_pt,
@@ -277,8 +282,9 @@ void drawDebugArmorContent(
     cv::Size text_size = cv::getTextSize(state_str, cv::FONT_HERSHEY_SIMPLEX, 2.5, 2, &baseline);
 
     // 保证在图像内
-    int x = std::clamp(debug_img.cols - text_size.width - 10, 0, debug_img.cols - text_size.width);
-    int y = std::clamp(text_size.height + 10, text_size.height, debug_img.rows - 1);
+    const int x =
+        std::clamp(debug_img.cols - text_size.width - 10, 0, debug_img.cols - text_size.width);
+    const int y = std::clamp(text_size.height + 10, text_size.height, debug_img.rows - 1);
 
     cv::putText(
         debug_img,
@@ -291,12 +297,13 @@ void drawDebugArmorContent(
     );
 
     // =================== Attack ID ===================
-    std::string id_str = fmt::format("Attack: {}", armorNumberToString(dbg.target.tracked_id_));
-    cv::Size id_size = cv::getTextSize(id_str, cv::FONT_HERSHEY_SIMPLEX, 1.6, 2, &baseline);
+    const std::string id_str =
+        fmt::format("Attack: {}", armorNumberToString(dbg.target.tracked_id_));
+    const cv::Size id_size = cv::getTextSize(id_str, cv::FONT_HERSHEY_SIMPLEX, 1.6, 2, &baseline);
 
     // 保证在图像内
-    int id_x = std::clamp(debug_img.cols - 300, 0, debug_img.cols - id_size.width - 10);
-    int id_y = std::clamp(150, id_size.height, debug_img.rows - 1);
+    const int id_x = std::clamp(debug_img.cols - 300, 0, debug_img.cols - id_size.width - 10);
+    const int id_y = std::clamp(150, id_size.height, debug_img.rows - 1);
 
     cv::putText(
         debug_img,
@@ -323,7 +330,7 @@ void drawDebugArmorContent(
     }
 
     // =================== 云台指令 ===================
-    std::string gimbal_str = fmt::format(
+    const std::string gimbal_str = fmt::format(
         "Pitch: {:.2f}, Yaw: {:.2f}, Enable_pitch_diff: {:.2f}, Enable_yaw_diff: {:.2f}, V_yaw: {:.2f}, V_pitch: {:.2f}",
         gimbal_cmd.pitch,
         gimbal_cmd.yaw,
@@ -365,9 +372,9 @@ void drawDebugArmorContent(
         max_abs_y = std::max(max_abs_y, std::abs(p.y()));
     }
 
-    double margin = 200.0;
-    double cx = debug_img.cols * 0.5;
-    double cy = debug_img.rows * 0.5;
+    const double margin = 200.0;
+    const double cx = debug_img.cols * 0.5;
+    const double cy = debug_img.rows * 0.5;
 
     scale = std::min({ (cx - margin) / max_abs_x,
                        (debug_img.cols - cx - margin) / max_abs_x,
@@ -375,7 +382,7 @@ void drawDebugArmorContent(
                        (debug_img.rows - cy - margin) / max_abs_y,
                        550.0 });
 
-    cv::Point2d origin(cx, cy);
+    const cv::Point2d origin(cx, cy);
 
     auto to_img = [&](const Eigen::Vector3d& p) {
         return cv::Point2d(origin.x + p.x() * scale, origin.y - p.y() * scale);
@@ -400,7 +407,7 @@ void drawDebugArmorContent(
         center /= armor_data.armors.size();
     }
 
-    cv::Point2d Cc = to_img(center);
+    const cv::Point2d Cc = to_img(center);
     if (!armor_data.armors.empty())
         cv::circle(debug_img, Cc, 5, cv::Scalar(255, 0, 0), -1, cv::LINE_AA);
 
@@ -430,7 +437,7 @@ void drawDebugArmorContent(
     );
 }
 static cv::Point2f normalize(const cv::Point2f& v) {
-    float norm = std::sqrt(v.x * v.x + v.y * v.y);
+    const float norm = std::sqrt(v.x * v.x + v.y * v.y);
     if (norm > 1e-6f)
         return v / norm;
     else
@@ -446,11 +453,11 @@ void drawDebugRuneContent(
     const auto& debug_text = dbg.debug_text;
     auto aim_target = dbg.aim_target;
     auto rune = dbg.power_rune;
-    cv::Rect img_rect(0, 0, debug_img.cols, debug_img.rows);
-    cv::Rect roi = dbg.expanded & img_rect;
+    const cv::Rect img_rect(0, 0, debug_img.cols, debug_img.rows);
+    const cv::Rect roi = dbg.expanded & img_rect;
     cv::rectangle(debug_img, roi, cv::Scalar(255, 255, 255), 2);
 
-    std::string latency_str = fmt::format("Latency: {:.2f}ms", dbg.latency_ms);
+    const std::string latency_str = fmt::format("Latency: {:.2f}ms", dbg.latency_ms);
     cv::putText(
         debug_img,
         latency_str,
@@ -462,7 +469,7 @@ void drawDebugRuneContent(
     );
     aim_target.tf(dbg.T_camera_to_odom.inverse());
     if (!aim_target.is_old) {
-        auto pts = aim_target.toPts(camera_info.first, camera_info.second);
+        const auto pts = aim_target.toPts(camera_info.first, camera_info.second);
         if (!pts.empty()) {
             cv::Scalar color = cv::Scalar(255, 255, 255);
             for (int i = 0; i < 4; i++)
@@ -499,20 +506,20 @@ void drawDebugRuneContent(
                 );
             }
 
-            double scale = 10.0;
-            double v_yaw = gimbal_cmd.v_yaw;
-            double v_pitch = gimbal_cmd.v_pitch;
-            double dx = -scale * v_yaw;
-            double dy = scale * v_pitch;
+            const double scale = 10.0;
+            const double v_yaw = gimbal_cmd.v_yaw;
+            const double v_pitch = gimbal_cmd.v_pitch;
+            const double dx = -scale * v_yaw;
+            const double dy = scale * v_pitch;
 
-            cv::Point2f start_pt = center;
-            cv::Point2f end_pt = start_pt + cv::Point2f(dx, dy);
-            cv::Scalar color_x = cv::Scalar(50, 50, 255);
+            const cv::Point2f start_pt = center;
+            const cv::Point2f end_pt = start_pt + cv::Point2f(dx, dy);
+            const cv::Scalar color_x = cv::Scalar(50, 50, 255);
             cv::arrowedLine(debug_img, start_pt, end_pt, color_x, 4, cv::LINE_AA, 0, 0.2);
         }
     }
     if (gimbal_cmd.fire_advice) {
-        std::string fire_str = "Fire!";
+        const std::string fire_str = "Fire!";
         cv::putText(
             debug_img,
             fire_str,
@@ -525,7 +532,7 @@ void drawDebugRuneContent(
     }
 
     // =================== 云台指令 ===================
-    std::string gimbal_str = fmt::format(
+    const std::string gimbal_str = fmt::format(
         "Pitch: {:.2f}, Yaw: {:.2f}, Enable_pitch_diff: {:.2f}, Enable_yaw_diff: {:.2f}, V_yaw: {:.2f}, V_pitch: {:.2f}",
         gimbal_cmd.pitch,
         gimbal_cmd.yaw,
@@ -562,8 +569,8 @@ void drawDebugOverlayWrite(
 
     if (dbg.src_img.img.empty())
         return;
-    cv::Mat src_img = dbg.src_img.img;
-    auto now = std::chrono::steady_clock::now();
+    const cv::Mat src_img = dbg.src_img.img;
+    const auto now = std::chrono::steady_clock::now();
     const double min_interval_ms = 1000.0 / 30.0;
     if (std::chrono::duration<double, std::milli>(now - last_show_time).count() < min_interval_ms
         && auto_fps)
@@ -603,7 +610,7 @@ void drawDebugOverlayShm(
     if (dbg.src_img.img.empty())
         return;
 
-    auto now = std::chrono::steady_clock::now();
+    const auto now = std::chrono::steady_clock::now();
     if (auto_fps
         && std::chrono::duration<double, std::milli>(now - last_show_time).count()
             < min_interval_ms)
@@ -659,8 +666,8 @@ void drawDebugOverlayShow(
 
     if (dbg.src_img.img.empty())
         return;
-    cv::Mat src_img = dbg.src_img.img;
-    auto now = std::chrono::steady_clock::now();
+    const cv::Mat src_img = dbg.src_img.img;
+    const auto now = std::chrono::steady_clock::now();
     const double min_interval_ms = 1000.0 / 30.0;
     if (std::chrono::duration<double, std::milli>(now - last_show_time).count() < min_interval_ms
         && auto_fps)
@@ -689,8 +696,8 @@ void drawDebugOverlayWrite(
 
     if (dbg.src_img.img.empty())
         return;
-    cv::Mat src_img = dbg.src_img.img;
-    auto now = std::chrono::steady_clock::now();
+    const cv::Mat src_img = dbg.src_img.img;
+    const auto now = std::chrono::steady_clock::now();
     const double min_interval_ms = 1000.0 / 30.0;
     if (std::chrono::duration<double, std::milli>(now - last_show_time).count() < min_interval_ms
         && auto_fps)
@@ -731,7 +738,7 @@ void drawDebugOverlayShm(
     if (dbg.src_img.img.empty())
         return;
 
-    auto now = std::chrono::steady_clock::now();
+    const auto now = std::chrono::steady_clock::now();
     if (auto_fps
         && std::chrono::duration<double, std::milli>(now - last_show_time).count()
             < min_interval_ms)
@@ -789,8 +796,8 @@ void drawDebugOverlayShow(
 
     if (dbg.src_img.img.empty())
         return;
-    cv::Mat src_img = dbg.src_img.img;
-    auto now = std::chrono::steady_clock::now();
+    const cv::Mat src_img = dbg.src_img.img;
+    const auto now = std::chrono::steady_clock::now();
     const double min_interval_ms = 1000.0 / 30.0;
     if (std::chrono::duration<double, std::milli>(now - last_show_time).count() < min_interval_ms
         && auto_fps)
@@ -821,8 +828,8 @@ void writeTargetLogToJson(const Target& armor_target, const rune::RuneTarget& ru
     jt["id"] = static_cast<int>(armor_target.tracked_id_);
     jt["armors_num"] = armor_target.armor_num_;
 
-    auto now = std::chrono::steady_clock::now();
-    auto age_ms_t =
+    const auto now = std::chrono::steady_clock::now();
+    const auto age_ms_t =
         std::chrono::duration_cast<std::chrono::milliseconds>(now - armor_target.timestamp_)
             .count();
     jt["timestamp_age_ms"] = age_ms_t;
@@ -846,7 +853,7 @@ void writeTargetLogToJson(const Target& armor_target, const rune::RuneTarget& ru
     jr["tracking"] = rune_target.is_tracking;
     jr["id"] = static_cast<int>(rune_target.last_id);
 
-    auto age_ms_r =
+    const auto age_ms_r =
         std::chrono::duration_cast<std::chrono::milliseconds>(now - rune_target.timestamp_).count();
     jr["timestamp_age_ms"] = age_ms_r;
 
@@ -894,8 +901,8 @@ void writeSerialLogToJson(const ReceiveAimINFO& aim) {
     static auto last_time = std::chrono::steady_clock::now();
 
     ++frame_count;
-    auto now = std::chrono::steady_clock::now();
-    double elapsed = std::chrono::duration<double>(now - last_time).count();
+    const auto now = std::chrono::steady_clock::now();
+    const double elapsed = std::chrono::duration<double>(now - last_time).count();
     if (elapsed >= 1.0) {
         fps = frame_count / elapsed;
         frame_count = 0;
@@ -931,11 +938,11 @@ void debuglog(
         first_log = false;
     }
 
-    auto now = std::chrono::steady_clock::now();
-    armor::Armors armors = dbg_armor.armors;
-    double t = std::chrono::duration<double>(now - start_time).count();
-    Target target = dbg_armor.target;
-    rune::RuneTarget rune_target = dbg_rune.target;
+    const auto now = std::chrono::steady_clock::now();
+    const armor::Armors& armors = dbg_armor.armors;
+    const double t = std::chrono::duration<double>(now - start_time).count();
+    const Target& target = dbg_armor.target;
+    const rune::RuneTarget& rune_target = dbg_rune.target;
     writeTargetLogToJson(target, rune_target);
 
     double armor_yaw = 0.0, ypd_y = 0.0, ypd_p = 0.0, armor_distance = 0.0;

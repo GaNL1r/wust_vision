@@ -57,19 +57,19 @@ std::vector<Eigen::Vector2d> reprojectionArmor(
     const Eigen::Vector3d& t,
     const Eigen::Matrix3d& K,
     const cv::Mat& dist // 畸变参数
-) {
+) noexcept {
     // 组合旋转（相机系到目标系）
-    Eigen::AngleAxisd ay(yaw, Eigen::Vector3d::UnitZ());
-    Eigen::AngleAxisd ap(pitch, Eigen::Vector3d::UnitY());
-    Eigen::AngleAxisd ar(roll, Eigen::Vector3d::UnitX());
-    Eigen::Matrix3d R = Rci * (ay * ap * ar).toRotationMatrix();
+    const Eigen::AngleAxisd ay(yaw, Eigen::Vector3d::UnitZ());
+    const Eigen::AngleAxisd ap(pitch, Eigen::Vector3d::UnitY());
+    const Eigen::AngleAxisd ar(roll, Eigen::Vector3d::UnitX());
+    const Eigen::Matrix3d R = Rci * (ay * ap * ar).toRotationMatrix();
 
     // 转成 OpenCV rvec/tvec
     cv::Mat rvec, R_cv;
     cv::eigen2cv(R, R_cv);
     cv::Rodrigues(R_cv, rvec);
 
-    cv::Mat tvec = (cv::Mat_<double>(3, 1) << t.x(), t.y(), t.z());
+    const cv::Mat tvec = (cv::Mat_<double>(3, 1) << t.x(), t.y(), t.z());
 
     // 取内参
     cv::Mat K_cv;
@@ -105,14 +105,15 @@ double reprojectionErrorYaw(
     double yaw,
     const std::vector<Eigen::Vector3d>& object_points,
     const std::vector<cv::Point2f>& landmarks,
+    const std::vector<std::pair<int, int>>& sym_pairs,
     const Eigen::Matrix3d& Rci,
     double pitch,
     double roll,
     const Eigen::Vector3d& t,
     const Eigen::Matrix3d& K,
     const cv::Mat& dist
-) {
-    auto image_points =
+) noexcept {
+    const auto image_points =
         reprojectionArmor(yaw, object_points, landmarks, Rci, pitch, roll, t, K, dist);
     double cost = 0.0;
 
@@ -120,24 +121,15 @@ double reprojectionErrorYaw(
     //     Eigen::Vector2d obs(landmarks[i].x, landmarks[i].y);
     //     cost += (image_points[i] - obs).squaredNorm();
     // }
-    auto buildSymPairs = [&](size_t n) {
-        std::vector<std::pair<int, int>> pairs;
-        for (int i = 0; i < n / 2; ++i) {
-            pairs.emplace_back(i, n - 1 - i);
-        }
-        return pairs;
-    };
-    const double symWeight = 3.0;
-    const auto symPairs = buildSymPairs(object_points.size());
 
-    for (auto& p: symPairs) {
-        Eigen::Vector2d mid = 0.5 * (image_points[p.first] + image_points[p.second]);
+    for (auto& p: sym_pairs) {
+        const Eigen::Vector2d mid = 0.5 * (image_points[p.first] + image_points[p.second]);
 
-        Eigen::Vector2d meas = 0.5
+        const Eigen::Vector2d meas = 0.5
             * (Eigen::Vector2d(landmarks[p.first].x, landmarks[p.first].y)
                + Eigen::Vector2d(landmarks[p.second].x, landmarks[p.second].y));
 
-        cost += symWeight * (mid - meas).squaredNorm();
+        cost += (mid - meas).squaredNorm();
     }
     return cost;
 }
@@ -146,12 +138,13 @@ double BaSolver::goldenYaw(
     double init,
     const std::vector<Eigen::Vector3d>& obj,
     const std::vector<cv::Point2f>& lm,
+    const std::vector<std::pair<int, int>>& sym_pairs,
     const Eigen::Matrix3d& Rci,
     double pitch,
     double roll,
     const Eigen::Vector3d& t,
     const Eigen::Matrix3d& K
-) {
+) const noexcept {
     constexpr double phi = 1.618033988749894848; //(1.0 + std::sqrt(5.0)) * 0.5;
     double l = init - params_.golden_search_side_deg * M_PI / 180.0;
     double r = init + params_.golden_search_side_deg * M_PI / 180.0;
@@ -159,8 +152,10 @@ double BaSolver::goldenYaw(
     double y1 = r - (r - l) / phi;
     double y2 = l + (r - l) / phi;
 
-    double f1 = reprojectionErrorYaw(y1, obj, lm, Rci, pitch, roll, t, K, camera_info_.second);
-    double f2 = reprojectionErrorYaw(y2, obj, lm, Rci, pitch, roll, t, K, camera_info_.second);
+    double f1 =
+        reprojectionErrorYaw(y1, obj, lm, sym_pairs, Rci, pitch, roll, t, K, camera_info_.second);
+    double f2 =
+        reprojectionErrorYaw(y2, obj, lm, sym_pairs, Rci, pitch, roll, t, K, camera_info_.second);
 
     while (r - l > 0.0001) {
         if (f1 < f2) {
@@ -168,13 +163,35 @@ double BaSolver::goldenYaw(
             y2 = y1;
             f2 = f1;
             y1 = r - (r - l) / phi;
-            f1 = reprojectionErrorYaw(y1, obj, lm, Rci, pitch, roll, t, K, camera_info_.second);
+            f1 = reprojectionErrorYaw(
+                y1,
+                obj,
+                lm,
+                sym_pairs,
+                Rci,
+                pitch,
+                roll,
+                t,
+                K,
+                camera_info_.second
+            );
         } else {
             l = y1;
             y1 = y2;
             f1 = f2;
             y2 = l + (r - l) / phi;
-            f2 = reprojectionErrorYaw(y2, obj, lm, Rci, pitch, roll, t, K, camera_info_.second);
+            f2 = reprojectionErrorYaw(
+                y2,
+                obj,
+                lm,
+                sym_pairs,
+                Rci,
+                pitch,
+                roll,
+                t,
+                K,
+                camera_info_.second
+            );
         }
     }
 
@@ -185,15 +202,16 @@ double BaSolver::ceresYaw(
     double initial_yaw,
     const std::vector<Eigen::Vector3d>& object_points,
     const std::vector<cv::Point2f>& landmarks,
+    const std::vector<std::pair<int, int>>& sym_pairs,
     const Eigen::Matrix3d& R_camera_imu,
     double armor_pitch,
     double roll,
     const Eigen::Vector3d& t_camera_armor,
     const Eigen::Matrix3d& K
-) {
+) const noexcept {
     double yaw = initial_yaw;
 
-    CameraProjector cam(R_camera_imu, armor_pitch, roll, t_camera_armor, K, dist_eigen_);
+    const CameraProjector cam(R_camera_imu, armor_pitch, roll, t_camera_armor, K, dist_eigen_);
 
     ceres::Problem problem;
     problem.AddParameterBlock(&yaw, 1, new YawLocalParameterization());
@@ -208,16 +226,8 @@ double BaSolver::ceresYaw(
 
     //     problem.AddResidualBlock(cost, new ceres::HuberLoss(1.0), &yaw);
     // }
-    auto buildSymPairs = [&](size_t n) {
-        std::vector<std::pair<int, int>> pairs;
-        for (int i = 0; i < n / 2; ++i) {
-            pairs.emplace_back(i, n - 1 - i);
-        }
-        return pairs;
-    };
-    auto symPairs = buildSymPairs(object_points.size());
 
-    for (auto& p: symPairs) {
+    for (auto& p: sym_pairs) {
         Eigen::Vector2d meas = (Eigen::Vector2d(landmarks[p.first].x, landmarks[p.first].y)
                                 + Eigen::Vector2d(landmarks[p.second].x, landmarks[p.second].y))
             * 0.5;
@@ -244,47 +254,67 @@ Eigen::Matrix3d BaSolver::solveBa_R(
     const Eigen::Matrix3d& R_camera_armor,
     const Eigen::Matrix3d& R_imu_camera,
     const std::string& type
-) noexcept {
-    Eigen::Matrix3d K = K_;
+) const noexcept {
+    const Eigen::Matrix3d K = K_;
 
-    Eigen::Matrix3d R_imu_armor = R_imu_camera * R_camera_armor;
-    Eigen::Matrix3d R_camera_imu = R_imu_camera.transpose();
+    const Eigen::Matrix3d R_imu_armor = R_imu_camera * R_camera_armor;
+    const Eigen::Matrix3d R_camera_imu = R_imu_camera.transpose();
     //double roll = std::atan2(R_imu_armor(2, 1), R_imu_armor(2, 2));
-    double roll = 0;
+    const double roll = 0;
     // initial yaw
-    double yaw_init = std::atan2(-R_imu_armor(0, 1), R_imu_armor(1, 1));
+    const double yaw_init = std::atan2(-R_imu_armor(0, 1), R_imu_armor(1, 1));
 
-    double armor_pitch =
+    const double armor_pitch =
         (armor.number == armor::ArmorNumber::OUTPOST) ? -FIFTTEN_DEGREE_RAD : FIFTTEN_DEGREE_RAD;
 
-    Eigen::Vector2d armor_size = (type == "large")
+    const Eigen::Vector2d armor_size = (type == "large")
         ? Eigen::Vector2d { LARGE_ARMOR_WIDTH, LARGE_ARMOR_HEIGHT }
         : Eigen::Vector2d { SMALL_ARMOR_WIDTH, SMALL_ARMOR_HEIGHT };
 
-    auto objPts =
+    const auto objPts =
         armor::ArmorObject::buildObjectPoints<Eigen::Vector3d>(armor_size.x(), armor_size.y());
     const auto& lm = armor.landmarks();
-
+    const auto& sym_pairs = armor::ArmorObject::buildSymPairs<int>();
     double yaw = yaw_init;
     if (params_.mode == Params::OptMode::CERES) {
-        yaw = ceresYaw(yaw_init, objPts, lm, R_camera_imu, armor_pitch, roll, t_camera_armor, K);
+        yaw = ceresYaw(
+            yaw_init,
+            objPts,
+            lm,
+            sym_pairs,
+            R_camera_imu,
+            armor_pitch,
+            roll,
+            t_camera_armor,
+            K
+        );
     } else if (params_.mode == Params::OptMode::GOLDEN) {
-        yaw = goldenYaw(yaw_init, objPts, lm, R_camera_imu, armor_pitch, roll, t_camera_armor, K);
+        yaw = goldenYaw(
+            yaw_init,
+            objPts,
+            lm,
+            sym_pairs,
+            R_camera_imu,
+            armor_pitch,
+            roll,
+            t_camera_armor,
+            K
+        );
     }
 
     // build yaw + pitch rotation
-    double cy = std::cos(yaw), sy = std::sin(yaw);
+    const double cy = std::cos(yaw), sy = std::sin(yaw);
     Eigen::Matrix3d R_yaw;
     R_yaw << cy, -sy, 0, sy, cy, 0, 0, 0, 1;
 
-    double cp = std::cos(armor_pitch), sp = std::sin(armor_pitch);
+    const double cp = std::cos(armor_pitch), sp = std::sin(armor_pitch);
     Eigen::Matrix3d R_pitch;
     R_pitch << cp, 0, sp, 0, 1, 0, -sp, 0, cp;
 
-    double cr = std::cos(roll), sr = std::sin(roll);
+    const double cr = std::cos(roll), sr = std::sin(roll);
     Eigen::Matrix3d R_roll;
     R_roll << cr, -sr, 0, sr, cr, 0, 0, 0, 1;
 
-    Eigen::Matrix3d R_result = R_camera_imu * R_yaw * R_pitch * R_roll;
+    const Eigen::Matrix3d R_result = R_camera_imu * R_yaw * R_pitch * R_roll;
     return R_result;
 }

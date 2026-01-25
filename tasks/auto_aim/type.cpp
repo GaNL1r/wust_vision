@@ -30,13 +30,13 @@ Light::Light(const std::vector<cv::Point>& contour): cv::RotatedRect(cv::minArea
         std::atan2(std::abs(top.x - bottom.x), std::abs(top.y - bottom.y)) / CV_PI * 180.0f;
 }
 
-void Light::addOffset(const cv::Point2f& offset) {
+void Light::addOffset(const cv::Point2f& offset) noexcept {
     this->center += offset;
     top += offset;
     bottom += offset;
 }
-void Light::transform(const Eigen::Matrix<float, 3, 3>& transform_matrix) {
-    auto map_point = [&](float x, float y) -> cv::Point2f {
+void Light::transform(const Eigen::Matrix<float, 3, 3>& transform_matrix) noexcept {
+    const auto map_point = [&](float x, float y) -> cv::Point2f {
         Eigen::Vector3f pt(x, y, 1.f);
         Eigen::Vector3f tr = transform_matrix * pt;
         return { tr(0), tr(1) };
@@ -48,11 +48,11 @@ void Light::transform(const Eigen::Matrix<float, 3, 3>& transform_matrix) {
     this->points(p);
 
     width = cv::norm(map_point(p[0].x, p[0].y) - map_point(p[1].x, p[1].y));
-    cv::Point2f p0 = center;
-    cv::Point2f p1 = center + axis;
+    const cv::Point2f p0 = center;
+    const cv::Point2f p1 = center + axis;
 
-    cv::Point2f p0_t = map_point(p0.x, p0.y);
-    cv::Point2f p1_t = map_point(p1.x, p1.y);
+    const cv::Point2f p0_t = map_point(p0.x, p0.y);
+    const cv::Point2f p1_t = map_point(p1.x, p1.y);
 
     axis = p1_t - p0_t;
     axis /= cv::norm(axis);
@@ -61,7 +61,7 @@ void Light::transform(const Eigen::Matrix<float, 3, 3>& transform_matrix) {
         std::atan2(std::abs(top.x - bottom.x), std::abs(top.y - bottom.y)) / CV_PI * 180.0f;
     center = map_point(center.x, center.y);
 }
-int formArmorColor(const ArmorColor& color) {
+int formArmorColor(const ArmorColor& color) noexcept {
     switch (color) {
         case ArmorColor::RED:
             return 0;
@@ -74,7 +74,7 @@ int formArmorColor(const ArmorColor& color) {
     }
 }
 
-std::ostream& operator<<(std::ostream& os, const ArmorNumber& number) {
+std::ostream& operator<<(std::ostream& os, const ArmorNumber& number) noexcept {
     switch (number) {
         case ArmorNumber::SENTRY:
             return os << "SENTRY";
@@ -99,7 +99,7 @@ std::ostream& operator<<(std::ostream& os, const ArmorNumber& number) {
     }
 }
 
-int formArmorNumber(const ArmorNumber& number) {
+int formArmorNumber(const ArmorNumber& number) noexcept {
     switch (number) {
         case ArmorNumber::SENTRY:
             return 0;
@@ -121,7 +121,7 @@ int formArmorNumber(const ArmorNumber& number) {
             return 8;
     }
 }
-ArmorNumber armorNumberFromString(const std::string& s) {
+ArmorNumber armorNumberFromString(const std::string& s) noexcept {
     if (s == "SENTRY")
         return ArmorNumber::SENTRY;
     if (s == "BASE")
@@ -141,7 +141,7 @@ ArmorNumber armorNumberFromString(const std::string& s) {
     return ArmorNumber::UNKNOWN;
 }
 
-std::string armorNumberToString(const ArmorNumber& num) {
+std::string armorNumberToString(const ArmorNumber& num) noexcept {
     switch (num) {
         case ArmorNumber::SENTRY:
             return "SENTRY";
@@ -191,11 +191,11 @@ namespace {
     }
 } // namespace
 
-int retypetotracker(const ArmorNumber& a) {
+int retypetotracker(const ArmorNumber& a) noexcept {
     loadArmorMapOnce();
 
     const std::string key = armorNumberToString(a);
-    auto it = armor_map.find(key);
+    const auto it = armor_map.find(key);
     if (it != armor_map.end())
         return it->second;
 
@@ -203,11 +203,11 @@ int retypetotracker(const ArmorNumber& a) {
     return -1;
 }
 
-bool isSameTarget(const ArmorNumber& a, const ArmorNumber& b) {
+bool isSameTarget(const ArmorNumber& a, const ArmorNumber& b) noexcept {
     return retypetotracker(a) == retypetotracker(b);
 }
 
-std::string armorTypeToString(const ArmorType& type) {
+std::string armorTypeToString(const ArmorType& type) noexcept {
     switch (type) {
         case ArmorType::SMALL:
             return "small";
@@ -221,33 +221,60 @@ std::string armorTypeToString(const ArmorType& type) {
 template<typename PointType>
 std::vector<PointType> ArmorObject::buildObjectPoints(const double& w, const double& h) noexcept {
     if constexpr (N_LANDMARKS == 4) {
-        return { PointType(0, w / 2, -h / 2),
-                 PointType(0, w / 2, h / 2),
-                 PointType(0, -w / 2, h / 2),
-                 PointType(0, -w / 2, -h / 2) };
+        return {
+            PointType(0, w / 2, -h / 2), // 右下
+            PointType(0, w / 2, h / 2), // 右上
+            PointType(0, -w / 2, h / 2), // 左上
+            PointType(0, -w / 2, -h / 2) // 左下
+        };
     } else {
         return {
-            PointType(0, w / 2, -h / 2), PointType(0, w / 2, 0),  PointType(0, w / 2, h / 2),
-            PointType(0, -w / 2, h / 2), PointType(0, -w / 2, 0), PointType(0, -w / 2, -h / 2)
+            PointType(0, w / 2, -h / 2), // 右下
+            PointType(0, w / 2, 0.0), // 右中
+            PointType(0, w / 2, h / 2), // 右上
+
+            PointType(0, -w / 2, h / 2), // 左上
+            PointType(0, -w / 2, 0.0), // 左中
+            PointType(0, -w / 2, -h / 2) // 左下
         };
     }
 }
+template<typename IDType>
+std::vector<std::pair<IDType, IDType>> ArmorObject::buildSymPairs() noexcept {
+    if constexpr (N_LANDMARKS == 4) {
+        const std::vector<std::pair<IDType, IDType>> pairs = { { 0, 3 },
+                                                               { 1, 2 },
+                                                               { 0, 2 },
+                                                               { 1, 3 } };
+        return pairs;
+    } else {
+        const std::vector<std::pair<IDType, IDType>> pairs = { { 0, 5 },
+                                                               { 1, 4 },
+                                                               { 2, 3 },
+                                                               { 0, 3 },
+                                                               { 2, 5 }
 
-std::vector<cv::Point2f> ArmorObject::toPts() const {
+        };
+        return pairs;
+    }
+}
+
+std::vector<cv::Point2f> ArmorObject::toPts() const noexcept {
     if (is_ok) {
         return { lights[0].top, lights[0].bottom, lights[1].bottom, lights[1].top };
     } else {
         return { pts[0], pts[1], pts[2], pts[3] };
     }
 }
-bool ArmorObject::checkOkptsRight(double max_error) const {
+bool ArmorObject::checkOkptsRight(double max_error) const noexcept {
     double error = 0.0;
     for (int i = 0; i < 4; i++) {
         error += cv::norm(pts[i] - toPts()[i]);
     }
     return error < max_error;
 }
-std::array<cv::Point2f, 4> ArmorObject::sortCorners(const std::vector<cv::Point2f>& pts) const {
+std::array<cv::Point2f, 4> ArmorObject::sortCorners(const std::vector<cv::Point2f>& pts
+) const noexcept {
     std::array<cv::Point2f, 4> ordered;
 
     // 先按 x 坐标分成左右两组
@@ -279,12 +306,12 @@ std::array<cv::Point2f, 4> ArmorObject::sortCorners(const std::vector<cv::Point2
 
     return ordered; // 顺序: 左下, 左上, 右上, 右下
 }
-std::vector<cv::Point2f> ArmorObject::landmarks() const {
+std::vector<cv::Point2f> ArmorObject::landmarks() const noexcept {
     if constexpr (N_LANDMARKS == 4) {
         if (is_ok) {
             return { lights[0].bottom, lights[0].top, lights[1].top, lights[1].bottom };
         } else {
-            auto ordered = sortCorners(pts);
+            const auto ordered = sortCorners(pts);
             return { ordered[0], ordered[1], ordered[2], ordered[3] };
         }
 
@@ -293,7 +320,7 @@ std::vector<cv::Point2f> ArmorObject::landmarks() const {
             return { lights[0].bottom, lights[0].center, lights[0].top,
                      lights[1].top,    lights[1].center, lights[1].bottom };
         } else {
-            auto ordered = sortCorners(pts);
+            const auto ordered = sortCorners(pts);
             return { ordered[0], (ordered[0] + ordered[1]) / 2.0, ordered[1],
                      ordered[2], (ordered[2] + ordered[3]) / 2.0, ordered[3] };
         }
@@ -319,8 +346,10 @@ ArmorObject::ArmorObject(const Light& l1, const Light& l2) {
     is_ok = true;
 }
 
-std::vector<cv::Point2f>
-Armor::toPtsDebug(const cv::Mat& camera_intrinsic, const cv::Mat& camera_distortion) {
+std::vector<cv::Point2f> Armor::toPtsDebug(
+    const cv::Mat& camera_intrinsic,
+    const cv::Mat& camera_distortion
+) const noexcept {
     std::vector<cv::Point2f> image_points;
     const std::vector<cv::Point3f>* model_points;
     static std::vector<cv::Point3f> SMALL_ARMOR_3D_POINTS_BLOCK = {
@@ -345,8 +374,8 @@ Armor::toPtsDebug(const cv::Mat& camera_intrinsic, const cv::Mat& camera_distort
     } else if (type == "small") {
         model_points = &SMALL_ARMOR_3D_POINTS_BLOCK;
     }
-    Eigen::Matrix3d tf_rot = target_ori.toRotationMatrix();
-    cv::Mat rot_mat =
+    const Eigen::Matrix3d tf_rot = target_ori.toRotationMatrix();
+    const cv::Mat rot_mat =
         (cv::Mat_<double>(3, 3) << tf_rot(0, 0),
          tf_rot(0, 1),
          tf_rot(0, 2),
@@ -362,48 +391,32 @@ Armor::toPtsDebug(const cv::Mat& camera_intrinsic, const cv::Mat& camera_distort
     cv::Rodrigues(rot_mat, rvec);
 
     // 平移向量
-    cv::Mat tvec = (cv::Mat_<double>(3, 1) << target_pos.x(), target_pos.y(), target_pos.z());
+    const cv::Mat tvec = (cv::Mat_<double>(3, 1) << target_pos.x(), target_pos.y(), target_pos.z());
 
     // 反投影
     cv::projectPoints(*model_points, rvec, tvec, camera_intrinsic, camera_distortion, image_points);
     return image_points;
 }
 
-void transformArmorData(armor::Armors& armors, Eigen::Matrix4d T_camera_to_odom) {
+void transformArmorData(armor::Armors& armors, Eigen::Matrix4d T_camera_to_odom) noexcept {
     for (auto& armor: armors.armors) {
-        try {
-            // Step 1: Transform position from camera to odom
-            Eigen::Vector3d pos_camera = armor.pos;
-            armor.target_pos = utils::transformPosition(pos_camera, T_camera_to_odom);
-
-            // 姿态
-            Eigen::Quaterniond q_camera(armor.ori.w(), armor.ori.x(), armor.ori.y(), armor.ori.z());
-            Eigen::Quaterniond q_odom = utils::transformOrientation(q_camera, T_camera_to_odom);
-            armor.target_ori = q_odom;
-
-            // Step 3: Extract yaw (assuming you have a function like this)
-            Eigen::Vector3d euler = q_odom.toRotationMatrix().eulerAngles(2, 1, 0); // ZYX
-            armor.yaw = euler[0]; // yaw
-
-        } catch (const std::exception& e) {
-            WUST_ERROR("tf") << "Error in camera-to-odom transform: " << e.what();
-            return;
-        }
+        transformArmorData(armor, T_camera_to_odom);
     }
 }
-void transformArmorData(armor::Armor& armor, const Eigen::Matrix4d& T_camera_to_odom) {
+void transformArmorData(armor::Armor& armor, const Eigen::Matrix4d& T_camera_to_odom) noexcept {
     try {
         // 位置
-        Eigen::Vector3d pos_camera = armor.pos;
+        const Eigen::Vector3d pos_camera = armor.pos;
         armor.target_pos = utils::transformPosition(pos_camera, T_camera_to_odom);
 
         // 姿态
-        Eigen::Quaterniond q_camera(armor.ori.w(), armor.ori.x(), armor.ori.y(), armor.ori.z());
-        Eigen::Quaterniond q_odom = utils::transformOrientation(q_camera, T_camera_to_odom);
+        const Eigen::Quaterniond
+            q_camera(armor.ori.w(), armor.ori.x(), armor.ori.y(), armor.ori.z());
+        const Eigen::Quaterniond q_odom = utils::transformOrientation(q_camera, T_camera_to_odom);
         armor.target_ori = q_odom;
 
         // 提取 yaw
-        Eigen::Vector3d euler = q_odom.toRotationMatrix().eulerAngles(2, 1, 0); // ZYX
+        const Eigen::Vector3d euler = q_odom.toRotationMatrix().eulerAngles(2, 1, 0); // ZYX
         armor.yaw = euler[0]; // yaw
 
     } catch (const std::exception& e) {

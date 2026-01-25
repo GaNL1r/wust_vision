@@ -4,7 +4,7 @@ namespace auto_aim {
 void VeryAimerBase::reset() {
     shooting_range_w_ = config_["shooting_range_w"].as<double>(0.12);
     shooting_range_h_ = config_["shooting_range_h"].as<double>(0.12);
-    double yaw_limit_deg = config_["yaw_limit"].as<double>(0.0);
+    const double yaw_limit_deg = config_["yaw_limit"].as<double>(0.0);
     yaw_limit = yaw_limit_deg / 180.0 * M_PI;
     min_enable_pitch_deg_ = config_["min_enable_pitch_deg"].as<double>(0.0);
     min_enable_yaw_deg_ = config_["min_enable_yaw_deg"].as<double>(0.0);
@@ -36,7 +36,8 @@ void VeryAimerBase::reset() {
     max_pitch_acc_ = config_["max_pitch_acc"].as<double>();
     max_yaw_acc_ = config_["max_yaw_acc"].as<double>();
 }
-int VeryAimerBase::selectArmor(const Target& target, const AutoAimFsm& auto_aim_fsm) const noexcept{
+int VeryAimerBase::selectArmor(const Target& target, const AutoAimFsm& auto_aim_fsm)
+    const noexcept {
     static int lock_id = -1;
     const auto [aim_first, aim_center, aim_pair] = getAimStatus(auto_aim_fsm);
     const auto armor_list = target.getArmorPosAndYaw();
@@ -127,7 +128,7 @@ int VeryAimerBase::selectArmor(const Target& target, const AutoAimFsm& auto_aim_
 }
 ControlPoint
 VeryAimerBase::getControlPoint(Eigen::Vector3d aim_target_pos, double diff_yaw, double bullet_speed)
-    const noexcept{
+    const noexcept {
     ControlPoint cp;
     double control_yaw = std::atan2(aim_target_pos.y(), aim_target_pos.x());
     double raw_pitch = std::atan2(
@@ -155,7 +156,7 @@ std::tuple<double, double> VeryAimerBase::calEnableDiff(
     Eigen::Vector3d aim_target_pos,
     double diff_yaw,
     const AutoAimFsm& auto_aim_fsm
-) const noexcept{
+) const noexcept {
     const double distance = aim_target_pos.norm();
     double shooting_range_yaw = std::abs(atan2(shooting_range_w_ / 2, distance));
     double shooting_range_pitch = std::abs(atan2(shooting_range_h_ / 2, distance));
@@ -190,7 +191,7 @@ ControlPoint VeryAimerBase::choseAndGetControlPoint(
     const Target& target,
     double bullet_speed,
     const AutoAimFsm& auto_aim_fsm
-) const noexcept{
+) const noexcept {
     const auto [aim_first, aim_center, aim_pair] = getAimStatus(auto_aim_fsm);
     const int target_select = selectArmor(target, auto_aim_fsm);
     const auto armors_xyza = target.getArmorPosAndYaw();
@@ -216,7 +217,7 @@ ControlPoint VeryAimerBase::choseAndGetControlPoint(
     return cp;
 }
 inline VeryAimerBase::FireResult
-VeryAimerBase::canFireAtTime(const VeryAimerTrajBase::Ptr& traj, double t) const noexcept{
+VeryAimerBase::canFireAtTime(const VeryAimerTrajBase::Ptr& traj, double t) const noexcept {
     const auto target_delay = traj->getTargetState(t + control_delay_);
     const auto control_delay = traj->getControlState(t + control_delay_);
 

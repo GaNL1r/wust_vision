@@ -19,7 +19,7 @@ struct ControlPoint {
 struct AimPoint {
     Eigen::Vector3d pos;
     double d_angle;
-    static inline AimPoint lerp(const AimPoint& p0, const AimPoint& p1, double a)noexcept {
+    static inline AimPoint lerp(const AimPoint& p0, const AimPoint& p1, double a) noexcept {
         AimPoint r;
         r.pos = (1.0 - a) * p0.pos + a * p1.pos;
         r.d_angle = lerpAngle(p0.d_angle, p1.d_angle, a);
@@ -39,7 +39,7 @@ struct GimbalState {
     GimbalState(const GimbalState::State& y, const GimbalState::State& p):
         yaw_state(y),
         pitch_state(p) {}
-    static GimbalState lerp(const GimbalState& s0, const GimbalState& s1, double a) noexcept{
+    static GimbalState lerp(const GimbalState& s0, const GimbalState& s1, double a) noexcept {
         GimbalState r;
         r.aim_id = (a > 0.5) ? s0.aim_id : s1.aim_id;
         r.yaw_state = GimbalState::State { .p = lerpAngle(s0.yaw_state.p, s1.yaw_state.p, a),
@@ -60,8 +60,15 @@ struct QuinticSegment {
     GimbalState::State head;
     GimbalState::State tail;
 
-    static inline Eigen::Matrix<double, 6, 1>
-    solve1dFullPivLu(double p0, double v0, double a0, double p1, double v1, double a1, double T) noexcept{
+    static inline Eigen::Matrix<double, 6, 1> solve1dFullPivLu(
+        double p0,
+        double v0,
+        double a0,
+        double p1,
+        double v1,
+        double a1,
+        double T
+    ) noexcept {
         Eigen::Matrix<double, 6, 6> A;
         Eigen::Matrix<double, 6, 1> b;
 
@@ -75,8 +82,15 @@ struct QuinticSegment {
         b << p0, v0, a0, p1, v1, a1;
         return A.fullPivLu().solve(b);
     }
-    static inline Eigen::Matrix<double, 6, 1>
-    solve1dClosedForm(double p0, double v0, double a0, double p1, double v1, double a1, double T)noexcept {
+    static inline Eigen::Matrix<double, 6, 1> solve1dClosedForm(
+        double p0,
+        double v0,
+        double a0,
+        double p1,
+        double v1,
+        double a1,
+        double T
+    ) noexcept {
         Eigen::Matrix<double, 6, 1> c;
         double T2 = T * T;
         double T3 = T2 * T;
@@ -102,7 +116,7 @@ struct QuinticSegment {
     }
 
     static inline QuinticSegment
-    build(const GimbalState::State& s0, const GimbalState::State& s1, double T)noexcept {
+    build(const GimbalState::State& s0, const GimbalState::State& s1, double T) noexcept {
         QuinticSegment seg;
         seg.head = s0;
         seg.tail = s1;
@@ -111,10 +125,10 @@ struct QuinticSegment {
         return seg;
     }
 
-    static inline double evalAcc(const Eigen::Matrix<double, 6, 1>& c, double t)noexcept {
+    static inline double evalAcc(const Eigen::Matrix<double, 6, 1>& c, double t) noexcept {
         return 2 * c[2] + 6 * c[3] * t + 12 * c[4] * t * t + 20 * c[5] * t * t * t;
     }
-    static inline double maxAbsAcc(const Eigen::Matrix<double, 6, 1>& c, double T) noexcept{
+    static inline double maxAbsAcc(const Eigen::Matrix<double, 6, 1>& c, double T) noexcept {
         if (T <= 0.0)
             return 0.0;
 
@@ -157,14 +171,14 @@ struct QuinticSegment {
         return std::isfinite(max_acc) ? max_acc : 0.0;
     }
 
-    double inline duration() const noexcept{
+    double inline duration() const noexcept {
         return T;
     }
 
-    double inline MaxAcc(void) const noexcept{
+    double inline MaxAcc(void) const noexcept {
         return QuinticSegment::maxAbsAcc(c, T);
     }
-    GimbalState::State inline eval(double t) const noexcept{
+    GimbalState::State inline eval(double t) const noexcept {
         GimbalState::State s;
         if (T <= 0.0)
             return s;
@@ -187,7 +201,7 @@ public:
 
     Traj yaw_traj;
     Traj pitch_traj;
-    static inline double angleDiff(double a, double b) noexcept{
+    static inline double angleDiff(double a, double b) noexcept {
         double d = a - b;
         while (d > M_PI)
             d -= 2 * M_PI;
@@ -196,19 +210,21 @@ public:
         return d;
     }
 
-    static inline double unwrapAngle(double prev, double curr) noexcept{
+    static inline double unwrapAngle(double prev, double curr) noexcept {
         return prev + angleDiff(curr, prev);
     }
 
-    void unwrapStates(std::vector<GimbalState>& s) const noexcept{
+    void unwrapStates(std::vector<GimbalState>& s) const noexcept {
         for (size_t i = 1; i < s.size(); ++i) {
             s[i].yaw_state.p = unwrapAngle(s[i - 1].yaw_state.p, s[i].yaw_state.p);
             s[i].pitch_state.p = unwrapAngle(s[i - 1].pitch_state.p, s[i].pitch_state.p);
         }
     }
 
-    std::pair<std::vector<GimbalState::State>, std::vector<GimbalState::State>>
-    computeNodeStates(const std::vector<GimbalState>& gp, const std::vector<double>& dt) const noexcept{
+    std::pair<std::vector<GimbalState::State>, std::vector<GimbalState::State>> computeNodeStates(
+        const std::vector<GimbalState>& gp,
+        const std::vector<double>& dt
+    ) const noexcept {
         const size_t N = gp.size();
         std::vector<GimbalState::State> yaw(N), pitch(N);
         for (size_t i = 0; i < N; ++i) {
@@ -252,7 +268,7 @@ public:
         int best_front_idx,
         int best_back_idx,
         double max_acc
-    ) const noexcept{
+    ) const noexcept {
         traj.segs.clear();
         traj.seg_dt.clear();
         traj.seg_prefix_time.clear();
@@ -422,7 +438,7 @@ public:
         for (size_t i = 0; i < traj.seg_dt.size(); ++i)
             traj.seg_prefix_time[i + 1] = traj.seg_prefix_time[i] + traj.seg_dt[i];
     }
-    void buildLimit(double max_yaw_acc, double max_pitch_acc) noexcept{
+    void buildLimit(double max_yaw_acc, double max_pitch_acc) noexcept {
         unwrapStates(cp_vec);
         auto [yaw_states, pitch_states] = computeNodeStates(cp_vec, dt_vec);
         int best_front_idx = -1;
@@ -456,7 +472,7 @@ public:
         limitTraj(yaw_traj, yaw_states, best_front_idx, best_back_idx, max_yaw_acc);
         limitTraj(pitch_traj, pitch_states, best_front_idx, best_back_idx, max_pitch_acc);
     }
-    void simpleTraj(Traj& traj, const std::vector<GimbalState::State>& s) const noexcept{
+    void simpleTraj(Traj& traj, const std::vector<GimbalState::State>& s) const noexcept {
         traj.segs.clear();
         traj.seg_dt.clear();
         traj.seg_prefix_time.clear();
@@ -482,7 +498,7 @@ public:
         simpleTraj(yaw_traj, yaw_states);
         simpleTraj(pitch_traj, pitch_states);
     }
-    inline GimbalState::State getStateAtTime(double t, const Traj& traj) const noexcept{
+    inline GimbalState::State getStateAtTime(double t, const Traj& traj) const noexcept {
         if (traj.segs.empty())
             return {};
 
@@ -501,7 +517,7 @@ public:
         const double t0 = traj.seg_prefix_time[i];
         return traj.segs[i].eval(t - t0);
     }
-    inline GimbalState getStateAtTime(double t) const noexcept{
+    inline GimbalState getStateAtTime(double t) const noexcept {
         GimbalState::State yaw = getStateAtTime(t, yaw_traj);
         GimbalState::State pitch = getStateAtTime(t, pitch_traj);
         return GimbalState(yaw, pitch);
@@ -546,11 +562,12 @@ public:
     void reset();
     int selectArmor(const Target& target, const AutoAimFsm& auto_aim_fsm) const noexcept;
     ControlPoint
-    getControlPoint(Eigen::Vector3d aim_target_pos, double diff_yaw, double bullet_speed) const noexcept; 
+    getControlPoint(Eigen::Vector3d aim_target_pos, double diff_yaw, double bullet_speed)
+        const noexcept;
     std::tuple<double, double>
     calEnableDiff(Eigen::Vector3d aim_target_pos, double diff_yaw, const AutoAimFsm& auto_aim_fsm)
         const noexcept;
-    inline double rad2deg(double r) const noexcept{
+    inline double rad2deg(double r) const noexcept {
         return r / M_PI * 180.0;
     }
     std::tuple<bool, bool, bool> getAimStatus(const AutoAimFsm& auto_aim_fsm) const noexcept;

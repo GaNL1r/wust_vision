@@ -9,7 +9,7 @@ TrackerV3::TrackerV3(const YAML::Node& config) noexcept {
     target_config_.loadConfig(config["armor_tracker"]);
 }
 Target TrackerV3::track(const armor::Armors& armors_msg) noexcept {
-    double dt = std::chrono::duration<double>(armors_msg.timestamp - last_time_).count();
+    const double dt = std::chrono::duration<double>(armors_msg.timestamp - last_time_).count();
     last_time_ = armors_msg.timestamp;
     lost_thres_ = std::abs(static_cast<int>(lost_dt_ / dt));
     armor::Armors armors;
@@ -138,7 +138,7 @@ bool TrackerV3::updateTarget(const armor::Armors& armors) noexcept {
         return false;
 
     int updated = 0;
-    auto matches = target_.match(candidates);
+    const auto matches = target_.match(candidates);
 
     for (const auto& m: matches) {
         if (m.second.is_none_purple) {

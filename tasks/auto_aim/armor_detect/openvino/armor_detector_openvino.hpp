@@ -41,7 +41,7 @@ public:
     bool processCallback(
         const CommonFrame& frame,
         const std::optional<armor::ArmorNumber>& target_number
-    );
+    ) const;
 
     void pushInput(CommonFrame& frame, const std::optional<armor::ArmorNumber>& target_number);
 

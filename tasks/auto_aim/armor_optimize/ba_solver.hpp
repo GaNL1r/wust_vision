@@ -58,27 +58,29 @@ public:
         const Eigen::Matrix3d& R_camera_armor,
         const Eigen::Matrix3d& R_imu_camera,
         const std::string& type
-    ) noexcept;
+    ) const noexcept;
     double goldenYaw(
         double init,
         const std::vector<Eigen::Vector3d>& obj,
         const std::vector<cv::Point2f>& lm,
+        const std::vector<std::pair<int, int>>& sym_pairs,
         const Eigen::Matrix3d& Rci,
         double pitch,
         double roll,
         const Eigen::Vector3d& t,
         const Eigen::Matrix3d& K
-    );
+    ) const noexcept;
     double ceresYaw(
         double init,
         const std::vector<Eigen::Vector3d>& obj,
         const std::vector<cv::Point2f>& lm,
+        const std::vector<std::pair<int, int>>& sym_pairs,
         const Eigen::Matrix3d& Rci,
         double pitch,
         double roll,
         const Eigen::Vector3d& t,
         const Eigen::Matrix3d& K
-    );
+    ) const noexcept;
 
 private:
     Eigen::Matrix3d K_;
@@ -124,46 +126,46 @@ struct CameraProjector {
     template<typename T, typename Derived>
     inline Eigen::Matrix<T, 2, 1>
     project(const T& yaw, const Eigen::MatrixBase<Derived>& Pw) const {
-        T cy = ceres::cos(yaw);
-        T sy = ceres::sin(yaw);
+        const T cy = ceres::cos(yaw);
+        const T sy = ceres::sin(yaw);
         Eigen::Matrix<T, 3, 3> R_yaw;
         R_yaw << cy, -sy, T(0), sy, cy, T(0), T(0), T(0), T(1);
 
-        T cp = ceres::cos(T(pitch_));
-        T sp = ceres::sin(T(pitch_));
+        const T cp = ceres::cos(T(pitch_));
+        const T sp = ceres::sin(T(pitch_));
         Eigen::Matrix<T, 3, 3> R_pitch;
         R_pitch << cp, T(0), sp, T(0), T(1), T(0), -sp, T(0), cp;
 
-        T cr = ceres::cos(T(roll_));
-        T sr = ceres::sin(T(roll_));
+        const T cr = ceres::cos(T(roll_));
+        const T sr = ceres::sin(T(roll_));
         Eigen::Matrix<T, 3, 3> R_roll;
         R_roll << cr, -sr, T(0), sr, cr, T(0), T(0), T(0), T(1);
 
-        Eigen::Matrix<T, 3, 3> R = Rci_.cast<T>() * R_yaw * R_pitch * R_roll;
+        const Eigen::Matrix<T, 3, 3> R = Rci_.cast<T>() * R_yaw * R_pitch * R_roll;
 
-        Eigen::Matrix<T, 3, 1> Pc = R * Pw + t_.cast<T>();
+        const Eigen::Matrix<T, 3, 1> Pc = R * Pw + t_.cast<T>();
 
         if (Pc.z() < T(0.3)) {
             return Eigen::Matrix<T, 2, 1>(T(0), T(0));
         }
 
-        T x = Pc.x() / Pc.z();
-        T y = Pc.y() / Pc.z();
+        const T x = Pc.x() / Pc.z();
+        const T y = Pc.y() / Pc.z();
 
         if (!ceres::isfinite(x) || !ceres::isfinite(y)) {
             return Eigen::Matrix<T, 2, 1>(T(0), T(0));
         }
 
-        T r2 = x * x + y * y;
+        const T r2 = x * x + y * y;
         const T k1 = T(dist_(0));
         const T k2 = T(dist_(1));
         const T p1 = T(dist_(2));
         const T p2 = T(dist_(3));
         const T k3 = T(dist_(4));
 
-        T x_dist = x * (T(1) + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2) + T(2) * p1 * x * y
+        const T x_dist = x * (T(1) + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2) + T(2) * p1 * x * y
             + p2 * (r2 + T(2) * x * x);
-        T y_dist = y * (T(1) + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2)
+        const T y_dist = y * (T(1) + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2)
             + p1 * (r2 + T(2) * y * y) + T(2) * p2 * x * y;
 
         if (!ceres::isfinite(x_dist) || !ceres::isfinite(y_dist)) {
@@ -174,10 +176,10 @@ struct CameraProjector {
         T yu = y_dist;
 
         for (int i = 0; i < 8; i++) {
-            T r2_u = xu * xu + yu * yu;
-            T radial = T(1) + k1 * r2_u + k2 * r2_u * r2_u + k3 * r2_u * r2_u * r2_u;
-            T dx = T(2) * p1 * xu * yu + p2 * (r2_u + T(2) * xu * xu);
-            T dy = p1 * (r2_u + T(2) * yu * yu) + T(2) * p2 * xu * yu;
+            const T r2_u = xu * xu + yu * yu;
+            const T radial = T(1) + k1 * r2_u + k2 * r2_u * r2_u + k3 * r2_u * r2_u * r2_u;
+            const T dx = T(2) * p1 * xu * yu + p2 * (r2_u + T(2) * xu * xu);
+            const T dy = p1 * (r2_u + T(2) * yu * yu) + T(2) * p2 * xu * yu;
 
             xu = (x_dist - dx) / radial;
             yu = (y_dist - dy) / radial;
@@ -214,7 +216,7 @@ struct ReprojectionError {
 
     template<typename T>
     bool operator()(const T* const yaw, T* residuals) const {
-        Eigen::Matrix<T, 2, 1> uv_proj = cam_.project(yaw[0], pt3_.cast<T>());
+        const Eigen::Matrix<T, 2, 1> uv_proj = cam_.project(yaw[0], pt3_.cast<T>());
 
         residuals[0] = uv_proj(0) - T(uv_(0));
         residuals[1] = uv_proj(1) - T(uv_(1));
@@ -241,8 +243,8 @@ struct SymmetryError {
 
     template<typename T>
     bool operator()(const T* const yaw, T* residuals) const {
-        Eigen::Matrix<T, 2, 1> uv1 = cam_.project(yaw[0], p1_.cast<T>());
-        Eigen::Matrix<T, 2, 1> uv2 = cam_.project(yaw[0], p2_.cast<T>());
+        const Eigen::Matrix<T, 2, 1> uv1 = cam_.project(yaw[0], p1_.cast<T>());
+        const Eigen::Matrix<T, 2, 1> uv2 = cam_.project(yaw[0], p2_.cast<T>());
 
         residuals[0] = (uv1(0) + uv2(0)) * T(0.5) - T(meas_(0));
         residuals[1] = (uv1(1) + uv2(1)) * T(0.5) - T(meas_(1));

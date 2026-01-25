@@ -47,7 +47,7 @@ ArmorDetectOpenVino::ArmorDetectOpenVino(
 
 void ArmorDetectOpenVino::init() {
     openvino_net_ = std::make_unique<ml_net::OpenvinoNet>();
-    auto ppp_init_fun = [this](ov::preprocess::PrePostProcessor& ppp) {
+    const auto ppp_init_fun = [this](ov::preprocess::PrePostProcessor& ppp) {
         ppp.input()
             .tensor()
             .set_element_type(ov::element::u8)
@@ -92,24 +92,24 @@ void ArmorDetectOpenVino::setCallback(DetectorCallback callback) {
 bool ArmorDetectOpenVino::processCallback(
     const CommonFrame& frame,
     const std::optional<armor::ArmorNumber>& target_number
-) {
-    auto start = std::chrono::steady_clock::now();
+) const {
+    const auto start = std::chrono::steady_clock::now();
     Eigen::Matrix3f transform_matrix;
-    auto roi = frame.src_img(frame.expanded);
+    const auto roi = frame.src_img(frame.expanded);
     cv::Mat resized_img = utils::letterbox(
         roi,
         transform_matrix,
         armor_infer_->getInputW(),
         armor_infer_->getInputH()
     );
-    auto input_info = openvino_net_->getInputInfo();
-    auto input_tensor = ov::Tensor(input_info.first, input_info.second, resized_img.data);
-    auto output = openvino_net_->infer_thread_local(input_tensor);
+    const auto input_info = openvino_net_->getInputInfo();
+    const auto input_tensor = ov::Tensor(input_info.first, input_info.second, resized_img.data);
+    const auto output = openvino_net_->infer_thread_local(input_tensor);
 
     // Process output data
-    auto output_shape = output.get_shape();
+    const auto output_shape = output.get_shape();
 
-    cv::Mat output_buffer(output_shape[1], output_shape[2], CV_32F, output.data());
+    const cv::Mat output_buffer(output_shape[1], output_shape[2], CV_32F, output.data());
 
     // Parsed variable
     auto objs_result = armor_infer_->postProcess(output_buffer, transform_matrix, grid_strides_);

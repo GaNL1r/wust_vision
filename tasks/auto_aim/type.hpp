@@ -16,8 +16,8 @@ struct Light: public cv::RotatedRect {
 
     explicit Light(const std::vector<cv::Point>& contour);
 
-    void addOffset(const cv::Point2f& offset);
-    void transform(const Eigen::Matrix<float, 3, 3>& transform_matrix);
+    void addOffset(const cv::Point2f& offset) noexcept;
+    void transform(const Eigen::Matrix<float, 3, 3>& transform_matrix) noexcept;
 
     cv::Point2f top, bottom;
     int color = 0;
@@ -50,19 +50,19 @@ struct ArmorParams {
 
 enum class ArmorColor { BLUE = 0, RED, NONE, PURPLE };
 
-int formArmorColor(const ArmorColor& color);
+int formArmorColor(const ArmorColor& color) noexcept;
 enum class ArmorNumber { SENTRY = 0, NO1, NO2, NO3, NO4, NO5, OUTPOST, BASE, UNKNOWN };
-std::ostream& operator<<(std::ostream& os, const ArmorNumber& number);
+std::ostream& operator<<(std::ostream& os, const ArmorNumber& number) noexcept;
 
-int formArmorNumber(const ArmorNumber& number);
-std::string armorNumberToString(const ArmorNumber& num);
-ArmorNumber armorNumberFromString(const std::string& s);
-int retypetotracker(const ArmorNumber& a);
-bool isSameTarget(const ArmorNumber& a, const ArmorNumber& b);
+int formArmorNumber(const ArmorNumber& number) noexcept;
+std::string armorNumberToString(const ArmorNumber& num) noexcept;
+ArmorNumber armorNumberFromString(const std::string& s) noexcept;
+int retypetotracker(const ArmorNumber& a) noexcept;
+bool isSameTarget(const ArmorNumber& a, const ArmorNumber& b) noexcept;
 enum class ArmorsNum { NORMAL_4 = 4, OUTPOST_3 = 3 };
 
 enum class ArmorType { SMALL, LARGE, INVALID };
-std::string armorTypeToString(const ArmorType& type);
+std::string armorTypeToString(const ArmorType& type) noexcept;
 
 struct ArmorObject {
     ArmorColor color;
@@ -92,13 +92,15 @@ struct ArmorObject {
 
     template<typename PointType>
     std::vector<PointType> static buildObjectPoints(const double& w, const double& h) noexcept;
-    std::vector<cv::Point2f> toPts() const;
-    bool checkOkptsRight(double max_error) const;
-    std::array<cv::Point2f, 4> sortCorners(const std::vector<cv::Point2f>& pts) const;
+    template<typename IDType>
+    std::vector<std::pair<IDType, IDType>> static buildSymPairs() noexcept;
+    std::vector<cv::Point2f> toPts() const noexcept;
+    bool checkOkptsRight(double max_error) const noexcept;
+    std::array<cv::Point2f, 4> sortCorners(const std::vector<cv::Point2f>& pts) const noexcept;
 
     // Landmarks start from bottom left in clockwise order
-    std::vector<cv::Point2f> landmarks() const;
-    void addOffset(const cv::Point2f& offset) {
+    std::vector<cv::Point2f> landmarks() const noexcept;
+    void addOffset(const cv::Point2f& offset) noexcept {
         for (auto& pt: pts) {
             pt += offset;
         }
@@ -106,7 +108,7 @@ struct ArmorObject {
             l.addOffset(offset);
         }
     }
-    void transform(const Eigen::Matrix<float, 3, 3>& transform_matrix) {
+    void transform(const Eigen::Matrix<float, 3, 3>& transform_matrix) noexcept {
         for (auto& l: lights) {
             l.transform(transform_matrix);
         }
@@ -151,7 +153,7 @@ public:
     bool is_none_purple = false;
     int id = -1;
     std::vector<cv::Point2f>
-    toPtsDebug(const cv::Mat& camera_intrinsic, const cv::Mat& camera_distortion);
+    toPtsDebug(const cv::Mat& camera_intrinsic, const cv::Mat& camera_distortion) const noexcept;
 };
 struct Armors {
 public:
@@ -166,7 +168,7 @@ static constexpr double DZ_2 = -0.1;
 static constexpr double DZ_3 = 0.2;
 static constexpr double DZ_4 = -0.2;
 static constexpr std::array<double, 4> outpostDZ = { DZ_1, DZ_2, DZ_3, DZ_4 };
-inline double outpost_diff_from_id(int id) {
+inline double outpost_diff_from_id(int id) noexcept {
     switch (id) {
         case 1:
             return DZ_1;
@@ -181,7 +183,7 @@ inline double outpost_diff_from_id(int id) {
     }
 }
 
-inline int quantize_outpost_diff(double dz) {
+inline int quantize_outpost_diff(double dz) noexcept {
     static constexpr double candidates[] = { DZ_1, DZ_2, DZ_3, DZ_4 };
     int best_id = 1;
     double min_diff = std::abs(dz - candidates[0]);
@@ -195,7 +197,7 @@ inline int quantize_outpost_diff(double dz) {
     return best_id;
 }
 
-void transformArmorData(armor::Armors& armors, Eigen::Matrix4d T_camera_to_odom);
-void transformArmorData(armor::Armor& armor, const Eigen::Matrix4d& T_camera_to_odom);
+void transformArmorData(armor::Armors& armors, Eigen::Matrix4d T_camera_to_odom) noexcept;
+void transformArmorData(armor::Armor& armor, const Eigen::Matrix4d& T_camera_to_odom) noexcept;
 
 } // namespace armor

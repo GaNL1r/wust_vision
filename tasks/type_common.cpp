@@ -1,6 +1,6 @@
 #include "type_common.hpp"
 
-std::string enemyColorToString(EnemyColor color) {
+std::string enemyColorToString(EnemyColor color) noexcept {
     switch (color) {
         case EnemyColor::RED:
             return "RED";
@@ -15,7 +15,7 @@ std::string enemyColorToString(EnemyColor color) {
             return "UNKNOWN";
     }
 }
-AttackMode toAttackMode(int value) {
+AttackMode toAttackMode(int value) noexcept {
     switch (value) {
         case 0:
             return AttackMode::ARMOR;
@@ -27,7 +27,7 @@ AttackMode toAttackMode(int value) {
             return AttackMode::UNKNOWN;
     }
 }
-double unwrap_angle(double prev, double curr) {
+double unwrap_angle(double prev, double curr) noexcept {
     double d = curr - prev;
     while (d > M_PI) {
         curr -= 2.0 * M_PI;
@@ -41,7 +41,7 @@ double unwrap_angle(double prev, double curr) {
 }
 
 // 角度插值（wrap-safe）
-double interp_angle(double a, double b, double t) {
+double interp_angle(double a, double b, double t) noexcept {
     double diff = b - a;
     while (diff > M_PI)
         diff -= 2.0 * M_PI;
@@ -49,7 +49,7 @@ double interp_angle(double a, double b, double t) {
         diff += 2.0 * M_PI;
     return a + diff * t;
 }
-void AimTarget::predictSelf(double dt_sec) {
+void AimTarget::predictSelf(double dt_sec) noexcept {
     if (!have_host)
         return;
 
@@ -62,7 +62,7 @@ void AimTarget::predictSelf(double dt_sec) {
 
     pos = host_pos + R * rel_pos + host_vel * dt_sec;
 }
-void AimTarget::tf(Eigen::Matrix4d T_camera_to_odom) {
+void AimTarget::tf(Eigen::Matrix4d T_camera_to_odom) noexcept {
     Eigen::Vector4d pos_camera(pos.x(), pos.y(), pos.z(), 1.0);
     Eigen::Vector4d pos_odom = T_camera_to_odom * pos_camera;
 
@@ -82,7 +82,7 @@ void AimTarget::tf(Eigen::Matrix4d T_camera_to_odom) {
     ori.z() = q_odom.z();
 }
 std::vector<cv::Point2f>
-AimTarget::toPts(const cv::Mat& camera_intrinsic, const cv::Mat& camera_distortion) {
+AimTarget::toPts(const cv::Mat& camera_intrinsic, const cv::Mat& camera_distortion) noexcept {
     std::vector<cv::Point2f> pts;
     if (pos.norm() < 0.5) {
         return pts;

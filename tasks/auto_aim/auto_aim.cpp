@@ -33,7 +33,8 @@ struct AutoAim::Impl {
         t_camera2gimbal_ = t_camera2gimbal;
         camera_info_ = camera_info;
 
-        std::string armor_detect_backend = config_["armor_detect_backend"].as<std::string>("");
+        const std::string armor_detect_backend =
+            config_["armor_detect_backend"].as<std::string>("");
         auto isBackendEnabled = [&use_detect_ncnn_count](const std::string& backend) -> bool {
 #ifdef USE_OPENVINO
             if (backend == "openvino")
@@ -215,14 +216,14 @@ struct AutoAim::Impl {
             return;
         }
         Target target = tracker_manager_->update(armors, auto_aim_fsm_cl_);
-        auto now = std::chrono::steady_clock::now();
+        const auto now = std::chrono::steady_clock::now();
 
         {
             std::lock_guard<std::mutex> lock(target_mutex_);
             target_ = target;
         }
 
-        auto latency_ms = time_utils::durationMs(armors.timestamp, now);
+        const auto latency_ms = time_utils::durationMs(armors.timestamp, now);
         latency_averager_->add(latency_ms);
         auto_aim_debug_.latency_ms = latency_averager_->average();
         if (debug_mode_) {
@@ -240,7 +241,7 @@ struct AutoAim::Impl {
             target = target_;
         }
         AimTarget aim_target;
-        bool appear = target.checkTargetAppear();
+        const bool appear = target.checkTargetAppear();
         if (appear && target.position().norm() > 0.5) {
             try {
                 gimbal_cmd = very_aimer_->veryAim(
@@ -336,13 +337,13 @@ struct AutoAim::Impl {
                     if (expanded_.area() < 100 || i_use.empty()) {
                         i_use = frame;
                     }
-                    double brightness = utils::computeBrightness(i_use);
+                    const double brightness = utils::computeBrightness(i_use);
 
-                    double diff = brightness - auto_exposure_cfg_.target_brightness;
+                    const double diff = brightness - auto_exposure_cfg_.target_brightness;
                     const double exposure_min = auto_exposure_cfg_.exposure_min;
                     const double exposure_max = auto_exposure_cfg_.exposure_max;
                     double exposure_time = hik->getExposureTime();
-                    double last_exposure_time = exposure_time;
+                    const double last_exposure_time = exposure_time;
                     if (std::fabs(diff) > auto_exposure_cfg_.tolerance && exposure_time > 0.0) {
                         exposure_time -= diff * auto_exposure_cfg_.step_gain;
                     } else {

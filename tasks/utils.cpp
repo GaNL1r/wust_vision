@@ -4,7 +4,7 @@
 #include <regex>
 // util functions
 namespace utils {
-double limit_rad(double angle) {
+double limit_rad(double angle) noexcept {
     while (angle > M_PI)
         angle -= 2.0 * M_PI;
     while (angle < -M_PI)
@@ -24,7 +24,7 @@ quatToEuler(const Eigen::Quaterniond& q, int axis0, int axis1, int axis2, bool e
     int sign = (i - j) * (j - k) * (k - i) / 2;
 
     double a, b, c, d;
-    Eigen::Vector4d xyzw = q.coeffs(); // [x,y,z,w]
+    const Eigen::Vector4d xyzw = q.coeffs(); // [x,y,z,w]
     if (is_proper) {
         a = xyzw[3];
         b = xyzw[i];
@@ -38,15 +38,15 @@ quatToEuler(const Eigen::Quaterniond& q, int axis0, int axis1, int axis2, bool e
     }
 
     Eigen::Vector3d eulers;
-    double n2 = a * a + b * b + c * c + d * d;
+    const double n2 = a * a + b * b + c * c + d * d;
     eulers[1] = std::acos(2 * (a * a + b * b) / n2 - 1);
 
-    double half_sum = std::atan2(b, a);
-    double half_diff = std::atan2(-d, c);
+    const double half_sum = std::atan2(b, a);
+    const double half_diff = std::atan2(-d, c);
 
-    double eps = 1e-7;
-    bool safe1 = std::abs(eulers[1]) >= eps;
-    bool safe2 = std::abs(eulers[1] - M_PI) >= eps;
+    const double eps = 1e-7;
+    const bool safe1 = std::abs(eulers[1]) >= eps;
+    const bool safe2 = std::abs(eulers[1] - M_PI) >= eps;
     bool safe = safe1 && safe2;
 
     if (safe) {
@@ -78,10 +78,10 @@ quatToEuler(const Eigen::Quaterniond& q, int axis0, int axis1, int axis2, bool e
 
 Eigen::Quaterniond
 eulerToQuat(const Eigen::Vector3d& euler, int axis0, int axis1, int axis2, bool extrinsic) {
-    double rz = euler[0], ry = euler[1], rx = euler[2];
-    Eigen::Quaterniond qx(Eigen::AngleAxisd(rx, Eigen::Vector3d::UnitX()));
-    Eigen::Quaterniond qy(Eigen::AngleAxisd(ry, Eigen::Vector3d::UnitY()));
-    Eigen::Quaterniond qz(Eigen::AngleAxisd(rz, Eigen::Vector3d::UnitZ()));
+    const double rz = euler[0], ry = euler[1], rx = euler[2];
+    const Eigen::Quaterniond qx(Eigen::AngleAxisd(rx, Eigen::Vector3d::UnitX()));
+    const Eigen::Quaterniond qy(Eigen::AngleAxisd(ry, Eigen::Vector3d::UnitY()));
+    const Eigen::Quaterniond qz(Eigen::AngleAxisd(rz, Eigen::Vector3d::UnitZ()));
 
     if (!extrinsic)
         std::swap(axis0, axis2);
@@ -169,16 +169,20 @@ Eigen::MatrixXd cvToEigen(const cv::Mat& cv_mat) noexcept {
     return eigen_mat;
 }
 /// 将相机坐标系下的位置转换到 odom 坐标系
-Eigen::Vector3d
-transformPosition(const Eigen::Vector3d& pos_camera, const Eigen::Matrix4d& T_camera_to_odom) {
+Eigen::Vector3d transformPosition(
+    const Eigen::Vector3d& pos_camera,
+    const Eigen::Matrix4d& T_camera_to_odom
+) noexcept {
     Eigen::Vector4d pos_homo(pos_camera.x(), pos_camera.y(), pos_camera.z(), 1.0);
     Eigen::Vector4d pos_odom = T_camera_to_odom * pos_homo;
     return pos_odom.head<3>();
 }
 
 /// 将相机坐标系下的姿态转换到 odom 坐标系
-Eigen::Quaterniond
-transformOrientation(const Eigen::Quaterniond& q_camera, const Eigen::Matrix4d& T_camera_to_odom) {
+Eigen::Quaterniond transformOrientation(
+    const Eigen::Quaterniond& q_camera,
+    const Eigen::Matrix4d& T_camera_to_odom
+) noexcept {
     Eigen::Matrix3d R_camera_to_odom = T_camera_to_odom.block<3, 3>(0, 0);
     Eigen::Matrix3d R_ori_camera = q_camera.normalized().toRotationMatrix();
     Eigen::Matrix3d R_ori_odom = R_camera_to_odom * R_ori_camera;
@@ -189,7 +193,7 @@ void pnpToEigen(
     const cv::Mat& tvec,
     Eigen::Vector3d& t_out,
     Eigen::Quaterniond& q_out
-) {
+) noexcept {
     // 平移
     cv::cv2eigen(tvec, t_out);
 
@@ -206,7 +210,7 @@ void pnpToEigen(
     const cv::Vec3d& tvec,
     Eigen::Vector3d& t_out,
     Eigen::Quaterniond& q_out
-) {
+) noexcept {
     // 平移
     t_out = Eigen::Vector3d(tvec[0], tvec[1], tvec[2]);
 
@@ -221,17 +225,7 @@ void pnpToEigen(
     q_out = Eigen::Quaterniond(R).normalized();
 }
 
-double getNoiseFromCameraYaw(double camera_yaw_deg, double r_front, double r_side) {
-    double yaw_rad = camera_yaw_deg * M_PI / 180.0;
-    double cos2 = std::cos(yaw_rad);
-    cos2 *= cos2;
-    return cos2 * r_front + (1.0 - cos2) * r_side;
-}
-double getNoiseVarFromCameraYaw(double camera_yaw_deg, double r_front, double r_side) {
-    double noise_deg = getNoiseFromCameraYaw(camera_yaw_deg, r_front, r_side);
-    return noise_deg;
-}
-cv::Point2f computeCenter(const std::vector<cv::Point2f>& points) {
+cv::Point2f computeCenter(const std::vector<cv::Point2f>& points) noexcept {
     if (points.empty()) {
         return cv::Point2f(0.f, 0.f);
     }
@@ -244,14 +238,14 @@ cv::Point2f computeCenter(const std::vector<cv::Point2f>& points) {
     }
     return cv::Point2f(sum_x / points.size(), sum_y / points.size());
 }
-bool isStateValid(const Eigen::VectorXd& state) {
+bool isStateValid(const Eigen::VectorXd& state) noexcept {
     return state.allFinite(); // 所有元素都不是 NaN 或 Inf
 }
 Eigen::Matrix4d computeCameraToOdomTransform(
     const Eigen::Matrix3d& R_gimbal2odom,
     const Eigen::Matrix3d& R_camera_to_gimbal,
     const Eigen::Vector3d& t_camera_to_gimbal
-) {
+) noexcept {
     Eigen::Matrix4d T_gimbal_to_odom = Eigen::Matrix4d::Identity();
     T_gimbal_to_odom.block<3, 3>(0, 0) = R_gimbal2odom;
 
@@ -259,17 +253,17 @@ Eigen::Matrix4d computeCameraToOdomTransform(
     T_camera_to_gimbal.block<3, 3>(0, 0) = R_camera_to_gimbal;
     T_camera_to_gimbal.block<3, 1>(0, 3) = t_camera_to_gimbal;
 
-    Eigen::Matrix4d T_camera_to_odom = T_gimbal_to_odom * T_camera_to_gimbal;
+    const Eigen::Matrix4d T_camera_to_odom = T_gimbal_to_odom * T_camera_to_gimbal;
 
     return T_camera_to_odom;
 }
 
-void addVelFromAccDt(Eigen::Vector3d& vel, const Eigen::Vector3d& acc, double dt) {
+void addVelFromAccDt(Eigen::Vector3d& vel, const Eigen::Vector3d& acc, double dt) noexcept {
     vel.x() += acc.x() * dt;
     vel.y() += acc.y() * dt;
     vel.z() += acc.z() * dt;
 }
-void addPosFromVelDt(Eigen::Vector3d& pos, const Eigen::Vector3d& vel, double dt) {
+void addPosFromVelDt(Eigen::Vector3d& pos, const Eigen::Vector3d& vel, double dt) noexcept {
     pos.x() += vel.x() * dt;
     pos.y() += vel.y() * dt;
     pos.z() += vel.z() * dt;
@@ -292,8 +286,8 @@ void changeFileOwner(const std::string& filepath, const std::string& username) {
         perror("getpwnam failed");
         return;
     }
-    uid_t uid = pwd->pw_uid;
-    gid_t gid = pwd->pw_gid;
+    const uid_t uid = pwd->pw_uid;
+    const gid_t gid = pwd->pw_gid;
 
     if (chown(filepath.c_str(), uid, gid) != 0) {
         perror("chown failed");
@@ -304,7 +298,7 @@ std::string getOriginalUsername() {
     if (sudo_user) {
         return std::string(sudo_user);
     }
-    uid_t uid = getuid();
+    const uid_t uid = getuid();
     struct passwd* pw = getpwuid(uid);
     if (pw) {
         return std::string(pw->pw_name);
@@ -362,51 +356,52 @@ bool setThreadAffinityAndPriority(
     return false;
 #endif
 }
-double rad2deg(double rad) {
+double rad2deg(double rad) noexcept {
     return rad * 180.0 / M_PI;
 }
-double deg2rad(double deg) {
+double deg2rad(double deg) noexcept {
     return deg * M_PI / 180.0;
 }
 
-std::tuple<double, double, double> xyz2ypd_rad(double x, double y, double z) {
-    double distance = std::sqrt(x * x + y * y + z * z);
-    double yaw = std::atan2(y, x);
-    double pitch = std::atan2(z, std::sqrt(x * x + y * y));
+std::tuple<double, double, double> xyz2ypd_rad(double x, double y, double z) noexcept {
+    const double distance = std::sqrt(x * x + y * y + z * z);
+    const double yaw = std::atan2(y, x);
+    const double pitch = std::atan2(z, std::sqrt(x * x + y * y));
     return std::make_tuple(yaw, pitch, distance);
 }
 
-std::tuple<double, double, double> ypd2xyz_rad(double yaw, double pitch, double distance) {
-    double x = distance * std::cos(pitch) * std::cos(yaw);
-    double y = distance * std::cos(pitch) * std::sin(yaw);
-    double z = distance * std::sin(pitch);
+std::tuple<double, double, double> ypd2xyz_rad(double yaw, double pitch, double distance) noexcept {
+    const double x = distance * std::cos(pitch) * std::cos(yaw);
+    const double y = distance * std::cos(pitch) * std::sin(yaw);
+    const double z = distance * std::sin(pitch);
     return std::make_tuple(x, y, z);
 }
 
-std::tuple<double, double, double> xyz2ypd_deg(double x, double y, double z) {
-    double distance = std::sqrt(x * x + y * y + z * z);
-    double yaw = std::atan2(y, x);
-    double pitch = std::atan2(z, std::sqrt(x * x + y * y));
+std::tuple<double, double, double> xyz2ypd_deg(double x, double y, double z) noexcept {
+    const double distance = std::sqrt(x * x + y * y + z * z);
+    const double yaw = std::atan2(y, x);
+    const double pitch = std::atan2(z, std::sqrt(x * x + y * y));
     return std::make_tuple(rad2deg(yaw), rad2deg(pitch), distance);
 }
 
-std::tuple<double, double, double> ypd2xyz_deg(double yaw_deg, double pitch_deg, double distance) {
-    double yaw = deg2rad(yaw_deg);
-    double pitch = deg2rad(pitch_deg);
-    double x = distance * std::cos(pitch) * std::cos(yaw);
-    double y = distance * std::cos(pitch) * std::sin(yaw);
-    double z = distance * std::sin(pitch);
+std::tuple<double, double, double>
+ypd2xyz_deg(double yaw_deg, double pitch_deg, double distance) noexcept {
+    const double yaw = deg2rad(yaw_deg);
+    const double pitch = deg2rad(pitch_deg);
+    const double x = distance * std::cos(pitch) * std::cos(yaw);
+    const double y = distance * std::cos(pitch) * std::sin(yaw);
+    const double z = distance * std::sin(pitch);
     return std::make_tuple(x, y, z);
 }
-Eigen::Vector3d xyz2ypd(const Eigen::Vector3d& xyz) {
-    auto x = xyz[0], y = xyz[1], z = xyz[2];
-    auto yaw = std::atan2(y, x);
-    auto pitch = std::atan2(z, std::sqrt(x * x + y * y));
-    auto distance = std::sqrt(x * x + y * y + z * z);
+Eigen::Vector3d xyz2ypd(const Eigen::Vector3d& xyz) noexcept {
+    const auto x = xyz[0], y = xyz[1], z = xyz[2];
+    const auto yaw = std::atan2(y, x);
+    const auto pitch = std::atan2(z, std::sqrt(x * x + y * y));
+    const auto distance = std::sqrt(x * x + y * y + z * z);
     return { yaw, pitch, distance };
 }
 template<typename Point>
-Point getCenter(const std::vector<Point>& points) {
+Point getCenter(const std::vector<Point>& points) noexcept {
     if (points.empty())
         return Point();
     return std::accumulate(points.begin(), points.end(), Point())
@@ -419,16 +414,16 @@ bool segmentIntersection(
     const cv::Point2f& b2,
     cv::Point2f& intersection
 ) {
-    cv::Point2f r = a2 - a1;
-    cv::Point2f s = b2 - b1;
-    float rxs = r.x * s.y - r.y * s.x;
-    float qpxr = (b1 - a1).x * r.y - (b1 - a1).y * r.x;
+    const cv::Point2f r = a2 - a1;
+    const cv::Point2f s = b2 - b1;
+    const float rxs = r.x * s.y - r.y * s.x;
+    const float qpxr = (b1 - a1).x * r.y - (b1 - a1).y * r.x;
 
     if (fabs(rxs) < 1e-6)
         return false; // 平行或重叠，无唯一交点
 
-    float t = ((b1 - a1).x * s.y - (b1 - a1).y * s.x) / rxs;
-    float u = qpxr / rxs;
+    const float t = ((b1 - a1).x * s.y - (b1 - a1).y * s.x) / rxs;
+    const float u = qpxr / rxs;
 
     if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
         intersection = a1 + t * r;
@@ -502,7 +497,7 @@ cv::Mat letterbox(
     Eigen::Matrix3f& transform_matrix,
     const int new_shape_w,
     const int new_shape_h
-) {
+) noexcept {
     const int img_h = img.rows;
     const int img_w = img.cols;
 

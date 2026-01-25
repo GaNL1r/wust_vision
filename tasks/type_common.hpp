@@ -21,7 +21,7 @@ enum class EnemyColor {
     BLUE = 1,
     WHITE = 2,
 };
-std::string enemyColorToString(EnemyColor color);
+std::string enemyColorToString(EnemyColor color) noexcept;
 struct GridAndStride {
     int grid0;
     int grid1;
@@ -33,7 +33,7 @@ struct imgframe {
 };
 
 enum class AttackMode { ARMOR = 0, SMALL_RUNE, BIG_RUNE, UNKNOWN };
-AttackMode toAttackMode(int value);
+AttackMode toAttackMode(int value) noexcept;
 struct Motion {
     double yaw, pitch, roll; // 欧拉角 (rad)
     double vyaw, vpitch, vroll; // 角速度
@@ -41,21 +41,21 @@ struct Motion {
 };
 
 // 角度 unwrap 辅助函数
-double unwrap_angle(double prev, double curr);
+double unwrap_angle(double prev, double curr) noexcept;
 
 // 角度插值（wrap-safe）
-double interp_angle(double a, double b, double t);
+double interp_angle(double a, double b, double t) noexcept;
 
 template<>
 struct MotionTraits<Motion> {
-    static void unwrap(const Motion& prev, Motion& curr) {
+    static void unwrap(const Motion& prev, Motion& curr) noexcept {
         curr.yaw = unwrap_angle(prev.yaw, curr.yaw);
         curr.pitch = unwrap_angle(prev.pitch, curr.pitch);
         curr.roll = unwrap_angle(prev.roll, curr.roll);
         // 速度部分不需要 unwrap
     }
 
-    static Motion interpolate(const Motion& a, const Motion& b, double t) {
+    static Motion interpolate(const Motion& a, const Motion& b, double t) noexcept {
         Motion out;
         // 欧拉角 wrap-safe 插值
         out.yaw = interp_angle(a.yaw, b.yaw, t);
@@ -149,20 +149,20 @@ struct AimTarget {
 
     Eigen::Quaterniond ori;
     std::vector<Eigen::Vector4d> armor_posandyaw;
-    void predictSelf(double dt_sec);
-    double calYaw(double self_v_yaw = 0) const {
+    void predictSelf(double dt_sec) noexcept;
+    double calYaw(double self_v_yaw = 0) const noexcept {
         return angles::normalize_angle(std::atan2(pos.y(), pos.x()) - self_v_yaw * dt);
     }
 
-    double calRawPitch() const {
+    double calRawPitch() const noexcept {
         return std::atan2(pos.z(), std::sqrt(pos.x() * pos.x() + pos.y() * pos.y()));
     }
 
-    double distance() const {
+    double distance() const noexcept {
         return pos.norm();
     }
 
-    double calVYaw() const {
+    double calVYaw() const noexcept {
         double x = pos.x();
         double y = pos.y();
         double vx = vel.x();
@@ -174,7 +174,7 @@ struct AimTarget {
 
         return (x * vy - y * vx) / denom;
     }
-    double calHostVYaw() const {
+    double calHostVYaw() const noexcept {
         double x = host_pos.x();
         double y = host_pos.y();
         double vx = host_vel.x();
@@ -187,7 +187,7 @@ struct AimTarget {
         return (x * vy - y * vx) / denom;
     }
 
-    double calVPitch() const {
+    double calVPitch() const noexcept {
         double x = pos.x();
         double y = pos.y();
         double z = pos.z();
@@ -204,9 +204,9 @@ struct AimTarget {
 
         return (x * z * vx + y * z * vy - rho2 * vz) / (r2 * rho);
     }
-    void tf(Eigen::Matrix4d T_camera_to_odom);
+    void tf(Eigen::Matrix4d T_camera_to_odom) noexcept;
     std::vector<cv::Point2f>
-    toPts(const cv::Mat& camera_intrinsic, const cv::Mat& camera_distortion);
+    toPts(const cv::Mat& camera_intrinsic, const cv::Mat& camera_distortion) noexcept;
 };
 struct GimbalCmd {
     std::chrono::steady_clock::time_point timestamp;
@@ -228,7 +228,7 @@ struct GimbalCmd {
     bool appera = false;
     AimTarget aim_target;
     double score = 0;
-    inline bool isValid() const {
+    inline bool isValid() const noexcept {
         auto bad = [](double x) { return std::isnan(x) || std::isinf(x); };
 
         if (bad(raw_yaw) || bad(raw_pitch) || bad(pitch) || bad(yaw) || bad(target_yaw)

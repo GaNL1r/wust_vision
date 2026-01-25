@@ -188,8 +188,8 @@ void VisionBase::serialCallback(const uint8_t* data, std::size_t len) {
         return;
     }
     try {
-        std::vector<uint8_t> buf(data, data + len);
-        ReceiveAimINFO aim_data = fromVector<ReceiveAimINFO>(buf);
+        const std::vector<uint8_t> buf(data, data + len);
+        const ReceiveAimINFO aim_data = fromVector<ReceiveAimINFO>(buf);
         processAimData(aim_data);
 
     } catch (const std::exception& e) {
@@ -204,19 +204,19 @@ void VisionBase::processAimData(const ReceiveAimINFO& aim_data) {
         return;
     }
     //detect_color_ = aim_data.detect_color;
-    double roll = -(aim_data.roll) * M_PI / 180.0;
-    double pitch = (aim_data.pitch) * M_PI / 180.0;
-    double yaw = (aim_data.yaw) * M_PI / 180.0;
-    double v_roll = aim_data.roll_vel * M_PI / 180.0;
-    double v_pitch = aim_data.pitch_vel * M_PI / 180.0;
-    double v_yaw = aim_data.yaw_vel * M_PI / 180.0;
+    const double roll = -(aim_data.roll) * M_PI / 180.0;
+    const double pitch = (aim_data.pitch) * M_PI / 180.0;
+    const double yaw = (aim_data.yaw) * M_PI / 180.0;
+    const double v_roll = aim_data.roll_vel * M_PI / 180.0;
+    const double v_pitch = aim_data.pitch_vel * M_PI / 180.0;
+    const double v_yaw = aim_data.yaw_vel * M_PI / 180.0;
     vyaw_avg.add(v_yaw);
     //updateBulletSpeed(aim_data.bullet_speed);
-    double v_x = 0.0;
-    double v_y = 0.0;
-    double v_z = 0.0;
+    const double v_x = 0.0;
+    const double v_y = 0.0;
+    const double v_z = 0.0;
 
-    auto now = std::chrono::steady_clock::now();
+    const auto now = std::chrono::steady_clock::now();
     if (motion_buffer_) {
         Motion motion { yaw, pitch, roll, 0.0, v_pitch, v_roll, v_x, v_y, v_z };
         motion_buffer_->push(motion, now);
@@ -226,7 +226,7 @@ void VisionBase::processAimData(const ReceiveAimINFO& aim_data) {
     }
 
     static auto last_push_time = std::chrono::steady_clock::now();
-    auto elapsed =
+    const auto elapsed =
         std::chrono::duration_cast<std::chrono::milliseconds>(now - last_push_time).count();
     if (elapsed >= 10) { // 至少间隔 10ms（100Hz）
         if (rotate_writer_) {
@@ -303,8 +303,8 @@ void VisionBase::frameCallback(wust_vl_video::ImageFrame& frame) {
         infer_running_count_--;
     });
 }
-void VisionBase::checkStateMatchMode() {
-    AttackMode mode = toAttackMode(attack_mode_);
+void VisionBase::checkStateMatchMode() const {
+    const AttackMode mode = toAttackMode(attack_mode_);
     switch (mode) {
         case AttackMode::UNKNOWN:
         case AttackMode::ARMOR: {
@@ -393,8 +393,9 @@ void VisionBase::start() {
     auto_aim_->start();
     auto_buff_->start();
     if (timer_) {
-        auto timercallback = std::bind(&VisionBase::timerCallback, this, std::placeholders::_1);
-        double rate_hz = static_cast<double>(config_["control"]["control_rate"].as<int>());
+        const auto timercallback =
+            std::bind(&VisionBase::timerCallback, this, std::placeholders::_1);
+        const double rate_hz = static_cast<double>(config_["control"]["control_rate"].as<int>());
         timer_->start(rate_hz, timercallback);
     }
     if (serial_) {
@@ -424,29 +425,28 @@ bool isWebRunning() {
     static std::atomic<bool> cached { true };
     static std::atomic<long long> last_check_ms { 0 };
 
-    long long now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                           std::chrono::steady_clock::now().time_since_epoch()
+    const long long now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                 std::chrono::steady_clock::now().time_since_epoch()
     )
-                           .count();
+                                 .count();
     if (last_check_ms.load() == 0) {
         last_check_ms = now_ms;
         return true;
     }
 
     if (now_ms - last_check_ms.load() >= 1000) {
-        int ret = std::system("pgrep -x wust_vision_web > /dev/null 2>&1");
+        const int ret = std::system("pgrep -x wust_vision_web > /dev/null 2>&1");
         cached = (ret == 0);
         last_check_ms = now_ms;
     }
 
     return cached.load();
 }
-void VisionBase::debugThread() {
-    using namespace std::chrono;
-    double us_interval = 1e6 / static_cast<double>(debug_fps_);
-    auto kInterval = std::chrono::microseconds(static_cast<int64_t>(us_interval));
+void VisionBase::debugThread() const {
+    const double us_interval = 1e6 / static_cast<double>(debug_fps_);
+    const auto kInterval = std::chrono::microseconds(static_cast<int64_t>(us_interval));
     while (run_flag_) {
-        auto start_time = steady_clock::now();
+        const auto start_time = std::chrono::steady_clock::now();
         do {
             try {
                 if (!isWebRunning()) {
@@ -483,7 +483,7 @@ void VisionBase::debugThread() {
             }
         } while (0);
 
-        auto elapsed = steady_clock::now() - start_time;
+        const auto elapsed = std::chrono::steady_clock::now() - start_time;
         if (elapsed < kInterval) {
             std::this_thread::sleep_for(kInterval - elapsed);
         }

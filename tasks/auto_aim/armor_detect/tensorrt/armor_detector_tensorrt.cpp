@@ -32,7 +32,7 @@ ArmorDetectTrt::ArmorDetectTrt(
     use_armor_detect_common_(use_armor_detect_common) {
     int device_id = params_.device_id;
     cudaSetDevice(device_id);
-    auto model = armor_infer::modeFromString(model_type);
+    const auto model = armor_infer::modeFromString(model_type);
     armor_infer_ = std::make_unique<armor_infer::ArmorInfer>(
         model,
         params.conf_threshold,
@@ -52,7 +52,7 @@ ArmorDetectTrt::ArmorDetectTrt(
     trt_params.input_dims =
         nvinfer1::Dims4 { 1, 3, armor_infer_->getInputH(), armor_infer_->getInputW() };
     trt_net_->init(trt_params);
-    auto input_output_dims = trt_net_->getInputOutputDims();
+    const auto input_output_dims = trt_net_->getInputOutputDims();
     input_dims_ = std::get<0>(input_output_dims);
     output_dims_ = std::get<1>(input_output_dims);
 
@@ -182,11 +182,11 @@ bool ArmorDetectTrt::processCallback(
     Infer* infer,
     const std::optional<armor::ArmorNumber>& target_number
 ) const {
-    auto t0 = time_utils::now();
+    const auto t0 = time_utils::now();
     Eigen::Matrix3f transform_matrix;
-    std::vector<armor::ArmorObject> objs_tmp, objs_result;
+    std::vector<armor::ArmorObject> objs_result;
     void* input_tensor_ptr;
-    cv::Mat roi = frame.src_img(frame.expanded);
+    const cv::Mat roi = frame.src_img(frame.expanded);
 
     cv::Mat resized_img;
     if (infer->cuda_infer && params_.use_cuda_pre) {
@@ -212,7 +212,7 @@ bool ArmorDetectTrt::processCallback(
             armor_infer_->getInputW(),
             armor_infer_->getInputH()
         );
-        float scale = armor_infer_->getUseNorm() ? 1.0f / 255.0f : 1.0f;
+        const float scale = armor_infer_->getUseNorm() ? 1.0f / 255.0f : 1.0f;
         cv::Mat blob = cv::dnn::blobFromImage(
             resized_img,
             scale,
@@ -223,14 +223,14 @@ bool ArmorDetectTrt::processCallback(
         trt_net_->input2Device(blob.ptr<float>());
         input_tensor_ptr = trt_net_->getInputTensorPtr();
     }
-    auto t1 = time_utils::now();
+    const auto t1 = time_utils::now();
     if (infer->context && input_tensor_ptr) {
         trt_net_->infer(input_tensor_ptr, infer->context.get());
     }
-    auto t2 = time_utils::now();
-    cv::Mat output_mat(output_dims_.d[1], output_dims_.d[2], CV_32F, trt_net_->output2Host());
+    const auto t2 = time_utils::now();
+    const cv::Mat output_mat(output_dims_.d[1], output_dims_.d[2], CV_32F, trt_net_->output2Host());
     objs_result = armor_infer_->postProcess(output_mat, transform_matrix, grid_strides_);
-    auto t3 = time_utils::now();
+    const auto t3 = time_utils::now();
     if (params_.log_time) {
         WUST_INFO("TRT") << std::fixed << std::setprecision(3) << "pre "
                          << time_utils::durationMs(t0, t1) << " "

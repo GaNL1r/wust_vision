@@ -73,7 +73,7 @@ bool NumberClassifier::classifyNumber(armor::ArmorObject& armor) {
         }
     }
 
-    cv::Mat image = armor.number_img;
+    const cv::Mat image = armor.number_img;
     cv::Mat blob;
     cv::dnn::blobFromImage(image, blob);
 
@@ -91,8 +91,8 @@ bool NumberClassifier::classifyNumber(armor::ArmorObject& armor) {
     cv::Point class_id;
     cv::minMaxLoc(prob, nullptr, &confidence, nullptr, &class_id);
 
-    int label_id = class_id.x;
-    double raw_conf = armor.confidence;
+    const int label_id = class_id.x;
+    const double raw_conf = armor.confidence;
     armor.confidence = confidence;
 
     static const std::map<int, armor::ArmorNumber> label_to_armor_number = {

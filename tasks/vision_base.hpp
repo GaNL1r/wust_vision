@@ -22,9 +22,9 @@ public:
     void start();
     void serialCallback(const uint8_t* data, std::size_t len);
     void frameCallback(wust_vl_video::ImageFrame& frame);
-    void checkStateMatchMode();
+    void checkStateMatchMode() const;
     void timerCallback(double dt_ms);
-    void debugThread();
+    void debugThread() const;
     void autoExposureControl(const cv::Mat& frame);
     void updateBulletSpeed(double bullet_speed);
     void processAimData(const ReceiveAimINFO& aim_data);

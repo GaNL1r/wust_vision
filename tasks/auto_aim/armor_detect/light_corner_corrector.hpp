@@ -35,11 +35,12 @@ public:
     explicit LightCornerCorrector() noexcept {}
 
     // Correct the corners of the armor's lights
-    void correctCorners(armor::ArmorObject& armor, const cv::Mat& gray_img) noexcept;
+    void correctCorners(armor::ArmorObject& armor, const cv::Mat& gray_img) const noexcept;
 
 private:
     // Find the symmetry axis of the light
-    SymmetryAxis findSymmetryAxis(const cv::Mat& gray_img, const armor::Light& light);
+    SymmetryAxis
+    findSymmetryAxis(const cv::Mat& gray_img, const armor::Light& light) const noexcept;
 
     // Find the corner of the light
     cv::Point2f findCorner(
@@ -47,5 +48,5 @@ private:
         const armor::Light& light,
         const SymmetryAxis& axis,
         bool is_top
-    );
+    ) const noexcept;
 };

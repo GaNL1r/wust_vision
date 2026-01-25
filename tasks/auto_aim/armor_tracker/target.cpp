@@ -2,7 +2,7 @@
 Target::Target() {
     target_state_ = Eigen::VectorXd::Zero(MModel::X_N);
 }
-Target::Target(const armor::Armor& a, const TargetConfig& target_config) noexcept {
+Target::Target(const armor::Armor& a, const TargetConfig& target_config) {
     Eigen::DiagonalMatrix<double, ypdv2armor_motion_model::X_N> p0;
     if (a.number == armor::ArmorNumber::OUTPOST) {
         p0.diagonal() << 1, 64, 1, 64, 1, 81, 0.4, 100, 1e-4, 0.1, 0.1;
@@ -19,16 +19,16 @@ Target::Target(const armor::Armor& a, const TargetConfig& target_config) noexcep
     }
     target_config_ = target_config;
     target_state_ = Eigen::VectorXd::Zero(MModel::X_N);
-    auto yfv2 = MModel::Predict(0.005);
+    const auto yfv2 = MModel::Predict(0.005);
     ctx_.armor_num = armor_num_;
     ctx_.id = 0;
-    auto yhv2 = MModel::Measure(ctx_);
-    auto yu_qv2 = [this]() {
+    const auto yhv2 = MModel::Measure(ctx_);
+    const auto yu_qv2 = [this]() {
         Eigen::Matrix<double, MModel::X_N, MModel::X_N> q;
         return q;
     };
 
-    auto yu_rv2 = [this](const Eigen::Matrix<double, MModel::Z_N, 1>& z) {
+    const auto yu_rv2 = [this](const Eigen::Matrix<double, MModel::Z_N, 1>& z) {
         Eigen::Matrix<double, MModel::Z_N, MModel::Z_N> r;
         return r;
     };
@@ -92,7 +92,7 @@ Target::computeMeasurementCovariance(const Eigen::Matrix<double, MModel::Z_N, 1>
     const double abs_delta = std::abs(delta_angle);
 
     // sin插值函数，小值慢、大值快
-    auto sinInterp = [](double x, double x0, double x1, double y0, double y1) -> double {
+    const auto sinInterp = [](double x, double x0, double x1, double y0, double y1) -> double {
         double t = (x - x0) / (x1 - x0);
         if (t < 0)
             t = 0;
@@ -181,7 +181,7 @@ void Target::predict(double dt, Eigen::Vector3d self_v) noexcept {
     MModel::Predict predict_func = getPredictFunc(dt, self_v);
 
     esekf_ypd_.setPredictFunc(predict_func);
-    auto yu_qv2 = [dt, this]() { return computeProcessNoise(dt); };
+    const auto yu_qv2 = [dt, this]() { return computeProcessNoise(dt); };
 
     esekf_ypd_.setUpdateQ(yu_qv2);
 
@@ -205,11 +205,13 @@ void Target::predict(double dt, Eigen::Vector3d self_v) noexcept {
         }
         if (std::abs(target_state_[(int)MModel::State::VYAW]) > 1.5) {
             constexpr double outpost_v_yaw_err = 0.2;
-            double lower = std::max(0.0, armor::outpost_v_yaw - outpost_v_yaw_err);
-            double upper = armor::outpost_v_yaw + outpost_v_yaw_err;
+            const double lower = std::max(0.0, armor::outpost_v_yaw - outpost_v_yaw_err);
+            const double upper = armor::outpost_v_yaw + outpost_v_yaw_err;
 
-            double sign = std::copysign(1.0,
-                                        target_state_[(int)MModel::State::VYAW]); // 保存符号
+            const const double sign = std::copysign(
+                1.0,
+                target_state_[(int)MModel::State::VYAW]
+            ); // 保存符号
             double abs_val = std::abs(target_state_[(int)MModel::State::VYAW]);
             abs_val = std::clamp(abs_val, lower, upper);
             target_state_[(int)MModel::State::VYAW] = sign * abs_val;
@@ -236,7 +238,7 @@ void Target::predictSimple(double dt, Eigen::Vector3d self_v) noexcept {
 bool Target::update(const std::pair<int, armor::Armor>& a) noexcept {
     const auto armor = a.second;
     const auto id = a.first;
-    auto yu_rv2 = [this](const Eigen::Matrix<double, MModel::Z_N, 1>& z) {
+    const auto yu_rv2 = [this](const Eigen::Matrix<double, MModel::Z_N, 1>& z) {
         return this->computeMeasurementCovariance(z);
     };
     esekf_ypd_.setUpdateR(yu_rv2);
@@ -288,9 +290,9 @@ cv::Rect Target::expanded(
                 { 0, -car_box_half, car_box_half },
                 { 0, car_box_half, car_box_half } };
 
-    Eigen::Matrix4d T_odom_to_camera = T_camera_to_odom.inverse();
-    Eigen::Vector4d pos_odom(position().x(), position().y(), position().z(), 1.0);
-    Eigen::Vector4d pos_cam = T_odom_to_camera * pos_odom;
+    const Eigen::Matrix4d T_odom_to_camera = T_camera_to_odom.inverse();
+    const Eigen::Vector4d pos_odom(position().x(), position().y(), position().z(), 1.0);
+    const Eigen::Vector4d pos_cam = T_odom_to_camera * pos_odom;
 
     if (pos_cam.z() <= 0.2) {
         return cv::Rect(0, 0, 0, 0);

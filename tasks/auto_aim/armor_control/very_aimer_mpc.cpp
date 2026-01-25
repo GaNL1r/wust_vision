@@ -171,7 +171,7 @@ VeryAimerMpc::veryAim(Target target, double bullet_speed, const AutoAimFsm& auto
     target.predictSimple(now + std::chrono::microseconds(int(dt0 * 1e6)));
 
     const auto ap = target.getArmorPositions();
-    double fly_time =
+    const double fly_time =
         trajectory_compensator_->getFlyingTime(ap[roughly_select].head<3>(), bullet_speed);
 
     double prev_fly_time = fly_time;
