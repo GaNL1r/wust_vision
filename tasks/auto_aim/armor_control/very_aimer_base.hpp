@@ -19,7 +19,7 @@ struct ControlPoint {
 struct AimPoint {
     Eigen::Vector3d pos;
     double d_angle;
-    static inline AimPoint lerp(const AimPoint& p0, const AimPoint& p1, double a) {
+    static inline AimPoint lerp(const AimPoint& p0, const AimPoint& p1, double a)noexcept {
         AimPoint r;
         r.pos = (1.0 - a) * p0.pos + a * p1.pos;
         r.d_angle = lerpAngle(p0.d_angle, p1.d_angle, a);
@@ -39,7 +39,7 @@ struct GimbalState {
     GimbalState(const GimbalState::State& y, const GimbalState::State& p):
         yaw_state(y),
         pitch_state(p) {}
-    static GimbalState lerp(const GimbalState& s0, const GimbalState& s1, double a) {
+    static GimbalState lerp(const GimbalState& s0, const GimbalState& s1, double a) noexcept{
         GimbalState r;
         r.aim_id = (a > 0.5) ? s0.aim_id : s1.aim_id;
         r.yaw_state = GimbalState::State { .p = lerpAngle(s0.yaw_state.p, s1.yaw_state.p, a),
@@ -61,7 +61,7 @@ struct QuinticSegment {
     GimbalState::State tail;
 
     static inline Eigen::Matrix<double, 6, 1>
-    solve1d(double p0, double v0, double a0, double p1, double v1, double a1, double T) {
+    solve1dFullPivLu(double p0, double v0, double a0, double p1, double v1, double a1, double T) noexcept{
         Eigen::Matrix<double, 6, 6> A;
         Eigen::Matrix<double, 6, 1> b;
 
@@ -75,20 +75,46 @@ struct QuinticSegment {
         b << p0, v0, a0, p1, v1, a1;
         return A.fullPivLu().solve(b);
     }
+    static inline Eigen::Matrix<double, 6, 1>
+    solve1dClosedForm(double p0, double v0, double a0, double p1, double v1, double a1, double T)noexcept {
+        Eigen::Matrix<double, 6, 1> c;
+        double T2 = T * T;
+        double T3 = T2 * T;
+        double T4 = T3 * T;
+        double T5 = T4 * T;
+
+        // known low-order coefficients
+        double c0 = p0;
+        double c1 = v0;
+        double c2 = a0 * 0.5;
+
+        // closed-form for c3, c4, c5 (derived from boundary conditions at t=T)
+        double c3 =
+            (-3.0 * T2 * a0 + T2 * a1 - 12.0 * T * v0 - 8.0 * T * v1 - 20.0 * p0 + 20.0 * p1)
+            / (2.0 * T3);
+        double c4 =
+            (1.5 * T2 * a0 - T2 * a1 + 8.0 * T * v0 + 7.0 * T * v1 + 15.0 * p0 - 15.0 * p1) / T4;
+        double c5 =
+            (-T2 * a0 + T2 * a1 - 6.0 * T * v0 - 6.0 * T * v1 - 12.0 * p0 + 12.0 * p1) / (2.0 * T5);
+
+        c << c0, c1, c2, c3, c4, c5;
+        return c;
+    }
+
     static inline QuinticSegment
-    build(const GimbalState::State& s0, const GimbalState::State& s1, double T) {
+    build(const GimbalState::State& s0, const GimbalState::State& s1, double T)noexcept {
         QuinticSegment seg;
         seg.head = s0;
         seg.tail = s1;
         seg.T = T;
-        seg.c = solve1d(s0.p, s0.v, s0.a, s1.p, s1.v, s1.a, T);
+        seg.c = solve1dClosedForm(s0.p, s0.v, s0.a, s1.p, s1.v, s1.a, T);
         return seg;
     }
 
-    static inline double evalAcc(const Eigen::Matrix<double, 6, 1>& c, double t) {
+    static inline double evalAcc(const Eigen::Matrix<double, 6, 1>& c, double t)noexcept {
         return 2 * c[2] + 6 * c[3] * t + 12 * c[4] * t * t + 20 * c[5] * t * t * t;
     }
-    static inline double maxAbsAcc(const Eigen::Matrix<double, 6, 1>& c, double T) {
+    static inline double maxAbsAcc(const Eigen::Matrix<double, 6, 1>& c, double T) noexcept{
         if (T <= 0.0)
             return 0.0;
 
@@ -131,14 +157,14 @@ struct QuinticSegment {
         return std::isfinite(max_acc) ? max_acc : 0.0;
     }
 
-    double inline duration() const {
+    double inline duration() const noexcept{
         return T;
     }
 
-    double inline MaxAcc(void) const {
+    double inline MaxAcc(void) const noexcept{
         return QuinticSegment::maxAbsAcc(c, T);
     }
-    GimbalState::State inline eval(double t) const {
+    GimbalState::State inline eval(double t) const noexcept{
         GimbalState::State s;
         if (T <= 0.0)
             return s;
@@ -161,7 +187,7 @@ public:
 
     Traj yaw_traj;
     Traj pitch_traj;
-    static inline double angleDiff(double a, double b) {
+    static inline double angleDiff(double a, double b) noexcept{
         double d = a - b;
         while (d > M_PI)
             d -= 2 * M_PI;
@@ -170,11 +196,11 @@ public:
         return d;
     }
 
-    static inline double unwrapAngle(double prev, double curr) {
+    static inline double unwrapAngle(double prev, double curr) noexcept{
         return prev + angleDiff(curr, prev);
     }
 
-    void unwrapStates(std::vector<GimbalState>& s) const {
+    void unwrapStates(std::vector<GimbalState>& s) const noexcept{
         for (size_t i = 1; i < s.size(); ++i) {
             s[i].yaw_state.p = unwrapAngle(s[i - 1].yaw_state.p, s[i].yaw_state.p);
             s[i].pitch_state.p = unwrapAngle(s[i - 1].pitch_state.p, s[i].pitch_state.p);
@@ -182,7 +208,7 @@ public:
     }
 
     std::pair<std::vector<GimbalState::State>, std::vector<GimbalState::State>>
-    computeNodeStates(const std::vector<GimbalState>& gp, const std::vector<double>& dt) const {
+    computeNodeStates(const std::vector<GimbalState>& gp, const std::vector<double>& dt) const noexcept{
         const size_t N = gp.size();
         std::vector<GimbalState::State> yaw(N), pitch(N);
         for (size_t i = 0; i < N; ++i) {
@@ -226,7 +252,7 @@ public:
         int best_front_idx,
         int best_back_idx,
         double max_acc
-    ) const {
+    ) const noexcept{
         traj.segs.clear();
         traj.seg_dt.clear();
         traj.seg_prefix_time.clear();
@@ -234,50 +260,60 @@ public:
         const int N = static_cast<int>(s.size());
         if (N <= 1)
             return;
+
         const auto& _prefix_time = prefix_time;
         const auto& _dt_vec = dt_vec;
+
+        // helper to safely build a segment between two indices
+        auto buildSeg = [&](int l, int r) -> QuinticSegment {
+            double dur = _prefix_time[r] - _prefix_time[l];
+            return QuinticSegment::build(s[l], s[r], dur);
+        };
+
+        // collect initial intervals from the two indices (if valid)
         std::vector<std::pair<int, int>> intervals;
         auto push_initial = [&](int idx) {
             if (idx < 0)
                 return;
-            int l = idx;
-            int r = idx + 1;
-            if (l < 0)
-                l = 0;
-            if (r >= N)
-                r = N - 1;
-            if (l >= r)
-                return;
-            intervals.emplace_back(l, r);
+            int l = std::max(0, idx);
+            int r = std::min(N - 1, idx + 1);
+            if (l < r)
+                intervals.emplace_back(l, r);
         };
         push_initial(best_front_idx);
         push_initial(best_back_idx);
+
+        // if no special intervals, build simple adjacent segments and return
         if (intervals.empty()) {
             traj.segs.reserve(N - 1);
-            for (int i = 0; i < N - 1; ++i) {
+            for (int i = 0; i < N - 1; ++i)
                 traj.segs.push_back(QuinticSegment::build(s[i], s[i + 1], _dt_vec[i]));
-            }
+
             traj.seg_dt.reserve(traj.segs.size());
             for (const auto& seg: traj.segs)
                 traj.seg_dt.push_back(seg.duration());
+
             traj.seg_prefix_time.resize(traj.segs.size() + 1);
             traj.seg_prefix_time[0] = 0.0;
             for (size_t i = 0; i < traj.seg_dt.size(); ++i)
                 traj.seg_prefix_time[i + 1] = traj.seg_prefix_time[i] + traj.seg_dt[i];
             return;
         }
+
+        // expand each interval so that its segment's MaxAcc() is <= max_acc when possible
         for (auto& pr: intervals) {
             int l = pr.first;
             int r = pr.second;
-            QuinticSegment seg =
-                QuinticSegment::build(s[l], s[r], _prefix_time[r] - _prefix_time[l]);
+            QuinticSegment seg = buildSeg(l, r);
+
             while (seg.MaxAcc() > max_acc) {
                 bool expanded = false;
+
+                // try expand both sides first (if possible)
                 int nl = std::max(0, l - 1);
                 int nr = std::min(N - 1, r + 1);
                 if (nl != l || nr != r) {
-                    QuinticSegment segBoth =
-                        QuinticSegment::build(s[nl], s[nr], _prefix_time[nr] - _prefix_time[nl]);
+                    QuinticSegment segBoth = buildSeg(nl, nr);
                     if (segBoth.MaxAcc() <= seg.MaxAcc()) {
                         l = nl;
                         r = nr;
@@ -287,58 +323,60 @@ public:
                             break;
                     }
                 }
-                if (!expanded) {
-                    if (l > 0) {
-                        int nl2 = l - 1;
-                        QuinticSegment segL = QuinticSegment::build(
-                            s[nl2],
-                            s[r],
-                            _prefix_time[r] - _prefix_time[nl2]
-                        );
-                        if (segL.MaxAcc() <= seg.MaxAcc()) {
-                            l = nl2;
-                            seg = std::move(segL);
-                            expanded = true;
-                            if (seg.MaxAcc() <= max_acc)
-                                break;
-                        }
-                    }
-                    if (!expanded && r < N - 1) {
-                        int nr2 = r + 1;
-                        QuinticSegment segR = QuinticSegment::build(
-                            s[l],
-                            s[nr2],
-                            _prefix_time[nr2] - _prefix_time[l]
-                        );
-                        if (segR.MaxAcc() <= seg.MaxAcc()) {
-                            r = nr2;
-                            seg = std::move(segR);
-                            expanded = true;
-                            if (seg.MaxAcc() <= max_acc)
-                                break;
-                        }
+
+                // try expand left only
+                if (!expanded && l > 0) {
+                    int nl2 = l - 1;
+                    QuinticSegment segL = buildSeg(nl2, r);
+                    if (segL.MaxAcc() <= seg.MaxAcc()) {
+                        l = nl2;
+                        seg = std::move(segL);
+                        expanded = true;
+                        if (seg.MaxAcc() <= max_acc)
+                            break;
                     }
                 }
+
+                // try expand right only
+                if (!expanded && r < N - 1) {
+                    int nr2 = r + 1;
+                    QuinticSegment segR = buildSeg(l, nr2);
+                    if (segR.MaxAcc() <= seg.MaxAcc()) {
+                        r = nr2;
+                        seg = std::move(segR);
+                        expanded = true;
+                        if (seg.MaxAcc() <= max_acc)
+                            break;
+                    }
+                }
+
+                // forced expansion: push boundaries outward and accept if it improves
                 if (!expanded) {
                     if (l > 0)
                         --l;
                     if (r < N - 1)
                         ++r;
-                    QuinticSegment segForce =
-                        QuinticSegment::build(s[l], s[r], _prefix_time[r] - _prefix_time[l]);
+                    QuinticSegment segForce = buildSeg(l, r);
+                    // only accept if it reduces max acc or we've spanned the entire sequence
                     if (!((segForce.MaxAcc() < seg.MaxAcc()) || (l == 0 && r == N - 1))) {
+                        // cannot improve further
                         break;
                     }
                     seg = std::move(segForce);
                     if (seg.MaxAcc() <= max_acc)
                         break;
                 }
+
+                // if we've covered whole range and still too large, give up
                 if (l == 0 && r == N - 1 && seg.MaxAcc() > max_acc)
                     break;
             }
+
             pr.first = l;
             pr.second = r;
         }
+
+        // sort and merge overlapping intervals
         std::sort(
             intervals.begin(),
             intervals.end(),
@@ -348,8 +386,8 @@ public:
                 return a.second < b.second;
             }
         );
+
         std::vector<std::pair<int, int>> merged;
-        merged.reserve(intervals.size());
         for (const auto& it: intervals) {
             if (merged.empty() || it.first > merged.back().second) {
                 merged.push_back(it);
@@ -357,21 +395,24 @@ public:
                 merged.back().second = std::max(merged.back().second, it.second);
             }
         }
+
+        // build final trajectory: use merged multi-point segments where indicated,
+        // otherwise use adjacent segments
         traj.segs.reserve(N - 1);
         size_t change_idx = 0;
         for (int i = 0; i < N - 1; ++i) {
             if (change_idx < merged.size() && i == merged[change_idx].first) {
                 int l = merged[change_idx].first;
                 int r = merged[change_idx].second;
-                traj.segs.push_back(
-                    QuinticSegment::build(s[l], s[r], _prefix_time[r] - _prefix_time[l])
-                );
-                i = r - 1;
+                traj.segs.push_back(buildSeg(l, r));
+                i = r - 1; // skip covered indices
                 ++change_idx;
             } else {
                 traj.segs.push_back(QuinticSegment::build(s[i], s[i + 1], _dt_vec[i]));
             }
         }
+
+        // fill durations and prefix times
         traj.seg_dt.reserve(traj.segs.size());
         for (const auto& seg: traj.segs)
             traj.seg_dt.push_back(seg.duration());
@@ -381,7 +422,7 @@ public:
         for (size_t i = 0; i < traj.seg_dt.size(); ++i)
             traj.seg_prefix_time[i + 1] = traj.seg_prefix_time[i] + traj.seg_dt[i];
     }
-    void buildLimit(double max_yaw_acc, double max_pitch_acc) {
+    void buildLimit(double max_yaw_acc, double max_pitch_acc) noexcept{
         unwrapStates(cp_vec);
         auto [yaw_states, pitch_states] = computeNodeStates(cp_vec, dt_vec);
         int best_front_idx = -1;
@@ -415,7 +456,7 @@ public:
         limitTraj(yaw_traj, yaw_states, best_front_idx, best_back_idx, max_yaw_acc);
         limitTraj(pitch_traj, pitch_states, best_front_idx, best_back_idx, max_pitch_acc);
     }
-    void simpleTraj(Traj& traj, const std::vector<GimbalState::State>& s) const {
+    void simpleTraj(Traj& traj, const std::vector<GimbalState::State>& s) const noexcept{
         traj.segs.clear();
         traj.seg_dt.clear();
         traj.seg_prefix_time.clear();
@@ -441,7 +482,7 @@ public:
         simpleTraj(yaw_traj, yaw_states);
         simpleTraj(pitch_traj, pitch_states);
     }
-    inline GimbalState::State getStateAtTime(double t, const Traj& traj) const {
+    inline GimbalState::State getStateAtTime(double t, const Traj& traj) const noexcept{
         if (traj.segs.empty())
             return {};
 
@@ -460,7 +501,7 @@ public:
         const double t0 = traj.seg_prefix_time[i];
         return traj.segs[i].eval(t - t0);
     }
-    inline GimbalState getStateAtTime(double t) const {
+    inline GimbalState getStateAtTime(double t) const noexcept{
         GimbalState::State yaw = getStateAtTime(t, yaw_traj);
         GimbalState::State pitch = getStateAtTime(t, pitch_traj);
         return GimbalState(yaw, pitch);
@@ -501,15 +542,15 @@ public:
             enable_yaw_diff(ey),
             enable_pitch_diff(ep) {}
     };
-    inline FireResult canFireAtTime(const VeryAimerTrajBase::Ptr& traj, double t) const;
+    inline FireResult canFireAtTime(const VeryAimerTrajBase::Ptr& traj, double t) const noexcept;
     void reset();
-    int selectArmor(const Target& target, const AutoAimFsm& auto_aim_fsm) const;
+    int selectArmor(const Target& target, const AutoAimFsm& auto_aim_fsm) const noexcept;
     ControlPoint
-    getControlPoint(Eigen::Vector3d aim_target_pos, double diff_yaw, double bullet_speed) const;
+    getControlPoint(Eigen::Vector3d aim_target_pos, double diff_yaw, double bullet_speed) const noexcept; 
     std::tuple<double, double>
     calEnableDiff(Eigen::Vector3d aim_target_pos, double diff_yaw, const AutoAimFsm& auto_aim_fsm)
-        const;
-    inline double rad2deg(double r) {
+        const noexcept;
+    inline double rad2deg(double r) const noexcept{
         return r / M_PI * 180.0;
     }
     std::tuple<bool, bool, bool> getAimStatus(const AutoAimFsm& auto_aim_fsm) const noexcept;
@@ -518,7 +559,7 @@ public:
         const Target& target,
         double bullet_speed,
         const AutoAimFsm& auto_aim_fsm
-    ) const;
+    ) const noexcept;
     std::pair<LimitTrajectory, Trajectory<AimPoint>> getTrajectory(
         Target& target,
         const ControlPoint& cp0,

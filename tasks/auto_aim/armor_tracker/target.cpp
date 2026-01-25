@@ -153,7 +153,23 @@ Eigen::Matrix<double, MModel::X_N, MModel::X_N> Target::computeProcessNoise(doub
     // clang-format on
     return q;
 }
-
+MModel::Predict Target::getPredictFunc(double dt, Eigen::Vector3d self_v) const noexcept {
+    MModel::Predict predict_func;
+    if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
+        predict_func = MModel::Predict { dt,
+                                         MModel::MotionModel::CONSTANT_ROTATION,
+                                         self_v.x(),
+                                         self_v.y(),
+                                         self_v.z() };
+    } else {
+        predict_func = MModel::Predict { dt,
+                                         MModel::MotionModel::CONSTANT_VEL_ROT,
+                                         self_v.x(),
+                                         self_v.y(),
+                                         self_v.z() };
+    }
+    return predict_func;
+}
 void Target::predict(std::chrono::steady_clock::time_point t, Eigen::Vector3d self_v) noexcept {
     const double dt = time_utils::durationSec(last_t_, t);
 
@@ -162,21 +178,9 @@ void Target::predict(std::chrono::steady_clock::time_point t, Eigen::Vector3d se
     last_t_ = t;
 }
 void Target::predict(double dt, Eigen::Vector3d self_v) noexcept {
-    dt_ = dt;
+    MModel::Predict predict_func = getPredictFunc(dt, self_v);
 
-    if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
-        esekf_ypd_.setPredictFunc(MModel::Predict { dt,
-                                                    MModel::MotionModel::CONSTANT_ROTATION,
-                                                    self_v.x(),
-                                                    self_v.y(),
-                                                    self_v.z() });
-    } else {
-        esekf_ypd_.setPredictFunc(MModel::Predict { dt,
-                                                    MModel::MotionModel::CONSTANT_VEL_ROT,
-                                                    self_v.x(),
-                                                    self_v.y(),
-                                                    self_v.z() });
-    }
+    esekf_ypd_.setPredictFunc(predict_func);
     auto yu_qv2 = [dt, this]() { return computeProcessNoise(dt); };
 
     esekf_ypd_.setUpdateQ(yu_qv2);
@@ -214,7 +218,21 @@ void Target::predict(double dt, Eigen::Vector3d self_v) noexcept {
         esekf_ypd_.setState(target_state_);
     }
 }
+void Target::predictSimple(
+    std::chrono::steady_clock::time_point t,
+    Eigen::Vector3d self_v
+) noexcept {
+    const double dt = time_utils::durationSec(last_t_, t);
 
+    predictSimple(dt, self_v);
+
+    last_t_ = t;
+}
+void Target::predictSimple(double dt, Eigen::Vector3d self_v) noexcept {
+    MModel::Predict predict_func = getPredictFunc(dt, self_v);
+
+    predict_func.f(target_state_, target_state_);
+}
 bool Target::update(const std::pair<int, armor::Armor>& a) noexcept {
     const auto armor = a.second;
     const auto id = a.first;
@@ -222,7 +240,7 @@ bool Target::update(const std::pair<int, armor::Armor>& a) noexcept {
         return this->computeMeasurementCovariance(z);
     };
     esekf_ypd_.setUpdateR(yu_rv2);
-    measurement_ = getmean(armor);
+    measurement_ = getMeasure(armor);
 
     if (id != 0)
         jumped = true;
@@ -344,7 +362,7 @@ std::vector<std::pair<int, armor::Armor>> Target::match(const std::vector<armor:
     std::vector<std::vector<double>> cost(n_obs, std::vector<double>(armors_num, max_cost + 1));
     std::vector<MModel::VecZ> meas_list(n_obs);
     for (int j = 0; j < n_obs; ++j) {
-        meas_list[j] = getmean(armors[j]);
+        meas_list[j] = getMeasure(armors[j]);
     }
     for (int j = 0; j < n_obs; ++j) {
         for (int id = 0; id < armors_num; ++id) {

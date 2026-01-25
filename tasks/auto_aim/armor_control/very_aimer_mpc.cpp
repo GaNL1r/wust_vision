@@ -168,7 +168,7 @@ VeryAimerMpc::veryAim(Target target, double bullet_speed, const AutoAimFsm& auto
 
     const auto now = time_utils::now();
     const double dt0 = time_utils::durationSec(target.timestamp_, now);
-    target.predict(now + std::chrono::microseconds(int(dt0 * 1e6)));
+    target.predictSimple(now + std::chrono::microseconds(int(dt0 * 1e6)));
 
     const auto ap = target.getArmorPositions();
     double fly_time =
@@ -178,7 +178,7 @@ VeryAimerMpc::veryAim(Target target, double bullet_speed, const AutoAimFsm& auto
     std::vector<Target> iteration_target(10, target);
 
     for (int iter = 0; iter < 10; ++iter) {
-        iteration_target[iter].predict(prev_fly_time);
+        iteration_target[iter].predictSimple(prev_fly_time);
 
         const int iter_select = selectArmor(iteration_target[iter], auto_aim_fsm);
 
@@ -193,7 +193,7 @@ VeryAimerMpc::veryAim(Target target, double bullet_speed, const AutoAimFsm& auto
     }
 
     const double predict_time = prev_fly_time + prediction_delay_;
-    target.predict(predict_time);
+    target.predictSimple(predict_time);
     const auto fin_armors_xyza = target.getArmorPosAndYaw();
 
     const int fin_target_select = selectArmor(target, auto_aim_fsm);

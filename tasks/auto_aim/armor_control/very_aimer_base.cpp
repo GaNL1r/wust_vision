@@ -36,7 +36,7 @@ void VeryAimerBase::reset() {
     max_pitch_acc_ = config_["max_pitch_acc"].as<double>();
     max_yaw_acc_ = config_["max_yaw_acc"].as<double>();
 }
-int VeryAimerBase::selectArmor(const Target& target, const AutoAimFsm& auto_aim_fsm) const {
+int VeryAimerBase::selectArmor(const Target& target, const AutoAimFsm& auto_aim_fsm) const noexcept{
     static int lock_id = -1;
     const auto [aim_first, aim_center, aim_pair] = getAimStatus(auto_aim_fsm);
     const auto armor_list = target.getArmorPosAndYaw();
@@ -127,7 +127,7 @@ int VeryAimerBase::selectArmor(const Target& target, const AutoAimFsm& auto_aim_
 }
 ControlPoint
 VeryAimerBase::getControlPoint(Eigen::Vector3d aim_target_pos, double diff_yaw, double bullet_speed)
-    const {
+    const noexcept{
     ControlPoint cp;
     double control_yaw = std::atan2(aim_target_pos.y(), aim_target_pos.x());
     double raw_pitch = std::atan2(
@@ -155,7 +155,7 @@ std::tuple<double, double> VeryAimerBase::calEnableDiff(
     Eigen::Vector3d aim_target_pos,
     double diff_yaw,
     const AutoAimFsm& auto_aim_fsm
-) const {
+) const noexcept{
     const double distance = aim_target_pos.norm();
     double shooting_range_yaw = std::abs(atan2(shooting_range_w_ / 2, distance));
     double shooting_range_pitch = std::abs(atan2(shooting_range_h_ / 2, distance));
@@ -190,7 +190,7 @@ ControlPoint VeryAimerBase::choseAndGetControlPoint(
     const Target& target,
     double bullet_speed,
     const AutoAimFsm& auto_aim_fsm
-) const {
+) const noexcept{
     const auto [aim_first, aim_center, aim_pair] = getAimStatus(auto_aim_fsm);
     const int target_select = selectArmor(target, auto_aim_fsm);
     const auto armors_xyza = target.getArmorPosAndYaw();
@@ -216,7 +216,7 @@ ControlPoint VeryAimerBase::choseAndGetControlPoint(
     return cp;
 }
 inline VeryAimerBase::FireResult
-VeryAimerBase::canFireAtTime(const VeryAimerTrajBase::Ptr& traj, double t) const {
+VeryAimerBase::canFireAtTime(const VeryAimerTrajBase::Ptr& traj, double t) const noexcept{
     const auto target_delay = traj->getTargetState(t + control_delay_);
     const auto control_delay = traj->getControlState(t + control_delay_);
 
@@ -261,15 +261,15 @@ std::pair<LimitTrajectory, Trajectory<AimPoint>> VeryAimerBase::getTrajectory(
     aim_traj.reserve(HORIZON);
 
     // prepare: roll the target back so we start from same relative time as original impl
-    target.predict(-DT * (HALF_HORIZON + 1));
+    target.predictSimple(-DT * (HALF_HORIZON + 1));
 
     // compute first two cps (target state is mutated between calls but choseAndGetControlPoint takes const&)
     auto cp_last = choseAndGetControlPoint(target, bullet_speed, auto_aim_fsm);
-    target.predict(DT);
+    target.predictSimple(DT);
     auto cp = choseAndGetControlPoint(target, bullet_speed, auto_aim_fsm);
 
     for (int i = 0; i < HORIZON; ++i) {
-        target.predict(DT);
+        target.predictSimple(DT);
         const auto cp_next = choseAndGetControlPoint(target, bullet_speed, auto_aim_fsm);
         const double yaw_vel = angles::normalize_angle(cp_next.yaw - cp_last.yaw) / (2.0 * DT);
         const double pitch_vel = (cp_next.pitch - cp_last.pitch) / (2.0 * DT);

@@ -7,7 +7,7 @@ tf:
   t_camera2gimbal:
     [0.065434347168653831, 0.10641232476052895, 0.0436106400231024]
 control:
-  control_rate: 300
+  control_rate: 1000
   communication_delay_us: 1100
   pitch_avg_windows: 1
   device_name: /dev/ttyACM0

@@ -72,7 +72,6 @@ public:
     bool is_temp_lost_ = false;
     std::chrono::steady_clock::time_point last_t_;
     std::chrono::steady_clock::time_point timestamp_;
-    double dt_;
     MModel::RobotStateESEKF esekf_ypd_;
     TargetConfig target_config_;
     cv::Rect expanded(
@@ -86,6 +85,13 @@ public:
         Eigen::Vector3d self_v = Eigen::Vector3d::Zero()
     ) noexcept;
     void predict(double dt, Eigen::Vector3d self_v = Eigen::Vector3d::Zero()) noexcept;
+    void predictSimple(
+        std::chrono::steady_clock::time_point t,
+        Eigen::Vector3d self_v = Eigen::Vector3d::Zero()
+    ) noexcept;
+    void predictSimple(double dt, Eigen::Vector3d self_v = Eigen::Vector3d::Zero()) noexcept;
+    MModel::Predict
+    getPredictFunc(double dt, Eigen::Vector3d self_v = Eigen::Vector3d::Zero()) const noexcept;
     bool update(const std::pair<int, armor::Armor>& armor) noexcept;
     Eigen::Matrix<double, MModel::Z_N, MModel::Z_N>
     computeMeasurementCovariance(const Eigen::Matrix<double, MModel::Z_N, 1>& z) const noexcept;
@@ -290,7 +296,7 @@ public:
         Eigen::Vector3d v_rot = omega.cross(p);
         return v_center + v_rot;
     }
-    Eigen::Matrix<double, MModel::Z_N, 1> getmean(const armor::Armor& a) noexcept {
+    Eigen::Matrix<double, MModel::Z_N, 1> getMeasure(const armor::Armor& a) noexcept {
         auto p = a.target_pos;
         double measured_yaw = orientationToYaw(a.target_ori);
         double ypd_y = std::atan2(p.y(), p.x());

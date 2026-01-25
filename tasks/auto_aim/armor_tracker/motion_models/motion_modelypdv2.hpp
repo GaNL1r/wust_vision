@@ -93,6 +93,11 @@ struct Predict {
             x1[(int)State::VYAW] *= T(0.);
         }
     }
+    void f(const VecX& x0, VecX& x1) const {
+        assert(x0.size() == X_N);
+        assert(x1.size() == X_N);
+        operator()(x0.data(), x1.data());
+    }
 
     double dt;
     MotionModel model;
