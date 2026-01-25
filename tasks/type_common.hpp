@@ -7,43 +7,7 @@
 #include <opencv2/opencv.hpp>
 #include <optional>
 #include <shared_mutex>
-struct Motion {
-    double yaw, pitch, roll; // 欧拉角 (rad)
-    double vyaw, vpitch, vroll; // 角速度
-    double vx, vy, vz; // 线速度
-};
 
-// 角度 unwrap 辅助函数
-double unwrap_angle(double prev, double curr) noexcept;
-
-// 角度插值（wrap-safe）
-double interp_angle(double a, double b, double t) noexcept;
-template<>
-struct wust_vl::common::utils::MotionTraits<Motion> {
-    static void unwrap(const Motion& prev, Motion& curr) noexcept {
-        curr.yaw = unwrap_angle(prev.yaw, curr.yaw);
-        curr.pitch = unwrap_angle(prev.pitch, curr.pitch);
-        curr.roll = unwrap_angle(prev.roll, curr.roll);
-        // 速度部分不需要 unwrap
-    }
-
-    static Motion interpolate(const Motion& a, const Motion& b, double t) noexcept {
-        Motion out;
-        // 欧拉角 wrap-safe 插值
-        out.yaw = interp_angle(a.yaw, b.yaw, t);
-        out.pitch = interp_angle(a.pitch, b.pitch, t);
-        out.roll = interp_angle(a.roll, b.roll, t);
-
-        // 角速度和线速度线性插值
-        out.vyaw = a.vyaw + (b.vyaw - a.vyaw) * t;
-        out.vpitch = a.vpitch + (b.vpitch - a.vpitch) * t;
-        out.vroll = a.vroll + (b.vroll - a.vroll) * t;
-        out.vx = a.vx + (b.vx - a.vx) * t;
-        out.vy = a.vy + (b.vy - a.vy) * t;
-        out.vz = a.vz + (b.vz - a.vz) * t;
-        return out;
-    }
-};
 namespace wust_vision {
 struct CommonFrame {
     cv::Mat src_img;
@@ -71,6 +35,33 @@ struct imgframe {
 
 enum class AttackMode { ARMOR = 0, SMALL_RUNE, BIG_RUNE, UNKNOWN };
 AttackMode toAttackMode(int value) noexcept;
+struct Motion {
+    double yaw, pitch, roll; // 欧拉角 (rad)
+    double vyaw, vpitch, vroll; // 角速度
+    double vx, vy, vz; // 线速度
+    static double unwrap_angle(double prev, double curr) noexcept {
+        double d = curr - prev;
+        while (d > M_PI) {
+            curr -= 2.0 * M_PI;
+            d -= 2.0 * M_PI;
+        }
+        while (d < -M_PI) {
+            curr += 2.0 * M_PI;
+            d += 2.0 * M_PI;
+        }
+        return curr;
+    }
+
+    // 角度插值（wrap-safe）
+    static double interp_angle(double a, double b, double t) noexcept {
+        double diff = b - a;
+        while (diff > M_PI)
+            diff -= 2.0 * M_PI;
+        while (diff < -M_PI)
+            diff += 2.0 * M_PI;
+        return a + diff * t;
+    }
+};
 
 // template<>
 // struct MotionTraits<Motion> {
@@ -278,3 +269,30 @@ struct AutoExposureCfg {
     }
 };
 } // namespace wust_vision
+template<>
+struct wust_vl::common::utils::MotionTraits<wust_vision::Motion> {
+    static void unwrap(const wust_vision::Motion& prev, wust_vision::Motion& curr) noexcept {
+        curr.yaw = wust_vision::Motion::unwrap_angle(prev.yaw, curr.yaw);
+        curr.pitch = wust_vision::Motion::unwrap_angle(prev.pitch, curr.pitch);
+        curr.roll = wust_vision::Motion::unwrap_angle(prev.roll, curr.roll);
+        // 速度部分不需要 unwrap
+    }
+
+    static wust_vision::Motion
+    interpolate(const wust_vision::Motion& a, const wust_vision::Motion& b, double t) noexcept {
+        wust_vision::Motion out;
+        // 欧拉角 wrap-safe 插值
+        out.yaw = wust_vision::Motion::interp_angle(a.yaw, b.yaw, t);
+        out.pitch = wust_vision::Motion::interp_angle(a.pitch, b.pitch, t);
+        out.roll = wust_vision::Motion::interp_angle(a.roll, b.roll, t);
+
+        // 角速度和线速度线性插值
+        out.vyaw = a.vyaw + (b.vyaw - a.vyaw) * t;
+        out.vpitch = a.vpitch + (b.vpitch - a.vpitch) * t;
+        out.vroll = a.vroll + (b.vroll - a.vroll) * t;
+        out.vx = a.vx + (b.vx - a.vx) * t;
+        out.vy = a.vy + (b.vy - a.vy) * t;
+        out.vz = a.vz + (b.vz - a.vz) * t;
+        return out;
+    }
+};

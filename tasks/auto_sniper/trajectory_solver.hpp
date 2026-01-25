@@ -144,5 +144,5 @@ namespace auto_sniper {
         double shooting_range_w_ = 0.135;
         double shooting_range_h_ = 0.135;
     };
-} // namespace auto_sinper
+} // namespace auto_sniper
 } // namespace wust_vision
