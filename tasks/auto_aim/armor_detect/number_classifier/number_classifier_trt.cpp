@@ -15,7 +15,7 @@
 
 #include "number_classifier_trt.hpp"
 #include <wust_vl/common/utils/logger.hpp>
-
+namespace auto_aim {
 NumberClassifierTRT::NumberClassifierTRT(
     const std::string& classify_model_path,
     const std::string& classify_label_path
@@ -53,7 +53,7 @@ void NumberClassifierTRT::initNumberClassifier() {
             << "Successfully loaded " << class_names_.size() << " labels from " << label_path;
     }
 }
-bool NumberClassifierTRT::classifyNumber(armor::ArmorObject& armor) {
+bool NumberClassifierTRT::classifyNumber(ArmorObject& armor) {
     static thread_local std::unique_ptr<nvinfer1::IExecutionContext> ctx;
     if (armor.number_img.empty()) {
         return false;
@@ -97,11 +97,10 @@ bool NumberClassifierTRT::classifyNumber(armor::ArmorObject& armor) {
     const double raw_conf = armor.confidence;
     armor.confidence = confidence;
 
-    static const std::map<int, armor::ArmorNumber> label_to_armor_number = {
-        { 0, armor::ArmorNumber::NO1 },    { 1, armor::ArmorNumber::NO2 },
-        { 2, armor::ArmorNumber::NO3 },    { 3, armor::ArmorNumber::NO4 },
-        { 4, armor::ArmorNumber::NO5 },    { 5, armor::ArmorNumber::OUTPOST },
-        { 6, armor::ArmorNumber::SENTRY }, { 7, armor::ArmorNumber::BASE }
+    static const std::map<int, ArmorNumber> label_to_armor_number = {
+        { 0, ArmorNumber::NO1 },    { 1, ArmorNumber::NO2 }, { 2, ArmorNumber::NO3 },
+        { 3, ArmorNumber::NO4 },    { 4, ArmorNumber::NO5 }, { 5, ArmorNumber::OUTPOST },
+        { 6, ArmorNumber::SENTRY }, { 7, ArmorNumber::BASE }
     };
 
     if (label_id < 8 && label_to_armor_number.find(label_id) != label_to_armor_number.end()) {
@@ -113,3 +112,4 @@ bool NumberClassifierTRT::classifyNumber(armor::ArmorObject& armor) {
         return false;
     }
 }
+} // namespace auto_aim

@@ -5,7 +5,7 @@
 #include "tasks/auto_buff/type.hpp"
 #include "tasks/utils.hpp"
 #include <wust_vl/common/utils/timer.hpp>
-namespace rune {
+namespace auto_buff {
 struct RuneTargetConfig {
     int esekf_iter_num = 2;
     double q_roll = 1;
@@ -45,7 +45,11 @@ class RuneTarget {
 public:
     RuneTarget() = default;
     RuneTarget& operator=(const RuneTarget&) = default;
-    RuneTarget(const rune::RuneFan& fan, const RuneTargetConfig& target_config, double pre_v_roll);
+    RuneTarget(
+        const auto_buff::RuneFan& fan,
+        const RuneTargetConfig& target_config,
+        double pre_v_roll
+    );
     bool is_big_ = false;
     double last_yaw_ = 0;
     double last_ypd_y = 0;
@@ -73,7 +77,7 @@ public:
         const cv::Mat& camera_distortion,
         const cv::Size& image_size
     );
-    bool update(const rune::RuneFan& fan);
+    bool update(const auto_buff::RuneFan& fan);
     void predict(std::chrono::steady_clock::time_point t);
     void predict(double dt);
     Eigen::Matrix<double, ypdrune_motion_model::Z_N, ypdrune_motion_model::Z_N>
@@ -109,9 +113,9 @@ public:
     double predictAngle(double dt) const {
         return fitter_.predictAngle(last_time_ + dt);
     }
-    void predictWithFitter(std::chrono::steady_clock::time_point t) {
+    void predictWithFitter(double dt) {
         if (is_big_) {
-            double to_start = time_utils::durationSec(start_time_, t);
+            double to_start = last_time_ + dt;
             double angle = fitter_.predictAngle(to_start);
             double speed = fitter_.predictSpeed(to_start);
             auto state = esekf_ypd_.getState();
@@ -119,8 +123,15 @@ public:
             state[(int)ypdrune_motion_model::State::VROLL] = speed;
             esekf_ypd_.setState(state);
         } else {
-            predict(t);
+            predict(dt);
         }
+    }
+    void predictWithFitter(std::chrono::steady_clock::time_point t) {
+        double dt = time_utils::durationSec(last_t_, t);
+
+        predictWithFitter(dt);
+
+        last_t_ = t;
     }
     double getFitterSpd(std::chrono::steady_clock::time_point t) {
         double to_start = time_utils::durationSec(start_time_, t);
@@ -163,8 +174,8 @@ public:
     double v_roll() const {
         return target_state_[(int)ypdrune_motion_model::State::VROLL];
     }
-    std::vector<std::pair<int, rune::RuneFan::Simple>>
-    match(const std::vector<rune::RuneFan::Simple>& fans);
+    std::vector<std::pair<int, auto_buff::RuneFan::Simple>>
+    match(const std::vector<auto_buff::RuneFan::Simple>& fans);
     std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>> getAllPose() const {
         std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>> poses;
         for (int i = 0; i < 5; i++) {
@@ -192,8 +203,8 @@ public:
     std::pair<Eigen::Vector3d, Eigen::Quaterniond> getHitPoint() const {
         return getPose(last_id);
     }
-    rune::PowerRune getPowerRune() const {
-        rune::PowerRune power_rune;
+    auto_buff::PowerRune getPowerRune() const {
+        auto_buff::PowerRune power_rune;
         if (!is_inited) {
             return power_rune;
         }
@@ -203,7 +214,7 @@ public:
         power_rune.center.ori = q;
         auto all_pose = getAllPose();
         for (int i = 0; i < all_pose.size(); i++) {
-            rune::PowerRune::Pose pose;
+            auto_buff::PowerRune::Pose pose;
             pose.pos = all_pose[i].first;
             pose.ori = all_pose[i].second;
             power_rune.fans.push_back(pose);
@@ -211,7 +222,8 @@ public:
         power_rune.hit_id = last_id;
         return power_rune;
     }
-    Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1> getmean(const rune::RuneFan::Simple& fan) {
+    Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>
+    getmean(const auto_buff::RuneFan::Simple& fan) {
         auto p = fan.target_pos;
 
         double measured_yaw = orientationToYaw(fan.target_ori);
@@ -226,4 +238,4 @@ public:
         return measure;
     }
 };
-} // namespace rune
+} // namespace auto_buff

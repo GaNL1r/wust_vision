@@ -9,14 +9,9 @@ public:
     void pushInput(CommonFrame& frame) override;
 
     void setCallback(DetectorCallback callback) override;
-    void processCallback(const CommonFrame& frame);
-    DetectorCallback infer_callback_;
-    int current_id_ = 0;
-    double min_area_ = 100;
-    double max_area_ = 10000;
-    double min_fill_ratio_ = 0.5;
-    double min_aspect_ratio = 0.7;
-    bool debug_ = false;
-    bool use_gui_ = false;
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> _impl;
 };
 } // namespace auto_guidance

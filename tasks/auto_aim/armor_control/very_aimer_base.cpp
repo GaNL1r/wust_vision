@@ -65,7 +65,7 @@ int VeryAimerBase::selectArmor(const Target& target, const AutoAimFsm& auto_aim_
         return best;
     };
 
-    if (aim_first && target.tracked_id_ != armor::ArmorNumber::OUTPOST && armor_num > 0) {
+    if (aim_first && target.tracked_id_ != ArmorNumber::OUTPOST && armor_num > 0) {
         std::vector<int> candidates;
         for (int i = 0; i < armor_num; ++i)
             if (std::abs(delta_angles[i]) <= 60.0 / 57.3)
@@ -94,7 +94,7 @@ int VeryAimerBase::selectArmor(const Target& target, const AutoAimFsm& auto_aim_
     if (armor_num > 0) {
         int best_idx = -1;
 
-        if (target.tracked_id_ != armor::ArmorNumber::OUTPOST) {
+        if (target.tracked_id_ != ArmorNumber::OUTPOST) {
             const double coming_angle = comming_angle_ * M_PI / 180.0;
             const double leaving_angle = leaving_angle_ * M_PI / 180.0;
 

@@ -37,13 +37,11 @@ target_sources(auto_aim PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_control/very_aimer_base.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_control/very_aimer_seg.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_control/very_aimer_mpc.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/tracker_manager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/trackerv3.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_tracker/target.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_optimize/ba_solver.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/opencv/armor_detector_opencv_wrapper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/opencv/armor_detector_opencv.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/armor_detect_common.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/armor_detector_common.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/armor_infer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/armor_pose_estimator.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/light_corner_corrector.cpp
@@ -57,14 +55,12 @@ target_include_directories(auto_aim PUBLIC
 if(BUILD_WITH_OPENVINO)
     target_sources(auto_aim PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/openvino/armor_detector_openvino.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/openvino/armor_detector_openvino_wrapper.cpp
     )
 endif()
 
 if(BUILD_WITH_TRT)
     target_sources(auto_aim PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/tensorrt/armor_detector_tensorrt.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/tensorrt/armor_detector_tensorrt_wrapper.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/number_classifier/number_classifier_trt.cpp
     )
 endif()
@@ -72,14 +68,12 @@ endif()
 if(BUILD_WITH_NCNN)
     target_sources(auto_aim PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/ncnn/armor_detector_ncnn.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/ncnn/armor_detector_ncnn_wrapper.cpp
     )
 endif()
 
 if(BUILD_WITH_ORT)
     target_sources(auto_aim PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/onnxruntime/armor_detector_onnxruntime.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/onnxruntime/armor_detector_onnxruntime_wrapper.cpp
     )
 endif()
 set(WUST_AUTO_AIM_LIBS ${BUILD_LIBS} PARENT_SCOPE)

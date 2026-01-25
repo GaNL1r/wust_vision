@@ -10,7 +10,7 @@ constexpr double LARGE_ARMOR_WIDTH = 225.0 / 1000.0;
 constexpr double LARGE_ARMOR_HEIGHT = 50.0 / 1000.0; // 55
 
 constexpr double FIFTTEN_DEGREE_RAD = 15 * CV_PI / 180;
-namespace armor {
+namespace auto_aim {
 struct Light: public cv::RotatedRect {
     Light() = default;
 
@@ -25,27 +25,6 @@ struct Light: public cv::RotatedRect {
     double length = 0;
     double width = 0;
     float tilt_angle = 0;
-};
-
-struct LightParams {
-    // width / height
-    double min_ratio;
-    double max_ratio;
-    // vertical angle
-    double max_angle;
-    // judge color
-    int color_diff_thresh;
-    double max_angle_diff;
-};
-struct ArmorParams {
-    double min_light_ratio;
-    // light pairs distance
-    double min_small_center_distance;
-    double max_small_center_distance;
-    double min_large_center_distance;
-    double max_large_center_distance;
-    // horizontal angle
-    double max_angle;
 };
 
 enum class ArmorColor { BLUE = 0, RED, NONE, PURPLE };
@@ -86,7 +65,7 @@ struct ArmorObject {
     double new_y = 0;
     bool is_ok = false;
     bool is_ok_yaw = false;
-    armor::ArmorType type;
+    ArmorType type;
     static constexpr const int N_LANDMARKS = 6;
     static constexpr const int N_LANDMARKS_2 = N_LANDMARKS * 2;
 
@@ -197,7 +176,7 @@ inline int quantize_outpost_diff(double dz) noexcept {
     return best_id;
 }
 
-void transformArmorData(armor::Armors& armors, Eigen::Matrix4d T_camera_to_odom) noexcept;
-void transformArmorData(armor::Armor& armor, const Eigen::Matrix4d& T_camera_to_odom) noexcept;
+void transformArmorData(Armors& armors, Eigen::Matrix4d T_camera_to_odom) noexcept;
+void transformArmorData(Armor& armor, const Eigen::Matrix4d& T_camera_to_odom) noexcept;
 
-} // namespace armor
+} // namespace auto_aim

@@ -18,59 +18,22 @@
 // limitations under the License.
 
 #pragma once
-#include "tasks/auto_aim/armor_detect/light_corner_corrector.hpp"
-#include "tasks/auto_aim/armor_detect/number_classifier/number_classifier.hpp"
+#include "tasks/auto_aim/armor_detect/armor_detector_base.hpp"
 #include "tasks/type_common.hpp"
-class ArmorDetectOpenCV {
+namespace auto_aim {
+class ArmorDetectorOpenCV: public ArmorDetectorBase {
 public:
-    using DetectorCallback =
-        std::function<void(const std::vector<armor::ArmorObject>&, const CommonFrame&)>;
-
-    ArmorDetectOpenCV(
-        const std::string& classify_model_path,
-        const std::string& classify_label_path,
-        const int& bin_thres,
-        const double& classifier_threshold,
-        const armor::LightParams& l,
-        const armor::ArmorParams& a
-    );
-
-    std::vector<armor::ArmorObject> detect(
-        const cv::Mat& input,
-        int detect_color,
-        const std::optional<armor::ArmorNumber>& target_number
-    ) noexcept;
-    void pushInput(CommonFrame& frame, const std::optional<armor::ArmorNumber>& target_number);
-
-    std::tuple<cv::Mat, cv::Mat> preprocessImage(const cv::Mat& input) noexcept;
-    std::vector<armor::Light>
-    findLights(const cv::Mat& rbg_img, const cv::Mat& binary_img) noexcept;
-    std::vector<armor::ArmorObject>
-    matchLights(const std::vector<armor::Light>& lights, int detect_color) noexcept;
-
-    cv::Mat extractNumber(const cv::Mat& src, const armor::ArmorObject& armor) const noexcept;
-
-    void setCallback(DetectorCallback callback);
-    // Parameters
-    int binary_thres_;
-
-    armor::LightParams light_params_;
-    armor::ArmorParams armor_params_;
-
-    std::unique_ptr<LightCornerCorrector> corner_corrector_;
-
-    double classifier_threshold_ = 0.5;
-    int target_width_ = 416;
-    int target_height_ = 416;
+    using Ptr = std::unique_ptr<ArmorDetectorOpenCV>;
+    explicit ArmorDetectorOpenCV(const YAML::Node& config);
+    static Ptr create(const YAML::Node& config) {
+        return std::make_unique<ArmorDetectorOpenCV>(config);
+    }
+    ~ArmorDetectorOpenCV();
+    void pushInput(CommonFrame& frame, const std::optional<ArmorNumber>& target_number) override;
+    void setCallback(DetectorCallback callback) override;
 
 private:
-    bool isLight(const armor::Light& possible_light) noexcept;
-    bool containLight(const int i, const int j, const std::vector<armor::Light>& lights) noexcept;
-    armor::ArmorType isArmor(const armor::Light& light_1, const armor::Light& light_2) noexcept;
-    void topts(armor::ArmorObject& armor);
-
-    std::unique_ptr<NumberClassifier> number_classifier_;
-
-    DetectorCallback infer_callback_;
-    int current_id_ = 0;
+    struct Impl;
+    std::unique_ptr<Impl> _impl;
 };
+} // namespace auto_aim

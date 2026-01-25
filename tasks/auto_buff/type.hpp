@@ -3,7 +3,7 @@
 #include <fmt/core.h>
 #include <string>
 
-namespace rune {
+namespace auto_buff {
 constexpr double RUNE_PAN_REAL_DIS = 0.15;
 constexpr double RUNE_FAN_REAL_W = 0.05;
 constexpr double RUNE_FAN_REAL_H = 0.3;
@@ -125,4 +125,4 @@ struct PowerRune {
     void
     draw(cv::Mat& img, const cv::Mat& camera_intrinsic, const cv::Mat& camera_distortion) const;
 };
-} // namespace rune
+} // namespace auto_buff

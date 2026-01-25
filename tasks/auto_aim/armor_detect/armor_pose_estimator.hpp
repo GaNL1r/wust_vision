@@ -14,37 +14,23 @@
 // limitations under the License.
 
 #pragma once
-#include "tasks/auto_aim/armor_optimize/ba_solver.hpp"
 #include "tasks/auto_aim/type.hpp"
-#include "wust_vl/algorithm/pnp_solver.hpp"
-
+namespace auto_aim {
 class ArmorPoseEstimator {
 public:
+    using Ptr = std::unique_ptr<ArmorPoseEstimator>;
     explicit ArmorPoseEstimator(const YAML::Node& config, std::pair<cv::Mat, cv::Mat> camera_info);
-
-    std::vector<armor::Armor> extractArmorPoses(
-        const std::vector<armor::ArmorObject>& armors,
+    static Ptr create(const YAML::Node& config, std::pair<cv::Mat, cv::Mat> camera_info) {
+        return std::make_unique<ArmorPoseEstimator>(config, camera_info);
+    }
+    ~ArmorPoseEstimator();
+    std::vector<Armor> extractArmorPoses(
+        const std::vector<ArmorObject>& armors,
         Eigen::Matrix4d T_camera_to_odom,
         const cv::Mat& camera_intrinsic,
         const cv::Mat& camera_distortion
-    );
-
-    std::unique_ptr<BaSolver> ba_solver_;
-    double distance_fix_a2_ = 0;
-
-private:
-    // Select the best PnP solution according to the armor's direction in image,
-    // only available for SOLVEPNP_IPPE
-    void sortPnPResult(
-        const armor::ArmorObject& armor,
-        std::vector<cv::Mat>& rvecs,
-        std::vector<cv::Mat>& tvecs,
-        std::string coord_frame_name,
-        const cv::Mat& camera_intrinsic,
-        const cv::Mat& camera_distortion
-    ) const;
-
-    Eigen::Matrix3d R_gimbal_camera_;
-
-    std::unique_ptr<PnPSolver> pnp_solver_;
+    ) const noexcept;
+    struct Impl;
+    std::unique_ptr<Impl> _impl;
 };
+} // namespace auto_aim

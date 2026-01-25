@@ -1,6 +1,6 @@
 #include "type.hpp"
 
-namespace rune {
+namespace auto_buff {
 void RunePan::draw(
     cv::Mat& img,
     const cv::Point2f& offset,
@@ -350,4 +350,4 @@ void PowerRune::draw(
             fans[i].draw(img, camera_intrinsic, camera_distortion, FAN_BLOCK);
     }
 }
-} // namespace rune
+} // namespace auto_buff

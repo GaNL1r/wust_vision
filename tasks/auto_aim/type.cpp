@@ -1,7 +1,7 @@
 #pragma once
 #include "type.hpp"
 
-namespace armor {
+namespace auto_aim {
 
 Light::Light(const std::vector<cv::Point>& contour): cv::RotatedRect(cv::minAreaRect(contour)) {
     this->center = std::accumulate(
@@ -398,12 +398,12 @@ std::vector<cv::Point2f> Armor::toPtsDebug(
     return image_points;
 }
 
-void transformArmorData(armor::Armors& armors, Eigen::Matrix4d T_camera_to_odom) noexcept {
+void transformArmorData(Armors& armors, Eigen::Matrix4d T_camera_to_odom) noexcept {
     for (auto& armor: armors.armors) {
         transformArmorData(armor, T_camera_to_odom);
     }
 }
-void transformArmorData(armor::Armor& armor, const Eigen::Matrix4d& T_camera_to_odom) noexcept {
+void transformArmorData(Armor& armor, const Eigen::Matrix4d& T_camera_to_odom) noexcept {
     try {
         // 位置
         const Eigen::Vector3d pos_camera = armor.pos;
@@ -424,4 +424,4 @@ void transformArmorData(armor::Armor& armor, const Eigen::Matrix4d& T_camera_to_
     }
 }
 
-} // namespace armor
+} // namespace auto_aim

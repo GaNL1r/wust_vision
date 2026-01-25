@@ -1,7 +1,7 @@
 #include "rune_target.hpp"
-namespace rune {
+namespace auto_buff {
 RuneTarget::RuneTarget(
-    const rune::RuneFan& fan,
+    const auto_buff::RuneFan& fan,
     const RuneTargetConfig& target_config,
     double pre_v_roll
 ) {
@@ -126,7 +126,7 @@ void RuneTarget::predict(double dt) {
         is_tracking = false;
     }
 }
-bool RuneTarget::update(const rune::RuneFan& fans) {
+bool RuneTarget::update(const auto_buff::RuneFan& fans) {
     timestamp_ = fans.timestamp;
     if (fans.fans.empty()) {
         return false;
@@ -248,9 +248,9 @@ cv::Rect RuneTarget::expanded(
 
     return square;
 }
-std::vector<std::pair<int, rune::RuneFan::Simple>>
-RuneTarget::match(const std::vector<rune::RuneFan::Simple>& fans) {
-    std::vector<std::pair<int, rune::RuneFan::Simple>> result;
+std::vector<std::pair<int, auto_buff::RuneFan::Simple>>
+RuneTarget::match(const std::vector<auto_buff::RuneFan::Simple>& fans) {
+    std::vector<std::pair<int, auto_buff::RuneFan::Simple>> result;
     const int n_obs = (int)(fans.size());
     const int armors_num = 5;
     const double GATE = target_config_.match_gate;
@@ -334,4 +334,4 @@ RuneTarget::match(const std::vector<rune::RuneFan::Simple>& fans) {
     // }
     return result;
 }
-} // namespace rune
+} // namespace auto_buff

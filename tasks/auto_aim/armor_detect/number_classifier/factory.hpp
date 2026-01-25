@@ -3,6 +3,7 @@
 #ifdef USE_TRT
     #include "number_classifier_trt.hpp"
 #endif
+namespace auto_aim {
 class NumberClassifierFactory {
 public:
     static std::unique_ptr<NumberClassifierBase> createNumberClassifier(
@@ -25,3 +26,4 @@ public:
         );
     }
 };
+} // namespace auto_aim

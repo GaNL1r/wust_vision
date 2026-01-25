@@ -13,59 +13,58 @@
 // limitations under the License.
 #pragma once
 #include "tasks/auto_aim/armor_detect/armor_detector_base.hpp"
-#include <memory>
 #include <string>
 
 #ifdef USE_OPENVINO
-    #include "tasks/auto_aim/armor_detect/openvino/armor_detector_openvino_wrapper.hpp"
-
+    #include "tasks/auto_aim/armor_detect/openvino/armor_detector_openvino.hpp"
 #endif
 
 #ifdef USE_TRT
-    #include "tasks/auto_aim//armor_detect/tensorrt/armor_detector_tensorrt_wrapper.hpp"
-
+    #include "tasks/auto_aim/armor_detect/tensorrt/armor_detector_tensorrt.hpp"
 #endif
 
 #ifdef USE_NCNN
-    #include "tasks/auto_aim/armor_detect/ncnn/armor_detector_ncnn_wrapper.hpp"
-
+    #include "tasks/auto_aim/armor_detect/ncnn/armor_detector_ncnn.hpp"
 #endif
 
 #ifdef USE_ORT
-    #include "tasks/auto_aim/armor_detect/onnxruntime/armor_detector_onnxruntime_wrapper.hpp"
-
+    #include "tasks/auto_aim/armor_detect/onnxruntime/armor_detector_onnxruntime.hpp"
 #endif
-#include "tasks/auto_aim/armor_detect/opencv/armor_detector_opencv_wrapper.hpp"
+#include "tasks/auto_aim/armor_detect/opencv/armor_detector_opencv.hpp"
+namespace auto_aim {
 class DetectorFactory {
 public:
-    static std::unique_ptr<ArmorDetectorBase> createArmorDetector(
+    static ArmorDetectorBase::Ptr createArmorDetector(
         const std::string& backend,
         const YAML::Node& config,
         bool use_armor_detect_common
     ) {
 #if defined(USE_OPENVINO)
         if (backend == "openvino") {
-            return std::make_unique<ArmorDetectorOpenvinoWrapper>(config, use_armor_detect_common);
+            return ArmorDetectorOpenVino::create(config["armor_detector"], use_armor_detect_common);
         }
 #endif
 #if defined(USE_TRT)
         if (backend == "tensorrt") {
-            return std::make_unique<ArmorDetectorTrtWrapper>(config, use_armor_detect_common);
+            return ArmorDetectorTrt::create(config["armor_detector"], use_armor_detect_common);
         }
 #endif
 #if defined(USE_NCNN)
         if (backend == "ncnn") {
-            return std::make_unique<ArmorDetectorNCNNWrapper>(config, use_armor_detect_common);
+            return ArmorDetectorNCNN::create(config["armor_detector"], use_armor_detect_common);
         }
 #endif
 #if defined(USE_ORT)
         if (backend == "onnxruntime") {
-            return std::make_unique<ArmorDetectorOrtWrapper>(config, use_armor_detect_common);
+            return ArmorDetectorOnnxRuntime::create(
+                config["armor_detector"],
+                use_armor_detect_common
+            );
         }
 #endif
 
         if (backend == "opencv") {
-            return std::make_unique<ArmorDetectorOpencvWrapper>(config);
+            return ArmorDetectorOpenCV::create(config["armor_detector"]);
         }
 
         throw std::runtime_error(
@@ -73,3 +72,5 @@ public:
         );
     }
 };
+
+} // namespace auto_aim

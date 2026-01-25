@@ -3,6 +3,7 @@
 #include "tasks/auto_aim/type.hpp"
 #include "tasks/utils.hpp"
 #include <wust_vl/common/utils/timer.hpp>
+namespace auto_aim {
 namespace MModel = ypdv2armor_motion_model;
 
 struct TargetConfig {
@@ -51,9 +52,9 @@ class Target {
 public:
     Target();
     Target& operator=(const Target&) = default;
-    Target(const armor::Armor& armor, const TargetConfig& target_config);
+    Target(const Armor& armor, const TargetConfig& target_config);
     MModel::Measure::MeasureCtx ctx_;
-    armor::ArmorNumber tracked_id_;
+    ArmorNumber tracked_id_;
     std::string type_;
     MModel::VecZ measurement_ = Eigen::Matrix<double, MModel::Z_N, 1>::Zero();
     MModel::VecX target_state_ = Eigen::Matrix<double, MModel::X_N, 1>::Zero();
@@ -92,11 +93,11 @@ public:
     void predictSimple(double dt, Eigen::Vector3d self_v = Eigen::Vector3d::Zero()) noexcept;
     MModel::Predict
     getPredictFunc(double dt, Eigen::Vector3d self_v = Eigen::Vector3d::Zero()) const noexcept;
-    bool update(const std::pair<int, armor::Armor>& armor) noexcept;
+    bool update(const std::pair<int, Armor>& armor) noexcept;
     Eigen::Matrix<double, MModel::Z_N, MModel::Z_N>
     computeMeasurementCovariance(const Eigen::Matrix<double, MModel::Z_N, 1>& z) const noexcept;
     Eigen::Matrix<double, MModel::X_N, MModel::X_N> computeProcessNoise(double dt) const noexcept;
-    std::optional<armor::ArmorNumber> getArmorNumber() const noexcept {
+    std::optional<ArmorNumber> getArmorNumber() const noexcept {
         if (!checkTargetAppear()) {
             return std::nullopt;
         }
@@ -154,8 +155,7 @@ public:
         }
         return armor_velocities;
     }
-    std::vector<std::pair<int, armor::Armor>> match(const std::vector<armor::Armor>& armors
-    ) noexcept;
+    std::vector<std::pair<int, Armor>> match(const std::vector<Armor>& armors) noexcept;
     double yaw() const noexcept {
         return target_state_((int)MModel::State::YAW);
     }
@@ -185,7 +185,7 @@ public:
             target_state[(int)MModel::State::R] > 0.05 && target_state[(int)MModel::State::R] < 0.5;
         auto l_ok = target_state[(int)MModel::State::R] + target_state[(int)MModel::State::L] > 0.05
             && target_state[(int)MModel::State::R] + target_state[(int)MModel::State::L] < 0.5;
-        if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
+        if (tracked_id_ == ArmorNumber::OUTPOST) {
             l_ok = true;
         }
         const auto v_yaw_ok = std::abs(target_state[(int)MModel::State::VYAW]) < 30.0;
@@ -211,7 +211,7 @@ public:
         state[(int)MModel::State::R] = std::clamp(state[(int)MModel::State::R], 0.05, 0.5);
         state[(int)MModel::State::L] = std::clamp(state[(int)MModel::State::L], -0.45, 0.45);
 
-        if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
+        if (tracked_id_ == ArmorNumber::OUTPOST) {
             state[(int)MModel::State::R] = std::clamp(state[(int)MModel::State::R], 0.05, 0.5);
         }
 
@@ -298,7 +298,7 @@ public:
         const Eigen::Vector3d v_rot = omega.cross(p);
         return v_center + v_rot;
     }
-    Eigen::Matrix<double, MModel::Z_N, 1> getMeasure(const armor::Armor& a) noexcept {
+    Eigen::Matrix<double, MModel::Z_N, 1> getMeasure(const Armor& a) noexcept {
         const auto p = a.target_pos;
         const double measured_yaw = orientationToYaw(a.target_ori);
         double ypd_y = std::atan2(p.y(), p.x());
@@ -310,3 +310,4 @@ public:
         return Eigen::Vector4d(ypd_y, ypd_p, ypd_d, measured_yaw);
     }
 };
+} // namespace auto_aim

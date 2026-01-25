@@ -1,11 +1,13 @@
 #include "auto_aim.hpp"
 #include "tasks/auto_aim/armor_control/very_aimer_factory.hpp"
 #include "tasks/auto_aim/armor_detect/armor_pose_estimator.hpp"
-#include "tasks/auto_aim/armor_detect/detector_factory.hpp"
-#include "tasks/auto_aim/armor_tracker/tracker_manager.hpp"
+#include "tasks/auto_aim/armor_tracker/trackerv3.hpp"
 #include "tasks/utils.hpp"
 #include "wust_vl/common/concurrency/queues.hpp"
 #include "wust_vl/video/camera.hpp"
+// clang-format off
+#include "tasks/auto_aim/armor_detect/armor_detector_factory.hpp"
+// clang-format on
 namespace auto_aim {
 struct AutoAim::Impl {
     ~Impl() {
@@ -97,7 +99,7 @@ struct AutoAim::Impl {
         ));
         WUST_MAIN(logger_) << "Using Armor Detector: " << armor_detect_backend;
         armor_pose_estimator_ = std::make_unique<ArmorPoseEstimator>(config_, camera_info_);
-        tracker_manager_ = std::make_unique<TrackerManager>(config_, config_binder_);
+        tracker_ = Tracker::create(config_);
         auto_aim_fsm_cl_.load(config_);
         std::string comp_type =
             config["trajectory_compensator"]["compenstator_type"].as<std::string>("ideal");
@@ -105,7 +107,7 @@ struct AutoAim::Impl {
         trajectory_compensator->load(config["trajectory_compensator"]);
         very_aimer_ = VeryAimerFactory::create(config["very_aimer"], trajectory_compensator);
         max_detect_armors_ = config_["max_detect_armors"].as<int>(10);
-        armor_queue_ = std::make_unique<OrderedQueue<armor::Armors>>(50, 500);
+        armor_queue_ = std::make_unique<OrderedQueue<Armors>>(50, 500);
         latency_averager_ = std::make_unique<Averager<double>>(100);
         auto_exposure_cfg_.loadFromYaml(config_["auto_exposure"]);
         return true;
@@ -134,15 +136,14 @@ struct AutoAim::Impl {
             frame.offset = cv::Point2f(bbox.x, bbox.y);
         }
         expanded_ = frame.expanded;
-        const std::optional<armor::ArmorNumber> target_number = target_.getArmorNumber();
+        const std::optional<ArmorNumber> target_number = target_.getArmorNumber();
         if (armor_detector_) {
             armor_detector_->pushInput(frame, target_number);
         }
     }
 
-    void
-    ArmorDetectCallback(const std::vector<armor::ArmorObject>& objs, const CommonFrame& frame) {
-        std::vector<armor::ArmorObject> sorted_objs = objs;
+    void ArmorDetectCallback(const std::vector<ArmorObject>& objs, const CommonFrame& frame) {
+        std::vector<ArmorObject> sorted_objs = objs;
 
         if (sorted_objs.size() > max_detect_armors_) {
             WUST_WARN(logger_) << "Detected " << sorted_objs.size()
@@ -152,7 +153,7 @@ struct AutoAim::Impl {
                 sorted_objs.begin(),
                 sorted_objs.begin() + max_detect_armors_,
                 sorted_objs.end(),
-                [](const armor::ArmorObject& a, const armor::ArmorObject& b) {
+                [](const ArmorObject& a, const ArmorObject& b) {
                     return a.confidence > b.confidence;
                 }
             );
@@ -163,7 +164,7 @@ struct AutoAim::Impl {
             obj.addOffset(frame.offset);
         }
 
-        armor::Armors armors;
+        Armors armors;
         armors.timestamp = frame.timestamp;
         armors.id = frame.id;
         Eigen::Vector3d v = Eigen::Vector3d::Zero();
@@ -210,19 +211,18 @@ struct AutoAim::Impl {
             auto_aim_debug_.expanded = frame.expanded;
         }
     }
-    void armorsCallback(const armor::Armors& armors) {
-        if (armors.timestamp <= tracker_manager_->last_time_) {
+    void armorsCallback(const Armors& armors) {
+        if (armors.timestamp <= tracker_->getLastTime()) {
             WUST_WARN(logger_) << "Received out-of-order armor data, discarded.";
             return;
         }
-        Target target = tracker_manager_->update(armors, auto_aim_fsm_cl_);
+        Target target = tracker_->track(armors);
+        auto_aim_fsm_cl_.update(std::abs(target.v_yaw()), target.jumped);
         const auto now = std::chrono::steady_clock::now();
-
         {
             std::lock_guard<std::mutex> lock(target_mutex_);
             target_ = target;
         }
-
         const auto latency_ms = time_utils::durationMs(armors.timestamp, now);
         latency_averager_->add(latency_ms);
         auto_aim_debug_.latency_ms = latency_averager_->average();
@@ -274,7 +274,7 @@ struct AutoAim::Impl {
                 break;
             self->heartbeat();
             printStats();
-            armor::Armors armors;
+            Armors armors;
             bool skip;
             // if (armor_queue_->dequeue_wait(armors, skip)) {
             //     armorsCallback(armors);
@@ -303,7 +303,7 @@ struct AutoAim::Impl {
             [&] {
                 double found_ratio = 0.0;
                 if (img_recv_count_ > 0) {
-                    found_ratio = static_cast<double>(tracker_manager_->tracker_v3_->found_count_)
+                    found_ratio = static_cast<double>(tracker_->getFoundCount())
                         / static_cast<double>(img_recv_count_);
                 }
 
@@ -311,8 +311,7 @@ struct AutoAim::Impl {
                     << "Rec: " << img_recv_count_ << ", Det: " << detect_finish_count_
                     << ", Fin: " << tracker_finish_count_ << ", Tc: " << timer_cout_
                     << ", Lat: " << auto_aim_debug_.latency_ms << "ms"
-                    << ", Fire: " << fire_count_
-                    << ", Found: " << tracker_manager_->tracker_v3_->found_count_
+                    << ", Fire: " << fire_count_ << ", Found: " << tracker_->getFoundCount()
                     << ", Found_ratio: " << found_ratio;
 
                 img_recv_count_ = 0;
@@ -320,7 +319,7 @@ struct AutoAim::Impl {
                 fire_count_ = 0;
                 tracker_finish_count_ = 0;
                 timer_cout_ = 0;
-                tracker_manager_->tracker_v3_->found_count_ = 0;
+                tracker_->setFoundCount(0);
             },
             1.0
         );
@@ -361,10 +360,10 @@ struct AutoAim::Impl {
             dt
         );
     }
-    std::unique_ptr<ArmorDetectorBase> armor_detector_;
-    std::unique_ptr<TrackerManager> tracker_manager_;
+    Tracker::Ptr tracker_;
+    ArmorDetectorBase::Ptr armor_detector_;
     std::string logger_ = "auto_aim";
-    std::unique_ptr<OrderedQueue<armor::Armors>> armor_queue_;
+    std::unique_ptr<OrderedQueue<Armors>> armor_queue_;
     std::shared_ptr<wust_vl_concurrency::MonitoredThread> processing_thread_;
     std::unique_ptr<Timer> timer_;
     VeryAimerBase::Ptr very_aimer_;
@@ -388,7 +387,6 @@ struct AutoAim::Impl {
     Eigen::Vector3d t_camera2gimbal_;
     std::pair<cv::Mat, cv::Mat> camera_info_;
     YAML::Node config_;
-    std::shared_ptr<wust_vl_utils::ConfigBinder> config_binder_;
     std::shared_ptr<AutoAimShared> shared_;
     Eigen::Matrix4d T_camera_to_odom_;
     std::mutex target_mutex_;

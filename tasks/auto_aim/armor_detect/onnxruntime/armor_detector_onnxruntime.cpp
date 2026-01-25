@@ -1,125 +1,138 @@
 #include "armor_detector_onnxruntime.hpp"
+#include "tasks/auto_aim/armor_detect/armor_detector_common.hpp"
 #include "tasks/auto_aim/armor_detect/armor_infer.hpp"
 #include "tasks/utils.hpp"
-ArmorDetectOnnxRuntime::ArmorDetectOnnxRuntime(
-    std::string provider,
-    std::string model_type,
-    const std::filesystem::path& model_path,
-    const ArmorDetectCommonParams& armor_detect_common_params,
-    float conf_threshold,
-    int top_k,
-    float nms_threshold,
-    bool use_armor_detect_common
-):
-
-    model_path_(model_path),
-    conf_threshold_(conf_threshold),
-    top_k_(top_k),
-    nms_threshold_(nms_threshold),
-    use_armor_detect_common_(use_armor_detect_common) {
-    if (use_armor_detect_common_) {
-        armor_detect_common_ = std::make_unique<ArmorDetectCommon>(armor_detect_common_params);
-    }
-    auto model = armor_infer::modeFromString(model_type);
-    armor_infer_ =
-        std::make_unique<armor_infer::ArmorInfer>(model, conf_threshold, nms_threshold, top_k);
-    provider_ = string2OrtProvider(provider);
-    init();
-}
-
-void ArmorDetectOnnxRuntime::init() {
-    onnxruntime_net_ = std::make_unique<ml_net::OnnxRuntimeNet>();
-    ml_net::OnnxRuntimeNet::Params params;
-    params.model_path = model_path_;
-    params.provider = provider_;
-    onnxruntime_net_->init(params);
-
-    // 9. 准备 YOLO 网格和步幅
-    strides_ = { 8, 16, 32 };
-    armor_infer_->generate_grids_and_stride(
-        armor_infer_->getInputW(),
-        armor_infer_->getInputH(),
-        strides_,
-        grid_strides_
-    );
-}
-
-ArmorDetectOnnxRuntime::~ArmorDetectOnnxRuntime() {
-    onnxruntime_net_.reset();
-    armor_detect_common_.reset();
-}
-
-void ArmorDetectOnnxRuntime::setCallback(DetectorCallback callback) {
-    infer_callback_ = callback;
-}
-bool ArmorDetectOnnxRuntime::processCallback(
-    const CommonFrame& frame,
-    const std::optional<armor::ArmorNumber>& target_number
-) {
-    Eigen::Matrix3f transform_matrix;
-    auto roi = frame.src_img(frame.expanded);
-    cv::Mat resized_img = utils::letterbox(
-        roi,
-        transform_matrix,
-        armor_infer_->getInputW(),
-        armor_infer_->getInputH()
-    );
-    float scale = armor_infer_->getUseNorm() ? 1.0f / 255.0f : 1.0f;
-    cv::Mat blob = cv::dnn::blobFromImage(
-        resized_img,
-        scale,
-        cv::Size(armor_infer_->getInputW(), armor_infer_->getInputH()),
-        cv::Scalar(0, 0, 0),
-        true
-    );
-
-    auto output_data = onnxruntime_net_->infer(blob.ptr<float>(), blob.total());
-
-    auto output_shape = onnxruntime_net_->getOutputShape();
-    int rows = static_cast<int>(output_shape[1]);
-    int cols = static_cast<int>(output_shape[2]);
-    cv::Mat output_buffer(rows, cols, CV_32F, output_data);
-
-    // Parsed variable
-    std::vector<armor::ArmorObject> objs_result;
-    objs_result = armor_infer_->postProcess(output_buffer, transform_matrix, grid_strides_);
-    std::vector<armor::ArmorObject> armors;
-    if (use_armor_detect_common_) {
-        armors = armor_detect_common_->detectNet(
-            resized_img,
-            objs_result,
-            transform_matrix,
-            frame.detect_color,
-            target_number
+#include "wust_vl/ml_net/onnxruntime/onnxruntime_net.hpp"
+namespace auto_aim {
+struct ArmorDetectorOnnxRuntime::Impl {
+public:
+    Impl(const YAML::Node& config, bool use_armor_detect_common) {
+        if (use_armor_detect_common) {
+            armor_detect_common_ = std::make_unique<ArmorDetectorCommon>(config);
+        }
+        std::string model_type = config["model"]["model_type"].as<std::string>();
+        auto model = armor_infer::modeFromString(model_type);
+        float conf_threshold = config["model"]["conf_threshold"].as<float>();
+        int top_k = config["model"]["top_k"].as<int>();
+        float nms_threshold = config["model"]["nms_threshold"].as<float>();
+        armor_infer_ =
+            std::make_unique<armor_infer::ArmorInfer>(model, conf_threshold, nms_threshold, top_k);
+        std::string provider = config["model"]["provider"].as<std::string>("CPU");
+        provider_ = string2OrtProvider(provider);
+        onnxruntime_net_ = std::make_unique<ml_net::OnnxRuntimeNet>();
+        ml_net::OnnxRuntimeNet::Params params;
+        std::string model_path = utils::expandEnv(config["model"]["model_path"].as<std::string>());
+        params.model_path = model_path;
+        params.provider = provider_;
+        onnxruntime_net_->init(params);
+        strides_ = { 8, 16, 32 };
+        armor_infer_->generate_grids_and_stride(
+            armor_infer_->getInputW(),
+            armor_infer_->getInputH(),
+            strides_,
+            grid_strides_
         );
-        // Call callback function
-        if (this->infer_callback_) {
-            this->infer_callback_(armors, frame);
-            return true;
-        }
-    } else {
-        for (auto obj: objs_result) {
-            auto detect_color = frame.detect_color;
-            if (detect_color == 0 && obj.color == armor::ArmorColor::BLUE) {
-                continue;
-            } else if (detect_color == 1 && obj.color == armor::ArmorColor::RED) {
-                continue;
-            }
-            obj.transform(transform_matrix);
-            armors.push_back(obj);
-        }
-        if (this->infer_callback_) {
-            this->infer_callback_(armors, frame);
-            return true;
-        }
     }
 
-    return false;
-}
-void ArmorDetectOnnxRuntime::pushInput(
-    CommonFrame& frame,
-    const std::optional<armor::ArmorNumber>& target_number
+    ~Impl() {
+        onnxruntime_net_.reset();
+        armor_detect_common_.reset();
+    }
+    void setCallback(DetectorCallback callback) {
+        infer_callback_ = callback;
+    }
+    void
+    processCallback(const CommonFrame& frame, const std::optional<ArmorNumber>& target_number) {
+        Eigen::Matrix3f transform_matrix;
+        auto roi = frame.src_img(frame.expanded);
+        cv::Mat resized_img = utils::letterbox(
+            roi,
+            transform_matrix,
+            armor_infer_->getInputW(),
+            armor_infer_->getInputH()
+        );
+        float scale = armor_infer_->getUseNorm() ? 1.0f / 255.0f : 1.0f;
+        cv::Mat blob = cv::dnn::blobFromImage(
+            resized_img,
+            scale,
+            cv::Size(armor_infer_->getInputW(), armor_infer_->getInputH()),
+            cv::Scalar(0, 0, 0),
+            true
+        );
+
+        auto output_data = onnxruntime_net_->infer(blob.ptr<float>(), blob.total());
+
+        auto output_shape = onnxruntime_net_->getOutputShape();
+        int rows = static_cast<int>(output_shape[1]);
+        int cols = static_cast<int>(output_shape[2]);
+        cv::Mat output_buffer(rows, cols, CV_32F, output_data);
+
+        // Parsed variable
+        std::vector<ArmorObject> objs_result;
+        objs_result = armor_infer_->postProcess(output_buffer, transform_matrix, grid_strides_);
+        std::vector<ArmorObject> armors;
+        if (armor_detect_common_) {
+            armors = armor_detect_common_->detectNet(
+                resized_img,
+                objs_result,
+                transform_matrix,
+                frame.detect_color,
+                target_number
+            );
+            // Call callback function
+            if (this->infer_callback_) {
+                this->infer_callback_(armors, frame);
+                return;
+            }
+        } else {
+            for (auto obj: objs_result) {
+                auto detect_color = frame.detect_color;
+                if (detect_color == 0 && obj.color == ArmorColor::BLUE) {
+                    continue;
+                } else if (detect_color == 1 && obj.color == ArmorColor::RED) {
+                    continue;
+                }
+                obj.transform(transform_matrix);
+                armors.push_back(obj);
+            }
+            if (this->infer_callback_) {
+                this->infer_callback_(armors, frame);
+                return;
+            }
+        }
+
+        return;
+    }
+    void pushInput(CommonFrame& frame, const std::optional<ArmorNumber>& target_number) {
+        frame.id = current_id_++;
+        processCallback(frame, target_number);
+    }
+
+    OrtProvider provider_ = OrtProvider::CPU;
+    std::vector<int> strides_;
+    std::vector<GridAndStride> grid_strides_;
+    DetectorCallback infer_callback_;
+    std::unique_ptr<ArmorDetectorCommon> armor_detect_common_;
+    std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;
+    int current_id_ = 0;
+    std::unique_ptr<ml_net::OnnxRuntimeNet> onnxruntime_net_;
+};
+ArmorDetectorOnnxRuntime::ArmorDetectorOnnxRuntime(
+    const YAML::Node& config,
+    bool use_armor_detect_common
 ) {
-    frame.id = current_id_++;
-    processCallback(frame, target_number);
+    _impl = std::make_unique<Impl>(config, use_armor_detect_common);
 }
+ArmorDetectorOnnxRuntime::~ArmorDetectorOnnxRuntime() {
+    _impl.reset();
+}
+void ArmorDetectorOnnxRuntime::setCallback(DetectorCallback callback) {
+    _impl->setCallback(callback);
+}
+void ArmorDetectorOnnxRuntime::pushInput(
+    CommonFrame& frame,
+    const std::optional<ArmorNumber>& target_number
+) {
+    _impl->pushInput(frame, target_number);
+}
+} // namespace auto_aim

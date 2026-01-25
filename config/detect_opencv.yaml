@@ -1,6 +1,4 @@
-armor_detect_opencv:
-  target_height: 416
-  target_width: 416
+armor_detector:
   light:
     binary_thres: 70
     max_angle: 40

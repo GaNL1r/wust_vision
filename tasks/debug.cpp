@@ -38,23 +38,23 @@ void drawDebugArmorContent(
             cv::line(debug_img, pts[j], pts[next_indices[j]], color, 2);
         }
 
-        auto armorName = [](armor::ArmorNumber num) {
+        auto armorName = [](auto_aim::ArmorNumber num) {
             switch (num) {
-                case armor::ArmorNumber::SENTRY:
+                case auto_aim::ArmorNumber::SENTRY:
                     return "SENTRY";
-                case armor::ArmorNumber::BASE:
+                case auto_aim::ArmorNumber::BASE:
                     return "BASE";
-                case armor::ArmorNumber::OUTPOST:
+                case auto_aim::ArmorNumber::OUTPOST:
                     return "OUTPOST";
-                case armor::ArmorNumber::NO1:
+                case auto_aim::ArmorNumber::NO1:
                     return "NO1";
-                case armor::ArmorNumber::NO2:
+                case auto_aim::ArmorNumber::NO2:
                     return "NO2";
-                case armor::ArmorNumber::NO3:
+                case auto_aim::ArmorNumber::NO3:
                     return "NO3";
-                case armor::ArmorNumber::NO4:
+                case auto_aim::ArmorNumber::NO4:
                     return "NO4";
-                case armor::ArmorNumber::NO5:
+                case auto_aim::ArmorNumber::NO5:
                     return "NO5";
                 default:
                     return "UNKNOWN";
@@ -87,8 +87,8 @@ void drawDebugArmorContent(
     // =================== 目标绘制 ===================
     std::vector<cv::Point2f> all_corners;
 
-    auto visualizeTargetProjection = [&](Target armor_target) -> armor::Armors {
-        armor::Armors armor_data;
+    auto visualizeTargetProjection = [&](auto_aim::Target armor_target) -> auto_aim::Armors {
+        auto_aim::Armors armor_data;
         armor_data.timestamp = armor_target.timestamp_;
         double debug_dt = 0.01;
 
@@ -113,12 +113,13 @@ void drawDebugArmorContent(
                                                   armors_posandyaw[i][2] };
                     Eigen::Vector3d euler;
                     euler.z() = M_PI / 2.0;
-                    euler.y() = (armor_target.tracked_id_ == armor::ArmorNumber::OUTPOST) ? -0.2618
-                                                                                          : 0.2618;
+                    euler.y() = (armor_target.tracked_id_ == auto_aim::ArmorNumber::OUTPOST)
+                        ? -0.2618
+                        : 0.2618;
                     euler.x() = armors_posandyaw[i][3];
                     const Eigen::Quaterniond ori =
                         utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
-                    armor_data.armors.emplace_back(armor::Armor {
+                    armor_data.armors.emplace_back(auto_aim::Armor {
                         .type = armor_target.type_,
                         .pos = pos,
                         .ori = ori,
@@ -131,7 +132,7 @@ void drawDebugArmorContent(
         return armor_data;
     };
     auto armor_data = visualizeTargetProjection(dbg.target);
-    armor::transformArmorData(armor_data, dbg.T_camera_to_odom.inverse());
+    transformArmorData(armor_data, dbg.T_camera_to_odom.inverse());
     for (size_t i = 0; i < armor_data.armors.size(); ++i) {
         const auto& pts = armor_data.armors[i].toPtsDebug(camera_info.first, camera_info.second);
         const auto& pos = armor_data.armors[i].pos;
@@ -452,7 +453,7 @@ void drawDebugRuneContent(
     double predict_angle = dbg.predict_angle;
     const auto& debug_text = dbg.debug_text;
     auto aim_target = dbg.aim_target;
-    auto rune = dbg.power_rune;
+    auto auto_buff = dbg.power_rune;
     const cv::Rect img_rect(0, 0, debug_img.cols, debug_img.rows);
     const cv::Rect roi = dbg.expanded & img_rect;
     cv::rectangle(debug_img, roi, cv::Scalar(255, 255, 255), 2);
@@ -550,8 +551,8 @@ void drawDebugRuneContent(
         cv::Scalar(255, 255, 0),
         2
     );
-    rune.tf(dbg.T_camera_to_odom.inverse());
-    rune.draw(debug_img, camera_info.first, camera_info.second);
+    auto_buff.tf(dbg.T_camera_to_odom.inverse());
+    auto_buff.draw(debug_img, camera_info.first, camera_info.second);
     cv::circle(
         debug_img,
         cv::Point2i(debug_img.cols / 2, debug_img.rows / 2),
@@ -818,7 +819,10 @@ void drawDebugOverlayShow(
     cv::waitKey(1);
 }
 
-void writeTargetLogToJson(const Target& armor_target, const rune::RuneTarget& rune_target) {
+void writeTargetLogToJson(
+    const auto_aim::Target& armor_target,
+    const auto_buff::RuneTarget& rune_target
+) {
     nlohmann::json j;
 
     // -------- armor_target 部分 --------
@@ -925,7 +929,7 @@ void debuglog(
     static std::chrono::steady_clock::time_point start_time;
 
     // last_* 静态化
-    static armor::Armor last_armor_;
+    static auto_aim::Armor last_armor_;
     static double last_armor_yaw_ = 0.0;
     static double last_ypd_y_ = 0.0;
     static double last_ypd_p_ = 0.0;
@@ -939,10 +943,10 @@ void debuglog(
     }
 
     const auto now = std::chrono::steady_clock::now();
-    const armor::Armors& armors = dbg_armor.armors;
+    const auto_aim::Armors& armors = dbg_armor.armors;
     const double t = std::chrono::duration<double>(now - start_time).count();
-    const Target& target = dbg_armor.target;
-    const rune::RuneTarget& rune_target = dbg_rune.target;
+    const auto_aim::Target& target = dbg_armor.target;
+    const auto_buff::RuneTarget& rune_target = dbg_rune.target;
     writeTargetLogToJson(target, rune_target);
 
     double armor_yaw = 0.0, ypd_y = 0.0, ypd_p = 0.0, armor_distance = 0.0;
@@ -951,17 +955,17 @@ void debuglog(
     }
 
     if (!armors.armors.empty()) {
-        std::vector<armor::Armor> ok_armors;
+        std::vector<auto_aim::Armor> ok_armors;
         for (const auto& armor: armors.armors) {
-            if (armor.number != armor::ArmorNumber::OUTPOST)
+            if (armor.number != auto_aim::ArmorNumber::OUTPOST)
                 ok_armors.push_back(armor);
         }
 
         if (!ok_armors.empty()) {
-            const armor::Armor& min_armor = *std::min_element(
+            const auto_aim::Armor& min_armor = *std::min_element(
                 ok_armors.begin(),
                 ok_armors.end(),
-                [](const armor::Armor& a, const armor::Armor& b) {
+                [](const auto_aim::Armor& a, const auto_aim::Armor& b) {
                     return a.distance_to_image_center < b.distance_to_image_center;
                 }
             );

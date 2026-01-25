@@ -7,22 +7,22 @@
 #include "tasks/packet_typedef.hpp"
 struct DebugArmor {
     imgframe src_img;
-    armor::Armors armors;
-    Target target;
+    auto_aim::Armors armors;
+    auto_aim::Target target;
     GimbalCmd gimbal_cmd;
-    AutoAimFsm fsm;
+    auto_aim::AutoAimFsm fsm;
     AimTarget aim_target;
     double latency_ms;
     Eigen::Matrix4d T_camera_to_odom;
-    std::vector<armor::ArmorObject> armor_objs;
+    std::vector<auto_aim::ArmorObject> armor_objs;
     int detect_color = 0;
     cv::Rect expanded;
 };
 struct DebugRune {
     imgframe src_img;
-    rune::RuneTarget target;
+    auto_buff::RuneTarget target;
     AimTarget aim_target;
-    rune::PowerRune power_rune;
+    auto_buff::PowerRune power_rune;
     double predict_angle;
     GimbalCmd gimbal_cmd;
     Eigen::Matrix4d T_camera_to_odom;

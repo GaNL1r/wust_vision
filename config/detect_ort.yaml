@@ -1,4 +1,4 @@
-armor_detect:
+armor_detector:
   armor:
     max_angle: 30
     max_large_center_distance: 8

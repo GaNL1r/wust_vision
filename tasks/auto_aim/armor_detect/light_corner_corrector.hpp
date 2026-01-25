@@ -18,13 +18,7 @@
 
 // opencv
 #include "tasks/auto_aim/type.hpp"
-#include <opencv2/opencv.hpp>
-
-struct SymmetryAxis {
-    cv::Point2f centroid;
-    cv::Point2f direction;
-    float mean_val; // Mean brightness
-};
+namespace auto_aim {
 
 // This class is used to improve the precision of the corner points of the light
 // bar. First, the PCA algorithm is used to find the symmetry axis of the light
@@ -32,21 +26,10 @@ struct SymmetryAxis {
 // bar based on the gradient of brightness.
 class LightCornerCorrector {
 public:
-    explicit LightCornerCorrector() noexcept {}
-
-    // Correct the corners of the armor's lights
-    void correctCorners(armor::ArmorObject& armor, const cv::Mat& gray_img) const noexcept;
-
-private:
-    // Find the symmetry axis of the light
-    SymmetryAxis
-    findSymmetryAxis(const cv::Mat& gray_img, const armor::Light& light) const noexcept;
-
-    // Find the corner of the light
-    cv::Point2f findCorner(
-        const cv::Mat& gray_img,
-        const armor::Light& light,
-        const SymmetryAxis& axis,
-        bool is_top
-    ) const noexcept;
+    explicit LightCornerCorrector() noexcept;
+    ~LightCornerCorrector();
+    void correctCorners(ArmorObject& armor, const cv::Mat& gray_img) const noexcept;
+    struct Impl;
+    std::unique_ptr<Impl> _impl;
 };
+} // namespace auto_aim

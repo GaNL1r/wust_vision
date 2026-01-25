@@ -136,7 +136,7 @@ VeryAimerTrajMpc::Ptr VeryAimerMpc::buildVerAimerTraj(
 
         Eigen::Vector3d euler;
         euler.x() = M_PI / 2.0;
-        euler.y() = (target.tracked_id_ == armor::ArmorNumber::OUTPOST) ? -0.2618 : 0.2618;
+        euler.y() = (target.tracked_id_ == ArmorNumber::OUTPOST) ? -0.2618 : 0.2618;
         euler.z() = target.yaw();
 
         at.ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);

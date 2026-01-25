@@ -4,48 +4,6 @@ namespace auto_guidance {
 GreenLightInfer::GreenLightInfer(const Params& params) {
     params_ = params;
 }
-cv::Mat GreenLightInfer::letterbox(
-    const cv::Mat& img,
-    Eigen::Matrix3f& transform_matrix,
-    const int new_shape_w,
-    const int new_shape_h
-) {
-    int img_h = img.rows;
-    int img_w = img.cols;
-
-    // new_shape expected as {new_w, new_h}
-    float scale = std::min(new_shape_h * 1.0f / img_h, new_shape_w * 1.0f / img_w);
-    int resize_h = static_cast<int>(round(img_h * scale));
-    int resize_w = static_cast<int>(round(img_w * scale));
-
-    int pad_h = new_shape_h - resize_h;
-    int pad_w = new_shape_w - resize_w;
-
-    cv::Mat resized_img;
-    cv::resize(img, resized_img, cv::Size(resize_w, resize_h));
-
-    float half_h = pad_h * 1.0f / 2;
-    float half_w = pad_w * 1.0f / 2;
-
-    int top = static_cast<int>(round(half_h - 0.1f));
-    int bottom = static_cast<int>(round(half_h + 0.1f));
-    int left = static_cast<int>(round(half_w - 0.1f));
-    int right = static_cast<int>(round(half_w + 0.1f));
-
-    transform_matrix << 1.0f / scale, 0, -half_w / scale, 0, 1.0f / scale, -half_h / scale, 0, 0, 1;
-
-    cv::copyMakeBorder(
-        resized_img,
-        resized_img,
-        top,
-        bottom,
-        left,
-        right,
-        cv::BORDER_CONSTANT,
-        cv::Scalar(114, 114, 114)
-    );
-    return resized_img;
-}
 std::vector<GreenLight> GreenLightInfer::postProcess(
     const cv::Mat& output_buffer,
     const Eigen::Matrix<float, 3, 3>& transform_matrix

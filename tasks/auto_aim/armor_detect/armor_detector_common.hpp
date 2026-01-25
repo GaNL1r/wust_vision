@@ -1,4 +1,3 @@
-// Copyright Chen Jun 2023. Licensed under the MIT License.
 // Copyright 2025 Xiaojian Wu
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,21 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #pragma once
-#include "base.hpp"
+
 #include "tasks/auto_aim/type.hpp"
 namespace auto_aim {
-class NumberClassifier: public NumberClassifierBase {
+class ArmorDetectorCommon {
 public:
-    NumberClassifier(
-        const std::string& classify_model_path,
-        const std::string& classify_label_path
+    using Ptr = std::unique_ptr<ArmorDetectorCommon>;
+    ArmorDetectorCommon(const YAML::Node& config);
+    static Ptr create(const YAML::Node& config) {
+        return std::make_unique<ArmorDetectorCommon>(config);
+    }
+    ~ArmorDetectorCommon();
+
+    std::vector<ArmorObject> detectNet(
+        const cv::Mat& src_img,
+        std::vector<ArmorObject>& objs_result,
+        Eigen::Matrix3f transform_matrix,
+        int detect_color,
+        const std::optional<ArmorNumber>& target_number = std::nullopt
     );
-    void initNumberClassifier() override;
-    bool classifyNumber(ArmorObject& armor) override;
 
 private:
-    std::vector<std::string> class_names_;
-    std::string classify_model_path_;
-    std::string classify_label_path_;
+    struct Impl;
+    std::unique_ptr<Impl> _impl;
 };
 } // namespace auto_aim

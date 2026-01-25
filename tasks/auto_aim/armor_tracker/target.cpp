@@ -1,14 +1,15 @@
 #include "target.hpp"
+namespace auto_aim {
 Target::Target() {
     target_state_ = Eigen::VectorXd::Zero(MModel::X_N);
 }
-Target::Target(const armor::Armor& a, const TargetConfig& target_config) {
+Target::Target(const Armor& a, const TargetConfig& target_config) {
     Eigen::DiagonalMatrix<double, ypdv2armor_motion_model::X_N> p0;
-    if (a.number == armor::ArmorNumber::OUTPOST) {
+    if (a.number == ArmorNumber::OUTPOST) {
         p0.diagonal() << 1, 64, 1, 64, 1, 81, 0.4, 100, 1e-4, 0.1, 0.1;
         armor_num_ = 3;
         radius_pre_ = 0.2765;
-    } else if (a.number == armor::ArmorNumber::BASE) {
+    } else if (a.number == ArmorNumber::BASE) {
         p0.diagonal() << 1, 64, 1, 64, 1, 64, 0.4, 100, 1e-4, 0, 0;
         armor_num_ = 3;
         radius_pre_ = 0.3205;
@@ -115,7 +116,7 @@ Eigen::Matrix<double, MModel::X_N, MModel::X_N> Target::computeProcessNoise(doub
     Eigen::Vector3d q_xyz;
     double q_yaw;
     double q_l, q_h;
-    if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
+    if (tracked_id_ == ArmorNumber::OUTPOST) {
         q_xyz = target_config_.qxyz_output; // 前哨站加速度方差
         q_yaw = target_config_.qyaw_output; // 前哨站角加速度方差
         q_l = target_config_.q_outpost_dz;
@@ -155,7 +156,7 @@ Eigen::Matrix<double, MModel::X_N, MModel::X_N> Target::computeProcessNoise(doub
 }
 MModel::Predict Target::getPredictFunc(double dt, Eigen::Vector3d self_v) const noexcept {
     MModel::Predict predict_func;
-    if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
+    if (tracked_id_ == ArmorNumber::OUTPOST) {
         predict_func = MModel::Predict { dt,
                                          MModel::MotionModel::CONSTANT_ROTATION,
                                          self_v.x(),
@@ -196,7 +197,7 @@ void Target::predict(double dt, Eigen::Vector3d self_v) noexcept {
     if (position().norm() < 0.5) {
         is_tracking = false;
     }
-    if (tracked_id_ == armor::ArmorNumber::OUTPOST) {
+    if (tracked_id_ == ArmorNumber::OUTPOST) {
         if (target_state_[(int)MModel::State::R] < 0.25) {
             target_state_[(int)MModel::State::R] = 0.25;
         }
@@ -205,8 +206,8 @@ void Target::predict(double dt, Eigen::Vector3d self_v) noexcept {
         }
         if (std::abs(target_state_[(int)MModel::State::VYAW]) > 1.5) {
             constexpr double outpost_v_yaw_err = 0.2;
-            const double lower = std::max(0.0, armor::outpost_v_yaw - outpost_v_yaw_err);
-            const double upper = armor::outpost_v_yaw + outpost_v_yaw_err;
+            const double lower = std::max(0.0, outpost_v_yaw - outpost_v_yaw_err);
+            const double upper = outpost_v_yaw + outpost_v_yaw_err;
 
             const const double sign = std::copysign(
                 1.0,
@@ -235,7 +236,7 @@ void Target::predictSimple(double dt, Eigen::Vector3d self_v) noexcept {
 
     predict_func.f(target_state_, target_state_);
 }
-bool Target::update(const std::pair<int, armor::Armor>& a) noexcept {
+bool Target::update(const std::pair<int, Armor>& a) noexcept {
     const auto armor = a.second;
     const auto id = a.first;
     const auto yu_rv2 = [this](const Eigen::Matrix<double, MModel::Z_N, 1>& z) {
@@ -354,9 +355,8 @@ cv::Rect Target::expanded(
     return square;
 }
 
-std::vector<std::pair<int, armor::Armor>> Target::match(const std::vector<armor::Armor>& armors
-) noexcept {
-    std::vector<std::pair<int, armor::Armor>> result;
+std::vector<std::pair<int, Armor>> Target::match(const std::vector<Armor>& armors) noexcept {
+    std::vector<std::pair<int, Armor>> result;
     const int n_obs = static_cast<int>(armors.size());
     const int armors_num = armor_num_;
     const double GATE = target_config_.match_gate;
@@ -421,3 +421,4 @@ std::vector<std::pair<int, armor::Armor>> Target::match(const std::vector<armor:
     }
     return result;
 }
+} // namespace auto_aim

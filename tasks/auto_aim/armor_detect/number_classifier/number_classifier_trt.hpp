@@ -16,6 +16,7 @@
 #include "base.hpp"
 #include "tasks/auto_aim/type.hpp"
 #include "wust_vl/ml_net/tensorrt/tensorrt_net.hpp"
+namespace auto_aim {
 class NumberClassifierTRT: public NumberClassifierBase {
 public:
     NumberClassifierTRT(
@@ -23,7 +24,7 @@ public:
         const std::string& classify_label_path
     );
     void initNumberClassifier() override;
-    bool classifyNumber(armor::ArmorObject& armor) override;
+    bool classifyNumber(ArmorObject& armor) override;
 
 private:
     std::vector<std::string> class_names_;
@@ -33,3 +34,4 @@ private:
     nvinfer1::Dims input_dims_;
     nvinfer1::Dims output_dims_;
 };
+} // namespace auto_aim

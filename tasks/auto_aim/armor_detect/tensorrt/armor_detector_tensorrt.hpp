@@ -15,62 +15,23 @@
 
 #pragma once
 
-#include "cuda_infer/armor_infer.hpp"
-#include "tasks/auto_aim/armor_detect/armor_detect_common.hpp"
-#include "tasks/auto_aim/armor_detect/armor_infer.hpp"
-#include "wust_vl/common/concurrency/adaptive_resource_pool.hpp"
-#include "wust_vl/ml_net/tensorrt/tensorrt_net.hpp"
-class ArmorDetectTrt {
+#include "tasks/auto_aim/armor_detect/armor_detector_base.hpp"
+namespace auto_aim {
+class ArmorDetectorTrt: public ArmorDetectorBase {
 public:
-    using DetectorCallback =
-        std::function<void(const std::vector<armor::ArmorObject>&, const CommonFrame&)>;
-    struct Params {
-        float conf_threshold = 0.3; // 置信度阈值
-        float nms_threshold = 0.5; // NMS阈值
-        int top_k = 128; // 最大检测框数
-        int device_id = 0;
-        int max_infer_running;
-        double min_free_mem_ratio;
-        bool use_cuda_pre = false;
-        bool log_time = false;
-    };
-    struct Infer {
-        std::unique_ptr<nvinfer1::IExecutionContext> context;
-        std::unique_ptr<armor_cuda_infer::CudaInfer> cuda_infer;
-    };
+    using Ptr = std::unique_ptr<ArmorDetectorTrt>;
 
-    // 构造函数：加载 ONNX 模型并构建 TensorRT 引擎
-    explicit ArmorDetectTrt(
-        std::string model_type,
-        const std::string& onnx_path,
-        const Params& params,
-        const ArmorDetectCommonParams& common_params,
-        bool use_armor_detect_common = true
-    );
+    explicit ArmorDetectorTrt(const YAML::Node& config, bool use_armor_detect_common);
+    static Ptr create(const YAML::Node& config, bool use_armor_detect_common) {
+        return std::make_unique<ArmorDetectorTrt>(config, use_armor_detect_common);
+    }
+    ~ArmorDetectorTrt();
+    void pushInput(CommonFrame& frame, const std::optional<ArmorNumber>& target_number) override;
 
-    ~ArmorDetectTrt();
-
-    void pushInput(CommonFrame& frame, const std::optional<armor::ArmorNumber>& target_number);
-
-    bool processCallback(
-        const CommonFrame& frame,
-        Infer* infer,
-        const std::optional<armor::ArmorNumber>& target_number
-    ) const;
-    void setCallback(DetectorCallback callback);
+    void setCallback(DetectorCallback callback) override;
 
 private:
-    // 成员变量
-    Params params_;
-    nvinfer1::Dims input_dims_;
-    nvinfer1::Dims output_dims_;
-    std::vector<int> strides_;
-    std::vector<GridAndStride> grid_strides_;
-    DetectorCallback infer_callback_;
-    std::unique_ptr<ArmorDetectCommon> armor_detect_common_;
-    bool use_armor_detect_common_ = true;
-    std::unique_ptr<AdaptiveResourcePool<Infer>> infer_pool_;
-    std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;
-    int current_id_ = 0;
-    std::unique_ptr<ml_net::TensorRTNet> trt_net_;
+    struct Impl;
+    std::unique_ptr<Impl> _impl;
 };
+} // namespace auto_aim

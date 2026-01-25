@@ -1,9 +1,10 @@
 #pragma once
 #include "tasks/auto_aim/type.hpp"
-
+namespace auto_aim {
 class NumberClassifierBase {
 public:
     virtual ~NumberClassifierBase() = default;
-    virtual bool classifyNumber(armor::ArmorObject& armor) = 0;
+    virtual bool classifyNumber(ArmorObject& armor) = 0;
     virtual void initNumberClassifier() = 0;
 };
+} // namespace auto_aim

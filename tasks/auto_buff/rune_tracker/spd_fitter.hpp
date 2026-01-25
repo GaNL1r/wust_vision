@@ -9,7 +9,7 @@
 #include <mutex>
 #include <thread>
 #include <vector>
-
+namespace auto_buff {
 class SinSpeedFitter {
 public:
     struct P {
@@ -45,17 +45,14 @@ public:
         return *this;
     }
 
-    // --- 数据输入（线程安全） ---
     void update(double time_s, double speed_rads) {
         std::scoped_lock lock(mtx_);
 
-        // 插入新样本（按时间排序）
         auto it = std::lower_bound(times_.begin(), times_.end(), time_s);
         size_t idx = std::distance(times_.begin(), it);
         times_.insert(it, time_s);
         speeds_.insert(speeds_.begin() + idx, speed_rads);
 
-        // --- 新增: 保留最近5秒 ---
         const double window_sec = 5.0;
         if (!times_.empty()) {
             double latest = times_.back();
@@ -66,13 +63,10 @@ public:
         }
     }
 
-    // --- 同步拟合 ---
     void fit(bool verbose = false) {
         std::scoped_lock lock(mtx_);
         fitImpl(verbose);
     }
-
-    // --- 异步拟合 ---
     void fitAsync(bool verbose = false) {
         if (fitting_.exchange(true)) {
             if (verbose)
@@ -95,7 +89,6 @@ public:
         }).detach();
     }
 
-    // --- 预测 ---
     double predictSpeed(double t) const {
         std::scoped_lock lock(mtx_);
         double a = params_.a;
@@ -152,7 +145,6 @@ private:
         int sign_;
     };
 
-    // --- 核心拟合逻辑，增加凸起/异常值剔除 ---
     bool fitImpl(
         bool verbose,
         const std::vector<double>* t_ptr = nullptr,
@@ -168,7 +160,6 @@ private:
             return false;
         }
 
-        // 去掉重复时间
         std::vector<std::pair<double, double>> tmp;
         tmp.reserve(t_in.size());
         for (size_t i = 0; i < t_in.size(); ++i)
@@ -265,3 +256,4 @@ private:
     const double w_min_ = 1.884;
     const double w_max_ = 2.000;
 };
+} // namespace auto_buff

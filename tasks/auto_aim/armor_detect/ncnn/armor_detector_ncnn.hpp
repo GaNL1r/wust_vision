@@ -13,56 +13,21 @@
 // limitations under the License.
 
 #pragma once
-#include "tasks/auto_aim/armor_detect/armor_detect_common.hpp"
-#include "tasks/auto_aim/armor_detect/armor_infer.hpp"
-#include "wust_vl/ml_net/ncnn/ncnn_net.hpp"
-class ArmorDetectNCNN {
+#include "tasks/auto_aim/armor_detect/armor_detector_base.hpp"
+namespace auto_aim {
+class ArmorDetectorNCNN: public ArmorDetectorBase {
 public:
-    using DetectorCallback =
-        std::function<void(const std::vector<armor::ArmorObject>&, const CommonFrame&)>;
-    explicit ArmorDetectNCNN(
-        std::string model_type,
-        std::string input_name_,
-        std::string output_name_,
-        const std::string& model_path_param_,
-        const std::string& model_path_bin_,
-        const ArmorDetectCommonParams& armor_detect_common_params,
-        float conf_threshold = 0.25,
-        int top_k = 128,
-        float nms_threshold = 0.3,
-        bool use_gpu = false,
-        int cpu_threads = 1,
-        bool use_lightmode = true,
-        bool use_armor_detect_common = true,
-        int device_id = 0
-    );
-    ~ArmorDetectNCNN();
-    void init(int device_id);
-    bool processCallback(
-        const CommonFrame& frame,
-        const std::optional<armor::ArmorNumber>& target_number
-    );
-
-    void setCallback(DetectorCallback callback);
-    void pushInput(CommonFrame& frame, const std::optional<armor::ArmorNumber>& target_number);
+    using Ptr = std::unique_ptr<ArmorDetectorNCNN>;
+    explicit ArmorDetectorNCNN(const YAML::Node& config, bool use_armor_detect_common);
+    static Ptr create(const YAML::Node& config, bool use_armor_detect_common) {
+        return std::make_unique<ArmorDetectorNCNN>(config, use_armor_detect_common);
+    }
+    ~ArmorDetectorNCNN();
+    void setCallback(DetectorCallback callback) override;
+    void pushInput(CommonFrame& frame, const std::optional<ArmorNumber>& target_number) override;
 
 private:
-    std::string model_path_param_;
-    std::string model_path_bin_;
-    DetectorCallback infer_callback_;
-    std::vector<int> strides_;
-    std::vector<GridAndStride> grid_strides_;
-    std::string input_name_;
-    std::string output_name_;
-    float conf_threshold_;
-    int top_k_;
-    float nms_threshold_;
-    bool use_gpu_;
-    int cpu_threads_;
-    bool use_lightmode_ = true;
-    std::unique_ptr<ArmorDetectCommon> armor_detect_common_;
-    bool use_armor_detect_common_ = true;
-    std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;
-    int current_id_ = 0;
-    std::unique_ptr<ml_net::NCNNNet> ncnn_net_;
+    struct Impl;
+    std::unique_ptr<Impl> _impl;
 };
+} // namespace auto_aim

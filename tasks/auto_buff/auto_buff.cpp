@@ -31,8 +31,7 @@ struct AutoBuff::Impl {
         t_camera2gimbal_ = t_camera2gimbal;
         camera_info_ = camera_info;
         if (config["rune_optimize"]["enable"].as<bool>()) {
-            ba_solver_ =
-                std::make_unique<rune::BaSolver>(config["rune_optimize"], camera_info.first);
+            ba_solver_ = auto_buff::BaSolver::create(config["rune_optimize"], camera_info.first);
         }
 
         rune_detector_ = RuneDetectorCV::make_detector(config["rune_detector"]);
@@ -43,11 +42,11 @@ struct AutoBuff::Impl {
             std::placeholders::_2,
             std::placeholders::_3
         ));
-        rune_queue_ = std::make_unique<OrderedQueue<rune::RuneFan>>(50, 500);
-        rune::RuneTargetConfig rune_target_config;
+        rune_queue_ = std::make_unique<OrderedQueue<auto_buff::RuneFan>>(50, 500);
+        auto_buff::RuneTargetConfig rune_target_config;
         rune_target_config.loadFromYaml(config["rune_tracker"]);
 
-        rune_tracker_ = std::make_unique<RuneTracker>(config["rune_tracker"]);
+        rune_tracker_ = RuneTracker::create(config["rune_tracker"]);
         std::string comp_type =
             config["trajectory_compensator"]["compenstator_type"].as<std::string>("ideal");
         double gravity_ = config["trajectory_compensator"]["gravity"].as<double>(10.0);
@@ -57,7 +56,7 @@ struct AutoBuff::Impl {
         trajectory_compensator->iteration_times_ = iteration_times_;
         trajectory_compensator->gravity_ = gravity_;
         trajectory_compensator->resistance_ = resistance_;
-        aimer_ = std::make_unique<rune::Aimer>(config["aimer"], trajectory_compensator);
+        aimer_ = auto_buff::Aimer::create(config["aimer"], trajectory_compensator);
         latency_averager_ = std::make_unique<Averager<double>>(100);
         auto_exposure_cfg_.loadFromYaml(config_["auto_exposure"]);
         return true;
@@ -87,8 +86,11 @@ struct AutoBuff::Impl {
         expanded_ = frame.expanded;
         rune_detector_->pushInput(frame, is_big, debug_mode_);
     }
-    void
-    runeDetectCallback(const rune::RuneFan& fan, const CommonFrame& frame, cv::Mat& debug_img) {
+    void runeDetectCallback(
+        const auto_buff::RuneFan& fan,
+        const CommonFrame& frame,
+        cv::Mat& debug_img
+    ) {
         std::lock_guard<std::mutex> lock(callback_mutex_);
         Eigen::Vector3d v = Eigen::Vector3d::Zero();
         Eigen::Matrix3d R_gimbal2odom = Eigen::Matrix3d::Identity();
@@ -113,7 +115,7 @@ struct AutoBuff::Impl {
         Eigen::Matrix4d T_camera_to_odom =
             utils::computeCameraToOdomTransform(R_gimbal2odom, R_camera2gimbal_, t_camera2gimbal_);
         T_camera_to_odom_ = T_camera_to_odom;
-        rune::RuneFan copy_fan = fan;
+        auto_buff::RuneFan copy_fan = fan;
         const Eigen::Matrix3d R_imu_cam = T_camera_to_odom.block<3, 3>(0, 0);
         double pnp_distance = 0.0;
         for (auto& fan: copy_fan.fans) {
@@ -161,9 +163,9 @@ struct AutoBuff::Impl {
         detect_finish_count_++;
     }
 
-    void runeTargetCallback(const rune::RuneFan& fan) {
+    void runeTargetCallback(const auto_buff::RuneFan& fan) {
         if (fan.timestamp <= last_rune_target_time_) {
-            WUST_WARN(logger_) << "Received out-of-order rune data, discarded.";
+            WUST_WARN(logger_) << "Received out-of-order auto_buff data, discarded.";
             return;
         }
         last_rune_target_time_ = fan.timestamp;
@@ -206,7 +208,7 @@ struct AutoBuff::Impl {
     }
     GimbalCmd solve() {
         GimbalCmd gimbal_cmd;
-        rune::RuneTarget rune_target;
+        auto_buff::RuneTarget rune_target;
 
         {
             std::lock_guard<std::mutex> lock(target_mutex_);
@@ -217,10 +219,8 @@ struct AutoBuff::Impl {
             fire_count_++;
         }
         if (rune_target.checkTargetAppear()) {
-            gimbal_cmd =
-                aimer_->aim(rune_target, shared_->bullet_speed, std::chrono::steady_clock::now());
+            gimbal_cmd = aimer_->aim(rune_target, shared_->bullet_speed);
         }
-        gimbal_cmd.appera = rune_target.checkTargetAppear();
         if (debug_mode_) {
             std::lock_guard<std::mutex> lock(dbg_mutex_);
             auto_buff_debug_.gimbal_cmd = gimbal_cmd;
@@ -239,20 +239,20 @@ struct AutoBuff::Impl {
                 break;
             self->heartbeat();
             printStats();
-            rune::RuneFan rune;
+            auto_buff::RuneFan auto_buff;
             bool skip;
-            // if (rune_queue_->dequeue_wait(rune, skip)) {
-            //     runeTargetCallback(rune);
+            // if (rune_queue_->dequeue_wait(auto_buff, skip)) {
+            //     runeTargetCallback(auto_buff);
             //     tracker_finish_count_++;
             //     if (skip) {
             //         WUST_DEBUG(logger_) << "OrderQueue skip";
             //     }
             // }
-            if (!rune_queue_->try_dequeue(rune)) {
+            if (!rune_queue_->try_dequeue(auto_buff)) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(3));
                 continue;
             }
-            runeTargetCallback(rune);
+            runeTargetCallback(auto_buff);
             tracker_finish_count_++;
         }
     }
@@ -318,15 +318,15 @@ struct AutoBuff::Impl {
     }
     std::mutex callback_mutex_;
     RuneDetectorCV::Ptr rune_detector_;
-    std::unique_ptr<RuneTracker> rune_tracker_;
-    std::unique_ptr<rune::Aimer> aimer_;
-    std::unique_ptr<rune::BaSolver> ba_solver_;
+    RuneTracker::Ptr rune_tracker_;
+    auto_buff::Aimer::Ptr aimer_;
+    auto_buff::BaSolver::Ptr ba_solver_;
     std::string logger_ = "auto_buff";
-    std::unique_ptr<OrderedQueue<rune::RuneFan>> rune_queue_;
+    std::unique_ptr<OrderedQueue<auto_buff::RuneFan>> rune_queue_;
     std::shared_ptr<wust_vl_concurrency::MonitoredThread> processing_thread_;
     AutoExposureCfg auto_exposure_cfg_;
     cv::Rect expanded_;
-    rune::RuneTarget rune_target_;
+    auto_buff::RuneTarget rune_target_;
     bool run_flag_ = false;
     int detect_finish_count_ = 0;
     int img_recv_count_ = 0;

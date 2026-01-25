@@ -3,7 +3,7 @@
 #include <cmath>
 #include <string>
 #include <yaml-cpp/yaml.h>
-
+namespace auto_aim {
 enum class AutoAimFsm {
     AIM_WHOLE_CAR_ARMOR,
     AIM_WHOLE_CAR_CENTER,
@@ -123,3 +123,4 @@ public:
         }
     }
 };
+} // namespace auto_aim

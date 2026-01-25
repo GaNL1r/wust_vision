@@ -16,12 +16,6 @@ public:
     static inline GreenLightInferPtr makeGreenLightInfer(const Params& params) {
         return std::make_unique<GreenLightInfer>(params);
     }
-    cv::Mat letterbox(
-        const cv::Mat& img,
-        Eigen::Matrix3f& transform_matrix,
-        const int new_shape_w,
-        const int new_shape_h
-    );
     std::vector<GreenLight>
     postProcess(const cv::Mat& output_buffer, const Eigen::Matrix<float, 3, 3>& transform_matrix);
     int getInputW() {

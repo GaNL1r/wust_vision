@@ -63,7 +63,7 @@ struct AutoGuidance::Impl {
     }
 
     void lightsCallback(const GreenLights& lights) {
-        if (lights.timestamp <= tracker_->last_time_) {
+        if (lights.timestamp <= tracker_->getLastTime()) {
             WUST_WARN(logger_) << "Received out-of-order armor data, discarded.";
             return;
         }
@@ -147,7 +147,7 @@ struct AutoGuidance::Impl {
     std::unique_ptr<detector_base> detector_;
     std::string logger_ = "auto_guidance";
     std::chrono::steady_clock::time_point last_stat_time_steady_ = std::chrono::steady_clock::now();
-    std::unique_ptr<GuidanceTracker> tracker_;
+    GuidanceTracker::Ptr tracker_;
     bool run_flag_ = false;
     int detect_finish_count_ = 0;
     int img_recv_count_ = 0;
