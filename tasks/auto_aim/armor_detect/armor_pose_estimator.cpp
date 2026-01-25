@@ -22,7 +22,7 @@ namespace auto_aim {
 struct ArmorPoseEstimator::Impl {
 public:
     Impl(const YAML::Node& config, std::pair<cv::Mat, cv::Mat> camera_info) {
-        pnp_solver_ = std::make_unique<PnPSolver>(cv::SOLVEPNP_IPPE);
+        pnp_solver_ = std::make_unique<wust_vl::algorithm::PnPSolver>(cv::SOLVEPNP_IPPE);
         pnp_solver_->setObjectPoints(
             "small",
             ArmorObject::buildObjectPoints<cv::Point3f>(SMALL_ARMOR_WIDTH, SMALL_ARMOR_HEIGHT)
@@ -192,7 +192,7 @@ public:
 
     Eigen::Matrix3d R_gimbal_camera_;
 
-    std::unique_ptr<PnPSolver> pnp_solver_;
+    std::unique_ptr<wust_vl::algorithm::PnPSolver> pnp_solver_;
 };
 ArmorPoseEstimator::ArmorPoseEstimator(
     const YAML::Node& config,

@@ -13,7 +13,7 @@ struct AutoGuidance::Impl {
         lights_queue_->stop();
         if (processing_thread_) {
             processing_thread_->stop();
-            wust_vl_concurrency::ThreadManager::instance().unregisterThread(
+            wust_vl::common::concurrency::ThreadManager::instance().unregisterThread(
                 processing_thread_->getName()
             );
         }
@@ -31,8 +31,8 @@ struct AutoGuidance::Impl {
             std::placeholders::_2
         ));
         tracker_ = GuidanceTracker::create(config["tracker"]);
-        lights_queue_ = std::make_unique<OrderedQueue<GreenLights>>(100, 500);
-        latency_averager_ = std::make_unique<Averager<double>>(100);
+        lights_queue_ = std::make_unique<wust_vl::common::concurrency::OrderedQueue<GreenLights>>(100, 500);
+        latency_averager_ = std::make_unique<wust_vl::common::concurrency::Averager<double>>(100);
     }
     void pushInput(CommonFrame& frame) {
         img_recv_count_++;
@@ -76,7 +76,7 @@ struct AutoGuidance::Impl {
         }
         auto now = std::chrono::steady_clock::now();
 
-        auto latency_ms = time_utils::durationMs(lights.timestamp, now);
+        auto latency_ms = wust_vl::common::utils::time_utils::durationMs(lights.timestamp, now);
         latency_averager_->add(latency_ms);
         dbg_.latency_ms = latency_averager_->average();
         if (debug_) {
@@ -85,17 +85,17 @@ struct AutoGuidance::Impl {
         }
     }
     void start() {
-        processing_thread_ = wust_vl_concurrency::MonitoredThread::create(
+        processing_thread_ = wust_vl::common::concurrency::MonitoredThread::create(
             "AutoAimProcessingThread",
-            [this](std::shared_ptr<wust_vl_concurrency::MonitoredThread> self) {
+            [this](wust_vl::common::concurrency::MonitoredThread::Ptr self) {
                 this->processingLoop(self);
             }
         );
 
-        wust_vl_concurrency::ThreadManager::instance().registerThread(processing_thread_);
+        wust_vl::common::concurrency::ThreadManager::instance().registerThread(processing_thread_);
         run_flag_ = true;
     }
-    void processingLoop(std::shared_ptr<wust_vl_concurrency::MonitoredThread> self) {
+    void processingLoop(wust_vl::common::concurrency::MonitoredThread::Ptr self) {
         while (!self->isAlive()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
@@ -156,9 +156,9 @@ struct AutoGuidance::Impl {
     bool debug_ = false;
     GuidanceTarget guidance_target_;
     GreenLights green_lights_;
-    std::shared_ptr<wust_vl_concurrency::MonitoredThread> processing_thread_;
-    std::unique_ptr<OrderedQueue<GreenLights>> lights_queue_;
-    std::unique_ptr<Averager<double>> latency_averager_;
+    std::shared_ptr<wust_vl::common::concurrency::MonitoredThread> processing_thread_;
+    std::unique_ptr<wust_vl::common::concurrency::OrderedQueue<GreenLights>> lights_queue_;
+    std::unique_ptr<wust_vl::common::concurrency::Averager<double>> latency_averager_;
     std::pair<cv::Mat, cv::Mat> camera_info_;
     AutoGuidanceDebug dbg_;
     std::mutex target_mutex_;

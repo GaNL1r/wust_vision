@@ -51,18 +51,18 @@ inline int runVisionMain(int argc, char** argv) {
             std::cout << "Starting program..." << std::endl;
             v.start();
 
-            SignalHandler sig;
+            wust_vl::common::utils::SignalHandler sig;
             sig.start([&] {});
 
             bool exit_flag = false;
 
             while (!sig.shouldExit() && !exit_flag) {
-                wust_vl_concurrency::ThreadManager::instance().printStatus();
+                wust_vl::common::concurrency::ThreadManager::instance().printStatus();
                 auto all_status =
-                    wust_vl_concurrency::ThreadManager::instance().getAllThreadStatuses();
+                    wust_vl::common::concurrency::ThreadManager::instance().getAllThreadStatuses();
                 v.checkStateMatchMode();
                 for (auto& status: all_status) {
-                    if (status.second == wust_vl_concurrency::MonitoredThread::Status::Hung) {
+                    if (status.second == wust_vl::common::concurrency::MonitoredThread::Status::Hung) {
                         std::cerr << status.first << " is Hunging! Exiting program..." << std::endl;
                         exit_code = -1;
                         std::exit(exit_code);

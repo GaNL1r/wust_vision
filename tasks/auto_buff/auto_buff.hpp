@@ -5,12 +5,12 @@
 
 namespace auto_buff {
 struct AutoBuffShared {
-    std::shared_ptr<MotionBufferGeneric<Motion, 1024>> motion_buffer;
+    std::shared_ptr<wust_vl::common::utils::MotionBufferGeneric<Motion, 1024>> motion_buffer;
     double bullet_speed;
     bool is_rune_big;
     double communication_delay_μs;
     AutoBuffShared(
-        std::shared_ptr<MotionBufferGeneric<Motion, 1024>> mb,
+        std::shared_ptr<wust_vl::common::utils::MotionBufferGeneric<Motion, 1024>> mb,
         double bullet_speed,
         double communication_delay_μs
     ) {
@@ -40,7 +40,7 @@ public:
     bool isActive();
     void processingWait();
     void processingUp();
-    void autoExposureControl(const cv::Mat& frame, std::shared_ptr<wust_vl_video::Camera> camera);
+    void autoExposureControl(const cv::Mat& frame, std::shared_ptr<wust_vl::video::Camera> camera);
     struct Impl;
     std::unique_ptr<Impl> _impl;
 };

@@ -28,7 +28,7 @@ public:
         auto input_name = config["ncnn"]["input_name"].as<std::string>();
         auto output_name = config["ncnn"]["output_name"].as<std::string>();
         int device_id = config["ncnn"]["device_id"].as<int>();
-        ml_net::NCNNNet::Params params;
+        wust_vl::ml_net::NCNNNet::Params params;
         params.model_path_param = model_path_param;
         params.model_path_bin = model_path_bin;
         params.input_name = input_name;
@@ -37,7 +37,7 @@ public:
         params.device_id = device_id;
         params.use_light_mode = use_lightmode;
         params.cpu_threads = cpu_threads;
-        ncnn_net_ = std::make_unique<ml_net::NCNNNet>();
+        ncnn_net_ = std::make_unique<wust_vl::ml_net::NCNNNet>();
         ncnn_net_->init(params);
 
         strides_ = { 8, 16, 32 };
@@ -208,7 +208,7 @@ private:
     std::unique_ptr<ArmorDetectorCommon> armor_detect_common_;
     std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;
     int current_id_ = 0;
-    std::unique_ptr<ml_net::NCNNNet> ncnn_net_;
+    std::unique_ptr<wust_vl::ml_net::NCNNNet> ncnn_net_;
 };
 ArmorDetectorNCNN::ArmorDetectorNCNN(const YAML::Node& config, bool use_armor_detect_common) {
     _impl = std::make_unique<Impl>(config, use_armor_detect_common);

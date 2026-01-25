@@ -8,12 +8,12 @@ void VeryAimerBase::reset() {
     yaw_limit = yaw_limit_deg / 180.0 * M_PI;
     min_enable_pitch_deg_ = config_["min_enable_pitch_deg"].as<double>(0.0);
     min_enable_yaw_deg_ = config_["min_enable_yaw_deg"].as<double>(0.0);
-    manual_compensator_ = std::make_unique<ManualCompensator>();
-    std::vector<OffsetEntry> entries;
+    manual_compensator_ = std::make_unique<wust_vl::common::utils::ManualCompensator>();
+    std::vector<wust_vl::common::utils::OffsetEntry> entries;
 
     if (config_["trajectory_offset"]) {
         for (const auto& node: config_["trajectory_offset"]) {
-            OffsetEntry e;
+            wust_vl::common::utils::OffsetEntry e;
             e.d_min = node["d_min"].as<double>();
             e.d_max = node["d_max"].as<double>();
             e.h_min = node["h_min"].as<double>();

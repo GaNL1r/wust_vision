@@ -3,7 +3,7 @@
 #include "opencv2/opencv.hpp"
 #include "wust_vl/common/utils/recorder.hpp"
 #include "wust_vl/common/utils/timer.hpp"
-class ImgWriter: public wust_vl::Writer<cv::Mat> {
+class ImgWriter: public wust_vl::common::utils::Writer<cv::Mat> {
 public:
     explicit ImgWriter(
         const std::filesystem::path& video_path,
@@ -65,7 +65,7 @@ private:
     bool initialized_ = false;
 };
 
-class RotateWriterCSV: public wust_vl::Writer<Eigen::Vector3d> {
+class RotateWriterCSV: public wust_vl::common::utils::Writer<Eigen::Vector3d> {
 public:
     using RotateWriterCSVPtr = std::shared_ptr<RotateWriterCSV>;
     inline RotateWriterCSVPtr makeShared(bool write_header = true) {
@@ -74,7 +74,7 @@ public:
     explicit RotateWriterCSV(bool write_header = true): first_write_(write_header) {}
 
     void write(std::ostream& os, const Eigen::Vector3d& data) override {
-        double now = time_utils::sinceProgramStartSec();
+        double now = wust_vl::common::utils::time_utils::sinceProgramStartSec();
         if (first_write_) {
             os << "time,yaw,pitch,roll\n";
             first_write_ = false;

@@ -3,19 +3,19 @@
 namespace auto_buff {
 struct Aimer::Impl {
 public:
-    Impl(const YAML::Node& config, std::shared_ptr<TrajectoryCompensator> trajectory_compensator) {
+    Impl(const YAML::Node& config, std::shared_ptr<wust_vl::common::utils::TrajectoryCompensator> trajectory_compensator) {
         trajectory_compensator_ = trajectory_compensator;
         prediction_delay_ = config["prediction_delay"].as<double>();
         shooting_range_w_ = config["shooting_range_w"].as<double>(0.12);
         shooting_range_h_ = config["shooting_range_h"].as<double>(0.12);
         min_enable_pitch_deg_ = config["min_enable_pitch_deg"].as<double>(0.0);
         min_enable_yaw_deg_ = config["min_enable_yaw_deg"].as<double>(0.0);
-        manual_compensator_ = std::make_unique<ManualCompensator>();
-        std::vector<OffsetEntry> entries;
+        manual_compensator_ = std::make_unique<wust_vl::common::utils::ManualCompensator>();
+        std::vector<wust_vl::common::utils::OffsetEntry> entries;
 
         if (config["trajectory_offset"]) {
             for (const auto& node: config["trajectory_offset"]) {
-                OffsetEntry e;
+                wust_vl::common::utils::OffsetEntry e;
                 e.d_min = node["d_min"].as<double>();
                 e.d_max = node["d_max"].as<double>();
                 e.h_min = node["h_min"].as<double>();
@@ -76,8 +76,8 @@ public:
     GimbalCmd aim(RuneTarget target, double bullet_speed) {
         GimbalCmd cmd;
 
-        const auto now = time_utils::now();
-        const double dt0 = time_utils::durationSec(target.timestamp_, now);
+        const auto now = wust_vl::common::utils::time_utils::now();
+        const double dt0 = wust_vl::common::utils::time_utils::durationSec(target.timestamp_, now);
         target.predictWithFitter(dt0);
         auto [p0, q0] = target.getHitPoint();
         bool converged = false;
@@ -115,8 +115,8 @@ public:
         cmd.appera = true;
         return cmd;
     }
-    std::shared_ptr<TrajectoryCompensator> trajectory_compensator_;
-    std::unique_ptr<ManualCompensator> manual_compensator_;
+    std::shared_ptr<wust_vl::common::utils::TrajectoryCompensator> trajectory_compensator_;
+    std::unique_ptr<wust_vl::common::utils::ManualCompensator> manual_compensator_;
     double prediction_delay_ = 0.0;
     double shooting_range_w_ = 0.2;
     double shooting_range_h_ = 0.2;
@@ -125,7 +125,7 @@ public:
 };
 Aimer::Aimer(
     const YAML::Node& config,
-    std::shared_ptr<TrajectoryCompensator> trajectory_compensator
+    std::shared_ptr<wust_vl::common::utils::TrajectoryCompensator> trajectory_compensator
 ) {
     _impl = std::make_unique<Impl>(config, trajectory_compensator);
 }

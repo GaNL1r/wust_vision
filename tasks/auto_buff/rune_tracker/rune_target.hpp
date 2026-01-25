@@ -103,11 +103,11 @@ public:
     }
     inline bool checkTargetAppear() {
         bool appear = is_tracking
-            && time_utils::durationSec(timestamp_, time_utils::now()) < target_config_.lost_dt;
+            && wust_vl::common::utils::time_utils::durationSec(timestamp_, wust_vl::common::utils::time_utils::now()) < target_config_.lost_dt;
         return appear;
     }
     double predictAngle(std::chrono::steady_clock::time_point t) const {
-        double to_start = time_utils::durationSec(start_time_, t);
+        double to_start = wust_vl::common::utils::time_utils::durationSec(start_time_, t);
         return fitter_.predictAngle(to_start);
     }
     double predictAngle(double dt) const {
@@ -127,14 +127,14 @@ public:
         }
     }
     void predictWithFitter(std::chrono::steady_clock::time_point t) {
-        double dt = time_utils::durationSec(last_t_, t);
+        double dt = wust_vl::common::utils::time_utils::durationSec(last_t_, t);
 
         predictWithFitter(dt);
 
         last_t_ = t;
     }
     double getFitterSpd(std::chrono::steady_clock::time_point t) {
-        double to_start = time_utils::durationSec(start_time_, t);
+        double to_start = wust_vl::common::utils::time_utils::durationSec(start_time_, t);
         return fitter_.predictSpeed(to_start);
     }
 

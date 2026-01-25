@@ -7,7 +7,7 @@ class VeryAimerFactory {
 public:
     static VeryAimerBase::Ptr create(
         const YAML::Node& config,
-        std::shared_ptr<TrajectoryCompensator> trajectory_compensator
+        std::shared_ptr<wust_vl::common::utils::TrajectoryCompensator> trajectory_compensator
     ) {
         const std::string very_aimer_type = config["type"].as<std::string>();
         if (very_aimer_type == "seg" || very_aimer_type == "SEG") {

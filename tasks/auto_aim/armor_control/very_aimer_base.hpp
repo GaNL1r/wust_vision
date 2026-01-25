@@ -544,7 +544,7 @@ public:
     VeryAimerBase() {}
     VeryAimerBase(
         const YAML::Node& config,
-        std::shared_ptr<TrajectoryCompensator> trajectory_compensator
+        std::shared_ptr<wust_vl::common::utils::TrajectoryCompensator> trajectory_compensator
     ) {
         trajectory_compensator_ = trajectory_compensator;
         config_ = config;
@@ -585,8 +585,8 @@ public:
     ) const;
     virtual GimbalCmd
     veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm) = 0;
-    std::shared_ptr<TrajectoryCompensator> trajectory_compensator_;
-    std::unique_ptr<ManualCompensator> manual_compensator_;
+    std::shared_ptr<wust_vl::common::utils::TrajectoryCompensator> trajectory_compensator_;
+    std::unique_ptr<wust_vl::common::utils::ManualCompensator> manual_compensator_;
     double shooting_range_w_ = 0.135;
     double shooting_range_h_ = 0.135;
     double min_enable_yaw_deg_ = 0.5;

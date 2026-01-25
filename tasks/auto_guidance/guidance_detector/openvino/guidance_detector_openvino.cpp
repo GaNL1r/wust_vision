@@ -17,7 +17,7 @@ public:
             .input_h = 384,
             .input_w = 640,
             .use_norm = true });
-        openvino_net_ = std::make_unique<ml_net::OpenvinoNet>();
+        openvino_net_ = std::make_unique<wust_vl::ml_net::OpenvinoNet>();
         auto ppp_init_fun = [this](ov::preprocess::PrePostProcessor& ppp) {
             ppp.input()
                 .tensor()
@@ -39,7 +39,7 @@ public:
 
             ppp.output(2).tensor().set_element_type(ov::element::f32);
         };
-        ml_net::OpenvinoNet::Params params;
+        wust_vl::ml_net::OpenvinoNet::Params params;
         params.model_path = model_path;
         params.device_name = device_name;
         params.mode = config["use_throughputmode"].as<bool>()
@@ -85,7 +85,7 @@ public:
         frame.id = current_id_++;
         processCallback(frame);
     }
-    std::unique_ptr<ml_net::OpenvinoNet> openvino_net_;
+    std::unique_ptr<wust_vl::ml_net::OpenvinoNet> openvino_net_;
     std::unique_ptr<GreenLightInfer> green_light_infer_;
     DetectorCallback infer_callback_;
     int current_id_ = 0;

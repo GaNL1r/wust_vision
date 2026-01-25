@@ -64,7 +64,7 @@ bool VisionBase::init(bool debug_mode) {
     R_camera2gimbal_ = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(R_vec.data());
 
     YAML::Node camera_config = YAML::LoadFile(camera_config_);
-    camera_ = std::make_shared<wust_vl_video::Camera>();
+    camera_ = std::make_shared<wust_vl::video::Camera>();
     camera_->init(camera_config);
     camera_->setFrameCallback(std::bind(&VisionBase::frameCallback, this, std::placeholders::_1));
     std::string camera_info_path =
@@ -101,8 +101,8 @@ bool VisionBase::init(bool debug_mode) {
         camera_info,
         max_infer_running_
     );
-    thread_pool_ = std::make_unique<ThreadPool>(max_infer_running_);
-    motion_buffer_ = std::make_shared<MotionBufferGeneric<Motion, 1024>>();
+    thread_pool_ = std::make_unique<wust_vl::common::concurrency::ThreadPool>(max_infer_running_);
+    motion_buffer_ = std::make_shared<wust_vl::common::utils::MotionBufferGeneric<Motion, 1024>>();
     double bullet_speed = config_["shoot"]["bullet_speed"].as<double>(20.0);
     shoot_rate_ = config_["shoot"]["rate"].as<int>(3);
     double communication_delay_μs = config_["control"]["communication_delay_us"].as<double>(1000.0);
@@ -123,10 +123,10 @@ bool VisionBase::init(bool debug_mode) {
     auto_buff_->setDebug(debug_mode_);
     std::string device_name = config_["control"]["device_name"].as<std::string>();
 
-    serial_ = std::make_shared<SerialDriver>();
+    serial_ = std::make_shared<wust_vl::common::drivers::SerialDriver>();
     bool use_serial = config_["control"]["use_serial"].as<bool>();
     if (use_serial) {
-        SerialDriver::SerialPortConfig cfg { /*baud*/ 115200,
+        wust_vl::common::drivers::SerialDriver::SerialPortConfig cfg { /*baud*/ 115200,
                                              /*csize*/ 8,
                                              boost::asio::serial_port_base::parity::none,
                                              boost::asio::serial_port_base::stop_bits::one,
@@ -144,7 +144,7 @@ bool VisionBase::init(bool debug_mode) {
         });
     }
 
-    timer_ = std::make_unique<Timer>();
+    timer_ = std::make_unique<wust_vl::common::utils::Timer>();
     detect_color_ = config_["detect_color"].as<int>(0);
 
     bool use_record = config_["record"]["use_record"].as<bool>(false);
@@ -156,13 +156,13 @@ bool VisionBase::init(bool debug_mode) {
 
         std::filesystem::create_directory(folder_path);
         auto rw = std::make_shared<RotateWriterCSV>(true);
-        rotate_writer_ = std::make_shared<wust_vl::Recorder<Eigen::Vector3d>>(text_path, rw);
+        rotate_writer_ = std::make_shared<wust_vl::common::utils::Recorder<Eigen::Vector3d>>(text_path, rw);
         auto imgw = std::make_shared<ImgWriter>(
             video_path,
             30,
             cv::VideoWriter::fourcc('M', 'J', 'P', 'G')
         );
-        img_writer_ = std::make_shared<wust_vl::Recorder<cv::Mat>>("", imgw);
+        img_writer_ = std::make_shared<wust_vl::common::utils::Recorder<cv::Mat>>("", imgw);
     }
     bool use_rotate_reader = config_["record"]["use_rotate_reader"].as<bool>(false);
     if (use_rotate_reader) {
@@ -189,7 +189,7 @@ void VisionBase::serialCallback(const uint8_t* data, std::size_t len) {
     }
     try {
         const std::vector<uint8_t> buf(data, data + len);
-        const ReceiveAimINFO aim_data = fromVector<ReceiveAimINFO>(buf);
+        const ReceiveAimINFO aim_data = wust_vl::common::drivers::fromVector<ReceiveAimINFO>(buf);
         processAimData(aim_data);
 
     } catch (const std::exception& e) {
@@ -199,7 +199,7 @@ void VisionBase::serialCallback(const uint8_t* data, std::size_t len) {
     }
 }
 void VisionBase::processAimData(const ReceiveAimINFO& aim_data) {
-    static Averager<double> vyaw_avg(100);
+    static wust_vl::common::concurrency::Averager<double> vyaw_avg(100);
     if (!this->run_flag_) {
         return;
     }
@@ -252,7 +252,7 @@ void VisionBase::autoExposureControl(const cv::Mat& frame) {
 // #ifdef USE_TRT
 //     #include "cuda_infer/cvtcolor.hpp"
 // #endif
-void VisionBase::frameCallback(wust_vl_video::ImageFrame& frame) {
+void VisionBase::frameCallback(wust_vl::video::ImageFrame& frame) {
     if (!run_flag_ || infer_running_count_ >= max_infer_running_) {
         return;
     }
@@ -383,7 +383,7 @@ void VisionBase::timerCallback(double dt_ms) {
     send_data.enable_yaw_diff = cmd.enable_yaw_diff;
     send_data.shoot_rate = shoot_rate_;
     if (serial_) {
-        serial_->write(std::move(toVector(send_data)));
+        serial_->write(std::move(wust_vl::common::drivers::toVector(send_data)));
     }
 }
 

@@ -26,8 +26,8 @@ NumberClassifierTRT::NumberClassifierTRT(
 }
 void NumberClassifierTRT::initNumberClassifier() {
     const std::string model_path = classify_model_path_;
-    trt_net_ = std::make_unique<ml_net::TensorRTNet>();
-    ml_net::TensorRTNet::Params trt_params;
+    trt_net_ = std::make_unique<wust_vl::ml_net::TensorRTNet>();
+    wust_vl::ml_net::TensorRTNet::Params trt_params;
     trt_params.model_path = model_path;
     trt_params.input_dims = nvinfer1::Dims4 { 1, 1, 20, 28 };
     trt_net_->init(trt_params);

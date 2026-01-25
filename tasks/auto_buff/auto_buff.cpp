@@ -13,7 +13,7 @@ struct AutoBuff::Impl {
         rune_queue_->stop();
         if (processing_thread_) {
             processing_thread_->stop();
-            wust_vl_concurrency::ThreadManager::instance().unregisterThread(
+            wust_vl::common::concurrency::ThreadManager::instance().unregisterThread(
                 processing_thread_->getName()
             );
         }
@@ -42,7 +42,7 @@ struct AutoBuff::Impl {
             std::placeholders::_2,
             std::placeholders::_3
         ));
-        rune_queue_ = std::make_unique<OrderedQueue<auto_buff::RuneFan>>(50, 500);
+        rune_queue_ = std::make_unique<wust_vl::common::concurrency::OrderedQueue<auto_buff::RuneFan>>(50, 500);
         auto_buff::RuneTargetConfig rune_target_config;
         rune_target_config.loadFromYaml(config["rune_tracker"]);
 
@@ -52,24 +52,24 @@ struct AutoBuff::Impl {
         double gravity_ = config["trajectory_compensator"]["gravity"].as<double>(10.0);
         double resistance_ = config["trajectory_compensator"]["resistance"].as<double>(0.092);
         int iteration_times_ = config["trajectory_compensator"]["iteration_times"].as<int>(20);
-        auto trajectory_compensator = CompensatorFactory::createCompensator(comp_type);
+        auto trajectory_compensator = wust_vl::common::utils::CompensatorFactory::createCompensator(comp_type);
         trajectory_compensator->iteration_times_ = iteration_times_;
         trajectory_compensator->gravity_ = gravity_;
         trajectory_compensator->resistance_ = resistance_;
         aimer_ = auto_buff::Aimer::create(config["aimer"], trajectory_compensator);
-        latency_averager_ = std::make_unique<Averager<double>>(100);
+        latency_averager_ = std::make_unique<wust_vl::common::concurrency::Averager<double>>(100);
         auto_exposure_cfg_.loadFromYaml(config_["auto_exposure"]);
         return true;
     }
     void start() {
         run_flag_ = true;
-        processing_thread_ = wust_vl_concurrency::MonitoredThread::create(
+        processing_thread_ = wust_vl::common::concurrency::MonitoredThread::create(
             "AutoBuffProcessingThread",
-            [this](std::shared_ptr<wust_vl_concurrency::MonitoredThread> self) {
+            [this](wust_vl::common::concurrency::MonitoredThread::Ptr self) {
                 this->processingLoop(self);
             }
         );
-        wust_vl_concurrency::ThreadManager::instance().registerThread(processing_thread_);
+        wust_vl::common::concurrency::ThreadManager::instance().registerThread(processing_thread_);
     }
     void pushInput(CommonFrame& frame, bool is_big) {
         img_recv_count_++;
@@ -181,7 +181,7 @@ struct AutoBuff::Impl {
                               std::chrono::steady_clock::now() - fan.timestamp
         )
                               .count();
-        auto latency_ms = time_utils::durationMs(fan.timestamp, now);
+        auto latency_ms = wust_vl::common::utils::time_utils::durationMs(fan.timestamp, now);
         latency_averager_->add(latency_ms);
         auto_buff_debug_.latency_ms = latency_averager_->average();
         if (debug_mode_) {
@@ -198,7 +198,7 @@ struct AutoBuff::Impl {
             last_raw_roll = raw_roll;
             auto_buff_debug_.obs_v = rune_target.v_roll();
             auto_buff_debug_.fitter_v = rune_target.getFitterSpd(
-                time_utils::now() + std::chrono::microseconds(int(0.2 * 1e6))
+                wust_vl::common::utils::time_utils::now() + std::chrono::microseconds(int(0.2 * 1e6))
             );
             auto_buff_debug_.obs_angle = obs_angle;
             auto_buff_debug_.pre_angle = pre_angle;
@@ -230,7 +230,7 @@ struct AutoBuff::Impl {
 
         return gimbal_cmd;
     }
-    void processingLoop(std::shared_ptr<wust_vl_concurrency::MonitoredThread> self) {
+    void processingLoop(wust_vl::common::concurrency::MonitoredThread::Ptr self) {
         while (!self->isAlive()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
@@ -280,14 +280,14 @@ struct AutoBuff::Impl {
             1.0
         );
     }
-    void autoExposureControl(const cv::Mat& frame, std::shared_ptr<wust_vl_video::Camera> camera) {
+    void autoExposureControl(const cv::Mat& frame, std::shared_ptr<wust_vl::video::Camera> camera) {
         const double dt = auto_exposure_cfg_.control_interval_ms / 1000.0;
         utils::XSecOnce(
             [&] {
                 if (!auto_exposure_cfg_.enable || frame.empty()) {
                     return;
                 }
-                if (auto* hik = dynamic_cast<wust_vl_video::HikCamera*>(camera->getDevice())) {
+                if (auto* hik = dynamic_cast<wust_vl::video::HikCamera*>(camera->getDevice())) {
                     cv::Mat i_use = frame(expanded_);
                     if (expanded_.area() < 100 || i_use.empty()) {
                         i_use = frame;
@@ -322,8 +322,8 @@ struct AutoBuff::Impl {
     auto_buff::Aimer::Ptr aimer_;
     auto_buff::BaSolver::Ptr ba_solver_;
     std::string logger_ = "auto_buff";
-    std::unique_ptr<OrderedQueue<auto_buff::RuneFan>> rune_queue_;
-    std::shared_ptr<wust_vl_concurrency::MonitoredThread> processing_thread_;
+    std::unique_ptr<wust_vl::common::concurrency::OrderedQueue<auto_buff::RuneFan>> rune_queue_;
+    wust_vl::common::concurrency::MonitoredThread::Ptr processing_thread_;
     AutoExposureCfg auto_exposure_cfg_;
     cv::Rect expanded_;
     auto_buff::RuneTarget rune_target_;
@@ -336,7 +336,7 @@ struct AutoBuff::Impl {
     std::chrono::steady_clock::time_point last_rune_target_time_;
     bool debug_mode_ = false;
     DebugRune auto_buff_debug_;
-    std::unique_ptr<Averager<double>> latency_averager_;
+    std::unique_ptr<wust_vl::common::concurrency::Averager<double>> latency_averager_;
     Eigen::Matrix3d R_camera2gimbal_;
     Eigen::Vector3d t_camera2gimbal_;
     std::pair<cv::Mat, cv::Mat> camera_info_;
@@ -390,7 +390,7 @@ void AutoBuff::setShared(std::shared_ptr<AutoBuffShared> shared) {
 }
 bool AutoBuff::isActive() {
     if (_impl->processing_thread_->getStatus()
-        == wust_vl_concurrency::MonitoredThread::Status::Running) {
+        == wust_vl::common::concurrency::MonitoredThread::Status::Running) {
         return true;
     } else {
         return false;
@@ -404,7 +404,7 @@ void AutoBuff::processingUp() {
 }
 void AutoBuff::autoExposureControl(
     const cv::Mat& frame,
-    std::shared_ptr<wust_vl_video::Camera> camera
+    std::shared_ptr<wust_vl::video::Camera> camera
 ) {
     _impl->autoExposureControl(frame, camera);
 }

@@ -47,7 +47,7 @@ public:
     bool is_inited_ = false;
     bool is_tracking_ = false;
     bool checkAppera() {
-        return is_tracking_ && time_utils::durationSec(timestamp_, time_utils::now()) < 3.0;
+        return is_tracking_ && wust_vl::common::utils::time_utils::durationSec(timestamp_, wust_vl::common::utils::time_utils::now()) < 3.0;
     }
     cv::Point2d center() const {
         return cv::Point2d(target_state_(0), target_state_(2));

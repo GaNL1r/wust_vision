@@ -18,7 +18,7 @@ struct AutoAim::Impl {
         armor_queue_->stop();
         if (processing_thread_) {
             processing_thread_->stop();
-            wust_vl_concurrency::ThreadManager::instance().unregisterThread(
+            wust_vl::common::concurrency::ThreadManager::instance().unregisterThread(
                 processing_thread_->getName()
             );
         }
@@ -97,24 +97,24 @@ struct AutoAim::Impl {
         auto_aim_fsm_cl_.load(config_);
         std::string comp_type =
             config["trajectory_compensator"]["compenstator_type"].as<std::string>("ideal");
-        auto trajectory_compensator = CompensatorFactory::createCompensator(comp_type);
+        auto trajectory_compensator = wust_vl::common::utils::CompensatorFactory::createCompensator(comp_type);
         trajectory_compensator->load(config["trajectory_compensator"]);
         very_aimer_ = VeryAimerFactory::create(config["very_aimer"], trajectory_compensator);
         max_detect_armors_ = config_["max_detect_armors"].as<int>(10);
-        armor_queue_ = std::make_unique<OrderedQueue<Armors>>(50, 500);
-        latency_averager_ = std::make_unique<Averager<double>>(100);
+        armor_queue_ = std::make_unique<wust_vl::common::concurrency::OrderedQueue<Armors>>(50, 500);
+        latency_averager_ = std::make_unique<wust_vl::common::concurrency::Averager<double>>(100);
         auto_exposure_cfg_.loadFromYaml(config_["auto_exposure"]);
         return true;
     }
     void start() {
         run_flag_ = true;
-        processing_thread_ = wust_vl_concurrency::MonitoredThread::create(
+        processing_thread_ = wust_vl::common::concurrency::MonitoredThread::create(
             "AutoAimProcessingThread",
-            [this](std::shared_ptr<wust_vl_concurrency::MonitoredThread> self) {
+            [this](wust_vl::common::concurrency::MonitoredThread::Ptr self) {
                 this->processingLoop(self);
             }
         );
-        wust_vl_concurrency::ThreadManager::instance().registerThread(processing_thread_);
+        wust_vl::common::concurrency::ThreadManager::instance().registerThread(processing_thread_);
     }
     void pushInput(CommonFrame& frame) {
         img_recv_count_++;
@@ -217,7 +217,7 @@ struct AutoAim::Impl {
             std::lock_guard<std::mutex> lock(target_mutex_);
             target_ = target;
         }
-        const auto latency_ms = time_utils::durationMs(armors.timestamp, now);
+        const auto latency_ms = wust_vl::common::utils::time_utils::durationMs(armors.timestamp, now);
         latency_averager_->add(latency_ms);
         auto_aim_debug_.latency_ms = latency_averager_->average();
         if (debug_mode_) {
@@ -259,7 +259,7 @@ struct AutoAim::Impl {
         timer_cout_++;
         return gimbal_cmd;
     }
-    void processingLoop(std::shared_ptr<wust_vl_concurrency::MonitoredThread> self) {
+    void processingLoop(wust_vl::common::concurrency::MonitoredThread::Ptr self) {
         while (!self->isAlive()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
@@ -318,14 +318,14 @@ struct AutoAim::Impl {
             1.0
         );
     }
-    void autoExposureControl(const cv::Mat& frame, std::shared_ptr<wust_vl_video::Camera> camera) {
+    void autoExposureControl(const cv::Mat& frame, std::shared_ptr<wust_vl::video::Camera> camera) {
         const double dt = auto_exposure_cfg_.control_interval_ms / 1000.0;
         utils::XSecOnce(
             [&] {
                 if (!auto_exposure_cfg_.enable || frame.empty()) {
                     return;
                 }
-                if (auto* hik = dynamic_cast<wust_vl_video::HikCamera*>(camera->getDevice())) {
+                if (auto* hik = dynamic_cast<wust_vl::video::HikCamera*>(camera->getDevice())) {
                     cv::Mat i_use = frame(expanded_);
                     if (expanded_.area() < 100 || i_use.empty()) {
                         i_use = frame;
@@ -357,9 +357,9 @@ struct AutoAim::Impl {
     Tracker::Ptr tracker_;
     ArmorDetectorBase::Ptr armor_detector_;
     std::string logger_ = "auto_aim";
-    std::unique_ptr<OrderedQueue<Armors>> armor_queue_;
-    std::shared_ptr<wust_vl_concurrency::MonitoredThread> processing_thread_;
-    std::unique_ptr<Timer> timer_;
+    std::unique_ptr<wust_vl::common::concurrency::OrderedQueue<Armors>> armor_queue_;
+    wust_vl::common::concurrency::MonitoredThread::Ptr processing_thread_;
+    std::unique_ptr<wust_vl::common::utils::Timer> timer_;
     VeryAimerBase::Ptr very_aimer_;
     std::unique_ptr<ArmorPoseEstimator> armor_pose_estimator_;
     AutoAimFsmController auto_aim_fsm_cl_;
@@ -376,7 +376,7 @@ struct AutoAim::Impl {
     Target target_;
     bool debug_mode_ = false;
     DebugArmor auto_aim_debug_;
-    std::unique_ptr<Averager<double>> latency_averager_;
+    std::unique_ptr<wust_vl::common::concurrency::Averager<double>> latency_averager_;
     Eigen::Matrix3d R_camera2gimbal_;
     Eigen::Vector3d t_camera2gimbal_;
     std::pair<cv::Mat, cv::Mat> camera_info_;
@@ -423,7 +423,7 @@ GimbalCmd AutoAim::solve(double dt_ms) {
 }
 bool AutoAim::isActive() {
     if (_impl->processing_thread_->getStatus()
-        == wust_vl_concurrency::MonitoredThread::Status::Running) {
+        == wust_vl::common::concurrency::MonitoredThread::Status::Running) {
         return true;
     } else {
         return false;
@@ -437,7 +437,7 @@ void AutoAim::processingUp() {
 }
 void AutoAim::autoExposureControl(
     const cv::Mat& frame,
-    std::shared_ptr<wust_vl_video::Camera> camera
+    std::shared_ptr<wust_vl::video::Camera> camera
 ) {
     _impl->autoExposureControl(frame, camera);
 }

@@ -86,7 +86,7 @@ GuidanceTarget::computeProcessNoise(double dt) const {
     return q;
 }
 void GuidanceTarget::predict(std::chrono::steady_clock::time_point t) {
-    double dt = time_utils::durationSec(last_t_, t);
+    double dt = wust_vl::common::utils::time_utils::durationSec(last_t_, t);
 
     predict(dt);
 

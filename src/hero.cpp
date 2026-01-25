@@ -75,7 +75,7 @@ public:
         send_data.enable_yaw_diff = cmd.enable_yaw_diff;
 
         if (serial_) {
-            serial_->write(std::move(toVector(send_data)));
+            serial_->write(std::move(wust_vl::common::drivers::toVector(send_data)));
         }
     }
 

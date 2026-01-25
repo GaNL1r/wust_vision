@@ -62,8 +62,8 @@ VeryAimerSeg::veryAim(Target target, double bullet_speed, const AutoAimFsm& auto
     const auto [aim_first, aim_center, aim_pair] = getAimStatus(auto_aim_fsm);
     const int roughly_select = selectArmor(target, auto_aim_fsm);
 
-    const auto now = time_utils::now();
-    const double dt0 = time_utils::durationSec(target.timestamp_, now);
+    const auto now = wust_vl::common::utils::time_utils::now();
+    const double dt0 = wust_vl::common::utils::time_utils::durationSec(target.timestamp_, now);
     target.predictSimple(now + std::chrono::microseconds(int(dt0 * 1e6)));
 
     const auto ap = target.getArmorPositions();

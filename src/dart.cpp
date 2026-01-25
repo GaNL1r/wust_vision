@@ -33,7 +33,7 @@ public:
         initLogger(log_level_, log_path_, use_logcli, use_logfile, use_simplelog);
 
         YAML::Node camera_config = config_["camera"];
-        camera_ = std::make_unique<wust_vl_video::Camera>();
+        camera_ = std::make_unique<wust_vl::video::Camera>();
         camera_->init(camera_config);
         camera_->setFrameCallback(std::bind(&vision::frameCallback, this, std::placeholders::_1));
         std::string camera_info_path =
@@ -60,13 +60,15 @@ public:
         auto_guidance_->init(config_, camera_info);
 
         max_infer_running_ = config_["max_infer_running"].as<int>();
-        thread_pool_ = std::make_unique<ThreadPool>(std::thread::hardware_concurrency() * 2);
+        thread_pool_ = std::make_unique<wust_vl::common::concurrency::ThreadPool>(
+            std::thread::hardware_concurrency() * 2
+        );
         std::string device_name = config_["control"]["device_name"].as<std::string>();
 
-        serial_ = std::make_shared<SerialDriver>();
+        serial_ = std::make_shared<wust_vl::common::drivers::SerialDriver>();
         bool use_serial = config_["control"]["use_serial"].as<bool>();
         if (use_serial) {
-            SerialDriver::SerialPortConfig cfg {
+            wust_vl::common::drivers::SerialDriver::SerialPortConfig cfg {
                 /*baud*/ 115200,
                 /*csize*/ 8,
                 boost::asio::serial_port_base::parity::none,
@@ -87,7 +89,7 @@ public:
             });
         }
 
-        timer_ = std::make_unique<Timer>();
+        timer_ = std::make_unique<wust_vl::common::utils::Timer>();
         WUST_MAIN("vision") << "starting vision task";
         return true;
     }
@@ -116,7 +118,7 @@ public:
         }
     }
     void serialCallback(const uint8_t* data, std::size_t len) {}
-    void frameCallback(wust_vl_video::ImageFrame& frame) {
+    void frameCallback(wust_vl::video::ImageFrame& frame) {
         if (!run_flag_ || infer_running_count_ >= max_infer_running_) {
             return;
         }
@@ -158,7 +160,7 @@ public:
         // send_data.appear = target.is_tracking_;
         send_data.diff_center_norm = (target.is_tracking_) ? cx_norm_ : 0;
         if (serial_) {
-            serial_->write(std::move(toVector(send_data)));
+            serial_->write(std::move(wust_vl::common::drivers::toVector(send_data)));
         }
     }
 
@@ -186,11 +188,11 @@ public:
     }
     void checkStateMatchMode() {}
     YAML::Node config_;
-    std::unique_ptr<ThreadPool> thread_pool_;
+    std::unique_ptr<wust_vl::common::concurrency::ThreadPool> thread_pool_;
     std::unique_ptr<auto_guidance::AutoGuidance> auto_guidance_;
-    std::unique_ptr<wust_vl_video::Camera> camera_;
-    std::unique_ptr<Timer> timer_;
-    std::shared_ptr<SerialDriver> serial_;
+    std::unique_ptr<wust_vl::video::Camera> camera_;
+    std::unique_ptr<wust_vl::common::utils::Timer> timer_;
+    std::shared_ptr<wust_vl::common::drivers::SerialDriver> serial_;
     std::atomic<int> infer_running_count_ { 0 };
     bool run_flag_ = false;
     int max_infer_running_;

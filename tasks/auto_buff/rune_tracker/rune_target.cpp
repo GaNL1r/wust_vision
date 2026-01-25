@@ -107,7 +107,7 @@ RuneTarget::computeProcessNoise(double dt) const {
     return q;
 }
 void RuneTarget::predict(std::chrono::steady_clock::time_point t) {
-    double dt = time_utils::durationSec(last_t_, t);
+    double dt = wust_vl::common::utils::time_utils::durationSec(last_t_, t);
 
     predict(dt);
 
@@ -158,7 +158,7 @@ bool RuneTarget::update(const auto_buff::RuneFan& fans) {
         last_id = update_ids[0];
     if (update_ids.size() > 1)
         is_big_ = true;
-    double tostart = time_utils::durationSec(start_time_, fans.timestamp);
+    double tostart = wust_vl::common::utils::time_utils::durationSec(start_time_, fans.timestamp);
     fitter_.update(tostart, v_roll());
     fitter_.setAngleRef(tostart, roll());
     fitter_.fitAsync();
@@ -172,7 +172,7 @@ cv::Rect RuneTarget::expanded(
     const cv::Mat& camera_distortion,
     const cv::Size& image_size
 ) {
-    double dt = time_utils::durationSec(timestamp_, time_utils::now());
+    double dt = wust_vl::common::utils::time_utils::durationSec(timestamp_, wust_vl::common::utils::time_utils::now());
     if (!is_inited || dt > target_config_.lost_dt) {
         return cv::Rect(0, 0, 0, 0);
     }

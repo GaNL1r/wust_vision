@@ -33,7 +33,7 @@ public:
         bool use_throughputmode = config["openvino"]["use_throughputmode"].as<bool>();
         armor_infer_ =
             std::make_unique<armor_infer::ArmorInfer>(model, conf_threshold, nms_threshold, top_k);
-        openvino_net_ = std::make_unique<ml_net::OpenvinoNet>();
+        openvino_net_ = std::make_unique<wust_vl::ml_net::OpenvinoNet>();
         const auto ppp_init_fun = [this](ov::preprocess::PrePostProcessor& ppp) {
             ppp.input()
                 .tensor()
@@ -54,7 +54,7 @@ public:
         };
         std::string model_path =
             utils::expandEnv(config["openvino"]["model_path"].as<std::string>());
-        ml_net::OpenvinoNet::Params params;
+        wust_vl::ml_net::OpenvinoNet::Params params;
         auto device_name = config["openvino"]["device_name"].as<std::string>();
         params.model_path = model_path;
         params.device_name = device_name;
@@ -142,7 +142,7 @@ public:
     }
 
 private:
-    std::unique_ptr<ml_net::OpenvinoNet> openvino_net_;
+    std::unique_ptr<wust_vl::ml_net::OpenvinoNet> openvino_net_;
     std::vector<int> strides_;
     std::vector<GridAndStride> grid_strides_;
     DetectorCallback infer_callback_;

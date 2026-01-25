@@ -34,7 +34,7 @@ public:
                  )) > (max_yaw_diff_deg_ * M_PI / 180.0)
                  || std::abs((a.target_pos - target_.position()).norm()) > max_dis_diff_)
                 && target_.is_inited
-                && std::abs(time_utils::durationMs(target_.timestamp_, time_utils::now())) < 1000.0;
+                && std::abs(wust_vl::common::utils::time_utils::durationMs(target_.timestamp_, wust_vl::common::utils::time_utils::now())) < 1000.0;
 
             return state_check && outpost_check || pose_check;
         });

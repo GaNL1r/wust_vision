@@ -18,9 +18,9 @@ public:
         armor_infer_ =
             std::make_unique<armor_infer::ArmorInfer>(model, conf_threshold, nms_threshold, top_k);
         std::string provider = config["onnxruntime"]["provider"].as<std::string>("CPU");
-        provider_ = string2OrtProvider(provider);
-        onnxruntime_net_ = std::make_unique<ml_net::OnnxRuntimeNet>();
-        ml_net::OnnxRuntimeNet::Params params;
+        provider_ = wust_vl::ml_net::string2OrtProvider(provider);
+        onnxruntime_net_ = std::make_unique<wust_vl::ml_net::OnnxRuntimeNet>();
+        wust_vl::ml_net::OnnxRuntimeNet::Params params;
         std::string model_path =
             utils::expandEnv(config["onnxruntime"]["model_path"].as<std::string>());
         params.model_path = model_path;
@@ -109,14 +109,14 @@ public:
         processCallback(frame, target_number);
     }
 
-    OrtProvider provider_ = OrtProvider::CPU;
+    wust_vl::ml_net::OrtProvider provider_ = wust_vl::ml_net::OrtProvider::CPU;
     std::vector<int> strides_;
     std::vector<GridAndStride> grid_strides_;
     DetectorCallback infer_callback_;
     std::unique_ptr<ArmorDetectorCommon> armor_detect_common_;
     std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;
     int current_id_ = 0;
-    std::unique_ptr<ml_net::OnnxRuntimeNet> onnxruntime_net_;
+    std::unique_ptr<wust_vl::ml_net::OnnxRuntimeNet> onnxruntime_net_;
 };
 ArmorDetectorOnnxRuntime::ArmorDetectorOnnxRuntime(
     const YAML::Node& config,

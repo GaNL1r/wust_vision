@@ -102,14 +102,14 @@ public:
         send_data.check = true;
         send_data.time_stamp =
             static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
-                                      time_utils::now().time_since_epoch()
+                                      wust_vl::common::utils::time_utils::now().time_since_epoch()
             )
                                       .count());
         send_data.vx = msg->linear.x;
         send_data.vy = msg->linear.y;
         send_data.wz = msg->angular.z;
         if (serial_) {
-            serial_->write(std::move(toVector(send_data)));
+            serial_->write(std::move(wust_vl::common::drivers::toVector(send_data)));
         }
     }
     std::shared_ptr<Ros2Node> ros2_;

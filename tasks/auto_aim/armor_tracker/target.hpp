@@ -174,7 +174,7 @@ public:
 
     inline bool checkTargetAppear() const noexcept {
         const bool appear = is_tracking
-            && time_utils::durationSec(timestamp_, time_utils::now()) < target_config_.lost_dt;
+            && wust_vl::common::utils::time_utils::durationSec(timestamp_, wust_vl::common::utils::time_utils::now()) < target_config_.lost_dt;
         return appear;
     }
     bool diverged() const noexcept {

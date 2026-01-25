@@ -26,7 +26,7 @@ public:
 
     VeryAimerSeg(
         const YAML::Node& config,
-        std::shared_ptr<TrajectoryCompensator> trajectory_compensator
+        std::shared_ptr<wust_vl::common::utils::TrajectoryCompensator> trajectory_compensator
     ):
         VeryAimerBase(config, trajectory_compensator) {
         reset();
@@ -34,7 +34,7 @@ public:
 
     static Ptr create(
         const YAML::Node& config,
-        std::shared_ptr<TrajectoryCompensator> trajectory_compensator
+        std::shared_ptr<wust_vl::common::utils::TrajectoryCompensator> trajectory_compensator
     ) {
         return std::make_unique<VeryAimerSeg>(config, trajectory_compensator);
     }

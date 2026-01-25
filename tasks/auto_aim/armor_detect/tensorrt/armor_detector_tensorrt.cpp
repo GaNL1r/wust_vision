@@ -57,8 +57,8 @@ public:
             strides_,
             grid_strides_
         );
-        trt_net_ = std::make_unique<ml_net::TensorRTNet>();
-        ml_net::TensorRTNet::Params trt_params;
+        trt_net_ = std::make_unique<wust_vl::ml_net::TensorRTNet>();
+        wust_vl::ml_net::TensorRTNet::Params trt_params;
         trt_params.model_path = model_path;
         trt_params.input_dims =
             nvinfer1::Dims4 { 1, 3, armor_infer_->getInputH(), armor_infer_->getInputW() };
@@ -67,7 +67,7 @@ public:
         input_dims_ = std::get<0>(input_output_dims);
         output_dims_ = std::get<1>(input_output_dims);
 
-        AdaptiveResourcePool<Infer>::Params pool_params;
+        wust_vl::common::concurrency::AdaptiveResourcePool<Infer>::Params pool_params;
         pool_params.resource_initializer = [=]() {
             std::vector<std::unique_ptr<Infer>> infers;
             for (int i = 0; i < max_infer_running; ++i) {
@@ -172,7 +172,7 @@ public:
         pool_params.logger = [](const std::string& msg) {
             WUST_INFO("ArmorDetectorTrt:infer pool") << msg;
         };
-        infer_pool_ = std::make_unique<AdaptiveResourcePool<Infer>>(pool_params);
+        infer_pool_ = std::make_unique<wust_vl::common::concurrency::AdaptiveResourcePool<Infer>>(pool_params);
     }
 
     ~Impl() {
@@ -191,7 +191,7 @@ public:
         Infer* infer,
         const std::optional<ArmorNumber>& target_number
     ) const {
-        const auto t0 = time_utils::now();
+        const auto t0 = wust_vl::common::utils::time_utils::now();
         Eigen::Matrix3f transform_matrix;
         std::vector<ArmorObject> objs_result;
         void* input_tensor_ptr;
@@ -233,21 +233,21 @@ public:
             trt_net_->input2Device(blob.ptr<float>());
             input_tensor_ptr = trt_net_->getInputTensorPtr();
         }
-        const auto t1 = time_utils::now();
+        const auto t1 = wust_vl::common::utils::time_utils::now();
         if (infer->context && input_tensor_ptr) {
             trt_net_->infer(input_tensor_ptr, infer->context.get());
         }
-        const auto t2 = time_utils::now();
+        const auto t2 = wust_vl::common::utils::time_utils::now();
         const cv::Mat
             output_mat(output_dims_.d[1], output_dims_.d[2], CV_32F, trt_net_->output2Host());
         objs_result = armor_infer_->postProcess(output_mat, transform_matrix, grid_strides_);
-        const auto t3 = time_utils::now();
+        const auto t3 =wust_vl::common::utils::time_utils::now();
         if (log_time_) {
             WUST_INFO("TRT") << std::fixed << std::setprecision(3) << "pre "
-                             << time_utils::durationMs(t0, t1) << " "
-                             << "infer " << time_utils::durationMs(t1, t2) << " "
-                             << "post " << time_utils::durationMs(t2, t3) << " "
-                             << "total " << time_utils::durationMs(t0, t3);
+                             << wust_vl::common::utils::time_utils::durationMs(t0, t1) << " "
+                             << "infer " << wust_vl::common::utils::time_utils::durationMs(t1, t2) << " "
+                             << "post " << wust_vl::common::utils::time_utils::durationMs(t2, t3) << " "
+                             << "total " << wust_vl::common::utils::time_utils::durationMs(t0, t3);
         }
         infer_pool_->release(infer);
         std::vector<ArmorObject> armors;
@@ -303,10 +303,10 @@ private:
     std::vector<GridAndStride> grid_strides_;
     DetectorCallback infer_callback_;
     std::unique_ptr<ArmorDetectorCommon> armor_detect_common_;
-    std::unique_ptr<AdaptiveResourcePool<Infer>> infer_pool_;
+    std::unique_ptr<wust_vl::common::concurrency::AdaptiveResourcePool<Infer>> infer_pool_;
     std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;
     int current_id_ = 0;
-    std::unique_ptr<ml_net::TensorRTNet> trt_net_;
+    std::unique_ptr<wust_vl::ml_net::TensorRTNet> trt_net_;
 };
 ArmorDetectorTrt::ArmorDetectorTrt(const YAML::Node& config, bool use_armor_detect_common) {
     _impl = std::make_unique<Impl>(config, use_armor_detect_common);

@@ -30,7 +30,7 @@ private:
     std::vector<std::string> class_names_;
     std::string classify_model_path_;
     std::string classify_label_path_;
-    std::unique_ptr<ml_net::TensorRTNet> trt_net_;
+    std::unique_ptr<wust_vl::ml_net::TensorRTNet> trt_net_;
     nvinfer1::Dims input_dims_;
     nvinfer1::Dims output_dims_;
 };

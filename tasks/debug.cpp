@@ -100,8 +100,8 @@ void drawDebugArmorContent(
                 armor_data.armors.clear();
                 const size_t a_n = armor_target.armor_num_;
                 armor_data.armors.reserve(a_n);
-                const auto now = time_utils::now();
-                const double dt0 = time_utils::durationSec(armor_target.timestamp_, now);
+                const auto now = wust_vl::common::utils::time_utils::now();
+                const double dt0 = wust_vl::common::utils::time_utils::durationSec(armor_target.timestamp_, now);
                 const std::chrono::steady_clock::time_point future =
                     now + std::chrono::microseconds(int(dt0 * 1e6));
                 armor_target.predictSimple(future);

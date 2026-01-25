@@ -21,7 +21,7 @@ public:
     bool init(bool debug_mode);
     void start();
     void serialCallback(const uint8_t* data, std::size_t len);
-    void frameCallback(wust_vl_video::ImageFrame& frame);
+    void frameCallback(wust_vl::video::ImageFrame& frame);
     void checkStateMatchMode() const;
     void timerCallback(double dt_ms);
     void debugThread() const;
@@ -29,18 +29,18 @@ public:
     void updateBulletSpeed(double bullet_speed);
     void processAimData(const ReceiveAimINFO& aim_data);
 
-    std::unique_ptr<ThreadPool> thread_pool_;
+    std::unique_ptr<wust_vl::common::concurrency::ThreadPool> thread_pool_;
     std::shared_ptr<auto_aim::AutoAim> auto_aim_;
     std::shared_ptr<auto_buff::AutoBuff> auto_buff_;
-    std::shared_ptr<wust_vl_video::Camera> camera_;
-    std::shared_ptr<SerialDriver> serial_;
-    std::unique_ptr<Timer> timer_;
+    std::shared_ptr<wust_vl::video::Camera> camera_;
+    std::shared_ptr<wust_vl::common::drivers::SerialDriver> serial_;
+    std::unique_ptr<wust_vl::common::utils::Timer> timer_;
     std::shared_ptr<auto_aim::AutoAimShared> auto_aim_shared_;
     std::shared_ptr<auto_buff::AutoBuffShared> auto_buff_shared_;
-    std::shared_ptr<MotionBufferGeneric<Motion, 1024>> motion_buffer_;
-    std::shared_ptr<wust_vl::Recorder<Eigen::Vector3d>> rotate_writer_;
+    std::shared_ptr<wust_vl::common::utils::MotionBufferGeneric<Motion, 1024>> motion_buffer_;
+    std::shared_ptr<wust_vl::common::utils::Recorder<Eigen::Vector3d>> rotate_writer_;
     RotateReaderCSV::RotateReaderCSVPtr rotate_reader_;
-    std::shared_ptr<wust_vl::Recorder<cv::Mat>> img_writer_;
+    std::shared_ptr<wust_vl::common::utils::Recorder<cv::Mat>> img_writer_;
     std::thread debug_thread_;
     YAML::Node config_;
     Eigen::Matrix3d R_camera2gimbal_;
@@ -48,7 +48,7 @@ public:
     GimbalCmd last_cmd_;
     double yaw_ramp_ = 0.0;
     double pitch_ramp_ = 0.0;
-    std::unique_ptr<Averager<double>> pitch_avg_;
+    std::unique_ptr<wust_vl::common::concurrency::Averager<double>> pitch_avg_;
     std::pair<cv::Mat, cv::Mat> camera_info_;
     double bullet_speed_;
     int attack_mode_;

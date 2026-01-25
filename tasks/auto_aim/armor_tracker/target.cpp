@@ -172,7 +172,7 @@ MModel::Predict Target::getPredictFunc(double dt, Eigen::Vector3d self_v) const 
     return predict_func;
 }
 void Target::predict(std::chrono::steady_clock::time_point t, Eigen::Vector3d self_v) noexcept {
-    const double dt = time_utils::durationSec(last_t_, t);
+    const double dt = wust_vl::common::utils::time_utils::durationSec(last_t_, t);
 
     predict(dt, self_v);
 
@@ -225,7 +225,7 @@ void Target::predictSimple(
     std::chrono::steady_clock::time_point t,
     Eigen::Vector3d self_v
 ) noexcept {
-    const double dt = time_utils::durationSec(last_t_, t);
+    const double dt = wust_vl::common::utils::time_utils::durationSec(last_t_, t);
 
     predictSimple(dt, self_v);
 
@@ -273,7 +273,7 @@ cv::Rect Target::expanded(
     const cv::Mat& camera_distortion,
     const cv::Size& image_size
 ) const noexcept {
-    const double dt = time_utils::durationSec(timestamp_, time_utils::now());
+    const double dt = wust_vl::common::utils::time_utils::durationSec(timestamp_, wust_vl::common::utils::time_utils::now());
     if (!is_inited || dt > target_config_.lost_dt) {
         return cv::Rect(0, 0, 0, 0);
     }

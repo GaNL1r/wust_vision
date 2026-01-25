@@ -47,7 +47,7 @@ double unwrap_angle(double prev, double curr) noexcept;
 double interp_angle(double a, double b, double t) noexcept;
 
 template<>
-struct MotionTraits<Motion> {
+struct wust_vl::common::utils::MotionTraits<Motion> {
     static void unwrap(const Motion& prev, Motion& curr) noexcept {
         curr.yaw = unwrap_angle(prev.yaw, curr.yaw);
         curr.pitch = unwrap_angle(prev.pitch, curr.pitch);

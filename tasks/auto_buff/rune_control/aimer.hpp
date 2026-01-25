@@ -6,10 +6,10 @@ namespace auto_buff {
 class Aimer {
 public:
     using Ptr = std::unique_ptr<Aimer>;
-    Aimer(const YAML::Node& config, std::shared_ptr<TrajectoryCompensator> trajectory_compensator);
+    Aimer(const YAML::Node& config, std::shared_ptr<wust_vl::common::utils::TrajectoryCompensator> trajectory_compensator);
     static Ptr create(
         const YAML::Node& config,
-        std::shared_ptr<TrajectoryCompensator> trajectory_compensator
+        std::shared_ptr<wust_vl::common::utils::TrajectoryCompensator> trajectory_compensator
     ) {
         return std::make_unique<Aimer>(config, trajectory_compensator);
     }

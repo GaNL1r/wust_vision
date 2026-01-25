@@ -11,16 +11,16 @@ public:
         double gravity_ = config["trajectory_compensator"]["gravity"].as<double>(10.0);
         double resistance_ = config["trajectory_compensator"]["resistance"].as<double>(0.092);
         int iteration_times_ = config["trajectory_compensator"]["iteration_times"].as<int>(20);
-        auto trajectory_compensator = CompensatorFactory::createCompensator(comp_type);
+        auto trajectory_compensator = wust_vl::common::utils::CompensatorFactory::createCompensator(comp_type);
         trajectory_compensator->iteration_times_ = iteration_times_;
         trajectory_compensator->gravity_ = gravity_;
         trajectory_compensator->resistance_ = resistance_;
 
-        manual_compensator_ = std::make_unique<ManualCompensator>();
-        std::vector<OffsetEntry> entries;
+        manual_compensator_ = std::make_unique<wust_vl::common::utils::ManualCompensator>();
+        std::vector<wust_vl::common::utils::OffsetEntry> entries;
         if (config["trajectory_offset"]) {
             for (const auto& node: config["trajectory_offset"]) {
-                OffsetEntry e;
+                wust_vl::common::utils::OffsetEntry e;
                 e.d_min = node["d_min"].as<double>();
                 e.d_max = node["d_max"].as<double>();
                 e.h_min = node["h_min"].as<double>();
@@ -131,8 +131,8 @@ public:
     }
 
     Eigen::Vector3d target_position_;
-    std::shared_ptr<TrajectoryCompensator> trajectory_compensator_;
-    std::unique_ptr<ManualCompensator> manual_compensator_;
+    std::shared_ptr<wust_vl::common::utils::TrajectoryCompensator> trajectory_compensator_;
+    std::unique_ptr<wust_vl::common::utils::ManualCompensator> manual_compensator_;
     double shooting_range_w_ = 0.135;
     double shooting_range_h_ = 0.135;
 };
