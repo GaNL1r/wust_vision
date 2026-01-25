@@ -357,6 +357,7 @@ public:
 
 // VISION_MAIN(vision)
 int main(int argc, char** argv) {
+    printBanner();
     bool debug = false;
     if (argc > 1) {
         std::string firstArg = argv[1];

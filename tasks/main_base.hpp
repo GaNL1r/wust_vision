@@ -1,5 +1,6 @@
 #pragma once
 #include "3rdparty/backward-cpp/backward.hpp"
+#include "tasks/ascii_banner.hpp"
 #include "wust_vl/common/concurrency/monitored_thread.hpp"
 #include "wust_vl/common/utils/signal.hpp"
 #include <exception>
@@ -22,6 +23,7 @@ concept VisionLike = requires(T v) {
 
 template<VisionLike T>
 inline int runVisionMain(int argc, char** argv) {
+    printBanner();
     bool debug = false;
     if (argc > 1) {
         std::string firstArg = argv[1];
