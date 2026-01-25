@@ -1,5 +1,27 @@
 #include "type_common.hpp"
+double unwrap_angle(double prev, double curr) noexcept {
+    double d = curr - prev;
+    while (d > M_PI) {
+        curr -= 2.0 * M_PI;
+        d -= 2.0 * M_PI;
+    }
+    while (d < -M_PI) {
+        curr += 2.0 * M_PI;
+        d += 2.0 * M_PI;
+    }
+    return curr;
+}
 
+// 角度插值（wrap-safe）
+double interp_angle(double a, double b, double t) noexcept {
+    double diff = b - a;
+    while (diff > M_PI)
+        diff -= 2.0 * M_PI;
+    while (diff < -M_PI)
+        diff += 2.0 * M_PI;
+    return a + diff * t;
+}
+namespace wust_vision {
 std::string enemyColorToString(EnemyColor color) noexcept {
     switch (color) {
         case EnemyColor::RED:
@@ -27,28 +49,7 @@ AttackMode toAttackMode(int value) noexcept {
             return AttackMode::UNKNOWN;
     }
 }
-double unwrap_angle(double prev, double curr) noexcept {
-    double d = curr - prev;
-    while (d > M_PI) {
-        curr -= 2.0 * M_PI;
-        d -= 2.0 * M_PI;
-    }
-    while (d < -M_PI) {
-        curr += 2.0 * M_PI;
-        d += 2.0 * M_PI;
-    }
-    return curr;
-}
 
-// 角度插值（wrap-safe）
-double interp_angle(double a, double b, double t) noexcept {
-    double diff = b - a;
-    while (diff > M_PI)
-        diff -= 2.0 * M_PI;
-    while (diff < -M_PI)
-        diff += 2.0 * M_PI;
-    return a + diff * t;
-}
 void AimTarget::predictSelf(double dt_sec) noexcept {
     if (!have_host)
         return;
@@ -109,3 +110,4 @@ AimTarget::toPts(const cv::Mat& camera_intrinsic, const cv::Mat& camera_distorti
 
     return pts;
 }
+} // namespace wust_vision

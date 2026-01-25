@@ -2,6 +2,7 @@
 #ifdef USE_NCNN
     #include <ncnn/gpu.h>
 #endif
+namespace wust_vision {
 VisionBase::VisionBase(
     std::string common_config,
     std::string camera_config,
@@ -126,11 +127,13 @@ bool VisionBase::init(bool debug_mode) {
     serial_ = std::make_shared<wust_vl::common::drivers::SerialDriver>();
     bool use_serial = config_["control"]["use_serial"].as<bool>();
     if (use_serial) {
-        wust_vl::common::drivers::SerialDriver::SerialPortConfig cfg { /*baud*/ 115200,
-                                             /*csize*/ 8,
-                                             boost::asio::serial_port_base::parity::none,
-                                             boost::asio::serial_port_base::stop_bits::one,
-                                             boost::asio::serial_port_base::flow_control::none };
+        wust_vl::common::drivers::SerialDriver::SerialPortConfig cfg {
+            /*baud*/ 115200,
+            /*csize*/ 8,
+            boost::asio::serial_port_base::parity::none,
+            boost::asio::serial_port_base::stop_bits::one,
+            boost::asio::serial_port_base::flow_control::none
+        };
         serial_->init_port(device_name, cfg);
         serial_->set_receive_callback(std::bind(
             &VisionBase::serialCallback,
@@ -156,7 +159,8 @@ bool VisionBase::init(bool debug_mode) {
 
         std::filesystem::create_directory(folder_path);
         auto rw = std::make_shared<RotateWriterCSV>(true);
-        rotate_writer_ = std::make_shared<wust_vl::common::utils::Recorder<Eigen::Vector3d>>(text_path, rw);
+        rotate_writer_ =
+            std::make_shared<wust_vl::common::utils::Recorder<Eigen::Vector3d>>(text_path, rw);
         auto imgw = std::make_shared<ImgWriter>(
             video_path,
             30,
@@ -489,3 +493,4 @@ void VisionBase::debugThread() const {
         }
     }
 }
+} // namespace wust_vision

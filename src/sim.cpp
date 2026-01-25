@@ -5,6 +5,7 @@
 #include "tasks/vision_base.hpp"
 
 ENABLE_BACKWARD()
+namespace wust_vision {
 class vision {
 public:
     vision() {
@@ -209,7 +210,6 @@ public:
         geometry_msgs::msg::TransformStamped tf;
         if (!ros2_->lookup_transform("odom", "gimbal_link", tf)) {
             RCLCPP_WARN(ros2_->get_logger(), "TF lookup failed");
-
         } else {
             Eigen::Quaterniond q(
                 tf.transform.rotation.w,
@@ -354,10 +354,10 @@ public:
     bool has_camera_info_ = false;
     std::shared_ptr<Ros2Node> ros2_;
 };
-
+} // namespace wust_vision
 // VISION_MAIN(vision)
 int main(int argc, char** argv) {
-    printBanner();
+    wust_vision::printBanner();
     bool debug = false;
     if (argc > 1) {
         std::string firstArg = argv[1];
@@ -382,7 +382,7 @@ int main(int argc, char** argv) {
         int exit_code = 0;
 
         {
-            vision v;
+            wust_vision::vision v;
             v.init(debug);
             v.start();
 

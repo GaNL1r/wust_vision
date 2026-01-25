@@ -16,22 +16,25 @@
 #pragma once
 
 #include "tasks/auto_aim/armor_detect/armor_detector_base.hpp"
+namespace wust_vision {
 namespace auto_aim {
-class ArmorDetectorTrt: public ArmorDetectorBase {
-public:
-    using Ptr = std::unique_ptr<ArmorDetectorTrt>;
+    class ArmorDetectorTrt: public ArmorDetectorBase {
+    public:
+        using Ptr = std::unique_ptr<ArmorDetectorTrt>;
 
-    explicit ArmorDetectorTrt(const YAML::Node& config, bool use_armor_detect_common);
-    static Ptr create(const YAML::Node& config, bool use_armor_detect_common) {
-        return std::make_unique<ArmorDetectorTrt>(config, use_armor_detect_common);
-    }
-    ~ArmorDetectorTrt();
-    void pushInput(CommonFrame& frame, const std::optional<ArmorNumber>& target_number) override;
+        explicit ArmorDetectorTrt(const YAML::Node& config, bool use_armor_detect_common);
+        static Ptr create(const YAML::Node& config, bool use_armor_detect_common) {
+            return std::make_unique<ArmorDetectorTrt>(config, use_armor_detect_common);
+        }
+        ~ArmorDetectorTrt();
+        void
+        pushInput(CommonFrame& frame, const std::optional<ArmorNumber>& target_number) override;
 
-    void setCallback(DetectorCallback callback) override;
+        void setCallback(DetectorCallback callback) override;
 
-private:
-    struct Impl;
-    std::unique_ptr<Impl> _impl;
-};
+    private:
+        struct Impl;
+        std::unique_ptr<Impl> _impl;
+    };
 } // namespace auto_aim
+} // namespace wust_vision

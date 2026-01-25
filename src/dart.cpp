@@ -8,7 +8,7 @@
 #include "wust_vl/common/utils/timer.hpp"
 #include "wust_vl/video/camera.hpp"
 ENABLE_BACKWARD()
-
+namespace wust_vision {
 struct SendDartCmdData {
     // uint8_t cmd_ID; //命令码
     // uint32_t time_stamp;
@@ -201,4 +201,5 @@ public:
     std::thread debug_thread_;
     double cx_norm_;
 };
-VISION_MAIN(vision)
+} // namespace wust_vision
+VISION_MAIN(wust_vision::vision)

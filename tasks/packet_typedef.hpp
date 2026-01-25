@@ -15,12 +15,9 @@
 
 #pragma once
 
-#include <algorithm>
 #include <cstdint>
 #include <cstring>
-#include <stdexcept>
-#include <vector>
-
+namespace wust_vision {
 const uint8_t ID_ROBOT_CMD = 0x01;
 const uint8_t ID_NAV_CMD = 0x02;
 
@@ -96,3 +93,4 @@ struct ReceiveReferee //rmul2024
     int b7_health;
 
 } __attribute__((packed));
+} // namespace wust_vision

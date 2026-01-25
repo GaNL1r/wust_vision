@@ -1,20 +1,22 @@
 #pragma once
 
 #include "target.hpp"
+namespace wust_vision {
 namespace auto_aim {
-class Tracker {
-public:
-    using Ptr = std::unique_ptr<Tracker>;
-    Tracker(const YAML::Node& config);
-    static Ptr create(const YAML::Node& config) {
-        return std::make_unique<Tracker>(config);
-    }
-    ~Tracker();
-    Target track(const Armors& armors) noexcept;
-    int getFoundCount() const noexcept;
-    void setFoundCount(int count) noexcept;
-    std::chrono::steady_clock::time_point getLastTime() const noexcept;
-    struct Impl;
-    std::unique_ptr<Impl> _impl;
-};
+    class Tracker {
+    public:
+        using Ptr = std::unique_ptr<Tracker>;
+        Tracker(const YAML::Node& config);
+        static Ptr create(const YAML::Node& config) {
+            return std::make_unique<Tracker>(config);
+        }
+        ~Tracker();
+        Target track(const Armors& armors) noexcept;
+        int getFoundCount() const noexcept;
+        void setFoundCount(int count) noexcept;
+        std::chrono::steady_clock::time_point getLastTime() const noexcept;
+        struct Impl;
+        std::unique_ptr<Impl> _impl;
+    };
 } // namespace auto_aim
+} // namespace wust_vision

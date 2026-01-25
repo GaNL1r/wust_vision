@@ -17,25 +17,27 @@
 
 #pragma once
 #include "tasks/auto_buff/type.hpp"
+namespace wust_vision {
 namespace auto_buff {
-class BaSolver {
-public:
-    using Ptr = std::unique_ptr<BaSolver>;
-    BaSolver(const YAML::Node& config, const cv::Mat& camera_matrix);
-    static Ptr create(const YAML::Node& config, const cv::Mat& camera_matrix) {
-        return std::make_unique<BaSolver>(config, camera_matrix);
-    }
-    ~BaSolver();
-    Eigen::Matrix3d solveBa_R(
-        const auto_buff::RuneFan::Simple& rune_fan,
-        const Eigen::Vector3d& t_camera_armor,
-        const Eigen::Matrix3d& R_camera_armor,
-        const Eigen::Matrix3d& R_imu_camera
-    ) const noexcept;
+    class BaSolver {
+    public:
+        using Ptr = std::unique_ptr<BaSolver>;
+        BaSolver(const YAML::Node& config, const cv::Mat& camera_matrix);
+        static Ptr create(const YAML::Node& config, const cv::Mat& camera_matrix) {
+            return std::make_unique<BaSolver>(config, camera_matrix);
+        }
+        ~BaSolver();
+        Eigen::Matrix3d solveBa_R(
+            const auto_buff::RuneFan::Simple& rune_fan,
+            const Eigen::Vector3d& t_camera_armor,
+            const Eigen::Matrix3d& R_camera_armor,
+            const Eigen::Matrix3d& R_imu_camera
+        ) const noexcept;
 
-private:
-    struct Impl;
-    std::unique_ptr<Impl> _impl;
-};
+    private:
+        struct Impl;
+        std::unique_ptr<Impl> _impl;
+    };
 
 } // namespace auto_buff
+} // namespace wust_vision

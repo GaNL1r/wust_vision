@@ -7,33 +7,6 @@
 #include <opencv2/opencv.hpp>
 #include <optional>
 #include <shared_mutex>
-
-struct CommonFrame {
-    cv::Mat src_img;
-    std::chrono::steady_clock::time_point timestamp;
-    int id;
-    int detect_color;
-    cv::Rect expanded;
-    cv::Point2f offset = cv::Point2f(0, 0);
-};
-enum class EnemyColor {
-    RED = 0,
-    BLUE = 1,
-    WHITE = 2,
-};
-std::string enemyColorToString(EnemyColor color) noexcept;
-struct GridAndStride {
-    int grid0;
-    int grid1;
-    int stride;
-};
-struct imgframe {
-    cv::Mat img;
-    std::chrono::steady_clock::time_point timestamp;
-};
-
-enum class AttackMode { ARMOR = 0, SMALL_RUNE, BIG_RUNE, UNKNOWN };
-AttackMode toAttackMode(int value) noexcept;
 struct Motion {
     double yaw, pitch, roll; // 欧拉角 (rad)
     double vyaw, vpitch, vroll; // 角速度
@@ -45,7 +18,6 @@ double unwrap_angle(double prev, double curr) noexcept;
 
 // 角度插值（wrap-safe）
 double interp_angle(double a, double b, double t) noexcept;
-
 template<>
 struct wust_vl::common::utils::MotionTraits<Motion> {
     static void unwrap(const Motion& prev, Motion& curr) noexcept {
@@ -72,6 +44,34 @@ struct wust_vl::common::utils::MotionTraits<Motion> {
         return out;
     }
 };
+namespace wust_vision {
+struct CommonFrame {
+    cv::Mat src_img;
+    std::chrono::steady_clock::time_point timestamp;
+    int id;
+    int detect_color;
+    cv::Rect expanded;
+    cv::Point2f offset = cv::Point2f(0, 0);
+};
+enum class EnemyColor {
+    RED = 0,
+    BLUE = 1,
+    WHITE = 2,
+};
+std::string enemyColorToString(EnemyColor color) noexcept;
+struct GridAndStride {
+    int grid0;
+    int grid1;
+    int stride;
+};
+struct imgframe {
+    cv::Mat img;
+    std::chrono::steady_clock::time_point timestamp;
+};
+
+enum class AttackMode { ARMOR = 0, SMALL_RUNE, BIG_RUNE, UNKNOWN };
+AttackMode toAttackMode(int value) noexcept;
+
 // template<>
 // struct MotionTraits<Motion> {
 
@@ -277,3 +277,4 @@ struct AutoExposureCfg {
         }
     }
 };
+} // namespace wust_vision

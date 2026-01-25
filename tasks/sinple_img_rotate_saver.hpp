@@ -3,6 +3,7 @@
 #include "opencv2/opencv.hpp"
 #include "wust_vl/common/utils/recorder.hpp"
 #include "wust_vl/common/utils/timer.hpp"
+namespace wust_vision {
 class ImgWriter: public wust_vl::common::utils::Writer<cv::Mat> {
 public:
     explicit ImgWriter(
@@ -156,3 +157,4 @@ private:
     std::vector<Record> records_;
     double speed_ = 1.0; // 1.0=原速, 2.0=2倍速, 0.5=半速
 };
+} // namespace wust_vision

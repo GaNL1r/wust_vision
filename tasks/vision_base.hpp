@@ -9,6 +9,7 @@
 #include "wust_vl/common/utils/config_binder.hpp"
 #include <sys/mman.h>
 #include <wust_vl/wust_vl.hpp>
+namespace wust_vision {
 class VisionBase {
 public:
     VisionBase(
@@ -65,3 +66,4 @@ public:
     std::string auto_aim_config_;
     std::string auto_buff_config_;
 };
+} // namespace wust_vision

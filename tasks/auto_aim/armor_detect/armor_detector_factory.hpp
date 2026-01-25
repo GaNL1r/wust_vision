@@ -31,46 +31,51 @@
     #include "tasks/auto_aim/armor_detect/onnxruntime/armor_detector_onnxruntime.hpp"
 #endif
 #include "tasks/auto_aim/armor_detect/opencv/armor_detector_opencv.hpp"
+namespace wust_vision {
 namespace auto_aim {
-class DetectorFactory {
-public:
-    static ArmorDetectorBase::Ptr createArmorDetector(
-        const std::string& backend,
-        const YAML::Node& config,
-        bool use_armor_detect_common
-    ) {
+    class DetectorFactory {
+    public:
+        static ArmorDetectorBase::Ptr createArmorDetector(
+            const std::string& backend,
+            const YAML::Node& config,
+            bool use_armor_detect_common
+        ) {
 #if defined(USE_OPENVINO)
-        if (backend == "openvino") {
-            return ArmorDetectorOpenVino::create(config["armor_detector"], use_armor_detect_common);
-        }
+            if (backend == "openvino") {
+                return ArmorDetectorOpenVino::create(
+                    config["armor_detector"],
+                    use_armor_detect_common
+                );
+            }
 #endif
 #if defined(USE_TRT)
-        if (backend == "tensorrt") {
-            return ArmorDetectorTrt::create(config["armor_detector"], use_armor_detect_common);
-        }
+            if (backend == "tensorrt") {
+                return ArmorDetectorTrt::create(config["armor_detector"], use_armor_detect_common);
+            }
 #endif
 #if defined(USE_NCNN)
-        if (backend == "ncnn") {
-            return ArmorDetectorNCNN::create(config["armor_detector"], use_armor_detect_common);
-        }
+            if (backend == "ncnn") {
+                return ArmorDetectorNCNN::create(config["armor_detector"], use_armor_detect_common);
+            }
 #endif
 #if defined(USE_ORT)
-        if (backend == "onnxruntime") {
-            return ArmorDetectorOnnxRuntime::create(
-                config["armor_detector"],
-                use_armor_detect_common
-            );
-        }
+            if (backend == "onnxruntime") {
+                return ArmorDetectorOnnxRuntime::create(
+                    config["armor_detector"],
+                    use_armor_detect_common
+                );
+            }
 #endif
 
-        if (backend == "opencv") {
-            return ArmorDetectorOpenCV::create(config["armor_detector"]);
-        }
+            if (backend == "opencv") {
+                return ArmorDetectorOpenCV::create(config["armor_detector"]);
+            }
 
-        throw std::runtime_error(
-            "Unsupported armor detector backend (or not compiled): " + backend
-        );
-    }
-};
+            throw std::runtime_error(
+                "Unsupported armor detector backend (or not compiled): " + backend
+            );
+        }
+    };
 
 } // namespace auto_aim
+} // namespace wust_vision

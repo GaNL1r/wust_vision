@@ -5,22 +5,24 @@
     #include "openvino/guidance_detector_openvino.hpp"
 
 #endif
+namespace wust_vision {
 namespace auto_guidance {
-class DetectorFactory {
-public:
-    static std::unique_ptr<detector_base>
-    createDetector(const std::string& backend, const YAML::Node& config, bool debug) {
+    class DetectorFactory {
+    public:
+        static std::unique_ptr<detector_base>
+        createDetector(const std::string& backend, const YAML::Node& config, bool debug) {
 #if defined(USE_OPENVINO)
-        if (backend == "openvino") {
-            return std::make_unique<GuidanceDetectorOpenVino>(config);
-        }
+            if (backend == "openvino") {
+                return std::make_unique<GuidanceDetectorOpenVino>(config);
+            }
 #endif
 
-        if (backend == "opencv") {
-            return std::make_unique<GuidanceDetectorOpenCV>(config, debug);
-        }
+            if (backend == "opencv") {
+                return std::make_unique<GuidanceDetectorOpenCV>(config, debug);
+            }
 
-        throw std::runtime_error("Unsupported  detector backend (or not compiled): " + backend);
-    }
-};
+            throw std::runtime_error("Unsupported  detector backend (or not compiled): " + backend);
+        }
+    };
 } // namespace auto_guidance
+} // namespace wust_vision

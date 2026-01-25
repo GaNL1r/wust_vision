@@ -21,56 +21,110 @@
 #include "wust_vl/common/utils/logger.hpp"
 #include "wust_vl/common/utils/timer.hpp"
 #include "wust_vl/ml_net/tensorrt/tensorrt_net.hpp"
+namespace wust_vision {
 namespace auto_aim {
-static constexpr int MAX_SRC_IMG_W = 1920;
-static constexpr int MAX_SRC_IMG_H = 1440;
-struct ArmorDetectorTrt::Impl {
-public:
-    struct Infer {
-        std::unique_ptr<nvinfer1::IExecutionContext> context;
-        std::unique_ptr<armor_cuda_infer::CudaInfer> cuda_infer;
-    };
+    static constexpr int MAX_SRC_IMG_W = 1920;
+    static constexpr int MAX_SRC_IMG_H = 1440;
+    struct ArmorDetectorTrt::Impl {
+    public:
+        struct Infer {
+            std::unique_ptr<nvinfer1::IExecutionContext> context;
+            std::unique_ptr<armor_cuda_infer::CudaInfer> cuda_infer;
+        };
 
-    Impl(const YAML::Node& config, bool use_armor_detect_common) {
-        if (use_armor_detect_common) {
-            armor_detect_common_ = std::make_unique<ArmorDetectorCommon>(config);
-        }
-        double conf_threshold = config["tensorrt"]["conf_threshold"].as<float>();
-        double nms_threshold = config["tensorrt"]["nms_threshold"].as<float>();
-        int top_k = config["tensorrt"]["top_k"].as<int>();
-        int max_infer_running = config["tensorrt"]["max_infer_running"].as<int>();
-        double min_free_mem_ratio = config["tensorrt"]["min_free_mem_ratio"].as<double>();
-        use_cuda_pre_ = config["tensorrt"]["use_cuda_pre"].as<bool>();
-        log_time_ = config["tensorrt"]["log_time"].as<bool>();
-        std::string model_type = config["tensorrt"]["model_type"].as<std::string>();
-        std::string model_path =
-            utils::expandEnv(config["tensorrt"]["model_path"].as<std::string>());
-        int device_id = config["tensorrt"]["device_id"].as<int>();
-        cudaSetDevice(device_id);
-        const auto model = armor_infer::modeFromString(model_type);
-        armor_infer_ =
-            std::make_unique<armor_infer::ArmorInfer>(model, conf_threshold, nms_threshold, top_k);
-        strides_ = { 8, 16, 32 };
-        armor_infer_->generate_grids_and_stride(
-            armor_infer_->getInputW(),
-            armor_infer_->getInputH(),
-            strides_,
-            grid_strides_
-        );
-        trt_net_ = std::make_unique<wust_vl::ml_net::TensorRTNet>();
-        wust_vl::ml_net::TensorRTNet::Params trt_params;
-        trt_params.model_path = model_path;
-        trt_params.input_dims =
-            nvinfer1::Dims4 { 1, 3, armor_infer_->getInputH(), armor_infer_->getInputW() };
-        trt_net_->init(trt_params);
-        const auto input_output_dims = trt_net_->getInputOutputDims();
-        input_dims_ = std::get<0>(input_output_dims);
-        output_dims_ = std::get<1>(input_output_dims);
+        Impl(const YAML::Node& config, bool use_armor_detect_common) {
+            if (use_armor_detect_common) {
+                armor_detect_common_ = std::make_unique<ArmorDetectorCommon>(config);
+            }
+            double conf_threshold = config["tensorrt"]["conf_threshold"].as<float>();
+            double nms_threshold = config["tensorrt"]["nms_threshold"].as<float>();
+            int top_k = config["tensorrt"]["top_k"].as<int>();
+            int max_infer_running = config["tensorrt"]["max_infer_running"].as<int>();
+            double min_free_mem_ratio = config["tensorrt"]["min_free_mem_ratio"].as<double>();
+            use_cuda_pre_ = config["tensorrt"]["use_cuda_pre"].as<bool>();
+            log_time_ = config["tensorrt"]["log_time"].as<bool>();
+            std::string model_type = config["tensorrt"]["model_type"].as<std::string>();
+            std::string model_path =
+                utils::expandEnv(config["tensorrt"]["model_path"].as<std::string>());
+            int device_id = config["tensorrt"]["device_id"].as<int>();
+            cudaSetDevice(device_id);
+            const auto model = armor_infer::modeFromString(model_type);
+            armor_infer_ = std::make_unique<armor_infer::ArmorInfer>(
+                model,
+                conf_threshold,
+                nms_threshold,
+                top_k
+            );
+            strides_ = { 8, 16, 32 };
+            armor_infer_->generate_grids_and_stride(
+                armor_infer_->getInputW(),
+                armor_infer_->getInputH(),
+                strides_,
+                grid_strides_
+            );
+            trt_net_ = std::make_unique<wust_vl::ml_net::TensorRTNet>();
+            wust_vl::ml_net::TensorRTNet::Params trt_params;
+            trt_params.model_path = model_path;
+            trt_params.input_dims =
+                nvinfer1::Dims4 { 1, 3, armor_infer_->getInputH(), armor_infer_->getInputW() };
+            trt_net_->init(trt_params);
+            const auto input_output_dims = trt_net_->getInputOutputDims();
+            input_dims_ = std::get<0>(input_output_dims);
+            output_dims_ = std::get<1>(input_output_dims);
 
-        wust_vl::common::concurrency::AdaptiveResourcePool<Infer>::Params pool_params;
-        pool_params.resource_initializer = [=]() {
-            std::vector<std::unique_ptr<Infer>> infers;
-            for (int i = 0; i < max_infer_running; ++i) {
+            wust_vl::common::concurrency::AdaptiveResourcePool<Infer>::Params pool_params;
+            pool_params.resource_initializer = [=]() {
+                std::vector<std::unique_ptr<Infer>> infers;
+                for (int i = 0; i < max_infer_running; ++i) {
+                    auto infer = std::make_unique<Infer>();
+                    auto ctx = trt_net_->getAContext();
+                    infer->context = std::unique_ptr<nvinfer1::IExecutionContext>(ctx);
+                    if (use_cuda_pre_) {
+                        infer->cuda_infer = std::make_unique<armor_cuda_infer::CudaInfer>();
+                        infer->cuda_infer->init(
+                            MAX_SRC_IMG_W,
+                            MAX_SRC_IMG_H,
+                            armor_infer_->getInputW(),
+                            armor_infer_->getInputH()
+                        );
+                    }
+                    if (!infer->context) {
+                        WUST_ERROR("TRT") << "create infer failed, missing context"
+                                          << " index:" << i;
+                        continue;
+                    }
+                    if (use_cuda_pre_ && !infer->cuda_infer) {
+                        WUST_ERROR("TRT") << "create infer failed, missing cuda_infer"
+                                          << " index:" << i;
+                        continue;
+                    }
+
+                    size_t free_mem, total_mem;
+                    cudaMemGetInfo(&free_mem, &total_mem);
+                    WUST_DEBUG("TRT") << "Free GPU memory:" << free_mem / 1024.0 / 1024.0 << "MB"
+                                      << "Total GPU memory:" << total_mem / 1024.0 / 1024.0 << "MB";
+                    double free_mem_ratio =
+                        static_cast<double>(free_mem) / static_cast<double>(total_mem);
+                    if (free_mem_ratio < min_free_mem_ratio && i > 0) {
+                        WUST_WARN("TRT") << "GPU memory is not enough!"
+                                         << "Free GPU memory:" << free_mem_ratio * 100 << "%";
+                        WUST_INFO("TRT") << "Cut remaining infer";
+                        break;
+                    }
+                    infers.emplace_back(std::move(infer));
+                    WUST_INFO("TRT") << "create execution context success"
+                                     << "index:" << i;
+                }
+                return infers;
+            };
+            auto release_func = [](std::unique_ptr<Infer>& resource) {
+                if (resource) {
+                    if (resource->cuda_infer) {
+                        resource->cuda_infer.reset();
+                    }
+                }
+            };
+            auto restore_func = [=](size_t idx) -> std::unique_ptr<Infer> {
                 auto infer = std::make_unique<Infer>();
                 auto ctx = trt_net_->getAContext();
                 infer->context = std::unique_ptr<nvinfer1::IExecutionContext>(ctx);
@@ -84,243 +138,201 @@ public:
                     );
                 }
                 if (!infer->context) {
-                    WUST_ERROR("TRT") << "create infer failed, missing context"
-                                      << " index:" << i;
-                    continue;
+                    WUST_ERROR("TRT") << "create infer failed, missing context";
+                    return nullptr;
                 }
-                if (use_cuda_pre_ && !infer->cuda_infer) {
-                    WUST_ERROR("TRT") << "create infer failed, missing cuda_infer"
-                                      << " index:" << i;
-                    continue;
+                if ((use_cuda_pre_) && !infer->cuda_infer) {
+                    WUST_ERROR("TRT") << "create infer failed, missing cuda_infer";
+                    return nullptr;
                 }
+                return infer;
+            };
+            pool_params.restore_func = restore_func;
 
-                size_t free_mem, total_mem;
-                cudaMemGetInfo(&free_mem, &total_mem);
-                WUST_DEBUG("TRT") << "Free GPU memory:" << free_mem / 1024.0 / 1024.0 << "MB"
-                                  << "Total GPU memory:" << total_mem / 1024.0 / 1024.0 << "MB";
-                double free_mem_ratio =
-                    static_cast<double>(free_mem) / static_cast<double>(total_mem);
-                if (free_mem_ratio < min_free_mem_ratio && i > 0) {
-                    WUST_WARN("TRT") << "GPU memory is not enough!"
-                                     << "Free GPU memory:" << free_mem_ratio * 100 << "%";
-                    WUST_INFO("TRT") << "Cut remaining infer";
-                    break;
-                }
-                infers.emplace_back(std::move(infer));
-                WUST_INFO("TRT") << "create execution context success"
-                                 << "index:" << i;
+            pool_params.release_func = release_func;
+
+            pool_params.can_restore = [=](size_t active_count) {
+                // size_t free_mem = 0, total_mem = 0;
+                // cudaMemGetInfo(&free_mem, &total_mem);
+
+                // double free_ratio = static_cast<double>(free_mem) / total_mem;
+                // size_t used_mem = total_mem - free_mem;
+                // size_t avg_used_per_resource = active_count > 0 ? used_mem / active_count : 1;
+                // size_t safe_margin = avg_used_per_resource;
+
+                // bool enough_for_one_more = free_mem > (avg_used_per_resource + safe_margin);
+
+                // return free_ratio > params_.min_free_mem_ratio * 1.2 && enough_for_one_more;
+                return false;
+            };
+
+            pool_params.should_release = [=](size_t active_count) {
+                // size_t free_mem = 0, total_mem = 0;
+                // cudaMemGetInfo(&free_mem, &total_mem);
+                // double free_ratio = static_cast<double>(free_mem) / total_mem;
+                // return free_ratio < params_.min_free_mem_ratio && active_count > 1;
+                return false;
+            };
+
+            pool_params.logger = [](const std::string& msg) {
+                WUST_INFO("ArmorDetectorTrt:infer pool") << msg;
+            };
+            infer_pool_ =
+                std::make_unique<wust_vl::common::concurrency::AdaptiveResourcePool<Infer>>(
+                    pool_params
+                );
+        }
+
+        ~Impl() {
+            if (infer_pool_) {
+                infer_pool_.reset();
             }
-            return infers;
-        };
-        auto release_func = [](std::unique_ptr<Infer>& resource) {
-            if (resource) {
-                if (resource->cuda_infer) {
-                    resource->cuda_infer.reset();
-                }
-            }
-        };
-        auto restore_func = [=](size_t idx) -> std::unique_ptr<Infer> {
-            auto infer = std::make_unique<Infer>();
-            auto ctx = trt_net_->getAContext();
-            infer->context = std::unique_ptr<nvinfer1::IExecutionContext>(ctx);
-            if (use_cuda_pre_) {
-                infer->cuda_infer = std::make_unique<armor_cuda_infer::CudaInfer>();
-                infer->cuda_infer->init(
-                    MAX_SRC_IMG_W,
-                    MAX_SRC_IMG_H,
+            trt_net_.reset();
+            armor_detect_common_.reset();
+        }
+
+        void setCallback(DetectorCallback callback) {
+            infer_callback_ = callback;
+        }
+        void processCallback(
+            const CommonFrame& frame,
+            Infer* infer,
+            const std::optional<ArmorNumber>& target_number
+        ) const {
+            const auto t0 = wust_vl::common::utils::time_utils::now();
+            Eigen::Matrix3f transform_matrix;
+            std::vector<ArmorObject> objs_result;
+            void* input_tensor_ptr;
+            const cv::Mat roi = frame.src_img(frame.expanded);
+
+            cv::Mat resized_img;
+            if (infer->cuda_infer && use_cuda_pre_) {
+                input_tensor_ptr =
+                    infer->cuda_infer
+                        ->preprocess_pitched( //支持不连续内存,无需拷贝后输入可直接传roi的指针
+                            roi.data,
+                            roi.cols,
+                            roi.rows,
+                            roi.step,
+                            transform_matrix,
+                            trt_net_->getStream()
+                        );
+                resized_img = armor_cuda_infer::tensorToMat( //nchw_float_to_hwc_uchar
+                    (float*)input_tensor_ptr,
+                    armor_infer_->getInputW(),
+                    armor_infer_->getInputH(),
+                    trt_net_->getStream()
+                );
+            } else {
+                resized_img = utils::letterbox(
+                    roi,
+                    transform_matrix,
                     armor_infer_->getInputW(),
                     armor_infer_->getInputH()
                 );
+                const float scale = armor_infer_->getUseNorm() ? 1.0f / 255.0f : 1.0f;
+                cv::Mat blob = cv::dnn::blobFromImage(
+                    resized_img,
+                    scale,
+                    cv::Size(armor_infer_->getInputW(), armor_infer_->getInputH()),
+                    cv::Scalar(0, 0, 0),
+                    true
+                );
+                trt_net_->input2Device(blob.ptr<float>());
+                input_tensor_ptr = trt_net_->getInputTensorPtr();
             }
-            if (!infer->context) {
-                WUST_ERROR("TRT") << "create infer failed, missing context";
-                return nullptr;
+            const auto t1 = wust_vl::common::utils::time_utils::now();
+            if (infer->context && input_tensor_ptr) {
+                trt_net_->infer(input_tensor_ptr, infer->context.get());
             }
-            if ((use_cuda_pre_) && !infer->cuda_infer) {
-                WUST_ERROR("TRT") << "create infer failed, missing cuda_infer";
-                return nullptr;
+            const auto t2 = wust_vl::common::utils::time_utils::now();
+            const cv::Mat
+                output_mat(output_dims_.d[1], output_dims_.d[2], CV_32F, trt_net_->output2Host());
+            objs_result = armor_infer_->postProcess(output_mat, transform_matrix, grid_strides_);
+            const auto t3 = wust_vl::common::utils::time_utils::now();
+            if (log_time_) {
+                WUST_INFO("TRT") << std::fixed << std::setprecision(3) << "pre "
+                                 << wust_vl::common::utils::time_utils::durationMs(t0, t1) << " "
+                                 << "infer "
+                                 << wust_vl::common::utils::time_utils::durationMs(t1, t2) << " "
+                                 << "post "
+                                 << wust_vl::common::utils::time_utils::durationMs(t2, t3) << " "
+                                 << "total "
+                                 << wust_vl::common::utils::time_utils::durationMs(t0, t3);
             }
-            return infer;
-        };
-        pool_params.restore_func = restore_func;
-
-        pool_params.release_func = release_func;
-
-        pool_params.can_restore = [=](size_t active_count) {
-            // size_t free_mem = 0, total_mem = 0;
-            // cudaMemGetInfo(&free_mem, &total_mem);
-
-            // double free_ratio = static_cast<double>(free_mem) / total_mem;
-            // size_t used_mem = total_mem - free_mem;
-            // size_t avg_used_per_resource = active_count > 0 ? used_mem / active_count : 1;
-            // size_t safe_margin = avg_used_per_resource;
-
-            // bool enough_for_one_more = free_mem > (avg_used_per_resource + safe_margin);
-
-            // return free_ratio > params_.min_free_mem_ratio * 1.2 && enough_for_one_more;
-            return false;
-        };
-
-        pool_params.should_release = [=](size_t active_count) {
-            // size_t free_mem = 0, total_mem = 0;
-            // cudaMemGetInfo(&free_mem, &total_mem);
-            // double free_ratio = static_cast<double>(free_mem) / total_mem;
-            // return free_ratio < params_.min_free_mem_ratio && active_count > 1;
-            return false;
-        };
-
-        pool_params.logger = [](const std::string& msg) {
-            WUST_INFO("ArmorDetectorTrt:infer pool") << msg;
-        };
-        infer_pool_ = std::make_unique<wust_vl::common::concurrency::AdaptiveResourcePool<Infer>>(pool_params);
-    }
-
-    ~Impl() {
-        if (infer_pool_) {
-            infer_pool_.reset();
-        }
-        trt_net_.reset();
-        armor_detect_common_.reset();
-    }
-
-    void setCallback(DetectorCallback callback) {
-        infer_callback_ = callback;
-    }
-    void processCallback(
-        const CommonFrame& frame,
-        Infer* infer,
-        const std::optional<ArmorNumber>& target_number
-    ) const {
-        const auto t0 = wust_vl::common::utils::time_utils::now();
-        Eigen::Matrix3f transform_matrix;
-        std::vector<ArmorObject> objs_result;
-        void* input_tensor_ptr;
-        const cv::Mat roi = frame.src_img(frame.expanded);
-
-        cv::Mat resized_img;
-        if (infer->cuda_infer && use_cuda_pre_) {
-            input_tensor_ptr =
-                infer->cuda_infer
-                    ->preprocess_pitched( //支持不连续内存,无需拷贝后输入可直接传roi的指针
-                        roi.data,
-                        roi.cols,
-                        roi.rows,
-                        roi.step,
-                        transform_matrix,
-                        trt_net_->getStream()
-                    );
-            resized_img = armor_cuda_infer::tensorToMat( //nchw_float_to_hwc_uchar
-                (float*)input_tensor_ptr,
-                armor_infer_->getInputW(),
-                armor_infer_->getInputH(),
-                trt_net_->getStream()
-            );
-        } else {
-            resized_img = utils::letterbox(
-                roi,
-                transform_matrix,
-                armor_infer_->getInputW(),
-                armor_infer_->getInputH()
-            );
-            const float scale = armor_infer_->getUseNorm() ? 1.0f / 255.0f : 1.0f;
-            cv::Mat blob = cv::dnn::blobFromImage(
-                resized_img,
-                scale,
-                cv::Size(armor_infer_->getInputW(), armor_infer_->getInputH()),
-                cv::Scalar(0, 0, 0),
-                true
-            );
-            trt_net_->input2Device(blob.ptr<float>());
-            input_tensor_ptr = trt_net_->getInputTensorPtr();
-        }
-        const auto t1 = wust_vl::common::utils::time_utils::now();
-        if (infer->context && input_tensor_ptr) {
-            trt_net_->infer(input_tensor_ptr, infer->context.get());
-        }
-        const auto t2 = wust_vl::common::utils::time_utils::now();
-        const cv::Mat
-            output_mat(output_dims_.d[1], output_dims_.d[2], CV_32F, trt_net_->output2Host());
-        objs_result = armor_infer_->postProcess(output_mat, transform_matrix, grid_strides_);
-        const auto t3 =wust_vl::common::utils::time_utils::now();
-        if (log_time_) {
-            WUST_INFO("TRT") << std::fixed << std::setprecision(3) << "pre "
-                             << wust_vl::common::utils::time_utils::durationMs(t0, t1) << " "
-                             << "infer " << wust_vl::common::utils::time_utils::durationMs(t1, t2) << " "
-                             << "post " << wust_vl::common::utils::time_utils::durationMs(t2, t3) << " "
-                             << "total " << wust_vl::common::utils::time_utils::durationMs(t0, t3);
-        }
-        infer_pool_->release(infer);
-        std::vector<ArmorObject> armors;
-        if (armor_detect_common_) {
-            armors = armor_detect_common_->detectNet(
-                resized_img,
-                objs_result,
-                transform_matrix,
-                frame.detect_color,
-                target_number
-            );
-            // Call callback function
-            if (this->infer_callback_) {
-                this->infer_callback_(armors, frame);
-                return;
-            }
-        } else {
-            for (auto obj: objs_result) {
-                auto detect_color = frame.detect_color;
-                if (detect_color == 0 && obj.color == ArmorColor::BLUE) {
-                    continue;
-                } else if (detect_color == 1 && obj.color == ArmorColor::RED) {
-                    continue;
+            infer_pool_->release(infer);
+            std::vector<ArmorObject> armors;
+            if (armor_detect_common_) {
+                armors = armor_detect_common_->detectNet(
+                    resized_img,
+                    objs_result,
+                    transform_matrix,
+                    frame.detect_color,
+                    target_number
+                );
+                // Call callback function
+                if (this->infer_callback_) {
+                    this->infer_callback_(armors, frame);
+                    return;
                 }
-                obj.transform(transform_matrix);
-                armors.push_back(obj);
+            } else {
+                for (auto obj: objs_result) {
+                    auto detect_color = frame.detect_color;
+                    if (detect_color == 0 && obj.color == ArmorColor::BLUE) {
+                        continue;
+                    } else if (detect_color == 1 && obj.color == ArmorColor::RED) {
+                        continue;
+                    }
+                    obj.transform(transform_matrix);
+                    armors.push_back(obj);
+                }
+                if (this->infer_callback_) {
+                    this->infer_callback_(armors, frame);
+                    return;
+                }
             }
-            if (this->infer_callback_) {
-                this->infer_callback_(armors, frame);
-                return;
+
+            return;
+        }
+
+        void pushInput(CommonFrame& frame, const std::optional<ArmorNumber>& target_number) {
+            if (infer_pool_) {
+                auto infer_ptr = infer_pool_->acquire();
+                if (infer_ptr != nullptr) {
+                    frame.id = current_id_++;
+                    this->processCallback(frame, infer_ptr, target_number);
+                }
             }
         }
 
-        return;
+    private:
+        bool use_cuda_pre_;
+        bool log_time_;
+        nvinfer1::Dims input_dims_;
+        nvinfer1::Dims output_dims_;
+        std::vector<int> strides_;
+        std::vector<GridAndStride> grid_strides_;
+        DetectorCallback infer_callback_;
+        std::unique_ptr<ArmorDetectorCommon> armor_detect_common_;
+        std::unique_ptr<wust_vl::common::concurrency::AdaptiveResourcePool<Infer>> infer_pool_;
+        std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;
+        int current_id_ = 0;
+        std::unique_ptr<wust_vl::ml_net::TensorRTNet> trt_net_;
+    };
+    ArmorDetectorTrt::ArmorDetectorTrt(const YAML::Node& config, bool use_armor_detect_common) {
+        _impl = std::make_unique<Impl>(config, use_armor_detect_common);
     }
-
-    void pushInput(CommonFrame& frame, const std::optional<ArmorNumber>& target_number) {
-        if (infer_pool_) {
-            auto infer_ptr = infer_pool_->acquire();
-            if (infer_ptr != nullptr) {
-                frame.id = current_id_++;
-                this->processCallback(frame, infer_ptr, target_number);
-            }
-        }
+    ArmorDetectorTrt::~ArmorDetectorTrt() {
+        _impl.reset();
     }
-
-private:
-    bool use_cuda_pre_;
-    bool log_time_;
-    nvinfer1::Dims input_dims_;
-    nvinfer1::Dims output_dims_;
-    std::vector<int> strides_;
-    std::vector<GridAndStride> grid_strides_;
-    DetectorCallback infer_callback_;
-    std::unique_ptr<ArmorDetectorCommon> armor_detect_common_;
-    std::unique_ptr<wust_vl::common::concurrency::AdaptiveResourcePool<Infer>> infer_pool_;
-    std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;
-    int current_id_ = 0;
-    std::unique_ptr<wust_vl::ml_net::TensorRTNet> trt_net_;
-};
-ArmorDetectorTrt::ArmorDetectorTrt(const YAML::Node& config, bool use_armor_detect_common) {
-    _impl = std::make_unique<Impl>(config, use_armor_detect_common);
-}
-ArmorDetectorTrt::~ArmorDetectorTrt() {
-    _impl.reset();
-}
-void ArmorDetectorTrt::setCallback(DetectorCallback callback) {
-    _impl->setCallback(callback);
-}
-void ArmorDetectorTrt::pushInput(
-    CommonFrame& frame,
-    const std::optional<ArmorNumber>& target_number
-) {
-    _impl->pushInput(frame, target_number);
-}
+    void ArmorDetectorTrt::setCallback(DetectorCallback callback) {
+        _impl->setCallback(callback);
+    }
+    void ArmorDetectorTrt::pushInput(
+        CommonFrame& frame,
+        const std::optional<ArmorNumber>& target_number
+    ) {
+        _impl->pushInput(frame, target_number);
+    }
 } // namespace auto_aim
+} // namespace wust_vision

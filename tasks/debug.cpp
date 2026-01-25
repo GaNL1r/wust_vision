@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <wust_vl/common/utils/timer.hpp>
+namespace wust_vision {
 void drawDebugArmorContent(
     cv::Mat& debug_img,
     const DebugArmor& dbg,
@@ -101,7 +102,8 @@ void drawDebugArmorContent(
                 const size_t a_n = armor_target.armor_num_;
                 armor_data.armors.reserve(a_n);
                 const auto now = wust_vl::common::utils::time_utils::now();
-                const double dt0 = wust_vl::common::utils::time_utils::durationSec(armor_target.timestamp_, now);
+                const double dt0 =
+                    wust_vl::common::utils::time_utils::durationSec(armor_target.timestamp_, now);
                 const std::chrono::steady_clock::time_point future =
                     now + std::chrono::microseconds(int(dt0 * 1e6));
                 armor_target.predictSimple(future);
@@ -137,13 +139,12 @@ void drawDebugArmorContent(
         const auto& pts = armor_data.armors[i].toPtsDebug(camera_info.first, camera_info.second);
         const auto& pos = armor_data.armors[i].pos;
         const auto& ori = armor_data.armors[i].ori;
-        const auto& is_ok = armor_data.armors[i].is_ok;
         const auto& id = armor_data.armors[i].id;
         cv::Scalar color;
         if (dbg.detect_color) {
-            color = is_ok ? cv::Scalar(255, 0, 0) : cv::Scalar(0, 0, 255);
+            color = cv::Scalar(255, 0, 0);
         } else {
-            color = !is_ok ? cv::Scalar(255, 0, 0) : cv::Scalar(0, 0, 255);
+            color = cv::Scalar(0, 0, 255);
         }
         // 绘制前表面
         for (size_t j = 0; j < 4; ++j) {
@@ -160,9 +161,8 @@ void drawDebugArmorContent(
             cv::line(debug_img, pts[j], pts[j + 4], color, 2);
         }
 
-        if (is_ok) {
-            all_corners.insert(all_corners.end(), pts.begin(), pts.end());
-        }
+        all_corners.insert(all_corners.end(), pts.begin(), pts.end());
+
         const Eigen::Vector3d euler = ori.toRotationMatrix().eulerAngles(2, 1, 0);
         const double yaw = euler[0];
         const double distance =
@@ -928,7 +928,6 @@ void debuglog(
     static bool first_log = true;
     static std::chrono::steady_clock::time_point start_time;
 
-    // last_* 静态化
     static auto_aim::Armor last_armor_;
     static double last_armor_yaw_ = 0.0;
     static double last_ypd_y_ = 0.0;
@@ -1006,101 +1005,40 @@ void debuglog(
     } else {
         i_use = last_cmd_;
     }
-    log.time_log.push_back(t);
-    log.raw_yaw_log.push_back(i_use.raw_yaw);
-    log.raw_pitch_log.push_back(i_use.raw_pitch);
-    log.cmd_yaw_log.push_back(i_use.yaw);
-    log.cmd_pitch_log.push_back(i_use.pitch);
-    log.rune_obs_log.push_back(dbg_rune.obs_angle);
-    log.rune_pre_log.push_back(dbg_rune.pre_angle);
-    log.rune_fitv_log.push_back(dbg_rune.fitter_v * 180.0 / M_PI);
-    log.rune_obsv_log.push_back(dbg_rune.obs_v * 180.0 / M_PI);
-    log.armor_yaw_log.push_back(armor_yaw * 180.0 / M_PI);
-    log.armor_x_log.push_back(last_armor_.target_pos.x());
-    log.armor_y_log.push_back(last_armor_.target_pos.y());
-    log.armor_z_log.push_back(last_armor_.target_pos.z());
-    log.ypd_y_log.push_back(last_ypd_y_ * 180.0 / M_PI);
-    log.ypd_p_log.push_back(last_ypd_p_ * 180.0 / M_PI);
-    log.armor_dis_log.push_back(last_distance_);
-    log.gimbal_pitch_log.push_back(gimbal_py.first * 180.0 / M_PI);
-    log.gimbal_yaw_log.push_back(gimbal_py.second * 180.0 / M_PI);
-    log.target_v_yaw_log.push_back(target.v_yaw());
-    log.control_v_pitch_log.push_back(i_use.v_pitch);
-    log.control_v_yaw_log.push_back(i_use.v_yaw);
-    log.fire_log.push_back(i_use.fire_advice);
-    log.rune_dis_log.push_back(rune_dis);
-    log.fly_time_log.push_back(i_use.fly_time);
-    log.control_a_yaw_log.push_back(i_use.a_yaw / 180.0 * M_PI);
-    log.control_a_pitch_log.push_back(i_use.a_pitch / 180.0 * M_PI);
+    nlohmann::json j;
+    log.time_log.handleOnce(t, j);
+    log.raw_yaw_log.handleOnce(i_use.raw_yaw, j);
+    log.raw_pitch_log.handleOnce(i_use.raw_pitch, j);
+    log.yaw_log.handleOnce(i_use.yaw, j);
+    log.pitch_log.handleOnce(i_use.pitch, j);
+    log.rune_obs_log.handleOnce(dbg_rune.obs_angle, j);
+    log.rune_pre_log.handleOnce(dbg_rune.pre_angle, j);
+    log.rune_fitv_log.handleOnce(dbg_rune.fitter_v * 180.0 / M_PI, j);
+    log.rune_obsv_log.handleOnce(dbg_rune.obs_v * 180.0 / M_PI, j);
+    log.armor_yaw_log.handleOnce(armor_yaw * 180.0 / M_PI, j);
+    log.armor_x_log.handleOnce(last_armor_.target_pos.x(), j);
+    log.armor_y_log.handleOnce(last_armor_.target_pos.y(), j);
+    log.armor_z_log.handleOnce(last_armor_.target_pos.z(), j);
+    log.ypd_y_log.handleOnce(last_ypd_y_ * 180.0 / M_PI, j);
+    log.ypd_p_log.handleOnce(last_ypd_p_ * 180.0 / M_PI, j);
+    log.armor_dis_log.handleOnce(last_distance_, j);
+    log.gimbal_pitch_log.handleOnce(gimbal_py.first * 180.0 / M_PI, j);
+    log.gimbal_yaw_log.handleOnce(gimbal_py.second * 180.0 / M_PI, j);
+    log.target_v_yaw_log.handleOnce(target.v_yaw(), j);
+    log.control_v_pitch_log.handleOnce(i_use.v_pitch, j);
+    log.control_v_yaw_log.handleOnce(i_use.v_yaw, j);
+    log.fire_log.handleOnce(i_use.fire_advice, j);
+    log.rune_dis_log.handleOnce(rune_dis, j);
+    log.fly_time_log.handleOnce(i_use.fly_time, j);
+    log.control_a_yaw_log.handleOnce(i_use.a_yaw / 180.0 * M_PI, j);
+    log.control_a_pitch_log.handleOnce(i_use.a_pitch / 180.0 * M_PI, j);
     if (gimbal_cmd.appera) {
         last_cmd_ = gimbal_cmd;
     }
 
-    // 控制长度不超过 100
-    auto trim = [](std::vector<double>& v) {
-        if (v.size() > 100)
-            v.erase(v.begin());
-    };
-
-    trim(log.time_log);
-    trim(log.raw_yaw_log);
-    trim(log.raw_pitch_log);
-    trim(log.cmd_yaw_log);
-    trim(log.cmd_pitch_log);
-    trim(log.rune_obs_log);
-    trim(log.rune_pre_log);
-    trim(log.rune_obsv_log);
-    trim(log.rune_fitv_log);
-    trim(log.armor_yaw_log);
-    trim(log.armor_x_log);
-    trim(log.armor_y_log);
-    trim(log.armor_z_log);
-    trim(log.ypd_y_log);
-    trim(log.ypd_p_log);
-    trim(log.armor_dis_log);
-    trim(log.gimbal_pitch_log);
-    trim(log.gimbal_yaw_log);
-    trim(log.target_v_yaw_log);
-    trim(log.control_v_pitch_log);
-    trim(log.control_v_yaw_log);
-    trim(log.yaw_diff_log);
-    trim(log.fire_log);
-    trim(log.rune_dis_log);
-    trim(log.fly_time_log);
-    trim(log.control_a_yaw_log);
-    trim(log.control_a_pitch_log);
-    nlohmann::json j;
-    {
-        j["time"] = log.time_log;
-        j["raw_yaw"] = log.raw_yaw_log;
-        j["raw_pitch"] = log.raw_pitch_log;
-        j["yaw"] = log.cmd_yaw_log;
-        j["pitch"] = log.cmd_pitch_log;
-        j["armor_dis"] = log.armor_dis_log;
-        j["armor_x"] = log.armor_x_log;
-        j["armor_y"] = log.armor_y_log;
-        j["armor_z"] = log.armor_z_log;
-        j["armor_yaw"] = log.armor_yaw_log;
-        j["ypd_y"] = log.ypd_y_log;
-        j["ypd_p"] = log.ypd_p_log;
-        j["rune_obs"] = log.rune_obs_log;
-        j["rune_pre"] = log.rune_pre_log;
-        j["rune_obsv"] = log.rune_obsv_log;
-        j["rune_fitv"] = log.rune_fitv_log;
-        j["gimbal_yaw"] = log.gimbal_yaw_log;
-        j["gimbal_pitch"] = log.gimbal_pitch_log;
-        j["target_v_yaw"] = log.target_v_yaw_log;
-        j["control_v_pitch"] = log.control_v_pitch_log;
-        j["control_v_yaw"] = log.control_v_yaw_log;
-        j["yaw_diff"] = log.yaw_diff_log;
-        j["fire"] = log.fire_log;
-        j["rune_dis"] = log.rune_dis_log;
-        j["fly_time"] = log.fly_time_log;
-        j["control_a_yaw"] = log.control_a_yaw_log;
-        j["control_a_pitch"] = log.control_a_pitch_log;
-    }
     std::ofstream file("/dev/shm/cmd_log.json");
     if (file.is_open()) {
         file << j.dump();
     }
 }
+} // namespace wust_vision

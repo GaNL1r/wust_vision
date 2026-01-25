@@ -8,6 +8,7 @@
 #include <string>
 #include <sys/mman.h>
 #include <utility>
+namespace wust_vision {
 template<typename T>
 concept VisionLike = requires(T v) {
     {
@@ -64,7 +65,8 @@ inline int runVisionMain(int argc, char** argv) {
                     wust_vl::common::concurrency::ThreadManager::instance().getAllThreadStatuses();
                 v.checkStateMatchMode();
                 for (auto& status: all_status) {
-                    if (status.second == wust_vl::common::concurrency::MonitoredThread::Status::Hung) {
+                    if (status.second
+                        == wust_vl::common::concurrency::MonitoredThread::Status::Hung) {
                         std::cerr << status.first << " is Hunging! Exiting program..." << std::endl;
                         exit_code = -1;
                         std::exit(exit_code);
@@ -88,10 +90,11 @@ inline int runVisionMain(int argc, char** argv) {
         return -1;
     }
 }
+} // namespace wust_vision
 
 #define VISION_MAIN(VISION_TYPE) \
     int main(int argc, char** argv) { \
-        return runVisionMain<VISION_TYPE>(argc, argv); \
+        return wust_vision::runVisionMain<VISION_TYPE>(argc, argv); \
     }
 
 #define ENABLE_BACKWARD() \

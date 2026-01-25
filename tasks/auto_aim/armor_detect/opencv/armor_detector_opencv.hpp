@@ -20,20 +20,23 @@
 #pragma once
 #include "tasks/auto_aim/armor_detect/armor_detector_base.hpp"
 #include "tasks/type_common.hpp"
+namespace wust_vision {
 namespace auto_aim {
-class ArmorDetectorOpenCV: public ArmorDetectorBase {
-public:
-    using Ptr = std::unique_ptr<ArmorDetectorOpenCV>;
-    explicit ArmorDetectorOpenCV(const YAML::Node& config);
-    static Ptr create(const YAML::Node& config) {
-        return std::make_unique<ArmorDetectorOpenCV>(config);
-    }
-    ~ArmorDetectorOpenCV();
-    void pushInput(CommonFrame& frame, const std::optional<ArmorNumber>& target_number) override;
-    void setCallback(DetectorCallback callback) override;
+    class ArmorDetectorOpenCV: public ArmorDetectorBase {
+    public:
+        using Ptr = std::unique_ptr<ArmorDetectorOpenCV>;
+        explicit ArmorDetectorOpenCV(const YAML::Node& config);
+        static Ptr create(const YAML::Node& config) {
+            return std::make_unique<ArmorDetectorOpenCV>(config);
+        }
+        ~ArmorDetectorOpenCV();
+        void
+        pushInput(CommonFrame& frame, const std::optional<ArmorNumber>& target_number) override;
+        void setCallback(DetectorCallback callback) override;
 
-private:
-    struct Impl;
-    std::unique_ptr<Impl> _impl;
-};
+    private:
+        struct Impl;
+        std::unique_ptr<Impl> _impl;
+    };
 } // namespace auto_aim
+} // namespace wust_vision

@@ -15,19 +15,21 @@
 #pragma once
 #include "base.hpp"
 #include "tasks/auto_aim/type.hpp"
+namespace wust_vision {
 namespace auto_aim {
-class NumberClassifier: public NumberClassifierBase {
-public:
-    NumberClassifier(
-        const std::string& classify_model_path,
-        const std::string& classify_label_path
-    );
-    void initNumberClassifier() override;
-    bool classifyNumber(ArmorObject& armor) override;
+    class NumberClassifier: public NumberClassifierBase {
+    public:
+        NumberClassifier(
+            const std::string& classify_model_path,
+            const std::string& classify_label_path
+        );
+        void initNumberClassifier() override;
+        bool classifyNumber(ArmorObject& armor) override;
 
-private:
-    std::vector<std::string> class_names_;
-    std::string classify_model_path_;
-    std::string classify_label_path_;
-};
+    private:
+        std::vector<std::string> class_names_;
+        std::string classify_model_path_;
+        std::string classify_label_path_;
+    };
 } // namespace auto_aim
+} // namespace wust_vision

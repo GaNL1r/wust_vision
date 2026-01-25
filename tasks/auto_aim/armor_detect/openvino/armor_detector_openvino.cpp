@@ -18,154 +18,163 @@
 #include "tasks/auto_aim/armor_detect/armor_infer.hpp"
 #include "tasks/utils.hpp"
 #include "wust_vl/ml_net/openvino/openvino_net.hpp"
+namespace wust_vision {
 namespace auto_aim {
-struct ArmorDetectorOpenVino::Impl {
-public:
-    Impl(const YAML::Node& config, bool use_armor_detect_common) {
-        if (use_armor_detect_common) {
-            armor_detect_common_ = std::make_unique<ArmorDetectorCommon>(config);
-        }
-        std::string model_type = config["openvino"]["model_type"].as<std::string>();
-        auto model = armor_infer::modeFromString(model_type);
-        float conf_threshold = config["openvino"]["conf_threshold"].as<float>();
-        int top_k = config["openvino"]["top_k"].as<int>();
-        float nms_threshold = config["openvino"]["nms_threshold"].as<float>();
-        bool use_throughputmode = config["openvino"]["use_throughputmode"].as<bool>();
-        armor_infer_ =
-            std::make_unique<armor_infer::ArmorInfer>(model, conf_threshold, nms_threshold, top_k);
-        openvino_net_ = std::make_unique<wust_vl::ml_net::OpenvinoNet>();
-        const auto ppp_init_fun = [this](ov::preprocess::PrePostProcessor& ppp) {
-            ppp.input()
-                .tensor()
-                .set_element_type(ov::element::u8)
-                .set_layout("NHWC")
-                .set_color_format(ov::preprocess::ColorFormat::BGR);
-
-            float scale = armor_infer_->getUseNorm() ? 255.0f : 1.0f;
-            ppp.input()
-                .preprocess()
-                .convert_element_type(ov::element::f32)
-                .convert_color(ov::preprocess::ColorFormat::RGB)
-                .scale({ scale });
-
-            ppp.input().model().set_layout("NCHW");
-
-            ppp.output().tensor().set_element_type(ov::element::f32);
-        };
-        std::string model_path =
-            utils::expandEnv(config["openvino"]["model_path"].as<std::string>());
-        wust_vl::ml_net::OpenvinoNet::Params params;
-        auto device_name = config["openvino"]["device_name"].as<std::string>();
-        params.model_path = model_path;
-        params.device_name = device_name;
-        params.mode = use_throughputmode ? ov::hint::PerformanceMode::THROUGHPUT
-                                         : ov::hint::PerformanceMode::LATENCY;
-        openvino_net_->init(params, ppp_init_fun);
-
-        strides_ = { 8, 16, 32 };
-        armor_infer_->generate_grids_and_stride(
-            armor_infer_->getInputW(),
-            armor_infer_->getInputH(),
-            strides_,
-            grid_strides_
-        );
-    }
-
-    ~Impl() {
-        openvino_net_.reset();
-        armor_detect_common_.reset();
-    }
-
-    void setCallback(DetectorCallback callback) {
-        infer_callback_ = callback;
-    }
-    bool processCallback(const CommonFrame& frame, const std::optional<ArmorNumber>& target_number)
-        const {
-        const auto start = std::chrono::steady_clock::now();
-        Eigen::Matrix3f transform_matrix;
-        const auto roi = frame.src_img(frame.expanded);
-        cv::Mat resized_img = utils::letterbox(
-            roi,
-            transform_matrix,
-            armor_infer_->getInputW(),
-            armor_infer_->getInputH()
-        );
-        const auto input_info = openvino_net_->getInputInfo();
-        const auto input_tensor = ov::Tensor(input_info.first, input_info.second, resized_img.data);
-        const auto output = openvino_net_->infer_thread_local(input_tensor);
-
-        // Process output data
-        const auto output_shape = output.get_shape();
-
-        const cv::Mat output_buffer(output_shape[1], output_shape[2], CV_32F, output.data());
-
-        // Parsed variable
-        auto objs_result =
-            armor_infer_->postProcess(output_buffer, transform_matrix, grid_strides_);
-
-        std::vector<ArmorObject> armors;
-        if (armor_detect_common_) {
-            armors = armor_detect_common_->detectNet(
-                resized_img,
-                objs_result,
-                transform_matrix,
-                frame.detect_color,
-                target_number
+    struct ArmorDetectorOpenVino::Impl {
+    public:
+        Impl(const YAML::Node& config, bool use_armor_detect_common) {
+            if (use_armor_detect_common) {
+                armor_detect_common_ = std::make_unique<ArmorDetectorCommon>(config);
+            }
+            std::string model_type = config["openvino"]["model_type"].as<std::string>();
+            auto model = armor_infer::modeFromString(model_type);
+            float conf_threshold = config["openvino"]["conf_threshold"].as<float>();
+            int top_k = config["openvino"]["top_k"].as<int>();
+            float nms_threshold = config["openvino"]["nms_threshold"].as<float>();
+            bool use_throughputmode = config["openvino"]["use_throughputmode"].as<bool>();
+            armor_infer_ = std::make_unique<armor_infer::ArmorInfer>(
+                model,
+                conf_threshold,
+                nms_threshold,
+                top_k
             );
-            // Call callback function
-            if (this->infer_callback_) {
-                this->infer_callback_(armors, frame);
-                return true;
-            }
-        } else {
-            for (auto obj: objs_result) {
-                auto detect_color = frame.detect_color;
-                if (detect_color == 0 && obj.color == ArmorColor::BLUE) {
-                    continue;
-                } else if (detect_color == 1 && obj.color == ArmorColor::RED) {
-                    continue;
-                }
-                obj.transform(transform_matrix);
-                armors.push_back(obj);
-            }
-            if (this->infer_callback_) {
-                this->infer_callback_(armors, frame);
-                return true;
-            }
+            openvino_net_ = std::make_unique<wust_vl::ml_net::OpenvinoNet>();
+            const auto ppp_init_fun = [this](ov::preprocess::PrePostProcessor& ppp) {
+                ppp.input()
+                    .tensor()
+                    .set_element_type(ov::element::u8)
+                    .set_layout("NHWC")
+                    .set_color_format(ov::preprocess::ColorFormat::BGR);
+
+                float scale = armor_infer_->getUseNorm() ? 255.0f : 1.0f;
+                ppp.input()
+                    .preprocess()
+                    .convert_element_type(ov::element::f32)
+                    .convert_color(ov::preprocess::ColorFormat::RGB)
+                    .scale({ scale });
+
+                ppp.input().model().set_layout("NCHW");
+
+                ppp.output().tensor().set_element_type(ov::element::f32);
+            };
+            std::string model_path =
+                utils::expandEnv(config["openvino"]["model_path"].as<std::string>());
+            wust_vl::ml_net::OpenvinoNet::Params params;
+            auto device_name = config["openvino"]["device_name"].as<std::string>();
+            params.model_path = model_path;
+            params.device_name = device_name;
+            params.mode = use_throughputmode ? ov::hint::PerformanceMode::THROUGHPUT
+                                             : ov::hint::PerformanceMode::LATENCY;
+            openvino_net_->init(params, ppp_init_fun);
+
+            strides_ = { 8, 16, 32 };
+            armor_infer_->generate_grids_and_stride(
+                armor_infer_->getInputW(),
+                armor_infer_->getInputH(),
+                strides_,
+                grid_strides_
+            );
         }
 
-        return false;
-    }
-    void pushInput(CommonFrame& frame, const std::optional<ArmorNumber>& target_number) {
-        frame.id = current_id_++;
-        processCallback(frame, target_number);
-    }
+        ~Impl() {
+            openvino_net_.reset();
+            armor_detect_common_.reset();
+        }
 
-private:
-    std::unique_ptr<wust_vl::ml_net::OpenvinoNet> openvino_net_;
-    std::vector<int> strides_;
-    std::vector<GridAndStride> grid_strides_;
-    DetectorCallback infer_callback_;
-    std::unique_ptr<ArmorDetectorCommon> armor_detect_common_;
-    std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;
-    int current_id_ = 0;
-};
-ArmorDetectorOpenVino::ArmorDetectorOpenVino(
-    const YAML::Node& config,
-    bool use_armor_detect_common
-) {
-    _impl = std::make_unique<Impl>(config, use_armor_detect_common);
-}
-ArmorDetectorOpenVino::~ArmorDetectorOpenVino() {
-    _impl.reset();
-}
-void ArmorDetectorOpenVino::setCallback(DetectorCallback callback) {
-    _impl->setCallback(callback);
-}
-void ArmorDetectorOpenVino::pushInput(
-    CommonFrame& frame,
-    const std::optional<ArmorNumber>& target_number
-) {
-    _impl->pushInput(frame, target_number);
-}
+        void setCallback(DetectorCallback callback) {
+            infer_callback_ = callback;
+        }
+        bool processCallback(
+            const CommonFrame& frame,
+            const std::optional<ArmorNumber>& target_number
+        ) const {
+            const auto start = std::chrono::steady_clock::now();
+            Eigen::Matrix3f transform_matrix;
+            const auto roi = frame.src_img(frame.expanded);
+            cv::Mat resized_img = utils::letterbox(
+                roi,
+                transform_matrix,
+                armor_infer_->getInputW(),
+                armor_infer_->getInputH()
+            );
+            const auto input_info = openvino_net_->getInputInfo();
+            const auto input_tensor =
+                ov::Tensor(input_info.first, input_info.second, resized_img.data);
+            const auto output = openvino_net_->infer_thread_local(input_tensor);
+
+            // Process output data
+            const auto output_shape = output.get_shape();
+
+            const cv::Mat output_buffer(output_shape[1], output_shape[2], CV_32F, output.data());
+
+            // Parsed variable
+            auto objs_result =
+                armor_infer_->postProcess(output_buffer, transform_matrix, grid_strides_);
+
+            std::vector<ArmorObject> armors;
+            if (armor_detect_common_) {
+                armors = armor_detect_common_->detectNet(
+                    resized_img,
+                    objs_result,
+                    transform_matrix,
+                    frame.detect_color,
+                    target_number
+                );
+                // Call callback function
+                if (this->infer_callback_) {
+                    this->infer_callback_(armors, frame);
+                    return true;
+                }
+            } else {
+                for (auto obj: objs_result) {
+                    auto detect_color = frame.detect_color;
+                    if (detect_color == 0 && obj.color == ArmorColor::BLUE) {
+                        continue;
+                    } else if (detect_color == 1 && obj.color == ArmorColor::RED) {
+                        continue;
+                    }
+                    obj.transform(transform_matrix);
+                    armors.push_back(obj);
+                }
+                if (this->infer_callback_) {
+                    this->infer_callback_(armors, frame);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        void pushInput(CommonFrame& frame, const std::optional<ArmorNumber>& target_number) {
+            frame.id = current_id_++;
+            processCallback(frame, target_number);
+        }
+
+    private:
+        std::unique_ptr<wust_vl::ml_net::OpenvinoNet> openvino_net_;
+        std::vector<int> strides_;
+        std::vector<GridAndStride> grid_strides_;
+        DetectorCallback infer_callback_;
+        std::unique_ptr<ArmorDetectorCommon> armor_detect_common_;
+        std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;
+        int current_id_ = 0;
+    };
+    ArmorDetectorOpenVino::ArmorDetectorOpenVino(
+        const YAML::Node& config,
+        bool use_armor_detect_common
+    ) {
+        _impl = std::make_unique<Impl>(config, use_armor_detect_common);
+    }
+    ArmorDetectorOpenVino::~ArmorDetectorOpenVino() {
+        _impl.reset();
+    }
+    void ArmorDetectorOpenVino::setCallback(DetectorCallback callback) {
+        _impl->setCallback(callback);
+    }
+    void ArmorDetectorOpenVino::pushInput(
+        CommonFrame& frame,
+        const std::optional<ArmorNumber>& target_number
+    ) {
+        _impl->pushInput(frame, target_number);
+    }
 } // namespace auto_aim
+} // namespace wust_vision

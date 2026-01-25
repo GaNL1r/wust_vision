@@ -15,22 +15,27 @@
 
 #pragma once
 #include "tasks/auto_aim/type.hpp"
+namespace wust_vision {
 namespace auto_aim {
-class ArmorPoseEstimator {
-public:
-    using Ptr = std::unique_ptr<ArmorPoseEstimator>;
-    explicit ArmorPoseEstimator(const YAML::Node& config, std::pair<cv::Mat, cv::Mat> camera_info);
-    static Ptr create(const YAML::Node& config, std::pair<cv::Mat, cv::Mat> camera_info) {
-        return std::make_unique<ArmorPoseEstimator>(config, camera_info);
-    }
-    ~ArmorPoseEstimator();
-    std::vector<Armor> extractArmorPoses(
-        const std::vector<ArmorObject>& armors,
-        Eigen::Matrix4d T_camera_to_odom,
-        const cv::Mat& camera_intrinsic,
-        const cv::Mat& camera_distortion
-    ) const noexcept;
-    struct Impl;
-    std::unique_ptr<Impl> _impl;
-};
+    class ArmorPoseEstimator {
+    public:
+        using Ptr = std::unique_ptr<ArmorPoseEstimator>;
+        explicit ArmorPoseEstimator(
+            const YAML::Node& config,
+            std::pair<cv::Mat, cv::Mat> camera_info
+        );
+        static Ptr create(const YAML::Node& config, std::pair<cv::Mat, cv::Mat> camera_info) {
+            return std::make_unique<ArmorPoseEstimator>(config, camera_info);
+        }
+        ~ArmorPoseEstimator();
+        std::vector<Armor> extractArmorPoses(
+            const std::vector<ArmorObject>& armors,
+            Eigen::Matrix4d T_camera_to_odom,
+            const cv::Mat& camera_intrinsic,
+            const cv::Mat& camera_distortion
+        ) const noexcept;
+        struct Impl;
+        std::unique_ptr<Impl> _impl;
+    };
 } // namespace auto_aim
+} // namespace wust_vision

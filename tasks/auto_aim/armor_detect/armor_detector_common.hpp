@@ -14,26 +14,28 @@
 #pragma once
 
 #include "tasks/auto_aim/type.hpp"
+namespace wust_vision {
 namespace auto_aim {
-class ArmorDetectorCommon {
-public:
-    using Ptr = std::unique_ptr<ArmorDetectorCommon>;
-    ArmorDetectorCommon(const YAML::Node& config);
-    static Ptr create(const YAML::Node& config) {
-        return std::make_unique<ArmorDetectorCommon>(config);
-    }
-    ~ArmorDetectorCommon();
+    class ArmorDetectorCommon {
+    public:
+        using Ptr = std::unique_ptr<ArmorDetectorCommon>;
+        ArmorDetectorCommon(const YAML::Node& config);
+        static Ptr create(const YAML::Node& config) {
+            return std::make_unique<ArmorDetectorCommon>(config);
+        }
+        ~ArmorDetectorCommon();
 
-    std::vector<ArmorObject> detectNet(
-        const cv::Mat& src_img,
-        std::vector<ArmorObject>& objs_result,
-        Eigen::Matrix3f transform_matrix,
-        int detect_color,
-        const std::optional<ArmorNumber>& target_number = std::nullopt
-    );
+        std::vector<ArmorObject> detectNet(
+            const cv::Mat& src_img,
+            std::vector<ArmorObject>& objs_result,
+            Eigen::Matrix3f transform_matrix,
+            int detect_color,
+            const std::optional<ArmorNumber>& target_number = std::nullopt
+        );
 
-private:
-    struct Impl;
-    std::unique_ptr<Impl> _impl;
-};
+    private:
+        struct Impl;
+        std::unique_ptr<Impl> _impl;
+    };
 } // namespace auto_aim
+} // namespace wust_vision

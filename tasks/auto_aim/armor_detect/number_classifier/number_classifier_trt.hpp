@@ -16,22 +16,24 @@
 #include "base.hpp"
 #include "tasks/auto_aim/type.hpp"
 #include "wust_vl/ml_net/tensorrt/tensorrt_net.hpp"
+namespace wust_vision {
 namespace auto_aim {
-class NumberClassifierTRT: public NumberClassifierBase {
-public:
-    NumberClassifierTRT(
-        const std::string& classify_model_path,
-        const std::string& classify_label_path
-    );
-    void initNumberClassifier() override;
-    bool classifyNumber(ArmorObject& armor) override;
+    class NumberClassifierTRT: public NumberClassifierBase {
+    public:
+        NumberClassifierTRT(
+            const std::string& classify_model_path,
+            const std::string& classify_label_path
+        );
+        void initNumberClassifier() override;
+        bool classifyNumber(ArmorObject& armor) override;
 
-private:
-    std::vector<std::string> class_names_;
-    std::string classify_model_path_;
-    std::string classify_label_path_;
-    std::unique_ptr<wust_vl::ml_net::TensorRTNet> trt_net_;
-    nvinfer1::Dims input_dims_;
-    nvinfer1::Dims output_dims_;
-};
+    private:
+        std::vector<std::string> class_names_;
+        std::string classify_model_path_;
+        std::string classify_label_path_;
+        std::unique_ptr<wust_vl::ml_net::TensorRTNet> trt_net_;
+        nvinfer1::Dims input_dims_;
+        nvinfer1::Dims output_dims_;
+    };
 } // namespace auto_aim
+} // namespace wust_vision

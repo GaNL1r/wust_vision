@@ -35,4 +35,3 @@ record:
   read_csv_path: 
 
 
-use_sim: true
