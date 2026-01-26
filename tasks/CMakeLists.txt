@@ -5,12 +5,12 @@ add_library(tasks_common
 )
 target_include_directories(tasks_common PRIVATE ${WUST_VL_INCLUDE_DIRS} ${HikSDK_INCLUDE_DIR})
 target_link_libraries(tasks_common PRIVATE
-    project_options pch_core
+    project_options 
 )
 add_library(utils
     ${CMAKE_CURRENT_SOURCE_DIR}/utils.cpp
 )
 target_link_libraries(utils PRIVATE
-    project_options pch_core
+    project_options 
 )
 target_include_directories(utils PRIVATE ${WUST_VL_INCLUDE_DIRS} ${HikSDK_INCLUDE_DIR})

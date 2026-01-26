@@ -3,8 +3,9 @@
 #include "tasks/auto_aim/auto_aim.hpp"
 #include "tasks/auto_buff/auto_buff.hpp"
 #include "tasks/utils.hpp"
-#include "wust_vl/common/drivers/serial_driver.hpp"
 #include "wust_vl/common/concurrency/ThreadPool.h"
+#include "wust_vl/common/drivers/serial_driver.hpp"
+#include <fmt/core.h>
 namespace wust_vision {
 struct LoggerConfig: wust_vl::common::utils::ParamGroup {
 public:

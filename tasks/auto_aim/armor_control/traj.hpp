@@ -1,5 +1,10 @@
 #pragma once
-#include "tasks/pch.hpp"
+
+#include <algorithm>
+#include <cassert>
+#include <concepts>
+#include <cstddef>
+#include <vector>
 namespace wust_vision {
 namespace auto_aim {
 

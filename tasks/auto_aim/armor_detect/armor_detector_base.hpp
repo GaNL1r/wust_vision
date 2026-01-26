@@ -49,6 +49,7 @@ namespace auto_aim {
             min_small_center_distance = config["min_small_center_distance"].as<double>();
             max_small_center_distance = config["max_small_center_distance"].as<double>();
             min_large_center_distance = config["min_large_center_distance"].as<double>();
+            max_large_center_distance = config["max_large_center_distance"].as<double>();
             max_angle = config["max_angle"].as<double>();
         }
     };

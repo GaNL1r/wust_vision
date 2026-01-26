@@ -21,7 +21,7 @@ add_library(auto_aim OBJECT)
 target_compile_options(auto_aim PRIVATE -w)
 target_compile_definitions(auto_aim PRIVATE ${BUILD_DEFINITIONS})
 target_link_libraries(auto_aim PRIVATE
-    project_options pch_core
+    project_options 
 )
 target_include_directories(auto_aim PRIVATE
     include

@@ -61,8 +61,7 @@ namespace auto_aim {
             }
             updateFsm(found);
             if ((target_.diverged()) && tracker_state != LOST) {
-                initTarget(armors);
-                tracker_state = TRACKING;
+                tracker_state = LOST;
                 WUST_WARN("tracker") << "Target diverged!";
             }
 
@@ -206,6 +205,9 @@ namespace auto_aim {
     }
     std::chrono::steady_clock::time_point Tracker::getLastTime() const noexcept {
         return _impl->last_time_;
+    }
+    void Tracker::setLastTime(std::chrono::steady_clock::time_point t) noexcept {
+        _impl->last_time_ = t;
     }
 
 } // namespace auto_aim

@@ -245,19 +245,19 @@ namespace auto_buff {
                 printStats();
                 auto_buff::RuneFan auto_buff;
                 bool skip;
-                // if (rune_queue_->dequeue_wait(auto_buff, skip)) {
-                //     runeTargetCallback(auto_buff);
-                //     tracker_finish_count_++;
-                //     if (skip) {
-                //         WUST_DEBUG(logger_) << "OrderQueue skip";
-                //     }
-                // }
-                if (!rune_queue_->try_dequeue(auto_buff)) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(3));
-                    continue;
+                if (rune_queue_->dequeue_wait(auto_buff, skip)) {
+                    runeTargetCallback(auto_buff);
+                    tracker_finish_count_++;
+                    if (skip) {
+                        WUST_DEBUG(logger_) << "OrderQueue skip";
+                    }
                 }
-                runeTargetCallback(auto_buff);
-                tracker_finish_count_++;
+                // if (!rune_queue_->try_dequeue(auto_buff)) {
+                //     std::this_thread::sleep_for(std::chrono::milliseconds(3));
+                //     continue;
+                // }
+                // runeTargetCallback(auto_buff);
+                // tracker_finish_count_++;
             }
         }
         void setDebug(bool debug) {

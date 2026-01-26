@@ -1,9 +1,10 @@
 #pragma once
-#include "pch.hpp"
+#include <opencv2/opencv.hpp>
+#include "3rdparty/angles.h"
+#include "wust_vl/common/utils/logger.hpp"
 #include "wust_vl/common/utils/motion_buffer.hpp"
 #include "wust_vl/common/utils/parameter.hpp"
 #include "wust_vl/common/utils/trajectory_compensator.hpp"
-
 namespace wust_vision {
 struct CommonFrame {
     cv::Mat src_img;
@@ -58,8 +59,6 @@ struct Motion {
         return a + diff * t;
     }
 };
-
-
 
 static std::vector<cv::Point3f> AIM_TARGET_BLOCK = {
     { -0.025f, -0.025f, -0.025f }, // 0: 左下前

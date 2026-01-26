@@ -14,6 +14,7 @@ namespace auto_aim {
         Target track(const Armors& armors) noexcept;
         int getFoundCount() const noexcept;
         void setFoundCount(int count) noexcept;
+        void setLastTime(std::chrono::steady_clock::time_point t) noexcept;
         std::chrono::steady_clock::time_point getLastTime() const noexcept;
         struct Impl;
         std::unique_ptr<Impl> _impl;

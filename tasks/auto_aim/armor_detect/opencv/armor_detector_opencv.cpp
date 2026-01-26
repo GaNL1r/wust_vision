@@ -29,17 +29,14 @@ namespace auto_aim {
         Impl(const YAML::Node& config) {
             corner_corrector_ = std::make_unique<LightCornerCorrector>();
             auto classify_model_path =
-                utils::expandEnv(config["armor_detect"]["classify"]["model_path"].as<std::string>()
-                );
+                utils::expandEnv(config["classify"]["model_path"].as<std::string>());
             auto classify_label_path =
-                utils::expandEnv(config["armor_detect"]["classify"]["label_path"].as<std::string>()
-                );
-            double classify_threshold =
-                config["armor_detect"]["classify"]["threshold"].as<double>();
+                utils::expandEnv(config["classify"]["label_path"].as<std::string>());
+            double classify_threshold = config["classify"]["threshold"].as<double>();
             number_classifier_ =
                 std::make_unique<NumberClassifier>(classify_model_path, classify_label_path);
-            light_params_.load(config);
-            armor_params_.load(config);
+            light_params_.load(config["light"]);
+            armor_params_.load(config["armor"]);
         }
 
         std::vector<ArmorObject> detect(

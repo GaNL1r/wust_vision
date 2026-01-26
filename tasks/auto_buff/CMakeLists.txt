@@ -3,7 +3,7 @@ project(auto_buff LANGUAGES CXX)
 set(BUILD_DEFINITIONS "")
 list(APPEND BUILD_LIBS   ${CERES_LIBRARIES} ${WUST_VL_LIBS})
 add_library(auto_buff OBJECT)
-target_link_libraries(auto_buff PRIVATE pch_core)
+target_link_libraries(auto_buff PRIVATE )
 target_compile_options(auto_buff PRIVATE -w)
 target_compile_definitions(auto_buff PRIVATE ${BUILD_DEFINITIONS})
 target_sources(auto_buff PRIVATE

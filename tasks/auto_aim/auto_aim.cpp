@@ -287,19 +287,19 @@ namespace auto_aim {
                 printStats();
                 Armors armors;
                 bool skip;
-                // if (armor_queue_->dequeue_wait(armors, skip)) {
-                //     armorsCallback(armors);
-                //     tracker_finish_count_++;
-                //     if (skip) {
-                //         WUST_DEBUG(logger_) << "OrderQueue skip";
-                //     }
-                // }
-                if (!armor_queue_->try_dequeue(armors)) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(3));
-                    continue;
+                if (armor_queue_->dequeue_wait(armors, skip)) {
+                    armorsCallback(armors);
+                    tracker_finish_count_++;
+                    if (skip) {
+                        WUST_DEBUG(logger_) << "OrderQueue skip";
+                    }
                 }
-                armorsCallback(armors);
-                tracker_finish_count_++;
+                // if (!armor_queue_->try_dequeue(armors)) {
+                //     std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                //     continue;
+                // }
+                // armorsCallback(armors);
+                // tracker_finish_count_++;
             }
         }
         void setDebug(bool debug) {

@@ -6,7 +6,8 @@
 #include <ceres/loss_function.h>
 #include <ceres/problem.h>
 #include <ceres/solver.h>
-#include <opencv2/core.hpp>
+#include <opencv2/core/eigen.hpp>
+
 namespace wust_vision {
 namespace auto_buff {
     struct BaSolver::Impl {

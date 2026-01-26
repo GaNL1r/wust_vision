@@ -1,5 +1,9 @@
 #include "tasks/debug.hpp"
 #include "tasks/utils.hpp"
+#include <fcntl.h>
+#include <fmt/core.h>
+#include <nlohmann/json.hpp>
+#include <sys/mman.h>
 #include <wust_vl/common/utils/timer.hpp>
 namespace wust_vision {
 void drawDebugArmorContent(
@@ -97,7 +101,6 @@ void drawDebugArmorContent(
                 armor_data.armors.reserve(a_n);
                 const auto now = wust_vl::common::utils::time_utils::now();
                 armor_target.predictSimple(now);
-                armor_target.predictSimple(gimbal_cmd.fly_time);
                 const std::vector<Eigen::Vector4d> armors_posandyaw =
                     armor_target.getArmorPosAndYaw();
                 for (size_t i = 0; i < a_n; ++i) {

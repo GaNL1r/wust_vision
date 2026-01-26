@@ -81,14 +81,7 @@ target_link_libraries(project_min_deps INTERFACE
     ${CERES_LIBRARIES}
     utils
 )
-add_library(pch_core OBJECT
-    tasks/pch.cpp
-)
-target_precompile_headers(pch_core PRIVATE
-    ${CMAKE_SOURCE_DIR}/tasks/pch.hpp
-)
 
-target_compile_features(pch_core PRIVATE cxx_std_20)
 
 # ------------------- Subdirectories -------------------
 add_subdirectory(tasks/auto_aim)

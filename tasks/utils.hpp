@@ -16,7 +16,10 @@
 
 #pragma once
 
-#include "pch.hpp"
+#include <Eigen/Dense>
+#include <opencv2/opencv.hpp>
+#include <yaml-cpp/yaml.h>
+#include <thread>
 namespace wust_vision {
 // util functions
 namespace utils {
