@@ -427,8 +427,15 @@ void VisionBase::debugThread() {
                         gimbal_py.second = last_att->data.yaw;
                     }
                 }
-                wust_vl::common::utils::ParameterManager::instance().allReloadFromOldPath();
+
                 debuglog(dbg_armor, dbg_rune, last_cmd_, gimbal_py);
+                utils::XSecOnce(
+                    [this]() {
+                        wust_vl::common::utils::ParameterManager::instance().allReloadFromOldPath();
+                    },
+                    1.0
+                );
+
             } catch (std::exception& e) {
                 std::cout << "debug thread error: " << e.what() << std::endl;
             }

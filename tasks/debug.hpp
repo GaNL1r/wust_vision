@@ -38,7 +38,6 @@ struct DebugRune {
     double pnp_distance;
 };
 
-
 void drawDebugOverlayShm(
     const DebugArmor& dbg,
     std::pair<cv::Mat, cv::Mat> camera_info,
