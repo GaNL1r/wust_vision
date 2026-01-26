@@ -37,13 +37,14 @@ VisionBase::~VisionBase() {
     WUST_MAIN("main") << "vision stop already!";
 }
 bool VisionBase::init(bool debug_mode) {
-    const char* v = std::getenv("VISION_ROOT");
-    if (v)
-        std::cout << "[env] VISION_ROOT = " << v << "\n";
-    else
-        std::cout << "[env] VISION_ROOT not set in this process\n";
-    debug_mode_ = debug_mode;
     try {
+        const char* v = std::getenv("VISION_ROOT");
+        if (v)
+            std::cout << "[env] VISION_ROOT = " << v << "\n";
+        else
+            std::cout << "[env] VISION_ROOT not set in this process\n";
+        debug_mode_ = debug_mode;
+
         control_config_ = ControlConfig::create(this);
         shoot_config_ = ShootConfig::create(this);
         record_config_ = RecordConfig::create(this);
@@ -61,66 +62,69 @@ bool VisionBase::init(bool debug_mode) {
         debug_fps_ = config["debug_fps"].as<int>();
         attack_mode_ = config["attack_mode"].as<int>();
         detect_color_ = config["detect_color"].as<int>();
+
+        wust_vl::common::utils::ParameterManager::instance().registerParameter(
+            common_config_parameter_
+        );
+        std::cout << "common_config_: " << common_config_ << std::endl;
+        YAML::Node camera_config = YAML::LoadFile(camera_config_);
+        camera_ = std::make_shared<wust_vl::video::Camera>();
+        camera_->init(camera_config);
+        camera_->setFrameCallback(std::bind(&VisionBase::frameCallback, this, std::placeholders::_1)
+        );
+        std::string camera_info_path =
+            utils::expandEnv(camera_config["camera_info_path"].as<std::string>());
+        YAML::Node config_camera_info = YAML::LoadFile(camera_info_path);
+        std::vector<double> camera_k =
+            config_camera_info["camera_matrix"]["data"].as<std::vector<double>>();
+        std::vector<double> camera_d =
+            config_camera_info["distortion_coefficients"]["data"].as<std::vector<double>>();
+
+        assert(camera_k.size() == 9);
+        assert(camera_d.size() == 5);
+
+        cv::Mat K(3, 3, CV_64F);
+        std::memcpy(K.data, camera_k.data(), 9 * sizeof(double));
+
+        cv::Mat D(1, 5, CV_64F);
+        std::memcpy(D.data, camera_d.data(), 5 * sizeof(double));
+
+        auto camera_info = std::make_pair(K.clone(), D.clone());
+        camera_info_ = camera_info;
+
+        YAML::Node auto_aim_config = YAML::LoadFile(auto_aim_config_);
+        auto_aim_ = std::make_shared<auto_aim::AutoAim>();
+        auto_aim_->init(auto_aim_config, use_ncnn_count_, tf_config_, camera_info);
+        YAML::Node auto_buff_config = YAML::LoadFile(auto_buff_config_);
+        auto_buff_ = std::make_shared<auto_buff::AutoBuff>();
+        auto_buff_->init(auto_buff_config, use_ncnn_count_, tf_config_, camera_info);
+        thread_pool_ = std::make_unique<wust_vl::common::concurrency::ThreadPool>(
+            max_infer_running_config_->max_infer_running
+        );
+        motion_buffer_ =
+            std::make_shared<wust_vl::common::utils::MotionBufferGeneric<Motion, 1024>>();
+
+        auto_aim_shared_ = std::make_shared<auto_aim::AutoAimShared>(
+            motion_buffer_,
+            shoot_config_->bullet_speed_param.get(),
+            control_config_->communication_delay_us_param.get()
+        );
+        auto_aim_->setShared(auto_aim_shared_);
+        auto_aim_->setDebug(debug_mode_);
+        auto_buff_shared_ = std::make_shared<auto_buff::AutoBuffShared>(
+            motion_buffer_,
+            shoot_config_->bullet_speed_param.get(),
+            control_config_->communication_delay_us_param.get()
+        );
+        auto_buff_->setShared(auto_buff_shared_);
+        auto_buff_->setDebug(debug_mode_);
+
+        timer_ = std::make_unique<wust_vl::common::utils::Timer>();
+
+        WUST_MAIN("main") << "vision init already!";
     } catch (std::exception& e) {
         std::cerr << "init exception: " << e.what() << std::endl;
     }
-
-    wust_vl::common::utils::ParameterManager::instance().registerParameter(common_config_parameter_
-    );
-    std::cout << "common_config_: " << common_config_ << std::endl;
-    YAML::Node camera_config = YAML::LoadFile(camera_config_);
-    camera_ = std::make_shared<wust_vl::video::Camera>();
-    camera_->init(camera_config);
-    camera_->setFrameCallback(std::bind(&VisionBase::frameCallback, this, std::placeholders::_1));
-    std::string camera_info_path =
-        utils::expandEnv(camera_config["camera_info_path"].as<std::string>());
-    YAML::Node config_camera_info = YAML::LoadFile(camera_info_path);
-    std::vector<double> camera_k =
-        config_camera_info["camera_matrix"]["data"].as<std::vector<double>>();
-    std::vector<double> camera_d =
-        config_camera_info["distortion_coefficients"]["data"].as<std::vector<double>>();
-
-    assert(camera_k.size() == 9);
-    assert(camera_d.size() == 5);
-
-    cv::Mat K(3, 3, CV_64F);
-    std::memcpy(K.data, camera_k.data(), 9 * sizeof(double));
-
-    cv::Mat D(1, 5, CV_64F);
-    std::memcpy(D.data, camera_d.data(), 5 * sizeof(double));
-
-    auto camera_info = std::make_pair(K.clone(), D.clone());
-    camera_info_ = camera_info;
-
-    YAML::Node auto_aim_config = YAML::LoadFile(auto_aim_config_);
-    auto_aim_ = std::make_shared<auto_aim::AutoAim>();
-    auto_aim_->init(auto_aim_config, use_ncnn_count_, tf_config_, camera_info);
-    YAML::Node auto_buff_config = YAML::LoadFile(auto_buff_config_);
-    auto_buff_ = std::make_shared<auto_buff::AutoBuff>();
-    auto_buff_->init(auto_buff_config, use_ncnn_count_, tf_config_, camera_info);
-    thread_pool_ = std::make_unique<wust_vl::common::concurrency::ThreadPool>(
-        max_infer_running_config_->max_infer_running
-    );
-    motion_buffer_ = std::make_shared<wust_vl::common::utils::MotionBufferGeneric<Motion, 1024>>();
-
-    auto_aim_shared_ = std::make_shared<auto_aim::AutoAimShared>(
-        motion_buffer_,
-        shoot_config_->bullet_speed_param.get(),
-        control_config_->communication_delay_us_param.get()
-    );
-    auto_aim_->setShared(auto_aim_shared_);
-    auto_aim_->setDebug(debug_mode_);
-    auto_buff_shared_ = std::make_shared<auto_buff::AutoBuffShared>(
-        motion_buffer_,
-        shoot_config_->bullet_speed_param.get(),
-        control_config_->communication_delay_us_param.get()
-    );
-    auto_buff_->setShared(auto_buff_shared_);
-    auto_buff_->setDebug(debug_mode_);
-
-    timer_ = std::make_unique<wust_vl::common::utils::Timer>();
-
-    WUST_MAIN("main") << "vision init already!";
     return true;
 }
 void VisionBase::updateBulletSpeed(double bullet_speed) {

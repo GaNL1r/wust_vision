@@ -35,45 +35,46 @@ public:
         WUST_MAIN("main") << "vision stop already!";
     }
     bool init(bool debug_mode) {
-        rclcpp::init(0, nullptr);
-        ros2_ = std::make_shared<Ros2Node>("vison_node");
-        ros2_->add_subscription<sensor_msgs::msg::Image>(
-            "image_raw",
-            std::bind(&vision::imageCallback, this, std::placeholders::_1),
-            rclcpp::SensorDataQoS()
-        );
-
-        ros2_->add_subscription<sensor_msgs::msg::CameraInfo>(
-            "camera_info",
-            [this](sensor_msgs::msg::CameraInfo::ConstSharedPtr _camera_info) {
-                if (has_camera_info_)
-                    return;
-                std::cout << "camera info received" << std::endl;
-                auto& msg = *_camera_info;
-
-                cv::Mat K(3, 3, CV_64F);
-                std::memcpy(K.data, msg.k.data(), 9 * sizeof(double));
-
-                cv::Mat D(1, msg.d.size(), CV_64F);
-                std::memcpy(D.data, msg.d.data(), msg.d.size() * sizeof(double));
-
-                camera_info_ = std::make_pair(K.clone(), D.clone());
-                has_camera_info_ = true;
-            }
-        );
-        ros2_->start();
-        while (rclcpp::ok() && !has_camera_info_) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-            WUST_INFO("sim") << "Waiting for camera info...";
-        }
-
-        const char* v = std::getenv("VISION_ROOT");
-        if (v)
-            std::cout << "[env] VISION_ROOT = " << v << "\n";
-        else
-            std::cout << "[env] VISION_ROOT not set in this process\n";
-        debug_mode_ = debug_mode;
         try {
+            rclcpp::init(0, nullptr);
+            ros2_ = std::make_shared<Ros2Node>("vison_node");
+            ros2_->add_subscription<sensor_msgs::msg::Image>(
+                "image_raw",
+                std::bind(&vision::imageCallback, this, std::placeholders::_1),
+                rclcpp::SensorDataQoS()
+            );
+
+            ros2_->add_subscription<sensor_msgs::msg::CameraInfo>(
+                "camera_info",
+                [this](sensor_msgs::msg::CameraInfo::ConstSharedPtr _camera_info) {
+                    if (has_camera_info_)
+                        return;
+                    std::cout << "camera info received" << std::endl;
+                    auto& msg = *_camera_info;
+
+                    cv::Mat K(3, 3, CV_64F);
+                    std::memcpy(K.data, msg.k.data(), 9 * sizeof(double));
+
+                    cv::Mat D(1, msg.d.size(), CV_64F);
+                    std::memcpy(D.data, msg.d.data(), msg.d.size() * sizeof(double));
+
+                    camera_info_ = std::make_pair(K.clone(), D.clone());
+                    has_camera_info_ = true;
+                }
+            );
+            ros2_->start();
+            while (rclcpp::ok() && !has_camera_info_) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                WUST_INFO("sim") << "Waiting for camera info...";
+            }
+
+            const char* v = std::getenv("VISION_ROOT");
+            if (v)
+                std::cout << "[env] VISION_ROOT = " << v << "\n";
+            else
+                std::cout << "[env] VISION_ROOT not set in this process\n";
+            debug_mode_ = debug_mode;
+
             control_config_ = ControlConfig::create(this);
             shoot_config_ = ShootConfig::create();
             logger_config_ = LoggerConfig::create();
@@ -89,39 +90,40 @@ public:
             debug_fps_ = config["debug_fps"].as<int>();
             attack_mode_ = config["attack_mode"].as<int>();
             detect_color_ = config["detect_color"].as<int>();
+
+            wust_vl::common::utils::ParameterManager::instance().registerParameter(
+                common_config_parameter_
+            );
+            YAML::Node auto_aim_config = YAML::LoadFile(auto_aim_config_);
+            auto_aim_ = std::make_unique<auto_aim::AutoAim>();
+            auto_aim_->setDebug(debug_mode_);
+            auto_aim_->init(auto_aim_config, use_ncnn_count_, tf_config_, camera_info_);
+            YAML::Node auto_buff_config = YAML::LoadFile(auto_buff_config_);
+            auto_buff_ = std::make_unique<auto_buff::AutoBuff>();
+            auto_buff_->setDebug(debug_mode);
+            auto_buff_->init(auto_buff_config, use_ncnn_count_, tf_config_, camera_info_);
+            thread_pool_ = std::make_unique<wust_vl::common::concurrency::ThreadPool>(
+                std::thread::hardware_concurrency() * 2
+            );
+            motion_buffer_ =
+                std::make_shared<wust_vl::common::utils::MotionBufferGeneric<Motion, 1024>>();
+
+            auto_aim_shared_ = std::make_shared<auto_aim::AutoAimShared>(
+                motion_buffer_,
+                shoot_config_->bullet_speed_param.get(),
+                control_config_->communication_delay_us_param.get()
+            );
+            auto_aim_->setShared(auto_aim_shared_);
+            auto_buff_shared_ = std::make_shared<auto_buff::AutoBuffShared>(
+                motion_buffer_,
+                shoot_config_->bullet_speed_param.get(),
+                control_config_->communication_delay_us_param.get()
+            );
+            auto_buff_->setShared(auto_buff_shared_);
+            timer_ = std::make_unique<wust_vl::common::utils::Timer>();
         } catch (std::exception& e) {
             std::cerr << "init exception: " << e.what() << std::endl;
         }
-        wust_vl::common::utils::ParameterManager::instance().registerParameter(
-            common_config_parameter_
-        );
-        YAML::Node auto_aim_config = YAML::LoadFile(auto_aim_config_);
-        auto_aim_ = std::make_unique<auto_aim::AutoAim>();
-        auto_aim_->setDebug(debug_mode_);
-        auto_aim_->init(auto_aim_config, use_ncnn_count_, tf_config_, camera_info_);
-        YAML::Node auto_buff_config = YAML::LoadFile(auto_buff_config_);
-        auto_buff_ = std::make_unique<auto_buff::AutoBuff>();
-        auto_buff_->setDebug(debug_mode);
-        auto_buff_->init(auto_buff_config, use_ncnn_count_, tf_config_, camera_info_);
-        thread_pool_ = std::make_unique<wust_vl::common::concurrency::ThreadPool>(
-            std::thread::hardware_concurrency() * 2
-        );
-        motion_buffer_ =
-            std::make_shared<wust_vl::common::utils::MotionBufferGeneric<Motion, 1024>>();
-
-        auto_aim_shared_ = std::make_shared<auto_aim::AutoAimShared>(
-            motion_buffer_,
-            shoot_config_->bullet_speed_param.get(),
-            control_config_->communication_delay_us_param.get()
-        );
-        auto_aim_->setShared(auto_aim_shared_);
-        auto_buff_shared_ = std::make_shared<auto_buff::AutoBuffShared>(
-            motion_buffer_,
-            shoot_config_->bullet_speed_param.get(),
-            control_config_->communication_delay_us_param.get()
-        );
-        auto_buff_->setShared(auto_buff_shared_);
-        timer_ = std::make_unique<wust_vl::common::utils::Timer>();
         return true;
     }
     void imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr img_msg) {
