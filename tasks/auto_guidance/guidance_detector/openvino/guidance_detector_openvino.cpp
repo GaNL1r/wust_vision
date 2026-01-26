@@ -1,5 +1,7 @@
 #include "guidance_detector_openvino.hpp"
+#include "tasks/auto_guidance/guidance_detector/green_light_infer.hpp"
 #include "tasks/utils.hpp"
+#include "wust_vl/ml_net/openvino/openvino_net.hpp"
 namespace wust_vision {
 namespace auto_guidance {
     struct GuidanceDetectorOpenVino::Impl {

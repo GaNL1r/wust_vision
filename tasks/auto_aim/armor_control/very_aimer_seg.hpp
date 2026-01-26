@@ -1,10 +1,6 @@
 #pragma once
 
 #include "tasks/auto_aim/armor_control/very_aimer_base.hpp"
-#include "tasks/auto_aim/armor_tracker/target.hpp"
-#include "tasks/auto_aim/auto_aim_fsm.hpp"
-#include "tasks/type_common.hpp"
-#include "wust_vl/common/utils/trajectory_compensator.hpp"
 namespace wust_vision {
 namespace auto_aim {
     class VeryAimerTrajSeg: public VeryAimerTrajBase {

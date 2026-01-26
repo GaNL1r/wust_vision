@@ -4,7 +4,6 @@
 #include "tasks/auto_buff/rune_optimize/ba_solver.hpp"
 #include "tasks/auto_buff/rune_tracker/rune_tracker.hpp"
 #include "tasks/utils.hpp"
-#include "wust_vl/video/camera.hpp"
 namespace wust_vision {
 namespace auto_buff {
 

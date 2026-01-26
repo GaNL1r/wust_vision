@@ -1,7 +1,6 @@
 #pragma once
 #include "tasks/auto_guidance/type.hpp"
 #include "tasks/type_common.hpp"
-#include <yaml-cpp/node/node.h>
 namespace wust_vision {
 namespace auto_guidance {
 

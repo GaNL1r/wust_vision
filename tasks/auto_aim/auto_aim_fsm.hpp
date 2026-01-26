@@ -1,10 +1,6 @@
 #pragma once
 
-#include "wust_vl/common/utils/logger.hpp"
 #include "wust_vl/common/utils/parameter.hpp"
-#include <cmath>
-#include <string>
-#include <yaml-cpp/yaml.h>
 namespace wust_vision {
 namespace auto_aim {
     enum class AutoAimFsm {

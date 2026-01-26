@@ -1,14 +1,10 @@
 #pragma once
-#include "3rdparty/backward-cpp/backward.hpp"
-#include "main_base.hpp"
 #include "sinple_img_rotate_saver.hpp"
 #include "tasks/auto_aim/auto_aim.hpp"
 #include "tasks/auto_buff/auto_buff.hpp"
 #include "tasks/utils.hpp"
 #include "wust_vl/common/drivers/serial_driver.hpp"
-#include "wust_vl/common/utils/config_binder.hpp"
-#include <sys/mman.h>
-#include <wust_vl/wust_vl.hpp>
+#include "wust_vl/common/concurrency/ThreadPool.h"
 namespace wust_vision {
 struct LoggerConfig: wust_vl::common::utils::ParamGroup {
 public:

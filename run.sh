@@ -7,24 +7,24 @@ BIN_DIR="$WORK_DIR/bin"
 
 source "$WORK_DIR/env.bash"
 export VISION_ROOT="$WORK_DIR"
+
 blue="\033[1;34m"
 yellow="\033[1;33m"
 reset="\033[0m"
 red="\033[1;31m"
 
-# 设置 /dev/shm/debug_frame 权限
+
 chmod 777 /dev/shm/debug_frame
 
-# 清理并建立符号链接
+
 rm -rf "$BIN_DIR/config"
 ln -sf "$CONFIG_DIR" "$BIN_DIR/config"
 ln -sf "$WORK_DIR/env.bash" "$BUILD_DIR/env.bash"
 
-# rebuild 时清理 build（增加确认）
 if [ "$1" == "rebuild" ]; then
     echo -e "${yellow}<--- Rebuilding: This will REMOVE the entire build directory --->${reset}"
     read -p "Are you sure you want to rebuild? [y/N]: " confirm
-    confirm=${confirm,,} # 转小写
+    confirm=${confirm,,}
     if [[ "$confirm" != "y" && "$confirm" != "yes" ]]; then
         echo -e "${red}Rebuild cancelled.${reset}"
         exit 0
@@ -36,20 +36,20 @@ else
     mkdir -p "$BUILD_DIR"
 fi
 
-# --- 主逻辑区 ---
 if [[ "$1" == "build" || "$1" == "rebuild" || "$1" == "run" ]]; then
 
     echo -e "${yellow}<--- Start CMake (Ninja) --->${reset}"
     cmake -S "$WORK_DIR" -B "$BUILD_DIR" \
-      -G Ninja \
-      -DCMAKE_EXPORT_COMPILE_COMMANDS=YES \
-      -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang \
+        -G Ninja \
+        -DCMAKE_EXPORT_COMPILE_COMMANDS=YES \
+        -DCMAKE_CXX_COMPILER=clang++ \
+        -DCMAKE_C_COMPILER=clang
 
     if [ $? -ne 0 ]; then
         echo -e "${red}\n--- CMake Failed ---${reset}"
         exit 1
     fi
-
+    SECONDS=0
     echo -e "${yellow}\n<--- Start Ninja Build --->${reset}"
     ninja -C "$BUILD_DIR"
     if [ $? -ne 0 ]; then
@@ -57,7 +57,9 @@ if [[ "$1" == "build" || "$1" == "rebuild" || "$1" == "run" ]]; then
         exit 1
     fi
 
-    # 统计总行数
+    build_time=$SECONDS
+    printf "${blue}\n<--- Build Time --->\n        %02d:%02d (mm:ss)\n${reset}" \
+        $((build_time / 60)) $((build_time % 60))
     echo -e "${yellow}\n<--- Total Lines --->${reset}"
     total=$(find "$WORK_DIR" \
         -type d \( \
@@ -88,15 +90,13 @@ if [[ "$1" == "build" || "$1" == "rebuild" || "$1" == "run" ]]; then
         ORIGINAL_ARGS=("$@")
         shift 2
 
-
         "$RUN_PROGRAM" "$@"
         RET=$?
         set -- "${ORIGINAL_ARGS[@]}"
 
-        # 如果崩溃，进入守护流程
         if [ $RET -ne 0 ]; then
             echo -e "${red}\n--- Program crashed, running guard.sh ---${reset}"
-            
+
             pkill "$2"
             timeout=10
             while pgrep "$2" > /dev/null; do

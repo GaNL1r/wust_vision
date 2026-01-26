@@ -1,6 +1,5 @@
 #include "tasks/auto_guidance/auto_guidance.hpp"
 #include "tasks/main_base.hpp"
-#include "tasks/packet_typedef.hpp"
 #include "tasks/utils.hpp"
 #include "wust_vl/common/concurrency/ThreadPool.h"
 #include "wust_vl/common/drivers/serial_driver.hpp"
@@ -10,9 +9,6 @@
 ENABLE_BACKWARD()
 namespace wust_vision {
 struct SendDartCmdData {
-    // uint8_t cmd_ID; //命令码
-    // uint32_t time_stamp;
-    // uint8_t appear;
     float diff_center_norm = 0;
 } __attribute__((packed));
 class vision {

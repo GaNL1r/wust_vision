@@ -1,7 +1,6 @@
 #pragma once
 #include "tasks/auto_aim/armor_tracker/motion_models/motion_modelypdv2.hpp"
 #include "tasks/auto_aim/type.hpp"
-#include "tasks/utils.hpp"
 #include "wust_vl/common/utils/parameter.hpp"
 #include <wust_vl/common/utils/timer.hpp>
 namespace wust_vision {

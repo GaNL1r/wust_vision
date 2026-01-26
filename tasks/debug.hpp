@@ -5,7 +5,6 @@
 #include "tasks/auto_buff/rune_tracker/rune_target.hpp"
 #include "tasks/auto_buff/type.hpp"
 #include "tasks/packet_typedef.hpp"
-#include <nlohmann/json.hpp>
 namespace wust_vision {
 struct DebugArmor {
     imgframe src_img;

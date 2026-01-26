@@ -1,6 +1,6 @@
-#include "3rdparty/backward-cpp/backward.hpp"
+#include "tasks/config.hpp"
+#include "tasks/main_base.hpp"
 #include "tasks/vision_base.hpp"
-
 ENABLE_BACKWARD()
 namespace wust_vision {
 class vision: public VisionBase {

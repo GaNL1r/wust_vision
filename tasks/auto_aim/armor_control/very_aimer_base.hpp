@@ -4,7 +4,6 @@
 #include "tasks/type_common.hpp"
 #include "traj.hpp"
 #include "wust_vl/common/utils/manual_compensator.hpp"
-#include "wust_vl/common/utils/trajectory_compensator.hpp"
 namespace wust_vision {
 namespace auto_aim {
     static inline double lerpAngle(double a0, double a1, double t) {

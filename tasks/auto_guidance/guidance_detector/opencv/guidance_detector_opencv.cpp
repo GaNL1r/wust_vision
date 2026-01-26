@@ -1,5 +1,4 @@
 #include "guidance_detector_opencv.hpp"
-#include "tasks/utils.hpp"
 bool initializing = true;
 
 int lowH = 35, highH = 85;

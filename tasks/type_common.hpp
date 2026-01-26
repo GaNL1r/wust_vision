@@ -1,14 +1,8 @@
 #pragma once
-#include "3rdparty/angles.h"
-#include "Eigen/Dense"
-#include "config.hpp"
-#include "tasks/utils.hpp"
+#include "pch.hpp"
 #include "wust_vl/common/utils/motion_buffer.hpp"
 #include "wust_vl/common/utils/parameter.hpp"
 #include "wust_vl/common/utils/trajectory_compensator.hpp"
-#include <opencv2/opencv.hpp>
-#include <optional>
-#include <shared_mutex>
 
 namespace wust_vision {
 struct CommonFrame {
@@ -65,51 +59,7 @@ struct Motion {
     }
 };
 
-// template<>
-// struct MotionTraits<Motion> {
 
-//     static void unwrap(const Motion& prev, Motion& curr) {
-//         curr.yaw   = unwrap_angle(prev.yaw,   curr.yaw);
-//         curr.pitch = unwrap_angle(prev.pitch, curr.pitch);
-//         curr.roll  = unwrap_angle(prev.roll,  curr.roll);
-//         // 速度不 unwrap
-//     }
-
-//     static Motion interpolate(const Motion& a, const Motion& b, double t) {
-//         Motion out;
-
-//         Eigen::Vector3d ea(a.yaw, a.pitch, a.roll);
-//         Eigen::Vector3d eb(b.yaw, b.pitch, b.roll);
-
-//         Eigen::Quaterniond qa =
-//             utils::eulerToQuat(ea, utils::EulerOrder::ZYX, false);
-//         Eigen::Quaterniond qb =
-//             utils::eulerToQuat(eb, utils::EulerOrder::ZYX, false);
-
-//         if (qa.dot(qb) < 0.0)
-//             qb.coeffs() *= -1.0;
-
-//         Eigen::Quaterniond q = qa.slerp(t, qb);
-//         q.normalize();
-
-//         Eigen::Vector3d e =
-//             utils::quatToEuler(q, utils::EulerOrder::ZYX, false);
-
-//         out.yaw   = e[0];
-//         out.pitch = e[1];
-//         out.roll  = e[2];
-
-//         out.vyaw   = a.vyaw   + (b.vyaw   - a.vyaw)   * t;
-//         out.vpitch = a.vpitch + (b.vpitch - a.vpitch) * t;
-//         out.vroll  = a.vroll  + (b.vroll  - a.vroll)  * t;
-
-//         out.vx = a.vx + (b.vx - a.vx) * t;
-//         out.vy = a.vy + (b.vy - a.vy) * t;
-//         out.vz = a.vz + (b.vz - a.vz) * t;
-
-//         return out;
-//     }
-// };
 
 static std::vector<cv::Point3f> AIM_TARGET_BLOCK = {
     { -0.025f, -0.025f, -0.025f }, // 0: 左下前

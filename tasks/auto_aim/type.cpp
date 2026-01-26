@@ -1,5 +1,7 @@
 #pragma once
 #include "type.hpp"
+#include "wust_vl/common/utils/logger.hpp"
+#include "tasks/config.hpp"
 namespace wust_vision {
 namespace auto_aim {
 

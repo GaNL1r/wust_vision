@@ -1,6 +1,7 @@
-#include "3rdparty/backward-cpp/backward.hpp"
 #include "ros2/ros2.hpp"
 #include "tasks/auto_sniper/auto_sniper.hpp"
+#include "tasks/config.hpp"
+#include "tasks/main_base.hpp"
 #include "tasks/vision_base.hpp"
 ENABLE_BACKWARD()
 #define AUTO_SNIPER_CONFIG "config/auto_sniper.yaml"

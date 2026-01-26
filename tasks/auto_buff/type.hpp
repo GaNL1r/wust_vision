@@ -1,7 +1,6 @@
 #pragma once
 #include "tasks/type_common.hpp"
-#include <fmt/core.h>
-#include <string>
+
 namespace wust_vision {
 namespace auto_buff {
     constexpr double RUNE_PAN_REAL_DIS = 0.15;

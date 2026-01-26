@@ -1,9 +1,10 @@
-#include "3rdparty/backward-cpp/backward.hpp"
+
 #include "ros2/ros2.hpp"
 #include "sensor_msgs/msg/camera_info.hpp"
 #include "sensor_msgs/msg/image.hpp"
+#include "tasks/config.hpp"
+#include "tasks/main_base.hpp"
 #include "tasks/vision_base.hpp"
-
 ENABLE_BACKWARD()
 namespace wust_vision {
 class vision {
@@ -236,41 +237,52 @@ public:
     }
 
     void debugThread() {
-        using namespace std::chrono;
-
-        double us_interval = 1e6 / static_cast<double>(30.0);
-        auto kInterval = std::chrono::microseconds(static_cast<int64_t>(us_interval));
+        const double us_interval = 1e6 / static_cast<double>(debug_fps_);
+        const auto kInterval = std::chrono::microseconds(static_cast<int64_t>(us_interval));
         while (run_flag_) {
-            auto start_time = steady_clock::now();
-            try {
-                auto dbg_armor = auto_aim_->getDebugFrame();
-                auto dbg_rune = auto_buff_->getDebugFrame();
-                AttackMode mode = toAttackMode(attack_mode_);
-                switch (mode) {
-                    case AttackMode::ARMOR: {
-                        drawDebugOverlayShm(dbg_armor, camera_info_, false);
-                    } break;
-                    case AttackMode::SMALL_RUNE:
-                    case AttackMode::BIG_RUNE: {
-                        drawDebugOverlayShm(dbg_rune, camera_info_, false);
-                    } break;
-                    case AttackMode::UNKNOWN: {
-                        drawDebugOverlayShm(dbg_armor, camera_info_, false);
-                    } break;
-                }
-                auto last_att = motion_buffer_->get_last();
-                std::pair<double, double> gimbal_py;
-                if (last_att) {
-                    gimbal_py.first = last_att->data.pitch;
-                    gimbal_py.second = last_att->data.yaw;
-                }
-                wust_vl::common::utils::ParameterManager::instance().allReloadFromOldPath();
-                debuglog(dbg_armor, dbg_rune, last_cmd_, gimbal_py);
-            } catch (std::exception& e) {
-                std::cout << "debug thread error: " << e.what() << std::endl;
-            }
+            const auto start_time = std::chrono::steady_clock::now();
+            do {
+                try {
+                    if (!auto_aim_ || !auto_buff_) {
+                        break;
+                    }
+                    auto dbg_armor = auto_aim_->getDebugFrame();
+                    auto dbg_rune = auto_buff_->getDebugFrame();
+                    AttackMode mode = toAttackMode(attack_mode_);
+                    switch (mode) {
+                        case AttackMode::UNKNOWN:
+                        case AttackMode::ARMOR: {
+                            drawDebugOverlayShm(dbg_armor, camera_info_, false);
+                        } break;
+                        case AttackMode::SMALL_RUNE:
+                        case AttackMode::BIG_RUNE: {
+                            drawDebugOverlayShm(dbg_rune, camera_info_, false);
+                        } break;
+                    }
+                    std::pair<double, double> gimbal_py;
+                    if (motion_buffer_) {
+                        auto last_att = motion_buffer_->get_last();
+                        if (last_att) {
+                            gimbal_py.first = last_att->data.pitch;
+                            gimbal_py.second = last_att->data.yaw;
+                        }
+                    }
 
-            auto elapsed = steady_clock::now() - start_time;
+                    debuglog(dbg_armor, dbg_rune, last_cmd_, gimbal_py);
+                    utils::XSecOnce(
+                        [this]() {
+                            wust_vl::common::utils::ParameterManager::instance()
+                                .allReloadFromOldPath();
+                        },
+                        1.0
+                    );
+
+                } catch (std::exception& e) {
+                    std::cout << "debug thread error: " << e.what() << std::endl;
+                }
+            } while (0);
+
+            const auto elapsed = std::chrono::steady_clock::now() - start_time;
             if (elapsed < kInterval) {
                 std::this_thread::sleep_for(kInterval - elapsed);
             }

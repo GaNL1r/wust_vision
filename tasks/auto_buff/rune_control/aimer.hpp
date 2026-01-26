@@ -1,7 +1,6 @@
 #pragma once
 #include "tasks/auto_buff/rune_tracker/rune_target.hpp"
 #include "tasks/type_common.hpp"
-#include <wust_vl/common/utils/trajectory_compensator.hpp>
 namespace wust_vision {
 namespace auto_buff {
     class Aimer {

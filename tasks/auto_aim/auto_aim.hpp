@@ -2,7 +2,6 @@
 
 #include "tasks/debug.hpp"
 #include "tasks/type_common.hpp"
-#include "wust_vl/common/utils/config_binder.hpp"
 #include "wust_vl/video/camera.hpp"
 namespace wust_vision {
 namespace auto_aim {

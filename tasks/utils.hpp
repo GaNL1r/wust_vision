@@ -16,13 +16,7 @@
 
 #pragma once
 
-#include "wust_vl/common/utils/logger.hpp"
-#include "wust_vl/video/image.hpp"
-#include <Eigen/Dense>
-#include <opencv2/core/eigen.hpp>
-#include <pwd.h>
-#include <regex>
-#include <yaml-cpp/yaml.h>
+#include "pch.hpp"
 namespace wust_vision {
 // util functions
 namespace utils {

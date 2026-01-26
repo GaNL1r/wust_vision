@@ -1,11 +1,5 @@
 #include "tasks/debug.hpp"
 #include "tasks/utils.hpp"
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <nlohmann/json.hpp>
-#include <sys/mman.h>
-#include <sys/socket.h>
-#include <unistd.h>
 #include <wust_vl/common/utils/timer.hpp>
 namespace wust_vision {
 void drawDebugArmorContent(

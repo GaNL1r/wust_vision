@@ -2,9 +2,8 @@
 #include "tasks/auto_aim/armor_control/very_aimer_factory.hpp"
 #include "tasks/auto_aim/armor_detect/armor_pose_estimator.hpp"
 #include "tasks/auto_aim/armor_tracker/trackerv3.hpp"
-#include "tasks/utils.hpp"
+#include "tasks/config.hpp"
 #include "wust_vl/common/concurrency/queues.hpp"
-#include "wust_vl/video/camera.hpp"
 // clang-format off
 #include "tasks/auto_aim/armor_detect/armor_detector_factory.hpp"
 // clang-format on

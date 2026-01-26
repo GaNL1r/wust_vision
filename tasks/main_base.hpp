@@ -1,13 +1,9 @@
 #pragma once
-#include "3rdparty/backward-cpp/backward.hpp"
+#include "pch.hpp"
 #include "tasks/ascii_banner.hpp"
 #include "wust_vl/common/concurrency/monitored_thread.hpp"
 #include "wust_vl/common/utils/signal.hpp"
-#include <exception>
-#include <iostream>
-#include <string>
-#include <sys/mman.h>
-#include <utility>
+
 namespace wust_vision {
 template<typename T>
 concept VisionLike = requires(T v) {

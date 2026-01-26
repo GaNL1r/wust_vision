@@ -1,9 +1,6 @@
 #pragma once
 #include "tasks/type_common.hpp"
 #include "tasks/utils.hpp"
-#include <array>
-#include <numeric>
-#include <yaml-cpp/yaml.h>
 namespace wust_vision {
 
 namespace auto_aim {
