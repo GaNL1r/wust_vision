@@ -1,10 +1,10 @@
 #pragma once
-#include <opencv2/opencv.hpp>
 #include "3rdparty/angles.h"
 #include "wust_vl/common/utils/logger.hpp"
 #include "wust_vl/common/utils/motion_buffer.hpp"
 #include "wust_vl/common/utils/parameter.hpp"
 #include "wust_vl/common/utils/trajectory_compensator.hpp"
+#include <opencv2/opencv.hpp>
 namespace wust_vision {
 struct CommonFrame {
     cv::Mat src_img;

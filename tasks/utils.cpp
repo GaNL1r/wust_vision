@@ -1,8 +1,8 @@
 #include "utils.hpp"
 #include <iomanip>
+#include <opencv2/core/eigen.hpp>
 #include <pwd.h>
 #include <regex>
-#include <opencv2/core/eigen.hpp>
 // util functions
 namespace wust_vision {
 namespace utils {

@@ -128,8 +128,8 @@ namespace auto_aim {
             target_yaw_rad = cp_center.yaw;
             target_pitch_rad = cp_center.pitch;
         }
-
-        const double half_t = build->target_traj.getPrefixTimeAtIdx(HALF_HORIZON);
+        const int half_horizon = config_->sample_half_horizon;
+        const double half_t = build->target_traj.getPrefixTimeAtIdx(half_horizon);
 
         const auto control_state = build->getControlState(half_t);
 
@@ -150,8 +150,8 @@ namespace auto_aim {
         cmd.fly_time = prev_fly_time;
 
         const auto fire_now = VeryAimerBase::canFireAtTime(build, half_t);
-        cmd.enable_yaw_diff = fire_now.enable_yaw_diff;
-        cmd.enable_pitch_diff = fire_now.enable_pitch_diff;
+        cmd.enable_yaw_diff = rad2deg(fire_now.enable_yaw_diff);
+        cmd.enable_pitch_diff = rad2deg(fire_now.enable_pitch_diff);
         cmd.fire_advice = fire_now.fire;
 
         cmd.appera = cmd.isValid();

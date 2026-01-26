@@ -56,6 +56,10 @@ auto_aim_fsm:
 very_aimer:
   type: "seg" #seg or mpc
   
+  sample_total_time: 1.0
+  
+  sample_horizon: 500
+
   control_delay: 0.01
   delay_enable_fire_error: 0.0035
   

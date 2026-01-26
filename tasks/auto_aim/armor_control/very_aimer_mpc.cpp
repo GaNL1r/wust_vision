@@ -3,8 +3,11 @@ namespace wust_vision {
 namespace auto_aim {
     void VeryAimerMpc::reset() {
         VeryAimerBase::reset();
-        Eigen::MatrixXd A_pitch { { 1, DT }, { 0, 1 } };
-        Eigen::MatrixXd B_pitch { { 0 }, { DT } };
+        const int horizon = config_->sample_horizon_param.get();
+        const int half_horizon = config_->sample_half_horizon;
+        const double dt = config_->sample_dt;
+        Eigen::MatrixXd A_pitch { { 1, dt }, { 0, 1 } };
+        Eigen::MatrixXd B_pitch { { 0 }, { dt } };
         Eigen::VectorXd f_pitch { { 0, 0 } };
         Eigen::Matrix<double, 2, 1> Q_p(config_->mpc.Q_pitch.data());
         Eigen::Matrix<double, 1, 1> R_p(config_->mpc.R_pitch.data());
@@ -18,16 +21,16 @@ namespace auto_aim {
             1.0,
             2,
             1,
-            HORIZON,
+            horizon,
             0
         );
 
-        Eigen::MatrixXd x_min_pitch = Eigen::MatrixXd::Constant(2, HORIZON, -1e17);
-        Eigen::MatrixXd x_max_pitch = Eigen::MatrixXd::Constant(2, HORIZON, 1e17);
+        Eigen::MatrixXd x_min_pitch = Eigen::MatrixXd::Constant(2, horizon, -1e17);
+        Eigen::MatrixXd x_max_pitch = Eigen::MatrixXd::Constant(2, horizon, 1e17);
         Eigen::MatrixXd u_min_pitch =
-            Eigen::MatrixXd::Constant(1, HORIZON - 1, -config_->max_pitch_acc_param.get());
+            Eigen::MatrixXd::Constant(1, horizon - 1, -config_->max_pitch_acc_param.get());
         Eigen::MatrixXd u_max_pitch =
-            Eigen::MatrixXd::Constant(1, HORIZON - 1, config_->max_pitch_acc_param.get());
+            Eigen::MatrixXd::Constant(1, horizon - 1, config_->max_pitch_acc_param.get());
         tiny_set_bound_constraints(
             pitch_solver_,
             x_min_pitch,
@@ -36,8 +39,8 @@ namespace auto_aim {
             u_max_pitch
         );
         pitch_solver_->settings->max_iter = max_iter_;
-        Eigen::MatrixXd A_yaw { { 1, DT }, { 0, 1 } };
-        Eigen::MatrixXd B_yaw { { 0 }, { DT } };
+        Eigen::MatrixXd A_yaw { { 1, dt }, { 0, 1 } };
+        Eigen::MatrixXd B_yaw { { 0 }, { dt } };
         Eigen::VectorXd f_yaw { { 0, 0 } };
         Eigen::Matrix<double, 2, 1> Q_y(config_->mpc.Q_yaw.data());
         Eigen::Matrix<double, 1, 1> R_y(config_->mpc.R_yaw.data());
@@ -51,29 +54,32 @@ namespace auto_aim {
             1.0,
             2,
             1,
-            HORIZON,
+            horizon,
             0
         );
 
-        Eigen::MatrixXd x_min_yaw = Eigen::MatrixXd::Constant(2, HORIZON, -1e17);
-        Eigen::MatrixXd x_max_yaw = Eigen::MatrixXd::Constant(2, HORIZON, 1e17);
+        Eigen::MatrixXd x_min_yaw = Eigen::MatrixXd::Constant(2, horizon, -1e17);
+        Eigen::MatrixXd x_max_yaw = Eigen::MatrixXd::Constant(2, horizon, 1e17);
         Eigen::MatrixXd u_min_yaw =
-            Eigen::MatrixXd::Constant(1, HORIZON - 1, -config_->max_yaw_acc_param.get());
+            Eigen::MatrixXd::Constant(1, horizon - 1, -config_->max_yaw_acc_param.get());
         Eigen::MatrixXd u_max_yaw =
-            Eigen::MatrixXd::Constant(1, HORIZON - 1, config_->max_yaw_acc_param.get());
+            Eigen::MatrixXd::Constant(1, horizon - 1, config_->max_yaw_acc_param.get());
         tiny_set_bound_constraints(yaw_solver_, x_min_yaw, x_max_yaw, u_min_yaw, u_max_yaw);
         yaw_solver_->settings->max_iter = max_iter_;
     }
 
     Trajectory<GimbalState> VeryAimerMpc::solveTrajectory(const Trajectory<GimbalState>& traj) {
         const double total_time = traj.getTotalDuration();
+        const int horizon = config_->sample_horizon_param.get();
+        const int half_horizon = config_->sample_half_horizon;
+        const double dt = config_->sample_dt;
         const auto trajVecToEigen = [&](const Trajectory<GimbalState>& traj) {
-            Eigen::Matrix<double, 4, Eigen::Dynamic> mat(4, HORIZON);
+            Eigen::Matrix<double, 4, Eigen::Dynamic> mat(4, horizon);
 
             const double half_t = total_time * 0.5;
-            for (int k = 0; k < HORIZON; ++k) {
-                int i = k - HALF_HORIZON;
-                double t = i * DT + half_t;
+            for (int k = 0; k < horizon; ++k) {
+                int i = k - half_horizon;
+                double t = i * dt + half_t;
                 auto state = traj.Trajectory::getStateAtTime(t);
                 mat(0, k) = state.yaw_state.p;
                 mat(1, k) = state.yaw_state.v;
@@ -87,16 +93,16 @@ namespace auto_aim {
         Eigen::VectorXd x0(2);
         x0 << traj_eigen(0, 0), traj_eigen(1, 0);
         tiny_set_x0(yaw_solver_, x0);
-        yaw_solver_->work->Xref = traj_eigen.block(0, 0, 2, HORIZON);
+        yaw_solver_->work->Xref = traj_eigen.block(0, 0, 2, horizon);
         tiny_solve(yaw_solver_);
 
         x0 << traj_eigen(2, 0), traj_eigen(3, 0);
         tiny_set_x0(pitch_solver_, x0);
-        pitch_solver_->work->Xref = traj_eigen.block(2, 0, 2, HORIZON);
+        pitch_solver_->work->Xref = traj_eigen.block(2, 0, 2, horizon);
         tiny_solve(pitch_solver_);
         Trajectory<GimbalState> control_traj;
-        control_traj.reserve(HORIZON);
-        for (int i = 0; i < HORIZON; i++) {
+        control_traj.reserve(horizon);
+        for (int i = 0; i < horizon; i++) {
             GimbalState tp;
             tp.yaw_state.p = yaw_solver_->work->x(0, i);
             tp.yaw_state.v = yaw_solver_->work->x(1, i);
@@ -104,7 +110,7 @@ namespace auto_aim {
             tp.pitch_state.v = pitch_solver_->work->x(1, i);
             tp.yaw_state.a = yaw_solver_->work->u(0, i);
             tp.pitch_state.a = pitch_solver_->work->u(0, i);
-            control_traj.push_back(tp, DT);
+            control_traj.push_back(tp, dt);
         }
         return control_traj;
     }
@@ -237,7 +243,8 @@ namespace auto_aim {
             target_pitch_rad = cp_center.pitch;
         }
 
-        const double half_t = build->target_traj.getPrefixTimeAtIdx(HALF_HORIZON);
+        const int half_horizon = config_->sample_half_horizon;
+        const double half_t = build->target_traj.getPrefixTimeAtIdx(half_horizon);
 
         const auto control_state = build->getControlState(half_t);
 
@@ -258,8 +265,8 @@ namespace auto_aim {
         cmd.fly_time = prev_fly_time;
 
         const auto fire_now = VeryAimerBase::canFireAtTime(build, half_t);
-        cmd.enable_yaw_diff = fire_now.enable_yaw_diff;
-        cmd.enable_pitch_diff = fire_now.enable_pitch_diff;
+        cmd.enable_yaw_diff = rad2deg(fire_now.enable_yaw_diff);
+        cmd.enable_pitch_diff = rad2deg(fire_now.enable_pitch_diff);
         cmd.fire_advice = fire_now.fire;
 
         cmd.appera = cmd.isValid();

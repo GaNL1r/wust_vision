@@ -18,8 +18,8 @@
 
 #include <Eigen/Dense>
 #include <opencv2/opencv.hpp>
-#include <yaml-cpp/yaml.h>
 #include <thread>
+#include <yaml-cpp/yaml.h>
 namespace wust_vision {
 // util functions
 namespace utils {

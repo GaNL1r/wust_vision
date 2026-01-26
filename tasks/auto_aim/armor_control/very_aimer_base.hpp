@@ -266,8 +266,7 @@ namespace auto_aim {
         void limitTraj(
             Traj& traj,
             const std::vector<GimbalState::State>& s,
-            int best_front_idx,
-            int best_back_idx,
+            int near_change_idx,
             double max_acc
         ) const noexcept {
             traj.segs.clear();
@@ -281,27 +280,20 @@ namespace auto_aim {
             const auto& _prefix_time = prefix_time;
             const auto& _dt_vec = dt_vec;
 
-            // helper to safely build a segment between two indices
             auto buildSeg = [&](int l, int r) -> QuinticSegment {
                 double dur = _prefix_time[r] - _prefix_time[l];
                 return QuinticSegment::build(s[l], s[r], dur);
             };
 
-            // collect initial intervals from the two indices (if valid)
-            std::vector<std::pair<int, int>> intervals;
-            auto push_initial = [&](int idx) {
-                if (idx < 0)
-                    return;
-                int l = std::max(0, idx);
-                int r = std::min(N - 1, idx + 1);
+            std::optional<std::pair<int, int>> interval;
+            if (near_change_idx >= 0) {
+                int l = std::clamp(near_change_idx, 0, N - 1);
+                int r = std::clamp(near_change_idx + 1, 0, N - 1);
                 if (l < r)
-                    intervals.emplace_back(l, r);
-            };
-            push_initial(best_front_idx);
-            push_initial(best_back_idx);
+                    interval.emplace(l, r);
+            }
 
-            // if no special intervals, build simple adjacent segments and return
-            if (intervals.empty()) {
+            if (!interval) {
                 traj.segs.reserve(N - 1);
                 for (int i = 0; i < N - 1; ++i)
                     traj.segs.push_back(QuinticSegment::build(s[i], s[i + 1], _dt_vec[i]));
@@ -317,119 +309,69 @@ namespace auto_aim {
                 return;
             }
 
-            // expand each interval so that its segment's MaxAcc() is <= max_acc when possible
-            for (auto& pr: intervals) {
-                int l = pr.first;
-                int r = pr.second;
+            {
+                int& l = interval->first;
+                int& r = interval->second;
                 QuinticSegment seg = buildSeg(l, r);
+
+                auto try_candidate = [&](int nl, int nr) -> bool {
+                    nl = std::max(0, nl);
+                    nr = std::min(N - 1, nr);
+                    if (nl == l && nr == r)
+                        return false;
+
+                    QuinticSegment cand = buildSeg(nl, nr);
+                    if (cand.MaxAcc() <= seg.MaxAcc()) {
+                        l = nl;
+                        r = nr;
+                        seg = std::move(cand);
+                        return true;
+                    }
+                    return false;
+                };
 
                 while (seg.MaxAcc() > max_acc) {
                     bool expanded = false;
 
-                    // try expand both sides first (if possible)
-                    int nl = std::max(0, l - 1);
-                    int nr = std::min(N - 1, r + 1);
-                    if (nl != l || nr != r) {
-                        QuinticSegment segBoth = buildSeg(nl, nr);
-                        if (segBoth.MaxAcc() <= seg.MaxAcc()) {
+                    if (l > 0 || r < N - 1)
+                        expanded = try_candidate(l - 1, r + 1);
+
+                    if (!expanded && l > 0)
+                        expanded = try_candidate(l - 1, r);
+
+                    if (!expanded && r < N - 1)
+                        expanded = try_candidate(l, r + 1);
+
+                    if (!expanded && (l > 0 || r < N - 1)) {
+                        int nl = std::max(0, l - 1);
+                        int nr = std::min(N - 1, r + 1);
+                        QuinticSegment forceSeg = buildSeg(nl, nr);
+
+                        if (forceSeg.MaxAcc() < seg.MaxAcc() || (nl == 0 && nr == N - 1)) {
                             l = nl;
                             r = nr;
-                            seg = std::move(segBoth);
+                            seg = std::move(forceSeg);
                             expanded = true;
-                            if (seg.MaxAcc() <= max_acc)
-                                break;
                         }
                     }
 
-                    // try expand left only
-                    if (!expanded && l > 0) {
-                        int nl2 = l - 1;
-                        QuinticSegment segL = buildSeg(nl2, r);
-                        if (segL.MaxAcc() <= seg.MaxAcc()) {
-                            l = nl2;
-                            seg = std::move(segL);
-                            expanded = true;
-                            if (seg.MaxAcc() <= max_acc)
-                                break;
-                        }
-                    }
-
-                    // try expand right only
-                    if (!expanded && r < N - 1) {
-                        int nr2 = r + 1;
-                        QuinticSegment segR = buildSeg(l, nr2);
-                        if (segR.MaxAcc() <= seg.MaxAcc()) {
-                            r = nr2;
-                            seg = std::move(segR);
-                            expanded = true;
-                            if (seg.MaxAcc() <= max_acc)
-                                break;
-                        }
-                    }
-
-                    // forced expansion: push boundaries outward and accept if it improves
-                    if (!expanded) {
-                        if (l > 0)
-                            --l;
-                        if (r < N - 1)
-                            ++r;
-                        QuinticSegment segForce = buildSeg(l, r);
-                        // only accept if it reduces max acc or we've spanned the entire sequence
-                        if (!((segForce.MaxAcc() < seg.MaxAcc()) || (l == 0 && r == N - 1))) {
-                            // cannot improve further
-                            break;
-                        }
-                        seg = std::move(segForce);
-                        if (seg.MaxAcc() <= max_acc)
-                            break;
-                    }
-
-                    // if we've covered whole range and still too large, give up
+                    if (!expanded)
+                        break;
                     if (l == 0 && r == N - 1 && seg.MaxAcc() > max_acc)
                         break;
                 }
-
-                pr.first = l;
-                pr.second = r;
             }
 
-            // sort and merge overlapping intervals
-            std::sort(
-                intervals.begin(),
-                intervals.end(),
-                [](const std::pair<int, int>& a, const std::pair<int, int>& b) {
-                    if (a.first != b.first)
-                        return a.first < b.first;
-                    return a.second < b.second;
-                }
-            );
-
-            std::vector<std::pair<int, int>> merged;
-            for (const auto& it: intervals) {
-                if (merged.empty() || it.first > merged.back().second) {
-                    merged.push_back(it);
-                } else {
-                    merged.back().second = std::max(merged.back().second, it.second);
-                }
-            }
-
-            // build final trajectory: use merged multi-point segments where indicated,
-            // otherwise use adjacent segments
             traj.segs.reserve(N - 1);
-            size_t change_idx = 0;
             for (int i = 0; i < N - 1; ++i) {
-                if (change_idx < merged.size() && i == merged[change_idx].first) {
-                    int l = merged[change_idx].first;
-                    int r = merged[change_idx].second;
-                    traj.segs.push_back(buildSeg(l, r));
-                    i = r - 1; // skip covered indices
-                    ++change_idx;
+                if (interval && i == interval->first) {
+                    traj.segs.push_back(buildSeg(interval->first, interval->second));
+                    i = interval->second - 1; // skip covered indices
                 } else {
                     traj.segs.push_back(QuinticSegment::build(s[i], s[i + 1], _dt_vec[i]));
                 }
             }
 
-            // fill durations and prefix times
             traj.seg_dt.reserve(traj.segs.size());
             for (const auto& seg: traj.segs)
                 traj.seg_dt.push_back(seg.duration());
@@ -439,13 +381,12 @@ namespace auto_aim {
             for (size_t i = 0; i < traj.seg_dt.size(); ++i)
                 traj.seg_prefix_time[i + 1] = traj.seg_prefix_time[i] + traj.seg_dt[i];
         }
+
         void buildLimit(double max_yaw_acc, double max_pitch_acc) noexcept {
             unwrapStates(cp_vec);
             auto [yaw_states, pitch_states] = computeNodeStates(cp_vec, dt_vec);
-            int best_front_idx = -1;
-            int best_back_idx = -1;
-            double best_front_dist = 1e100;
-            double best_back_dist = 1e100;
+            int best_idx = -1;
+            double best_dist = 1e100;
             const size_t offset = 2;
             const int N = static_cast<int>(cp_vec.size());
             if (N < 2)
@@ -458,20 +399,13 @@ namespace auto_aim {
                 const double seg_mid = 0.5 * (prefix_time[i] + prefix_time[i + 1]);
                 const double dist = std::abs(seg_mid - mid_time);
 
-                if (seg_mid <= mid_time) {
-                    if (dist < best_front_dist) {
-                        best_front_dist = dist;
-                        best_front_idx = static_cast<int>(i);
-                    }
-                } else {
-                    if (dist < best_back_dist) {
-                        best_back_dist = dist;
-                        best_back_idx = static_cast<int>(i);
-                    }
+                if (dist < best_dist) {
+                    best_dist = dist;
+                    best_idx = static_cast<int>(i);
                 }
             }
-            limitTraj(yaw_traj, yaw_states, best_front_idx, best_back_idx, max_yaw_acc);
-            limitTraj(pitch_traj, pitch_states, best_front_idx, best_back_idx, max_pitch_acc);
+            limitTraj(yaw_traj, yaw_states, best_idx, max_yaw_acc);
+            limitTraj(pitch_traj, pitch_states, best_idx, max_pitch_acc);
         }
         void simpleTraj(Traj& traj, const std::vector<GimbalState::State>& s) const noexcept {
             traj.segs.clear();
@@ -543,11 +477,22 @@ namespace auto_aim {
             return kKey;
         }
         using Ptr = std::shared_ptr<VeryAimerConfig>;
-        VeryAimerConfig() {}
+        VeryAimerConfig() {
+            sample_total_time_param.onChange([this](double o, double n) {
+                sample_dt = sample_total_time_param.get() / sample_horizon_param.get();
+                sample_half_horizon = sample_horizon_param.get() / 2;
+            });
+            sample_horizon_param.onChange([this](double o, double n) {
+                sample_dt = sample_total_time_param.get() / sample_horizon_param.get();
+                sample_half_horizon = sample_horizon_param.get() / 2;
+            });
+        }
         static Ptr create() {
             return std::make_shared<VeryAimerConfig>();
         }
         std::shared_ptr<wust_vl::common::utils::ManualCompensator> manual_compensator;
+        GEN_PARAM(double, sample_total_time);
+        GEN_PARAM(int, sample_horizon);
         GEN_PARAM(double, control_delay);
         GEN_PARAM(double, delay_enable_fire_error);
         GEN_PARAM(double, max_yaw_acc);
@@ -560,6 +505,8 @@ namespace auto_aim {
         GEN_PARAM(double, shooting_range_w);
         GEN_PARAM(double, min_enable_pitch_deg);
         GEN_PARAM(double, min_enable_yaw_deg);
+        double sample_dt = 0.01;
+        int sample_half_horizon = 100;
         bool first_load = false;
         struct Mpc {
             int max_iter;
@@ -613,13 +560,15 @@ namespace auto_aim {
             delay_enable_fire_error_param.load(node);
             max_yaw_acc_param.load(node);
             max_pitch_acc_param.load(node);
+            sample_total_time_param.load(node);
+            sample_horizon_param.load(node);
         }
     };
     class VeryAimerBase {
     public:
-        static constexpr int HORIZON = 300;
-        static constexpr double DT = 1.0 / HORIZON;
-        static constexpr int HALF_HORIZON = HORIZON / 2;
+        // static constexpr int HORIZON = 1000;
+        // static constexpr double DT = 1.0 / HORIZON;
+        // static constexpr int HALF_HORIZON = HORIZON / 2;
         using Ptr = std::unique_ptr<VeryAimerBase>;
         VeryAimerBase(wust_vl::common::utils::Parameter::Ptr auto_aim_config_parameter) {
             auto_aim_config_parameter_ = auto_aim_config_parameter;
