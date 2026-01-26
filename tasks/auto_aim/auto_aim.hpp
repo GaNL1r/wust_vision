@@ -25,7 +25,7 @@ namespace auto_aim {
         AutoAim();
         ~AutoAim();
         bool init(
-            const YAML::Node& config,
+            const std::string& config_path,
             int& use_detect_ncnn_count,
             TFConfig::Ptr tf_config,
             const std::pair<cv::Mat, cv::Mat>& camera_info

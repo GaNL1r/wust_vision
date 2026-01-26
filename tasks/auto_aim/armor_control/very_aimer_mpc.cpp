@@ -3,14 +3,11 @@ namespace wust_vision {
 namespace auto_aim {
     void VeryAimerMpc::reset() {
         VeryAimerBase::reset();
-        max_iter_ = config_["max_iter"].as<int>();
-        auto Q_pitch = config_["Q_pitch"].as<std::vector<double>>();
-        auto R_pitch = config_["R_pitch"].as<std::vector<double>>();
         Eigen::MatrixXd A_pitch { { 1, DT }, { 0, 1 } };
         Eigen::MatrixXd B_pitch { { 0 }, { DT } };
         Eigen::VectorXd f_pitch { { 0, 0 } };
-        Eigen::Matrix<double, 2, 1> Q_p(Q_pitch.data());
-        Eigen::Matrix<double, 1, 1> R_p(R_pitch.data());
+        Eigen::Matrix<double, 2, 1> Q_p(config_->mpc.Q_pitch.data());
+        Eigen::Matrix<double, 1, 1> R_p(config_->mpc.R_pitch.data());
         tiny_setup(
             &pitch_solver_,
             A_pitch,
@@ -27,8 +24,10 @@ namespace auto_aim {
 
         Eigen::MatrixXd x_min_pitch = Eigen::MatrixXd::Constant(2, HORIZON, -1e17);
         Eigen::MatrixXd x_max_pitch = Eigen::MatrixXd::Constant(2, HORIZON, 1e17);
-        Eigen::MatrixXd u_min_pitch = Eigen::MatrixXd::Constant(1, HORIZON - 1, -max_pitch_acc_);
-        Eigen::MatrixXd u_max_pitch = Eigen::MatrixXd::Constant(1, HORIZON - 1, max_pitch_acc_);
+        Eigen::MatrixXd u_min_pitch =
+            Eigen::MatrixXd::Constant(1, HORIZON - 1, -config_->max_pitch_acc_param.get());
+        Eigen::MatrixXd u_max_pitch =
+            Eigen::MatrixXd::Constant(1, HORIZON - 1, config_->max_pitch_acc_param.get());
         tiny_set_bound_constraints(
             pitch_solver_,
             x_min_pitch,
@@ -37,14 +36,11 @@ namespace auto_aim {
             u_max_pitch
         );
         pitch_solver_->settings->max_iter = max_iter_;
-        auto Q_yaw = config_["Q_yaw"].as<std::vector<double>>();
-        auto R_yaw = config_["R_yaw"].as<std::vector<double>>();
-
         Eigen::MatrixXd A_yaw { { 1, DT }, { 0, 1 } };
         Eigen::MatrixXd B_yaw { { 0 }, { DT } };
         Eigen::VectorXd f_yaw { { 0, 0 } };
-        Eigen::Matrix<double, 2, 1> Q_y(Q_yaw.data());
-        Eigen::Matrix<double, 1, 1> R_y(R_yaw.data());
+        Eigen::Matrix<double, 2, 1> Q_y(config_->mpc.Q_yaw.data());
+        Eigen::Matrix<double, 1, 1> R_y(config_->mpc.R_yaw.data());
         tiny_setup(
             &yaw_solver_,
             A_yaw,
@@ -61,8 +57,10 @@ namespace auto_aim {
 
         Eigen::MatrixXd x_min_yaw = Eigen::MatrixXd::Constant(2, HORIZON, -1e17);
         Eigen::MatrixXd x_max_yaw = Eigen::MatrixXd::Constant(2, HORIZON, 1e17);
-        Eigen::MatrixXd u_min_yaw = Eigen::MatrixXd::Constant(1, HORIZON - 1, -max_yaw_acc_);
-        Eigen::MatrixXd u_max_yaw = Eigen::MatrixXd::Constant(1, HORIZON - 1, max_yaw_acc_);
+        Eigen::MatrixXd u_min_yaw =
+            Eigen::MatrixXd::Constant(1, HORIZON - 1, -config_->max_yaw_acc_param.get());
+        Eigen::MatrixXd u_max_yaw =
+            Eigen::MatrixXd::Constant(1, HORIZON - 1, config_->max_yaw_acc_param.get());
         tiny_set_bound_constraints(yaw_solver_, x_min_yaw, x_max_yaw, u_min_yaw, u_max_yaw);
         yaw_solver_->settings->max_iter = max_iter_;
     }
@@ -168,17 +166,19 @@ namespace auto_aim {
     GimbalCmd
     VeryAimerMpc::veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm) {
         GimbalCmd cmd;
-
+        if (!trajectory_compensator_config_->trajectory_compensator) {
+            cmd.appera = false;
+            return cmd;
+        }
         const auto [aim_first, aim_center, aim_pair] = getAimStatus(auto_aim_fsm);
         const int roughly_select = selectArmor(target, auto_aim_fsm);
 
         const auto now = wust_vl::common::utils::time_utils::now();
-        const double dt0 = wust_vl::common::utils::time_utils::durationSec(target.timestamp_, now);
-        target.predictSimple(now + std::chrono::microseconds(int(dt0 * 1e6)));
+        target.predictSimple(now);
 
         const auto ap = target.getArmorPositions();
-        const double fly_time =
-            trajectory_compensator_->getFlyingTime(ap[roughly_select].head<3>(), bullet_speed);
+        const double fly_time = trajectory_compensator_config_->trajectory_compensator
+                                    ->getFlyingTime(ap[roughly_select].head<3>(), bullet_speed);
 
         double prev_fly_time = fly_time;
         std::vector<Target> iteration_target(10, target);
@@ -189,8 +189,8 @@ namespace auto_aim {
             const int iter_select = selectArmor(iteration_target[iter], auto_aim_fsm);
 
             const auto iter_poss = iteration_target[iter].getArmorPositions();
-            const double iter_fly_time =
-                trajectory_compensator_->getFlyingTime(iter_poss[iter_select], bullet_speed);
+            const double iter_fly_time = trajectory_compensator_config_->trajectory_compensator
+                                             ->getFlyingTime(iter_poss[iter_select], bullet_speed);
 
             if (std::abs(iter_fly_time - prev_fly_time) < 0.001)
                 break;
@@ -198,7 +198,7 @@ namespace auto_aim {
             prev_fly_time = iter_fly_time;
         }
 
-        const double predict_time = prev_fly_time + prediction_delay_;
+        const double predict_time = prev_fly_time + config_->prediction_delay_param.get();
         target.predictSimple(predict_time);
         const auto fin_armors_xyza = target.getArmorPosAndYaw();
 

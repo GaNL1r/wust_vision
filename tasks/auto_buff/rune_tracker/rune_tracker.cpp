@@ -3,18 +3,18 @@ namespace wust_vision {
 namespace auto_buff {
     struct RuneTracker::Impl {
     public:
-        Impl(const YAML::Node& config) {
+        Impl(wust_vl::common::utils::Parameter::Ptr auto_buff_config_parameter) {
             tracker_state = LOST;
             target_ = auto_buff::RuneTarget();
-            tracking_thres_ = config["tracking_thres"].as<int>();
-            lost_dt_ = config["lost_time_thres"].as<double>();
-            max_dis_diff_ = config["max_dis_diff"].as<double>();
-            target_config_.loadFromYaml(config);
+            target_config_ = RuneTargetConfig::create();
+            auto_buff_config_parameter->registerGroup(*target_config_);
+            auto_buff_config_parameter->reloadFromOldPath();
         }
         auto_buff::RuneTarget track(const auto_buff::RuneFan& fan) {
             double dt = std::chrono::duration<double>(fan.timestamp - last_time_).count();
             last_time_ = fan.timestamp;
-            lost_thres_ = std::abs(static_cast<int>(lost_dt_ / dt));
+            lost_thres_ =
+                std::abs(static_cast<int>(target_config_->lost_time_thres_param.get() / dt));
             bool found;
             bool ok;
             if (tracker_state == LOST) {
@@ -30,7 +30,7 @@ namespace auto_buff {
             if (tracker_state == DETECTING) {
                 if (found) {
                     detect_count_++;
-                    if (detect_count_ > tracking_thres_) {
+                    if (detect_count_ > target_config_->tracking_thres_param.get()) {
                         detect_count_ = 0;
                         tracker_state = TRACKING;
                     }
@@ -90,8 +90,8 @@ namespace auto_buff {
             }
             auto fan_copy = fan;
             std::erase_if(fan_copy.fans, [this](const auto_buff::RuneFan::Simple& f) {
-                bool pose_check =
-                    std::abs((f.target_pos - target_.centerPos()).norm()) < max_dis_diff_
+                bool pose_check = std::abs((f.target_pos - target_.centerPos()).norm())
+                        < target_config_->max_dis_diff_param.get()
                     && f.target_pos.norm() > 1.0;
 
                 return !pose_check;
@@ -106,19 +106,16 @@ namespace auto_buff {
             TEMP_LOST,
         } tracker_state = LOST;
         auto_buff::RuneTarget target_;
-        int tracking_thres_;
-        int lost_thres_;
         int detect_count_ = 0;
         int lost_count_ = 0;
-        double lost_dt_;
-        double max_dis_diff_;
         int found_count_ = 0;
         double pre_v_roll_ = 0;
+        int lost_thres_ = 0;
         std::chrono::steady_clock::time_point last_time_;
-        auto_buff::RuneTargetConfig target_config_;
+        RuneTargetConfig::Ptr target_config_;
     };
-    RuneTracker::RuneTracker(const YAML::Node& config) {
-        _impl = std::make_unique<Impl>(config);
+    RuneTracker::RuneTracker(wust_vl::common::utils::Parameter::Ptr auto_buff_config_parameter) {
+        _impl = std::make_unique<Impl>(auto_buff_config_parameter);
     }
     RuneTracker::~RuneTracker() {
         _impl.reset();

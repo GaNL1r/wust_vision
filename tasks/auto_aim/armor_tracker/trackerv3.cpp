@@ -10,21 +10,20 @@ namespace auto_aim {
             TRACKING,
             TEMP_LOST,
         } tracker_state = LOST;
-        Impl(const YAML::Node& config) {
+        Impl(wust_vl::common::utils::Parameter::Ptr auto_aim_config_parameter) {
             tracker_state = LOST;
+            target_config_ = TargetConfig::create();
+            auto_aim_config_parameter->registerGroup(*target_config_);
+            auto_aim_config_parameter->reloadFromOldPath();
             target_ = Target();
-            tracking_thres_ = config["armor_tracker"]["tracking_thres"].as<int>(5);
-            lost_dt_ = config["armor_tracker"]["lost_time_thres"].as<double>();
-            max_yaw_diff_deg_ = config["armor_tracker"]["max_yaw_diff_deg"].as<double>(80.0);
-            max_dis_diff_ = config["armor_tracker"]["max_dis_diff"].as<double>(0.5);
-            target_config_.loadConfig(config["armor_tracker"]);
         }
 
         Target track(const Armors& armors_msg) noexcept {
             const double dt =
                 std::chrono::duration<double>(armors_msg.timestamp - last_time_).count();
             last_time_ = armors_msg.timestamp;
-            lost_thres_ = std::abs(static_cast<int>(lost_dt_ / dt));
+            lost_thres_ =
+                std::abs(static_cast<int>(target_config_->lost_time_thres_param.get() / dt));
             Armors armors;
             armors = armors_msg;
             std::erase_if(armors.armors, [this](const Armor& a) {
@@ -34,8 +33,9 @@ namespace auto_aim {
                 bool pose_check =
                     (std::abs(angles::normalize_angle(
                          orientationToYaw(a.target_ori, center_yaw) - center_yaw
-                     )) > (max_yaw_diff_deg_ * M_PI / 180.0)
-                     || std::abs((a.target_pos - target_.position()).norm()) > max_dis_diff_)
+                     )) > (target_config_->max_yaw_diff_deg_param.get() * M_PI / 180.0)
+                     || std::abs((a.target_pos - target_.position()).norm())
+                         > target_config_->max_dis_diff_param.get())
                     && target_.is_inited
                     && std::abs(wust_vl::common::utils::time_utils::durationMs(
                            target_.timestamp_,
@@ -72,7 +72,7 @@ namespace auto_aim {
             switch (tracker_state) {
                 case DETECTING:
                     if (found) {
-                        if (++detect_count_ > tracking_thres_) {
+                        if (++detect_count_ > target_config_->tracking_thres_param.get()) {
                             detect_count_ = 0;
                             tracker_state = TRACKING;
                         }
@@ -172,18 +172,14 @@ namespace auto_aim {
             return updated > 0;
         }
 
-        int tracking_thres_;
         int lost_thres_;
         int detect_count_ = 0;
         int lost_count_ = 0;
-        double lost_dt_;
-        double max_yaw_diff_deg_;
-        double max_dis_diff_;
         int is_none_purple_count_ = 0;
         int found_count_ = 0;
         Target target_;
         std::chrono::steady_clock::time_point last_time_;
-        TargetConfig target_config_;
+        TargetConfig::Ptr target_config_;
 
         double orientationToYaw(const Eigen::Quaterniond& q, double from) noexcept {
             double roll, pitch, yaw;
@@ -193,8 +189,8 @@ namespace auto_aim {
             return yaw;
         }
     };
-    Tracker::Tracker(const YAML::Node& config) {
-        _impl = std::make_unique<Impl>(config);
+    Tracker::Tracker(wust_vl::common::utils::Parameter::Ptr auto_aim_config_parameter) {
+        _impl = std::make_unique<Impl>(auto_aim_config_parameter);
     }
     Tracker::~Tracker() {
         _impl.reset();

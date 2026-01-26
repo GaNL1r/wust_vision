@@ -49,7 +49,7 @@ namespace auto_aim {
         res->cp0.id_in_target = fin_target_select;
         res->cp0.xyza = fin_armors_xyza[fin_target_select];
         auto traj = getTrajectory(target, res->cp0, bullet_speed, auto_aim_fsm);
-        traj.first.buildLimit(max_yaw_acc_, max_pitch_acc_);
+        traj.first.buildLimit(config_->max_yaw_acc_param.get(), config_->max_pitch_acc_param.get());
         res->target_traj = traj.first;
         res->aim_traj = traj.second;
         return res;
@@ -58,17 +58,19 @@ namespace auto_aim {
     GimbalCmd
     VeryAimerSeg::veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm) {
         GimbalCmd cmd;
-
+        if (!trajectory_compensator_config_->trajectory_compensator) {
+            cmd.appera = false;
+            return cmd;
+        }
         const auto [aim_first, aim_center, aim_pair] = getAimStatus(auto_aim_fsm);
         const int roughly_select = selectArmor(target, auto_aim_fsm);
 
         const auto now = wust_vl::common::utils::time_utils::now();
-        const double dt0 = wust_vl::common::utils::time_utils::durationSec(target.timestamp_, now);
-        target.predictSimple(now + std::chrono::microseconds(int(dt0 * 1e6)));
+        target.predictSimple(now);
 
         const auto ap = target.getArmorPositions();
-        const double fly_time =
-            trajectory_compensator_->getFlyingTime(ap[roughly_select].head<3>(), bullet_speed);
+        const double fly_time = trajectory_compensator_config_->trajectory_compensator
+                                    ->getFlyingTime(ap[roughly_select].head<3>(), bullet_speed);
 
         double prev_fly_time = fly_time;
         std::vector<Target> iteration_target(10, target);
@@ -79,8 +81,8 @@ namespace auto_aim {
             const int iter_select = selectArmor(iteration_target[iter], auto_aim_fsm);
 
             const auto iter_poss = iteration_target[iter].getArmorPositions();
-            const double iter_fly_time =
-                trajectory_compensator_->getFlyingTime(iter_poss[iter_select], bullet_speed);
+            const double iter_fly_time = trajectory_compensator_config_->trajectory_compensator
+                                             ->getFlyingTime(iter_poss[iter_select], bullet_speed);
 
             if (std::abs(iter_fly_time - prev_fly_time) < 0.001)
                 break;
@@ -88,7 +90,7 @@ namespace auto_aim {
             prev_fly_time = iter_fly_time;
         }
 
-        const double predict_time = prev_fly_time + prediction_delay_;
+        const double predict_time = prev_fly_time + config_->prediction_delay_param.get();
         target.predictSimple(predict_time);
         const auto fin_armors_xyza = target.getArmorPosAndYaw();
 

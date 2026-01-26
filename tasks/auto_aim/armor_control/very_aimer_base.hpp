@@ -537,19 +537,93 @@ namespace auto_aim {
         virtual GimbalState getTargetState(double t) const = 0;
         virtual GimbalState getControlState(double t) const = 0;
     };
+    struct VeryAimerConfig: wust_vl::common::utils::ParamGroup {
+        static constexpr const char* Logger = "Config: very_aimer";
+        static constexpr const char* kKey = "very_aimer";
+        const char* key() const override {
+            return kKey;
+        }
+        using Ptr = std::shared_ptr<VeryAimerConfig>;
+        VeryAimerConfig() {}
+        static Ptr create() {
+            return std::make_shared<VeryAimerConfig>();
+        }
+        std::shared_ptr<wust_vl::common::utils::ManualCompensator> manual_compensator;
+        GEN_PARAM(double, control_delay);
+        GEN_PARAM(double, delay_enable_fire_error);
+        GEN_PARAM(double, max_yaw_acc);
+        GEN_PARAM(double, max_pitch_acc);
+        GEN_PARAM(double, prediction_delay);
+        GEN_PARAM(double, comming_angle);
+        GEN_PARAM(double, leaving_angle);
+        GEN_PARAM(double, yaw_limit_deg);
+        GEN_PARAM(double, shooting_range_h);
+        GEN_PARAM(double, shooting_range_w);
+        GEN_PARAM(double, min_enable_pitch_deg);
+        GEN_PARAM(double, min_enable_yaw_deg);
+        bool first_load = false;
+        struct Mpc {
+            int max_iter;
+            std::vector<double> Q_pitch;
+            std::vector<double> Q_yaw;
+            std::vector<double> R_pitch;
+            std::vector<double> R_yaw;
+            void load(const YAML::Node& node) {
+                max_iter = node["max_iter"].as<int>();
+                Q_pitch = node["Q_pitch"].as<std::vector<double>>();
+                Q_yaw = node["Q_yaw"].as<std::vector<double>>();
+                R_pitch = node["R_pitch"].as<std::vector<double>>();
+                R_yaw = node["R_yaw"].as<std::vector<double>>();
+            }
+        } mpc;
+        void loadSelf(const YAML::Node& node) override {
+            if (!first_load) {
+                manual_compensator = std::make_shared<wust_vl::common::utils::ManualCompensator>();
+                std::vector<wust_vl::common::utils::OffsetEntry> entries;
+
+                if (node["trajectory_offset"]) {
+                    for (const auto& node: node["trajectory_offset"]) {
+                        wust_vl::common::utils::OffsetEntry e;
+                        e.d_min = node["d_min"].as<double>();
+                        e.d_max = node["d_max"].as<double>();
+                        e.h_min = node["h_min"].as<double>();
+                        e.h_max = node["h_max"].as<double>();
+                        e.pitch_off = node["pitch_off"].as<double>();
+                        e.yaw_off = node["yaw_off"].as<double>();
+                        entries.push_back(e);
+                    }
+                    manual_compensator->setBasePitch(node["base_offset"]["pitch"].as<double>());
+                    manual_compensator->setBaseYaw(node["base_offset"]["yaw"].as<double>());
+                }
+                if (!manual_compensator->updateMapFlow(entries) || entries.size() < 1) {
+                    std::cout << "Trajectory compensator init failed" << std::endl;
+                }
+                mpc.load(node);
+                first_load = true;
+            } else {
+            }
+            shooting_range_h_param.load(node);
+            shooting_range_w_param.load(node);
+            yaw_limit_deg_param.load(node);
+            min_enable_pitch_deg_param.load(node);
+            min_enable_yaw_deg_param.load(node);
+            prediction_delay_param.load(node);
+            comming_angle_param.load(node);
+            leaving_angle_param.load(node);
+            control_delay_param.load(node);
+            delay_enable_fire_error_param.load(node);
+            max_yaw_acc_param.load(node);
+            max_pitch_acc_param.load(node);
+        }
+    };
     class VeryAimerBase {
     public:
         static constexpr int HORIZON = 300;
         static constexpr double DT = 1.0 / HORIZON;
         static constexpr int HALF_HORIZON = HORIZON / 2;
         using Ptr = std::unique_ptr<VeryAimerBase>;
-        VeryAimerBase() {}
-        VeryAimerBase(
-            const YAML::Node& config,
-            std::shared_ptr<wust_vl::common::utils::TrajectoryCompensator> trajectory_compensator
-        ) {
-            trajectory_compensator_ = trajectory_compensator;
-            config_ = config;
+        VeryAimerBase(wust_vl::common::utils::Parameter::Ptr auto_aim_config_parameter) {
+            auto_aim_config_parameter_ = auto_aim_config_parameter;
         }
         struct FireResult {
             bool fire;
@@ -590,20 +664,9 @@ namespace auto_aim {
         ) const;
         virtual GimbalCmd
         veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm) = 0;
-        std::shared_ptr<wust_vl::common::utils::TrajectoryCompensator> trajectory_compensator_;
-        std::unique_ptr<wust_vl::common::utils::ManualCompensator> manual_compensator_;
-        double shooting_range_w_ = 0.135;
-        double shooting_range_h_ = 0.135;
-        double min_enable_yaw_deg_ = 0.5;
-        double min_enable_pitch_deg_ = 0.5;
-        double yaw_limit = 60.0 / 180.0 * M_PI;
-        double prediction_delay_;
-        double comming_angle_;
-        double leaving_angle_;
-        double control_delay_ = 0.01;
-        double max_yaw_acc_, max_pitch_acc_;
-        double delay_enable_fire_error_ = 0.0035;
-        YAML::Node config_;
+        TrajectoryCompensatorConfig::Ptr trajectory_compensator_config_;
+        wust_vl::common::utils::Parameter::Ptr auto_aim_config_parameter_;
+        VeryAimerConfig::Ptr config_;
     };
 
 } // namespace auto_aim

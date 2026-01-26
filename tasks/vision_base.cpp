@@ -44,7 +44,7 @@ bool VisionBase::init(bool debug_mode) {
         else
             std::cout << "[env] VISION_ROOT not set in this process\n";
         debug_mode_ = debug_mode;
-
+        common_config_parameter_.loadFromFile(common_config_);
         control_config_ = ControlConfig::create(this);
         shoot_config_ = ShootConfig::create(this);
         record_config_ = RecordConfig::create(this);
@@ -57,7 +57,7 @@ bool VisionBase::init(bool debug_mode) {
         common_config_parameter_.registerGroup(*logger_config_);
         common_config_parameter_.registerGroup(*tf_config_);
         common_config_parameter_.registerGroup(*max_infer_running_config_);
-        common_config_parameter_.loadFromFile(common_config_);
+        common_config_parameter_.reloadFromOldPath();
         auto config = common_config_parameter_.getConfig();
         debug_fps_ = config["debug_fps"].as<int>();
         attack_mode_ = config["attack_mode"].as<int>();
@@ -66,7 +66,6 @@ bool VisionBase::init(bool debug_mode) {
         wust_vl::common::utils::ParameterManager::instance().registerParameter(
             common_config_parameter_
         );
-        std::cout << "common_config_: " << common_config_ << std::endl;
         YAML::Node camera_config = YAML::LoadFile(camera_config_);
         camera_ = std::make_shared<wust_vl::video::Camera>();
         camera_->init(camera_config);
@@ -92,12 +91,11 @@ bool VisionBase::init(bool debug_mode) {
         auto camera_info = std::make_pair(K.clone(), D.clone());
         camera_info_ = camera_info;
 
-        YAML::Node auto_aim_config = YAML::LoadFile(auto_aim_config_);
         auto_aim_ = std::make_shared<auto_aim::AutoAim>();
-        auto_aim_->init(auto_aim_config, use_ncnn_count_, tf_config_, camera_info);
-        YAML::Node auto_buff_config = YAML::LoadFile(auto_buff_config_);
+        auto_aim_->init(auto_aim_config_, use_ncnn_count_, tf_config_, camera_info);
+
         auto_buff_ = std::make_shared<auto_buff::AutoBuff>();
-        auto_buff_->init(auto_buff_config, use_ncnn_count_, tf_config_, camera_info);
+        auto_buff_->init(auto_buff_config_, use_ncnn_count_, tf_config_, camera_info);
         thread_pool_ = std::make_unique<wust_vl::common::concurrency::ThreadPool>(
             max_infer_running_config_->max_infer_running
         );

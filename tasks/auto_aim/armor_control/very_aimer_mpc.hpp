@@ -36,19 +36,13 @@ namespace auto_aim {
     public:
         using Ptr = std::unique_ptr<VeryAimerMpc>;
 
-        VeryAimerMpc(
-            const YAML::Node& config,
-            std::shared_ptr<wust_vl::common::utils::TrajectoryCompensator> trajectory_compensator
-        ):
-            VeryAimerBase(config, trajectory_compensator) {
+        VeryAimerMpc(wust_vl::common::utils::Parameter::Ptr auto_aim_config_parameter):
+            VeryAimerBase(auto_aim_config_parameter) {
             reset();
         }
 
-        static Ptr create(
-            const YAML::Node& config,
-            std::shared_ptr<wust_vl::common::utils::TrajectoryCompensator> trajectory_compensator
-        ) {
-            return std::make_unique<VeryAimerMpc>(config, trajectory_compensator);
+        static Ptr create(wust_vl::common::utils::Parameter::Ptr auto_aim_config_parameter) {
+            return std::make_unique<VeryAimerMpc>(auto_aim_config_parameter);
         }
         void reset();
 

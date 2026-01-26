@@ -5,6 +5,7 @@
 #include "tasks/utils.hpp"
 #include "wust_vl/common/utils/motion_buffer.hpp"
 #include "wust_vl/common/utils/parameter.hpp"
+#include "wust_vl/common/utils/trajectory_compensator.hpp"
 #include <opencv2/opencv.hpp>
 #include <optional>
 #include <shared_mutex>
@@ -232,41 +233,35 @@ struct GimbalCmd {
     }
 };
 
-struct AutoExposureCfg {
-    bool enable = false;
-    double target_brightness = 20.0;
-    double tolerance = 5.0;
-    double step_gain = 10.0;
-    double decay_step = 1.0;
-    double exposure_min = 100.0;
-    double exposure_max = 2500.0;
-    double control_interval_ms = 300;
+struct AutoExposureCfg: wust_vl::common::utils::ParamGroup {
+    static constexpr const char* Logger = "Config: auto_exposure";
+    static constexpr const char* kKey = "auto_exposure";
+    const char* key() const override {
+        return kKey;
+    }
 
-    // 成员函数：从 YAML 加载配置
-    bool loadFromYaml(const YAML::Node& root) {
-        try {
-            if (root["enable"])
-                enable = root["enable"].as<bool>();
-            if (root["target_brightness"])
-                target_brightness = root["target_brightness"].as<double>();
-            if (root["tolerance"])
-                tolerance = root["tolerance"].as<double>();
-            if (root["step_gain"])
-                step_gain = root["step_gain"].as<double>();
-            if (root["decay_step"])
-                decay_step = root["decay_step"].as<double>();
-            if (root["exposure_min"])
-                exposure_min = root["exposure_min"].as<double>();
-            if (root["exposure_max"])
-                exposure_max = root["exposure_max"].as<double>();
-            if (root["control_interval_ms"])
-                control_interval_ms = root["control_interval_ms"].as<double>();
-
-            return true;
-        } catch (const YAML::Exception& e) {
-            std::cerr << "加载 YAML 配置失败: " << e.what() << std::endl;
-            return false;
-        }
+    using Ptr = std::shared_ptr<AutoExposureCfg>;
+    AutoExposureCfg() {}
+    static Ptr create() {
+        return std::make_shared<AutoExposureCfg>();
+    }
+    GEN_PARAM(bool, enable);
+    GEN_PARAM(double, target_brightness);
+    GEN_PARAM(double, step_gain);
+    GEN_PARAM(double, decay_step);
+    GEN_PARAM(double, tolerance);
+    GEN_PARAM(double, exposure_min);
+    GEN_PARAM(double, exposure_max);
+    GEN_PARAM(double, control_interval_ms);
+    void loadSelf(const YAML::Node& node) override {
+        enable_param.load(node);
+        target_brightness_param.load(node);
+        step_gain_param.load(node);
+        decay_step_param.load(node);
+        tolerance_param.load(node);
+        exposure_min_param.load(node);
+        exposure_max_param.load(node);
+        control_interval_ms_param.load(node);
     }
 };
 struct TFConfig: wust_vl::common::utils::ParamGroup {
@@ -300,6 +295,32 @@ public:
             }
             R_camera2gimbal =
                 Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(R_vec.data());
+            first_load = true;
+        } else {
+        }
+    }
+};
+struct TrajectoryCompensatorConfig: public wust_vl::common::utils::ParamGroup {
+    static constexpr const char* Logger = "Config: auto_aim::trajectory_compensator";
+    static constexpr const char* kKey = "trajectory_compensator";
+    const char* key() const override {
+        return kKey;
+    }
+    using Ptr = std::shared_ptr<TrajectoryCompensatorConfig>;
+    TrajectoryCompensatorConfig() {}
+    static Ptr create() {
+        return std::make_shared<TrajectoryCompensatorConfig>();
+    }
+    std::shared_ptr<wust_vl::common::utils::TrajectoryCompensator> trajectory_compensator;
+    bool first_load = false;
+    void loadSelf(const YAML::Node& node) override
+
+    {
+        if (!first_load) {
+            std::string comp_type = node["compenstator_type"].as<std::string>("ideal");
+            trajectory_compensator =
+                wust_vl::common::utils::CompensatorFactory::createCompensator(comp_type);
+            trajectory_compensator->load(node);
             first_load = true;
         } else {
         }

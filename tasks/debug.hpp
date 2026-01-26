@@ -37,76 +37,7 @@ struct DebugRune {
     cv::Rect expanded;
     double pnp_distance;
 };
-template<typename T, int MAX_N, const char* NAME>
-class LogsStream {
-public:
-    void handleOnce(const T& t, nlohmann::json& j) {
-        log_data.push_back(t);
-        trim();
-        insertData(j);
-    }
-    void push_back(const T& t) {
-        log_data.push_back(t);
-    }
-    void trim() {
-        while (log_data.size() > MAX_N) {
-            log_data.erase(log_data.begin());
-        }
-    }
-    void insertData(nlohmann::json& j) {
-        j[NAME] = log_data;
-    }
-    void clear() {
-        log_data.clear();
-    }
 
-private:
-    std::vector<T> log_data;
-};
-
-struct DebugLogs {
-#define DEBUG_LOG_LIST(X) \
-    X(double, 100, time) \
-    X(double, 100, raw_yaw) \
-    X(double, 100, raw_pitch) \
-    X(double, 100, yaw) \
-    X(double, 100, pitch) \
-    X(double, 100, armor_dis) \
-    X(double, 100, armor_x) \
-    X(double, 100, armor_y) \
-    X(double, 100, armor_z) \
-    X(double, 100, armor_yaw) \
-    X(double, 100, ypd_y) \
-    X(double, 100, ypd_p) \
-    X(double, 100, rune_obs) \
-    X(double, 100, rune_pre) \
-    X(double, 100, rune_obsv) \
-    X(double, 100, rune_fitv) \
-    X(double, 100, gimbal_yaw) \
-    X(double, 100, gimbal_pitch) \
-    X(double, 100, target_v_yaw) \
-    X(double, 100, control_v_yaw) \
-    X(double, 100, control_v_pitch) \
-    X(double, 100, yaw_diff) \
-    X(double, 100, fire) \
-    X(double, 100, rune_dis) \
-    X(double, 100, fly_time) \
-    X(double, 100, control_a_yaw) \
-    X(double, 100, control_a_pitch)
-#define GEN_LOG(TYPE, SIZE, NAME) \
-    inline static constexpr char k##NAME##Name[] = #NAME; \
-    LogsStream<TYPE, SIZE, k##NAME##Name> NAME##_log;
-
-#define X(TYPE, SIZE, NAME) GEN_LOG(TYPE, SIZE, NAME)
-    DEBUG_LOG_LIST(X)
-#undef X
-
-    void clear() {
-#define X(TYPE, SIZE, NAME) NAME##_log.clear();
-        DEBUG_LOG_LIST(X)
-#undef X
-    }
-};
 
 void drawDebugOverlayShm(
     const DebugArmor& dbg,

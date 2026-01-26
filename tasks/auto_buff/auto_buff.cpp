@@ -20,12 +20,22 @@ namespace auto_buff {
             }
         }
         bool init(
-            const YAML::Node& config,
+            const std::string& config_path,
             int& use_detect_ncnn_count,
             TFConfig::Ptr tf_config,
             const std::pair<cv::Mat, cv::Mat>& camera_info
         ) {
-            config_ = config;
+            auto_buff_config_parameter_ = wust_vl::common::utils::Parameter::create();
+            auto_buff_config_parameter_->loadFromFile(config_path);
+            auto_exposure_cfg_ = AutoExposureCfg::create();
+            aimer_ = auto_buff::Aimer::create(auto_buff_config_parameter_);
+            rune_tracker_ = RuneTracker::create(auto_buff_config_parameter_);
+            auto_buff_config_parameter_->registerGroup(*auto_exposure_cfg_);
+            auto_buff_config_parameter_->reloadFromOldPath();
+            auto config = YAML::LoadFile(config_path);
+            wust_vl::common::utils::ParameterManager::instance().registerParameter(
+                *auto_buff_config_parameter_.get()
+            );
             tf_config_ = tf_config;
             camera_info_ = camera_info;
             if (config["rune_optimize"]["enable"].as<bool>()) {
@@ -46,24 +56,9 @@ namespace auto_buff {
                     50,
                     500
                 );
-            auto_buff::RuneTargetConfig rune_target_config;
-            rune_target_config.loadFromYaml(config["rune_tracker"]);
 
-            rune_tracker_ = RuneTracker::create(config["rune_tracker"]);
-            std::string comp_type =
-                config["trajectory_compensator"]["compenstator_type"].as<std::string>("ideal");
-            double gravity_ = config["trajectory_compensator"]["gravity"].as<double>(10.0);
-            double resistance_ = config["trajectory_compensator"]["resistance"].as<double>(0.092);
-            int iteration_times_ = config["trajectory_compensator"]["iteration_times"].as<int>(20);
-            auto trajectory_compensator =
-                wust_vl::common::utils::CompensatorFactory::createCompensator(comp_type);
-            trajectory_compensator->iteration_times_ = iteration_times_;
-            trajectory_compensator->gravity_ = gravity_;
-            trajectory_compensator->resistance_ = resistance_;
-            aimer_ = auto_buff::Aimer::create(config["aimer"], trajectory_compensator);
             latency_averager_ =
                 std::make_unique<wust_vl::common::concurrency::Averager<double>>(100);
-            auto_exposure_cfg_.loadFromYaml(config_["auto_exposure"]);
             return true;
         }
         void start() {
@@ -292,10 +287,10 @@ namespace auto_buff {
         }
         void
         autoExposureControl(const cv::Mat& frame, std::shared_ptr<wust_vl::video::Camera> camera) {
-            const double dt = auto_exposure_cfg_.control_interval_ms / 1000.0;
+            const double dt = auto_exposure_cfg_->control_interval_ms_param.get() / 1000.0;
             utils::XSecOnce(
                 [&] {
-                    if (!auto_exposure_cfg_.enable || frame.empty()) {
+                    if (!auto_exposure_cfg_->enable_param.get() || frame.empty()) {
                         return;
                     }
                     if (auto* hik = dynamic_cast<wust_vl::video::HikCamera*>(camera->getDevice())) {
@@ -303,17 +298,19 @@ namespace auto_buff {
                         if (expanded_.area() < 100 || i_use.empty()) {
                             i_use = frame;
                         }
-                        double brightness = utils::computeBrightness(i_use);
+                        const double brightness = utils::computeBrightness(i_use);
 
-                        double diff = brightness - auto_exposure_cfg_.target_brightness;
-                        const double exposure_min = auto_exposure_cfg_.exposure_min;
-                        const double exposure_max = auto_exposure_cfg_.exposure_max;
+                        const double diff =
+                            brightness - auto_exposure_cfg_->target_brightness_param.get();
+                        const double exposure_min = auto_exposure_cfg_->exposure_min_param.get();
+                        const double exposure_max = auto_exposure_cfg_->exposure_max_param.get();
                         double exposure_time = hik->getExposureTime();
-                        double last_exposure_time = exposure_time;
-                        if (std::fabs(diff) > auto_exposure_cfg_.tolerance && exposure_time > 0.0) {
-                            exposure_time -= diff * auto_exposure_cfg_.step_gain;
+                        const double last_exposure_time = exposure_time;
+                        if (std::fabs(diff) > auto_exposure_cfg_->tolerance_param.get()
+                            && exposure_time > 0.0) {
+                            exposure_time -= diff * auto_exposure_cfg_->step_gain_param.get();
                         } else {
-                            exposure_time -= auto_exposure_cfg_.decay_step;
+                            exposure_time -= auto_exposure_cfg_->decay_step_param.get();
                         }
                         if (exposure_time < exposure_min)
                             exposure_time = exposure_min;
@@ -335,7 +332,7 @@ namespace auto_buff {
         std::string logger_ = "auto_buff";
         std::unique_ptr<wust_vl::common::concurrency::OrderedQueue<auto_buff::RuneFan>> rune_queue_;
         wust_vl::common::concurrency::MonitoredThread::Ptr processing_thread_;
-        AutoExposureCfg auto_exposure_cfg_;
+        AutoExposureCfg::Ptr auto_exposure_cfg_;
         cv::Rect expanded_;
         auto_buff::RuneTarget rune_target_;
         bool run_flag_ = false;
@@ -350,7 +347,7 @@ namespace auto_buff {
         std::unique_ptr<wust_vl::common::concurrency::Averager<double>> latency_averager_;
         TFConfig::Ptr tf_config_;
         std::pair<cv::Mat, cv::Mat> camera_info_;
-        YAML::Node config_;
+        wust_vl::common::utils::Parameter::Ptr auto_buff_config_parameter_;
         Eigen::Matrix4d T_camera_to_odom_;
         std::shared_ptr<AutoBuffShared> shared_;
         std::mutex target_mutex_;
@@ -364,12 +361,12 @@ namespace auto_buff {
         _impl.reset();
     }
     bool AutoBuff::init(
-        const YAML::Node& config,
+        const std::string& config_path,
         int& use_detect_ncnn_count,
         TFConfig::Ptr tf_config,
         const std::pair<cv::Mat, cv::Mat>& camera_info
     ) {
-        return _impl->init(config, use_detect_ncnn_count, tf_config, camera_info);
+        return _impl->init(config_path, use_detect_ncnn_count, tf_config, camera_info);
     }
     void AutoBuff::start() {
         _impl->start();

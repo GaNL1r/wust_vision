@@ -4,7 +4,7 @@ namespace auto_aim {
     Target::Target() {
         target_state_ = Eigen::VectorXd::Zero(MModel::X_N);
     }
-    Target::Target(const Armor& a, const TargetConfig& target_config) {
+    Target::Target(const Armor& a, TargetConfig::Ptr target_config) {
         Eigen::DiagonalMatrix<double, ypdv2armor_motion_model::X_N> p0;
         if (a.number == ArmorNumber::OUTPOST) {
             p0.diagonal() << 1, 64, 1, 64, 1, 81, 0.4, 100, 1e-4, 0.1, 0.1;
@@ -51,7 +51,7 @@ namespace auto_aim {
             ); // ori_yaw
             return r;
         });
-        esekf_ypd_.setIterationNum(target_config_.esekf_iter_num);
+        esekf_ypd_.setIterationNum(target_config_->esekf_iter_num_param.get());
         esekf_ypd_.setInjectFunc([this](
                                      const Eigen::Matrix<double, MModel::X_N, 1>& delta,
                                      Eigen::Matrix<double, MModel::X_N, 1>& nominal
@@ -104,10 +104,10 @@ namespace auto_aim {
             return y0 + s * (y1 - y0);
         };
         // clang-format off
-        r <<target_config_.yp_r, 0, 0, 0,
-                0, target_config_.yp_r , 0, 0,
-                0, 0, sinInterp(abs_delta, 0.0, M_PI/2.0, target_config_.dis_r_front, target_config_.dis_r_side)+z[2]*z[2]*target_config_.dis2_r_ratio, 0,
-                0, 0, 0,log(std::abs(z[2]) + 1) *target_config_.yaw_r_log_ratio + sinInterp(M_PI/2.0-abs_delta, 0.0, M_PI/2.0, target_config_.yaw_r_base_side, target_config_.yaw_r_base_front);
+        r <<target_config_->yp_r_param.get(), 0, 0, 0,
+                0, target_config_->yp_r_param.get() , 0, 0,
+                0, 0, sinInterp(abs_delta, 0.0, M_PI/2.0, target_config_->dis_r_front_param.get(), target_config_->dis_r_side_param.get())+z[2]*z[2]*target_config_->dis2_r_ratio_param.get(), 0,
+                0, 0, 0,log(std::abs(z[2]) + 1) *target_config_->yaw_r_log_ratio_param.get() + sinInterp(M_PI/2.0-abs_delta, 0.0, M_PI/2.0, target_config_->yaw_r_base_side_param.get(), target_config_->yaw_r_base_front_param.get());
         // clang-format on
         return r;
     }
@@ -118,15 +118,15 @@ namespace auto_aim {
         double q_yaw;
         double q_l, q_h;
         if (tracked_id_ == ArmorNumber::OUTPOST) {
-            q_xyz = target_config_.qxyz_output; // 前哨站加速度方差
-            q_yaw = target_config_.qyaw_output; // 前哨站角加速度方差
-            q_l = target_config_.q_outpost_dz;
-            q_h = target_config_.q_outpost_dz;
+            q_xyz = target_config_->qxyz_output; // 前哨站加速度方差
+            q_yaw = target_config_->qyaw_output_param.get(); // 前哨站角加速度方差
+            q_l = target_config_->q_outpost_dz_param.get();
+            q_h = target_config_->q_outpost_dz_param.get();
         } else {
-            q_xyz = target_config_.qxyz_common; // 加速度方差
-            q_yaw = target_config_.qyaw_common; // 角加速度方差
-            q_l = target_config_.q_l;
-            q_h = target_config_.q_h;
+            q_xyz = target_config_->qxyz_common; // 加速度方差
+            q_yaw = target_config_->qyaw_common_param.get(); // 角加速度方差
+            q_l = target_config_->q_l_param.get();
+            q_h = target_config_->q_h_param.get();
         }
         const double t = dt;
         const double q_x_x = pow(t, 4) / 4 * q_xyz.x(), q_x_vx = pow(t, 3) / 2 * q_xyz.x(),
@@ -137,7 +137,7 @@ namespace auto_aim {
                      q_vz_vz = pow(t, 2) * q_xyz.z();
         const double q_yaw_yaw = pow(t, 4) / 4 * q_yaw, q_yaw_vyaw = pow(t, 3) / 2 * q_yaw,
                      q_vyaw_vyaw = pow(t, 2) * q_yaw;
-        const double q_r = target_config_.q_r;
+        const double q_r = target_config_->q_r_param.get();
 
         // clang-format off
             //      xc      v_xc    yc      v_yc    zc      v_zc    yaw         v_yaw       r       l   h
@@ -278,7 +278,7 @@ namespace auto_aim {
             timestamp_,
             wust_vl::common::utils::time_utils::now()
         );
-        if (!is_inited || dt > target_config_.lost_dt) {
+        if (!is_inited || dt > target_config_->lost_time_thres_param.get()) {
             return cv::Rect(0, 0, 0, 0);
         }
 
@@ -341,7 +341,7 @@ namespace auto_aim {
         const int base_side = std::max(rect.width, rect.height);
         const int max_side = std::max(image_size.width, image_size.height);
 
-        const double lost_dt = target_config_.lost_dt;
+        const double lost_dt = target_config_->lost_time_thres_param.get();
         const double dt_clamped = std::max(0.0, std::min(dt, lost_dt));
 
         int side = static_cast<int>(base_side + (max_side - base_side) * (dt_clamped / lost_dt));
@@ -363,7 +363,7 @@ namespace auto_aim {
         std::vector<std::pair<int, Armor>> result;
         const int n_obs = static_cast<int>(armors.size());
         const int armors_num = armor_num_;
-        const double GATE = target_config_.match_gate;
+        const double GATE = target_config_->match_gate_param.get();
         const double max_cost = 1e9;
         std::vector<std::vector<double>> cost(n_obs, std::vector<double>(armors_num, max_cost + 1));
         std::vector<MModel::VecZ> meas_list(n_obs);

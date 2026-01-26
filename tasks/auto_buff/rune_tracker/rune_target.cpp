@@ -3,7 +3,7 @@ namespace wust_vision {
 namespace auto_buff {
     RuneTarget::RuneTarget(
         const auto_buff::RuneFan& fan,
-        const RuneTargetConfig& target_config,
+        RuneTargetConfig::Ptr target_config,
         double pre_v_roll
     ) {
         is_big_ = false;
@@ -39,7 +39,7 @@ namespace auto_buff {
             ); // ori_roll
             return r;
         });
-        esekf_ypd_.setIterationNum(target_config_.esekf_iter_num);
+        esekf_ypd_.setIterationNum(target_config_->esekf_iter_num_param.get());
         esekf_ypd_.setInjectFunc(
             [](const Eigen::Matrix<double, ypdrune_motion_model::X_N, 1>& delta,
                Eigen::Matrix<double, ypdrune_motion_model::X_N, 1>& nominal) {
@@ -80,11 +80,11 @@ namespace auto_buff {
     ) const {
         Eigen::Matrix<double, ypdrune_motion_model::Z_N, ypdrune_motion_model::Z_N> r;
         // clang-format off
-    r << target_config_.yp_r , 0 , 0 ,  0 , 0,
-         0 , target_config_.yp_r , 0 ,  0 , 0,
-         0 , 0 , target_config_.dis_r , 0 , 0,
-         0 , 0 , 0 , target_config_.yaw_r , 0,
-         0 , 0 , 0 , 0 , target_config_.roll_r;
+    r << target_config_->yp_r_param.get() , 0 , 0 ,  0 , 0,
+         0 , target_config_->yp_r_param.get() , 0 ,  0 , 0,
+         0 , 0 , target_config_->dis_r_param.get() , 0 , 0,
+         0 , 0 , 0 , target_config_->yaw_r_param.get() , 0,
+         0 , 0 , 0 , 0 , target_config_->roll_r_param.get();
         // clang-format on
         return r;
     }
@@ -92,11 +92,11 @@ namespace auto_buff {
     RuneTarget::computeProcessNoise(double dt) const {
         Eigen::Matrix<double, ypdrune_motion_model::X_N, ypdrune_motion_model::X_N> q;
         double t = dt;
-        double v1 = target_config_.q_roll;
+        double v1 = target_config_->q_roll_param.get();
         double q_roll_roll = pow(t, 4) / 4 * v1, q_roll_vroll = pow(t, 3) / 2 * v1,
                q_vroll_vroll = pow(t, 2) * v1;
-        double q_xyz = target_config_.q_xyz;
-        double q_yaw = target_config_.q_yaw;
+        double q_xyz = target_config_->q_xyz_param.get();
+        double q_yaw = target_config_->q_yaw_param.get();
         // clang-format off
     //   xc   yc   zc  yaw  roll           v_roll
     q << q_xyz,      0,        0,        0,        0,              0,            
@@ -180,7 +180,7 @@ namespace auto_buff {
             timestamp_,
             wust_vl::common::utils::time_utils::now()
         );
-        if (!is_inited || dt > target_config_.lost_dt) {
+        if (!is_inited || dt > target_config_->lost_time_thres_param.get()) {
             return cv::Rect(0, 0, 0, 0);
         }
 
@@ -238,7 +238,7 @@ namespace auto_buff {
         int base_side = std::max(rect.width, rect.height);
         int max_side = std::max(image_size.width, image_size.height);
 
-        double lost_dt = target_config_.lost_dt;
+        double lost_dt = target_config_->lost_time_thres_param.get();
         double dt_clamped = std::max(0.0, std::min(dt, lost_dt));
 
         int side = static_cast<int>(base_side + (max_side - base_side) * (dt_clamped / lost_dt));
@@ -260,7 +260,7 @@ namespace auto_buff {
         std::vector<std::pair<int, auto_buff::RuneFan::Simple>> result;
         const int n_obs = (int)(fans.size());
         const int armors_num = 5;
-        const double GATE = target_config_.match_gate;
+        const double GATE = target_config_->match_gate_param.get();
         const double max_cost = 1e9;
         std::vector<std::vector<double>> cost(n_obs, std::vector<double>(armors_num, max_cost + 1));
         std::vector<ypdrune_motion_model::VecZ> meas_list(n_obs);

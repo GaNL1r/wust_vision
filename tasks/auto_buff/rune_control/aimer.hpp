@@ -7,15 +7,9 @@ namespace auto_buff {
     class Aimer {
     public:
         using Ptr = std::unique_ptr<Aimer>;
-        Aimer(
-            const YAML::Node& config,
-            std::shared_ptr<wust_vl::common::utils::TrajectoryCompensator> trajectory_compensator
-        );
-        static Ptr create(
-            const YAML::Node& config,
-            std::shared_ptr<wust_vl::common::utils::TrajectoryCompensator> trajectory_compensator
-        ) {
-            return std::make_unique<Aimer>(config, trajectory_compensator);
+        Aimer(wust_vl::common::utils::Parameter::Ptr auto_buff_config_parameter);
+        static Ptr create(wust_vl::common::utils::Parameter::Ptr auto_buff_config_parameter) {
+            return std::make_unique<Aimer>(auto_buff_config_parameter);
         }
         ~Aimer();
         GimbalCmd aim(const auto_buff::RuneTarget& target, double bullet_speed);

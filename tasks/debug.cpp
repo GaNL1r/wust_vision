@@ -102,11 +102,8 @@ void drawDebugArmorContent(
                 const size_t a_n = armor_target.armor_num_;
                 armor_data.armors.reserve(a_n);
                 const auto now = wust_vl::common::utils::time_utils::now();
-                const double dt0 =
-                    wust_vl::common::utils::time_utils::durationSec(armor_target.timestamp_, now);
-                const std::chrono::steady_clock::time_point future =
-                    now + std::chrono::microseconds(int(dt0 * 1e6));
-                armor_target.predictSimple(future);
+                armor_target.predictSimple(now);
+                armor_target.predictSimple(gimbal_cmd.fly_time);
                 const std::vector<Eigen::Vector4d> armors_posandyaw =
                     armor_target.getArmorPosAndYaw();
                 for (size_t i = 0; i < a_n; ++i) {
@@ -919,6 +916,78 @@ void writeSerialLogToJson(const ReceiveAimINFO& aim) {
         file << j.dump(2);
     }
 }
+template<typename T, int MAX_N>
+class LogsStream {
+public:
+    LogsStream(const std::string& n) {
+        name = n;
+    }
+    void handleOnce(const T& t, nlohmann::json& j) {
+        log_data.push_back(t);
+        trim();
+        insertData(j);
+    }
+    void push_back(const T& t) {
+        log_data.push_back(t);
+    }
+    void trim() {
+        while (log_data.size() > MAX_N) {
+            log_data.erase(log_data.begin());
+        }
+    }
+    void insertData(nlohmann::json& j) {
+        j[name] = log_data;
+    }
+    void clear() {
+        log_data.clear();
+    }
+
+private:
+    std::string name;
+    std::vector<T> log_data;
+};
+
+struct DebugLogs {
+#define DEBUG_LOG_LIST(X) \
+    X(double, 100, time) \
+    X(double, 100, raw_yaw) \
+    X(double, 100, raw_pitch) \
+    X(double, 100, yaw) \
+    X(double, 100, pitch) \
+    X(double, 100, armor_dis) \
+    X(double, 100, armor_x) \
+    X(double, 100, armor_y) \
+    X(double, 100, armor_z) \
+    X(double, 100, armor_yaw) \
+    X(double, 100, ypd_y) \
+    X(double, 100, ypd_p) \
+    X(double, 100, rune_obs) \
+    X(double, 100, rune_pre) \
+    X(double, 100, rune_obsv) \
+    X(double, 100, rune_fitv) \
+    X(double, 100, gimbal_yaw) \
+    X(double, 100, gimbal_pitch) \
+    X(double, 100, target_v_yaw) \
+    X(double, 100, control_v_yaw) \
+    X(double, 100, control_v_pitch) \
+    X(double, 100, yaw_diff) \
+    X(double, 100, fire) \
+    X(double, 100, rune_dis) \
+    X(double, 100, fly_time) \
+    X(double, 100, control_a_yaw) \
+    X(double, 100, control_a_pitch)
+#define GEN_LOG(TYPE, SIZE, NAME) LogsStream<TYPE, SIZE> NAME##_log { #NAME };
+
+#define X(TYPE, SIZE, NAME) GEN_LOG(TYPE, SIZE, NAME)
+    DEBUG_LOG_LIST(X)
+#undef X
+
+    void clear() {
+#define X(TYPE, SIZE, NAME) NAME##_log.clear();
+        DEBUG_LOG_LIST(X)
+#undef X
+    }
+};
 void debuglog(
     const DebugArmor& dbg_armor,
     const DebugRune& dbg_rune,

@@ -14,62 +14,68 @@ namespace auto_aim {
             return kKey;
         }
         GEN_PARAM(int, esekf_iter_num);
+        GEN_PARAM(double, lost_time_thres);
+        GEN_PARAM(int, tracking_thres);
+        GEN_PARAM(double, max_yaw_diff_deg);
+        GEN_PARAM(double, max_dis_diff);
+        GEN_PARAM(double, match_gate);
+        GEN_PARAM(double, qyaw_common);
+        GEN_PARAM(double, qyaw_output);
+        GEN_PARAM(double, q_r);
+        GEN_PARAM(double, q_l);
+        GEN_PARAM(double, q_h);
+        GEN_PARAM(double, q_outpost_dz);
+        GEN_PARAM(double, yp_r);
+        GEN_PARAM(double, dis_r_front);
+        GEN_PARAM(double, dis_r_side);
+        GEN_PARAM(double, dis2_r_ratio);
+        GEN_PARAM(double, yaw_r_base_front);
+        GEN_PARAM(double, yaw_r_base_side);
+        GEN_PARAM(double, yaw_r_log_ratio);
+        GEN_PARAM(std::vector<double>, qxyz_common);
+        GEN_PARAM(std::vector<double>, qxyz_output);
+        Eigen::Vector3d qxyz_common = { 100, 100, 100 };
+        Eigen::Vector3d qxyz_output = { 10, 10, 10 };
+        using Ptr = std::shared_ptr<TargetConfig>;
         TargetConfig() {
-            esekf_iter_num_param.onChange([](int o, int n) {
-                std::cout << "esekf_iter_num:" << n << std::endl;
+            qxyz_output_param.onChange([this](auto o, auto n) {
+                qxyz_common = Eigen::Vector3d(n[0], n[1], n[2]);
             });
+            qxyz_output_param.onChange([this](auto o, auto n) {
+                qxyz_output = Eigen::Vector3d(n[0], n[1], n[2]);
+            });
+        }
+        static Ptr create() {
+            return std::make_shared<TargetConfig>();
         }
         void loadSelf(const YAML::Node& node) override {
             esekf_iter_num_param.load(node);
-        }
-        int esekf_iter_num = 2;
-        Eigen::Vector3d qxyz_common = { 100, 100, 100 };
-        double qyaw_common = 400;
-        Eigen::Vector3d qxyz_output = { 10, 10, 10 };
-        double qyaw_output = 0.1;
-        double q_r = 0;
-        double q_l = 0;
-        double q_h = 0;
-        double q_outpost_dz = 0.0;
-        double yp_r = 4e-3;
-        double dis_r_front = 0.05;
-        double dis_r_side = 0.07;
-        double dis2_r_ratio = 0.01;
-        double yaw_r_base_front = 0.09;
-        double yaw_r_base_side = 0.09;
-        double yaw_r_log_ratio = 0.005;
-        double match_gate = 10;
-        double lost_dt = 0.5;
-        void loadConfig(const YAML::Node& node) {
-            esekf_iter_num = node["esekf_iter_num"].as<int>();
-            qyaw_common = node["qyaw_common"].as<double>();
-            std::vector<double> qxyz_common_vec = node["qxyz_common"].as<std::vector<double>>();
-            qxyz_common =
-                Eigen::Vector3d(qxyz_common_vec[0], qxyz_common_vec[1], qxyz_common_vec[2]);
-            std::vector<double> qxyz_output_vec = node["qxyz_output"].as<std::vector<double>>();
-            qxyz_output =
-                Eigen::Vector3d(qxyz_output_vec[0], qxyz_output_vec[1], qxyz_output_vec[2]);
-            qyaw_output = node["qyaw_output"].as<double>();
-            q_l = node["q_l"].as<double>();
-            q_h = node["q_h"].as<double>();
-            q_r = node["q_r"].as<double>();
-            q_outpost_dz = node["q_outpost_dz"].as<double>();
-            yp_r = node["yp_r"].as<double>();
-            dis_r_front = node["dis_r_front"].as<double>();
-            dis_r_side = node["dis_r_side"].as<double>();
-            dis2_r_ratio = node["dis2_r_ratio"].as<double>();
-            yaw_r_base_front = node["yaw_r_base_front"].as<double>();
-            yaw_r_base_side = node["yaw_r_base_side"].as<double>();
-            yaw_r_log_ratio = node["yaw_r_log_ratio"].as<double>();
-            match_gate = node["match_gate"].as<double>();
-            lost_dt = node["lost_time_thres"].as<double>();
+            lost_time_thres_param.load(node);
+            tracking_thres_param.load(node);
+            max_yaw_diff_deg_param.load(node);
+            max_dis_diff_param.load(node);
+            match_gate_param.load(node);
+            qyaw_common_param.load(node);
+            qyaw_output_param.load(node);
+            qxyz_common_param.load(node);
+            qxyz_output_param.load(node);
+            q_r_param.load(node);
+            q_l_param.load(node);
+            q_h_param.load(node);
+            q_outpost_dz_param.load(node);
+            yp_r_param.load(node);
+            dis_r_front_param.load(node);
+            dis_r_side_param.load(node);
+            yaw_r_base_front_param.load(node);
+            yaw_r_base_side_param.load(node);
+            yaw_r_log_ratio_param.load(node);
         }
     };
     class Target {
     public:
         Target();
         Target& operator=(const Target&) = default;
-        Target(const Armor& armor, const TargetConfig& target_config);
+        Target(const Armor& armor, TargetConfig::Ptr target_config);
         MModel::Measure::MeasureCtx ctx_;
         ArmorNumber tracked_id_;
         std::string type_;
@@ -91,7 +97,7 @@ namespace auto_aim {
         std::chrono::steady_clock::time_point last_t_;
         std::chrono::steady_clock::time_point timestamp_;
         MModel::RobotStateESEKF esekf_ypd_;
-        TargetConfig target_config_;
+        TargetConfig::Ptr target_config_;
         cv::Rect expanded(
             Eigen::Matrix4d T_camera_to_odom,
             const cv::Mat& camera_intrinsic,
@@ -195,7 +201,7 @@ namespace auto_aim {
                 && wust_vl::common::utils::time_utils::durationSec(
                        timestamp_,
                        wust_vl::common::utils::time_utils::now()
-                   ) < target_config_.lost_dt;
+                   ) < target_config_->lost_time_thres_param.get();
             return appear;
         }
         bool diverged() const noexcept {

@@ -10,6 +10,7 @@
 // clang-format on
 namespace wust_vision {
 namespace auto_aim {
+
     struct AutoAim::Impl {
         ~Impl() {
             run_flag_ = false;
@@ -25,17 +26,34 @@ namespace auto_aim {
             }
         }
         bool init(
-            const YAML::Node& config,
+            const std::string& config_path,
             int& use_detect_ncnn_count,
             TFConfig::Ptr tf_config,
             const std::pair<cv::Mat, cv::Mat>& camera_info
         ) {
-            config_ = config;
             tf_config_ = tf_config;
             camera_info_ = camera_info;
+            auto_aim_config_parameter_ = wust_vl::common::utils::Parameter::create();
+            auto config = YAML::LoadFile(config_path);
+            auto_aim_config_parameter_->loadFromFile(config_path);
+            auto_exposure_cfg_ = AutoExposureCfg::create();
+            very_aimer_ =
+                VeryAimerFactory::create(config["very_aimer"], auto_aim_config_parameter_);
+            auto_aim_config_parameter_->registerGroup(*very_aimer_->trajectory_compensator_config_);
+            auto_aim_config_parameter_->registerGroup(*auto_exposure_cfg_);
+            auto_aim_config_parameter_->registerGroup(*auto_aim_fsm_cl_.config_);
+            auto_aim_config_parameter_->registerGroup(*very_aimer_->config_);
+            tracker_ = Tracker::create(auto_aim_config_parameter_);
+            auto_aim_config_parameter_->reloadFromOldPath();
+
+            wust_vl::common::utils::ParameterManager::instance().registerParameter(
+                *auto_aim_config_parameter_.get()
+            );
+            max_detect_armors_ = config["max_detect_armors"].as<int>(10);
+            armor_pose_estimator_ = std::make_unique<ArmorPoseEstimator>(config, camera_info_);
 
             const std::string armor_detect_backend =
-                config_["armor_detect_backend"].as<std::string>("");
+                config["armor_detect_backend"].as<std::string>("");
             auto isBackendEnabled = [&use_detect_ncnn_count](const std::string& backend) -> bool {
 #ifdef USE_OPENVINO
                 if (backend == "openvino")
@@ -93,21 +111,11 @@ namespace auto_aim {
                 std::placeholders::_2
             ));
             WUST_MAIN(logger_) << "Using Armor Detector: " << armor_detect_backend;
-            armor_pose_estimator_ = std::make_unique<ArmorPoseEstimator>(config_, camera_info_);
-            tracker_ = Tracker::create(config_);
-            auto_aim_fsm_cl_.load(config_);
-            std::string comp_type =
-                config["trajectory_compensator"]["compenstator_type"].as<std::string>("ideal");
-            auto trajectory_compensator =
-                wust_vl::common::utils::CompensatorFactory::createCompensator(comp_type);
-            trajectory_compensator->load(config["trajectory_compensator"]);
-            very_aimer_ = VeryAimerFactory::create(config["very_aimer"], trajectory_compensator);
-            max_detect_armors_ = config_["max_detect_armors"].as<int>(10);
             armor_queue_ =
                 std::make_unique<wust_vl::common::concurrency::OrderedQueue<Armors>>(50, 500);
             latency_averager_ =
                 std::make_unique<wust_vl::common::concurrency::Averager<double>>(100);
-            auto_exposure_cfg_.loadFromYaml(config_["auto_exposure"]);
+
             return true;
         }
         void start() {
@@ -330,10 +338,10 @@ namespace auto_aim {
         }
         void
         autoExposureControl(const cv::Mat& frame, std::shared_ptr<wust_vl::video::Camera> camera) {
-            const double dt = auto_exposure_cfg_.control_interval_ms / 1000.0;
+            const double dt = auto_exposure_cfg_->control_interval_ms_param.get() / 1000.0;
             utils::XSecOnce(
                 [&] {
-                    if (!auto_exposure_cfg_.enable || frame.empty()) {
+                    if (!auto_exposure_cfg_->enable_param.get() || frame.empty()) {
                         return;
                     }
                     if (auto* hik = dynamic_cast<wust_vl::video::HikCamera*>(camera->getDevice())) {
@@ -343,15 +351,17 @@ namespace auto_aim {
                         }
                         const double brightness = utils::computeBrightness(i_use);
 
-                        const double diff = brightness - auto_exposure_cfg_.target_brightness;
-                        const double exposure_min = auto_exposure_cfg_.exposure_min;
-                        const double exposure_max = auto_exposure_cfg_.exposure_max;
+                        const double diff =
+                            brightness - auto_exposure_cfg_->target_brightness_param.get();
+                        const double exposure_min = auto_exposure_cfg_->exposure_min_param.get();
+                        const double exposure_max = auto_exposure_cfg_->exposure_max_param.get();
                         double exposure_time = hik->getExposureTime();
                         const double last_exposure_time = exposure_time;
-                        if (std::fabs(diff) > auto_exposure_cfg_.tolerance && exposure_time > 0.0) {
-                            exposure_time -= diff * auto_exposure_cfg_.step_gain;
+                        if (std::fabs(diff) > auto_exposure_cfg_->tolerance_param.get()
+                            && exposure_time > 0.0) {
+                            exposure_time -= diff * auto_exposure_cfg_->step_gain_param.get();
                         } else {
-                            exposure_time -= auto_exposure_cfg_.decay_step;
+                            exposure_time -= auto_exposure_cfg_->decay_step_param.get();
                         }
                         if (exposure_time < exposure_min)
                             exposure_time = exposure_min;
@@ -365,6 +375,7 @@ namespace auto_aim {
                 dt
             );
         }
+        wust_vl::common::utils::Parameter::Ptr auto_aim_config_parameter_;
         Tracker::Ptr tracker_;
         ArmorDetectorBase::Ptr armor_detector_;
         std::string logger_ = "auto_aim";
@@ -374,7 +385,7 @@ namespace auto_aim {
         VeryAimerBase::Ptr very_aimer_;
         std::unique_ptr<ArmorPoseEstimator> armor_pose_estimator_;
         AutoAimFsmController auto_aim_fsm_cl_;
-        AutoExposureCfg auto_exposure_cfg_;
+        AutoExposureCfg::Ptr auto_exposure_cfg_;
         cv::Rect expanded_;
         GimbalCmd last_cmd_;
         int max_detect_armors_;
@@ -390,7 +401,6 @@ namespace auto_aim {
         std::unique_ptr<wust_vl::common::concurrency::Averager<double>> latency_averager_;
         TFConfig::Ptr tf_config_;
         std::pair<cv::Mat, cv::Mat> camera_info_;
-        YAML::Node config_;
         std::shared_ptr<AutoAimShared> shared_;
         Eigen::Matrix4d T_camera_to_odom_;
         std::mutex target_mutex_;
@@ -404,12 +414,12 @@ namespace auto_aim {
         _impl.reset();
     }
     bool AutoAim::init(
-        const YAML::Node& config,
+        const std::string& config_path,
         int& use_detect_ncnn_count,
         TFConfig::Ptr tf_config,
         const std::pair<cv::Mat, cv::Mat>& camera_info
     ) {
-        return _impl->init(config, use_detect_ncnn_count, tf_config, camera_info);
+        return _impl->init(config_path, use_detect_ncnn_count, tf_config, camera_info);
     }
     void AutoAim::start() {
         _impl->start();

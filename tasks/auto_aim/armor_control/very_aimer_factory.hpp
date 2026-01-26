@@ -7,15 +7,15 @@ namespace auto_aim {
     public:
         static VeryAimerBase::Ptr create(
             const YAML::Node& config,
-            std::shared_ptr<wust_vl::common::utils::TrajectoryCompensator> trajectory_compensator
+            wust_vl::common::utils::Parameter::Ptr auto_aim_config_parameter
         ) {
             const std::string very_aimer_type = config["type"].as<std::string>();
             if (very_aimer_type == "seg" || very_aimer_type == "SEG") {
-                return VeryAimerSeg::create(config, trajectory_compensator);
+                return VeryAimerSeg::create(auto_aim_config_parameter);
             } else if (very_aimer_type == "mpc" || very_aimer_type == "MPC") {
-                return VeryAimerMpc::create(config, trajectory_compensator);
+                return VeryAimerMpc::create(auto_aim_config_parameter);
             } else {
-                return VeryAimerSeg::create(config, trajectory_compensator);
+                return VeryAimerSeg::create(auto_aim_config_parameter);
             }
         }
     };

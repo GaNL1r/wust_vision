@@ -6,9 +6,9 @@ namespace auto_aim {
     class Tracker {
     public:
         using Ptr = std::unique_ptr<Tracker>;
-        Tracker(const YAML::Node& config);
-        static Ptr create(const YAML::Node& config) {
-            return std::make_unique<Tracker>(config);
+        Tracker(wust_vl::common::utils::Parameter::Ptr auto_aim_config_parameter);
+        static Ptr create(wust_vl::common::utils::Parameter::Ptr auto_aim_config_parameter) {
+            return std::make_unique<Tracker>(auto_aim_config_parameter);
         }
         ~Tracker();
         Target track(const Armors& armors) noexcept;

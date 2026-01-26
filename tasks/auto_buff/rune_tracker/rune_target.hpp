@@ -7,48 +7,52 @@
 #include <wust_vl/common/utils/timer.hpp>
 namespace wust_vision {
 namespace auto_buff {
-    struct RuneTargetConfig {
-        int esekf_iter_num = 2;
-        double q_roll = 1;
-        double q_xyz = 0.5;
-        double q_yaw = 0.1;
-        double yp_r = 0.01;
-        double dis_r = 0.05;
-        double yaw_r = 0.1;
-        double roll_r = 0.1;
-        double match_gate = 10;
-        double lost_dt = 0.5;
-        // 从 YAML::Node 加载配置
-        void loadFromYaml(const YAML::Node& node) {
-            if (node["esekf_iter_num"])
-                esekf_iter_num = node["esekf_iter_num"].as<int>();
-            if (node["q_roll"])
-                q_roll = node["q_roll"].as<double>();
-            if (node["q_xyz"])
-                q_xyz = node["q_xyz"].as<double>();
-            if (node["q_yaw"])
-                q_yaw = node["q_yaw"].as<double>();
-            if (node["yp_r"])
-                yp_r = node["yp_r"].as<double>();
-            if (node["dis_r"])
-                dis_r = node["dis_r"].as<double>();
-            if (node["yaw_r"])
-                yaw_r = node["yaw_r"].as<double>();
-            if (node["roll_r"])
-                roll_r = node["roll_r"].as<double>();
-            if (node["match_gate"])
-                match_gate = node["match_gate"].as<double>();
-            if (node["lost_time_thres"])
-                lost_dt = node["lost_time_thres"].as<double>();
+    struct RuneTargetConfig: wust_vl::common::utils::ParamGroup {
+        static constexpr const char* kKey = "rune_tracker";
+        const char* key() const override {
+            return kKey;
+        }
+        GEN_PARAM(int, esekf_iter_num);
+        GEN_PARAM(double, lost_time_thres);
+        GEN_PARAM(int, tracking_thres);
+        GEN_PARAM(double, max_dis_diff);
+        GEN_PARAM(double, match_gate);
+        GEN_PARAM(double, q_roll);
+        GEN_PARAM(double, qyaw_output);
+        GEN_PARAM(double, q_xyz);
+        GEN_PARAM(double, q_yaw);
+        GEN_PARAM(double, yp_r);
+        GEN_PARAM(double, dis_r);
+        GEN_PARAM(double, yaw_r);
+        GEN_PARAM(double, roll_r);
+        using Ptr = std::shared_ptr<RuneTargetConfig>;
+        RuneTargetConfig() {}
+        static Ptr create() {
+            return std::make_shared<RuneTargetConfig>();
+        }
+        void loadSelf(const YAML::Node& node) override {
+            esekf_iter_num_param.load(node);
+            lost_time_thres_param.load(node);
+            tracking_thres_param.load(node);
+
+            max_dis_diff_param.load(node);
+            match_gate_param.load(node);
+            q_roll_param.load(node);
+            q_xyz_param.load(node);
+            q_yaw_param.load(node);
+            yp_r_param.load(node);
+            dis_r_param.load(node);
+            roll_r_param.load(node);
         }
     };
+
     class RuneTarget {
     public:
         RuneTarget() = default;
         RuneTarget& operator=(const RuneTarget&) = default;
         RuneTarget(
             const auto_buff::RuneFan& fan,
-            const RuneTargetConfig& target_config,
+            RuneTargetConfig::Ptr target_config,
             double pre_v_roll
         );
         bool is_big_ = false;
@@ -60,7 +64,7 @@ namespace auto_buff {
         bool is_temp_lost_ = false;
         int last_id;
         std::vector<int> update_ids;
-        RuneTargetConfig target_config_;
+        RuneTargetConfig::Ptr target_config_;
         std::chrono::steady_clock::time_point last_t_;
         std::chrono::steady_clock::time_point timestamp_;
         std::chrono::steady_clock::time_point start_time_;
@@ -107,7 +111,7 @@ namespace auto_buff {
                 && wust_vl::common::utils::time_utils::durationSec(
                        timestamp_,
                        wust_vl::common::utils::time_utils::now()
-                   ) < target_config_.lost_dt;
+                   ) < target_config_->lost_time_thres_param.get();
             return appear;
         }
         double predictAngle(std::chrono::steady_clock::time_point t) const {

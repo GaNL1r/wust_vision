@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wust_vl/common/utils/logger.hpp"
+#include "wust_vl/common/utils/parameter.hpp"
 #include <cmath>
 #include <string>
 #include <yaml-cpp/yaml.h>
@@ -29,32 +31,38 @@ namespace auto_aim {
 
     class AutoAimFsmController {
     public:
-        AutoAimFsm fsm_state_ { AutoAimFsm::AIM_SINGLE_ARMOR };
-        int overflow_count_ = 0;
-        int transfer_thresh_ = 5; // 防抖计数阈值
-
-        // hysteresis thresholds
-        double single_whole_up = 1.0;
-        double single_whole_down = 0.5;
-
-        double whole_pair_up = 6.0;
-        double whole_pair_down = 5.0;
-
-        double pair_center_up = 10.0;
-        double pair_center_down = 8.5;
-
-        AutoAimFsmController() = default;
-
-        void load(const YAML::Node& config) {
-            const auto node = config["auto_aim_fsm"];
-            transfer_thresh_ = node["transfer_thresh"].as<int>(5);
-            single_whole_up = node["single_whole_up"].as<double>(1.0);
-            single_whole_down = node["single_whole_down"].as<double>(0.5);
-            whole_pair_up = node["whole_pair_up"].as<double>(6.0);
-            whole_pair_down = node["whole_pair_down"].as<double>(5.0);
-            pair_center_up = node["pair_center_up"].as<double>(10.0);
-            pair_center_down = node["pair_center_down"].as<double>(8.5);
+        AutoAimFsmController() {
+            config_ = std::make_shared<AutoAimFsmConfig>();
         }
+        AutoAimFsm fsm_state_ { AutoAimFsm::AIM_SINGLE_ARMOR };
+        struct AutoAimFsmConfig: wust_vl::common::utils::ParamGroup {
+        public:
+            static constexpr const char* Logger = "Config: auto_aim::auto_aim_fsm";
+            static constexpr const char* kKey = "auto_aim_fsm";
+            const char* key() const override {
+                return kKey;
+            }
+            using Ptr = std::shared_ptr<AutoAimFsmConfig>;
+            AutoAimFsmConfig() {}
+            GEN_PARAM(int, transfer_thresh);
+            GEN_PARAM(double, single_whole_up);
+            GEN_PARAM(double, single_whole_down);
+            GEN_PARAM(double, whole_pair_up);
+            GEN_PARAM(double, whole_pair_down);
+            GEN_PARAM(double, pair_center_up);
+            GEN_PARAM(double, pair_center_down);
+            void loadSelf(const YAML::Node& node) override {
+                transfer_thresh_param.load(node);
+                single_whole_up_param.load(node);
+                single_whole_down_param.load(node);
+                whole_pair_up_param.load(node);
+                whole_pair_down_param.load(node);
+                pair_center_up_param.load(node);
+                pair_center_down_param.load(node);
+            }
+        };
+        AutoAimFsmConfig::Ptr config_;
+        int overflow_count_ = 0;
 
         void update(double v_yaw, bool target_jumped) {
             // 无跳变：直接退回单装甲，并清状态
@@ -68,8 +76,9 @@ namespace auto_aim {
 
             switch (fsm_state_) {
                 case AutoAimFsm::AIM_SINGLE_ARMOR: {
-                    overflow_count_ = (av > single_whole_up) ? overflow_count_ + 1 : 0;
-                    if (overflow_count_ > transfer_thresh_) {
+                    overflow_count_ =
+                        (av > config_->single_whole_up_param.get()) ? overflow_count_ + 1 : 0;
+                    if (overflow_count_ > config_->transfer_thresh_param.get()) {
                         fsm_state_ = AutoAimFsm::AIM_WHOLE_CAR_ARMOR;
                         overflow_count_ = 0;
                     }
@@ -77,14 +86,14 @@ namespace auto_aim {
                 }
 
                 case AutoAimFsm::AIM_WHOLE_CAR_ARMOR: {
-                    if (av > whole_pair_up)
+                    if (av > config_->whole_pair_up_param.get())
                         ++overflow_count_;
-                    else if (av < single_whole_down)
+                    else if (av < config_->single_whole_down_param.get())
                         --overflow_count_;
                     else
                         overflow_count_ = 0;
 
-                    if (std::abs(overflow_count_) > transfer_thresh_) {
+                    if (std::abs(overflow_count_) > config_->transfer_thresh_param.get()) {
                         fsm_state_ = (overflow_count_ > 0) ? AutoAimFsm::AIM_WHOLE_CAR_PAIR
                                                            : AutoAimFsm::AIM_SINGLE_ARMOR;
                         overflow_count_ = 0;
@@ -93,14 +102,14 @@ namespace auto_aim {
                 }
 
                 case AutoAimFsm::AIM_WHOLE_CAR_PAIR: {
-                    if (av > pair_center_up)
+                    if (av > config_->pair_center_up_param.get())
                         ++overflow_count_;
-                    else if (av < whole_pair_down)
+                    else if (av < config_->whole_pair_down_param.get())
                         --overflow_count_;
                     else
                         overflow_count_ = 0;
 
-                    if (std::abs(overflow_count_) > transfer_thresh_) {
+                    if (std::abs(overflow_count_) > config_->transfer_thresh_param.get()) {
                         fsm_state_ = (overflow_count_ > 0) ? AutoAimFsm::AIM_WHOLE_CAR_CENTER
                                                            : AutoAimFsm::AIM_WHOLE_CAR_ARMOR;
                         overflow_count_ = 0;
@@ -109,8 +118,9 @@ namespace auto_aim {
                 }
 
                 case AutoAimFsm::AIM_WHOLE_CAR_CENTER: {
-                    overflow_count_ = (av < pair_center_down) ? overflow_count_ + 1 : 0;
-                    if (overflow_count_ > transfer_thresh_) {
+                    overflow_count_ =
+                        (av < config_->pair_center_down_param.get()) ? overflow_count_ + 1 : 0;
+                    if (overflow_count_ > config_->transfer_thresh_param.get()) {
                         fsm_state_ = AutoAimFsm::AIM_WHOLE_CAR_PAIR;
                         overflow_count_ = 0;
                     }
