@@ -4,6 +4,7 @@
 #include "config.hpp"
 #include "tasks/utils.hpp"
 #include "wust_vl/common/utils/motion_buffer.hpp"
+#include "wust_vl/common/utils/parameter.hpp"
 #include <opencv2/opencv.hpp>
 #include <optional>
 #include <shared_mutex>
@@ -265,6 +266,42 @@ struct AutoExposureCfg {
         } catch (const YAML::Exception& e) {
             std::cerr << "加载 YAML 配置失败: " << e.what() << std::endl;
             return false;
+        }
+    }
+};
+struct TFConfig: wust_vl::common::utils::ParamGroup {
+public:
+    static constexpr const char* kKey = "tf";
+    static constexpr const char* Logger = "Config: common::tf";
+    const char* key() const override {
+        return kKey;
+    }
+    using Ptr = std::shared_ptr<TFConfig>;
+    TFConfig() {}
+    static Ptr create() {
+        return std::make_shared<TFConfig>();
+    }
+
+    bool first_load = false;
+
+    Eigen::Matrix3d R_camera2gimbal;
+    Eigen::Vector3d t_camera2gimbal;
+    void loadSelf(const YAML::Node& node) override {
+        if (!first_load) {
+            auto t_vec = node["t_camera2gimbal"].as<std::vector<double>>();
+            if (t_vec.size() != 3) {
+                throw std::runtime_error("YAML tf.t_camera2gimbal must have 3 elements");
+            }
+            t_camera2gimbal = Eigen::Vector3d(t_vec[0], t_vec[1], t_vec[2]);
+
+            auto R_vec = node["R_camera2gimbal"].as<std::vector<double>>();
+            if (R_vec.size() != 9) {
+                throw std::runtime_error("YAML tf.R_camera2gimbal must have 9 elements");
+            }
+            R_camera2gimbal =
+                Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(R_vec.data());
+            first_load = true;
+        } else {
         }
     }
 };

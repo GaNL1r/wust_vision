@@ -2,12 +2,26 @@
 #include "tasks/auto_aim/armor_tracker/motion_models/motion_modelypdv2.hpp"
 #include "tasks/auto_aim/type.hpp"
 #include "tasks/utils.hpp"
+#include "wust_vl/common/utils/parameter.hpp"
 #include <wust_vl/common/utils/timer.hpp>
 namespace wust_vision {
 namespace auto_aim {
     namespace MModel = ypdv2armor_motion_model;
 
-    struct TargetConfig {
+    struct TargetConfig: wust_vl::common::utils::ParamGroup {
+        static constexpr const char* kKey = "armor_tracker";
+        const char* key() const override {
+            return kKey;
+        }
+        GEN_PARAM(int, esekf_iter_num);
+        TargetConfig() {
+            esekf_iter_num_param.onChange([](int o, int n) {
+                std::cout << "esekf_iter_num:" << n << std::endl;
+            });
+        }
+        void loadSelf(const YAML::Node& node) override {
+            esekf_iter_num_param.load(node);
+        }
         int esekf_iter_num = 2;
         Eigen::Vector3d qxyz_common = { 100, 100, 100 };
         double qyaw_common = 400;

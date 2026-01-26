@@ -25,7 +25,7 @@ public:
         VisionBase::start();
         if (timer_) {
             auto timercallback = std::bind(&vision::timerCallback, this, std::placeholders::_1);
-            double rate_hz = static_cast<double>(config_["control"]["control_rate"].as<int>());
+            double rate_hz = control_config_->control_rate_param.get();
             timer_->start(rate_hz, timercallback);
         }
     }

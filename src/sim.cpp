@@ -73,74 +73,55 @@ public:
         else
             std::cout << "[env] VISION_ROOT not set in this process\n";
         debug_mode_ = debug_mode;
-        config_ = YAML::LoadFile(common_config_);
-
-        std::string log_level_ = config_["logger"]["log_level"].as<std::string>("INFO");
-        std::string log_path_ = config_["logger"]["log_path"].as<std::string>("wust_log");
-        bool use_logcli = config_["logger"]["use_logcli"].as<bool>();
-        bool use_logfile = config_["logger"]["use_logfile"].as<bool>();
-        bool use_simplelog = config_["logger"]["use_simplelog"].as<bool>();
-        initLogger(log_level_, log_path_, use_logcli, use_logfile, use_simplelog);
-        max_infer_running_ = config_["max_infer_running"].as<int>(1);
-        attack_mode_ = config_["attack_mode"].as<int>();
-        auto t_vec = config_["tf"]["t_camera2gimbal"].as<std::vector<double>>();
-        if (t_vec.size() != 3) {
-            throw std::runtime_error("YAML tf.t_camera2gimbal must have 3 elements");
+        try {
+            control_config_ = ControlConfig::create(this);
+            shoot_config_ = ShootConfig::create();
+            logger_config_ = LoggerConfig::create();
+            tf_config_ = TFConfig::create();
+            max_infer_running_config_ = MaxInferRunningConfig::create();
+            common_config_parameter_.registerGroup(*control_config_);
+            common_config_parameter_.registerGroup(*shoot_config_);
+            common_config_parameter_.registerGroup(*logger_config_);
+            common_config_parameter_.registerGroup(*tf_config_);
+            common_config_parameter_.registerGroup(*max_infer_running_config_);
+            common_config_parameter_.loadFromFile(common_config_);
+            auto config = common_config_parameter_.getConfig();
+            debug_fps_ = config["debug_fps"].as<int>();
+            attack_mode_ = config["attack_mode"].as<int>();
+            detect_color_ = config["detect_color"].as<int>();
+        } catch (std::exception& e) {
+            std::cerr << "init exception: " << e.what() << std::endl;
         }
-        t_camera2gimbal_ = Eigen::Vector3d(t_vec[0], t_vec[1], t_vec[2]);
-
-        auto R_vec = config_["tf"]["R_camera2gimbal"].as<std::vector<double>>();
-        if (R_vec.size() != 9) {
-            throw std::runtime_error("YAML tf.R_camera2gimbal must have 9 elements");
-        }
-        R_camera2gimbal_ =
-            Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(R_vec.data());
-
+        wust_vl::common::utils::ParameterManager::instance().registerParameter(
+            common_config_parameter_
+        );
         YAML::Node auto_aim_config = YAML::LoadFile(auto_aim_config_);
         auto_aim_ = std::make_unique<auto_aim::AutoAim>();
         auto_aim_->setDebug(debug_mode_);
-        auto_aim_->init(
-            auto_aim_config,
-            use_ncnn_count_,
-            R_camera2gimbal_,
-            t_camera2gimbal_,
-            camera_info_
-        );
+        auto_aim_->init(auto_aim_config, use_ncnn_count_, tf_config_, camera_info_);
         YAML::Node auto_buff_config = YAML::LoadFile(auto_buff_config_);
         auto_buff_ = std::make_unique<auto_buff::AutoBuff>();
         auto_buff_->setDebug(debug_mode);
-        auto_buff_->init(
-            auto_buff_config,
-            use_ncnn_count_,
-            R_camera2gimbal_,
-            t_camera2gimbal_,
-            camera_info_,
-            max_infer_running_
-        );
+        auto_buff_->init(auto_buff_config, use_ncnn_count_, tf_config_, camera_info_);
         thread_pool_ = std::make_unique<wust_vl::common::concurrency::ThreadPool>(
             std::thread::hardware_concurrency() * 2
         );
         motion_buffer_ =
             std::make_shared<wust_vl::common::utils::MotionBufferGeneric<Motion, 1024>>();
-        double bullet_speed = config_["shoot"]["bullet_speed"].as<double>(20.0);
-        shoot_rate_ = config_["shoot"]["rate"].as<int>(3);
-        double communication_delay_μs =
-            config_["control"]["communication_delay_us"].as<double>(1000.0);
 
         auto_aim_shared_ = std::make_shared<auto_aim::AutoAimShared>(
             motion_buffer_,
-            bullet_speed,
-            communication_delay_μs
+            shoot_config_->bullet_speed_param.get(),
+            control_config_->communication_delay_us_param.get()
         );
         auto_aim_->setShared(auto_aim_shared_);
         auto_buff_shared_ = std::make_shared<auto_buff::AutoBuffShared>(
             motion_buffer_,
-            bullet_speed,
-            communication_delay_μs
+            shoot_config_->bullet_speed_param.get(),
+            control_config_->communication_delay_us_param.get()
         );
         auto_buff_->setShared(auto_buff_shared_);
         timer_ = std::make_unique<wust_vl::common::utils::Timer>();
-        detect_color_ = config_["detect_color"].as<int>(0);
         return true;
     }
     void imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr img_msg) {
@@ -195,7 +176,7 @@ public:
         auto_buff_->start();
         if (timer_) {
             auto timercallback = std::bind(&vision::timerCallback, this, std::placeholders::_1);
-            double rate_hz = static_cast<double>(config_["control"]["control_rate"].as<int>());
+            double rate_hz = control_config_->control_rate_param.get();
             timer_->start(rate_hz, timercallback);
         }
 
@@ -283,6 +264,7 @@ public:
                     gimbal_py.first = last_att->data.pitch;
                     gimbal_py.second = last_att->data.yaw;
                 }
+                wust_vl::common::utils::ParameterManager::instance().allReloadFromOldPath();
                 debuglog(dbg_armor, dbg_rune, last_cmd_, gimbal_py);
             } catch (std::exception& e) {
                 std::cout << "debug thread error: " << e.what() << std::endl;
@@ -325,6 +307,99 @@ public:
             } break;
         }
     }
+    struct ControlConfig: wust_vl::common::utils::ParamGroup {
+    public:
+        static constexpr const char* kKey = "control";
+        static constexpr const char* Logger = "Config: common::control";
+        const char* key() const override {
+            return kKey;
+        }
+        using Ptr = std::shared_ptr<ControlConfig>;
+        ControlConfig(vision* b) {
+            base = b;
+            communication_delay_us_param.onChange([this](int o, int n) {
+                if (isBaseACtive()) {
+                    base->auto_aim_shared_->communication_delay_μs = n;
+                    base->auto_buff_shared_->communication_delay_μs = n;
+                    WUST_DEBUG(Logger)
+                        << "communication_delay_μs from: " << o << " to: " << n << " us";
+                }
+            });
+        }
+        static Ptr create(vision* b) {
+            return std::make_shared<ControlConfig>(b);
+        }
+        GEN_PARAM(double, communication_delay_us);
+        GEN_PARAM(double, yaw_ramp);
+        GEN_PARAM(double, pitch_ramp);
+        GEN_PARAM(double, control_rate);
+        vision* base;
+        bool first_load = false;
+        bool isBaseACtive() {
+            return base != nullptr;
+        }
+        void loadSelf(const YAML::Node& node) override {
+            if (!isBaseACtive())
+                return;
+            if (!first_load) {
+                communication_delay_us_param.set(node["communication_delay_us"].as<double>());
+                yaw_ramp_param.set(node["yaw_ramp"].as<double>());
+                pitch_ramp_param.set(node["pitch_ramp"].as<double>());
+                control_rate_param.set(node["control_rate"].as<double>());
+                first_load = true;
+            } else {
+                communication_delay_us_param.load(node);
+                yaw_ramp_param.load(node);
+                pitch_ramp_param.load(node);
+                control_rate_param.load(node);
+            }
+        }
+    };
+    ControlConfig::Ptr control_config_;
+    struct ShootConfig: wust_vl::common::utils::ParamGroup {
+    public:
+        static constexpr const char* kKey = "shoot";
+        static constexpr const char* Logger = "Config: common::shoot";
+        const char* key() const override {
+            return kKey;
+        }
+        using Ptr = std::shared_ptr<ShootConfig>;
+        ShootConfig() {
+            rate_param.onChange([this](int o, int n) {
+                WUST_DEBUG(Logger) << "shoot_rate from: " << o << " to: " << n << " HZ";
+            });
+        }
+
+        static Ptr create() {
+            return std::make_shared<ShootConfig>();
+        }
+        GEN_PARAM(int, rate);
+        GEN_PARAM(double, bullet_speed);
+        bool first_load = false;
+
+        void loadSelf(const YAML::Node& node) override {
+            if (!first_load) {
+                rate_param.set(node["rate"].as<int>());
+                bullet_speed_param.set(node["bullet_speed"].as<double>());
+                first_load = true;
+            } else {
+                rate_param.load(node);
+            }
+        }
+    };
+    ShootConfig::Ptr shoot_config_;
+
+    LoggerConfig::Ptr logger_config_;
+
+    TFConfig::Ptr tf_config_;
+
+    MaxInferRunningConfig::Ptr max_infer_running_config_;
+
+    int attack_mode_;
+    int debug_fps_;
+    bool detect_color_;
+
+    wust_vl::common::utils::Parameter common_config_parameter_;
     std::unique_ptr<wust_vl::common::concurrency::ThreadPool> thread_pool_;
     std::unique_ptr<auto_aim::AutoAim> auto_aim_;
     std::unique_ptr<auto_buff::AutoBuff> auto_buff_;
@@ -335,27 +410,19 @@ public:
     std::thread debug_thread_;
     GimbalCmd last_cmd_;
     std::pair<cv::Mat, cv::Mat> camera_info_;
-    double bullet_speed_;
-    int attack_mode_;
-    int max_infer_running_;
     bool run_flag_ = false;
-    int detect_color_ = 0;
     bool debug_mode_ = false;
     int use_ncnn_count_ = 0;
-    int shoot_rate_ = 3;
     std::atomic<int> infer_running_count_ { 0 };
     std::string common_config_;
     std::string camera_config_;
     std::string auto_aim_config_;
     std::string auto_buff_config_;
-    YAML::Node config_;
-    Eigen::Matrix3d R_camera2gimbal_;
-    Eigen::Vector3d t_camera2gimbal_;
     bool has_camera_info_ = false;
     std::shared_ptr<Ros2Node> ros2_;
 };
 } // namespace wust_vision
-// VISION_MAIN(vision)
+// VISION_MAIN(wust_vision::vision)
 int main(int argc, char** argv) {
     wust_vision::printBanner();
     bool debug = false;

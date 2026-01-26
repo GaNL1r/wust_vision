@@ -27,8 +27,7 @@ namespace auto_aim {
         bool init(
             const YAML::Node& config,
             int& use_detect_ncnn_count,
-            const Eigen::Matrix3d& R_camera2gimbal,
-            const Eigen::Vector3d& t_camera2gimbal,
+            TFConfig::Ptr tf_config,
             const std::pair<cv::Mat, cv::Mat>& camera_info
         );
         void start();

@@ -3,6 +3,7 @@
     #include <ncnn/gpu.h>
 #endif
 namespace wust_vision {
+
 VisionBase::VisionBase(
     std::string common_config,
     std::string camera_config,
@@ -42,28 +43,31 @@ bool VisionBase::init(bool debug_mode) {
     else
         std::cout << "[env] VISION_ROOT not set in this process\n";
     debug_mode_ = debug_mode;
-    config_ = YAML::LoadFile(common_config_);
-    debug_fps_ = config_["debug_fps"].as<int>(30);
-    std::string log_level = config_["logger"]["log_level"].as<std::string>("INFO");
-    std::string log_path = config_["logger"]["log_path"].as<std::string>("wust_log");
-    bool use_logcli = config_["logger"]["use_logcli"].as<bool>();
-    bool use_logfile = config_["logger"]["use_logfile"].as<bool>();
-    bool use_simplelog = config_["logger"]["use_simplelog"].as<bool>();
-    initLogger(log_level, log_path, use_logcli, use_logfile, use_simplelog);
-    max_infer_running_ = config_["max_infer_running"].as<int>(1);
-    attack_mode_ = config_["attack_mode"].as<int>();
-    auto t_vec = config_["tf"]["t_camera2gimbal"].as<std::vector<double>>();
-    if (t_vec.size() != 3) {
-        throw std::runtime_error("YAML tf.t_camera2gimbal must have 3 elements");
+    try {
+        control_config_ = ControlConfig::create(this);
+        shoot_config_ = ShootConfig::create(this);
+        record_config_ = RecordConfig::create(this);
+        logger_config_ = LoggerConfig::create();
+        tf_config_ = TFConfig::create();
+        max_infer_running_config_ = MaxInferRunningConfig::create();
+        common_config_parameter_.registerGroup(*control_config_);
+        common_config_parameter_.registerGroup(*shoot_config_);
+        common_config_parameter_.registerGroup(*record_config_);
+        common_config_parameter_.registerGroup(*logger_config_);
+        common_config_parameter_.registerGroup(*tf_config_);
+        common_config_parameter_.registerGroup(*max_infer_running_config_);
+        common_config_parameter_.loadFromFile(common_config_);
+        auto config = common_config_parameter_.getConfig();
+        debug_fps_ = config["debug_fps"].as<int>();
+        attack_mode_ = config["attack_mode"].as<int>();
+        detect_color_ = config["detect_color"].as<int>();
+    } catch (std::exception& e) {
+        std::cerr << "init exception: " << e.what() << std::endl;
     }
-    t_camera2gimbal_ = Eigen::Vector3d(t_vec[0], t_vec[1], t_vec[2]);
 
-    auto R_vec = config_["tf"]["R_camera2gimbal"].as<std::vector<double>>();
-    if (R_vec.size() != 9) {
-        throw std::runtime_error("YAML tf.R_camera2gimbal must have 9 elements");
-    }
-    R_camera2gimbal_ = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(R_vec.data());
-
+    wust_vl::common::utils::ParameterManager::instance().registerParameter(common_config_parameter_
+    );
+    std::cout << "common_config_: " << common_config_ << std::endl;
     YAML::Node camera_config = YAML::LoadFile(camera_config_);
     camera_ = std::make_shared<wust_vl::video::Camera>();
     camera_->init(camera_config);
@@ -90,91 +94,32 @@ bool VisionBase::init(bool debug_mode) {
 
     YAML::Node auto_aim_config = YAML::LoadFile(auto_aim_config_);
     auto_aim_ = std::make_shared<auto_aim::AutoAim>();
-    auto_aim_
-        ->init(auto_aim_config, use_ncnn_count_, R_camera2gimbal_, t_camera2gimbal_, camera_info);
+    auto_aim_->init(auto_aim_config, use_ncnn_count_, tf_config_, camera_info);
     YAML::Node auto_buff_config = YAML::LoadFile(auto_buff_config_);
     auto_buff_ = std::make_shared<auto_buff::AutoBuff>();
-    auto_buff_->init(
-        auto_buff_config,
-        use_ncnn_count_,
-        R_camera2gimbal_,
-        t_camera2gimbal_,
-        camera_info,
-        max_infer_running_
+    auto_buff_->init(auto_buff_config, use_ncnn_count_, tf_config_, camera_info);
+    thread_pool_ = std::make_unique<wust_vl::common::concurrency::ThreadPool>(
+        max_infer_running_config_->max_infer_running
     );
-    thread_pool_ = std::make_unique<wust_vl::common::concurrency::ThreadPool>(max_infer_running_);
     motion_buffer_ = std::make_shared<wust_vl::common::utils::MotionBufferGeneric<Motion, 1024>>();
-    double bullet_speed = config_["shoot"]["bullet_speed"].as<double>(20.0);
-    shoot_rate_ = config_["shoot"]["rate"].as<int>(3);
-    double communication_delay_μs = config_["control"]["communication_delay_us"].as<double>(1000.0);
 
     auto_aim_shared_ = std::make_shared<auto_aim::AutoAimShared>(
         motion_buffer_,
-        bullet_speed,
-        communication_delay_μs
+        shoot_config_->bullet_speed_param.get(),
+        control_config_->communication_delay_us_param.get()
     );
     auto_aim_->setShared(auto_aim_shared_);
     auto_aim_->setDebug(debug_mode_);
     auto_buff_shared_ = std::make_shared<auto_buff::AutoBuffShared>(
         motion_buffer_,
-        bullet_speed,
-        communication_delay_μs
+        shoot_config_->bullet_speed_param.get(),
+        control_config_->communication_delay_us_param.get()
     );
     auto_buff_->setShared(auto_buff_shared_);
     auto_buff_->setDebug(debug_mode_);
-    std::string device_name = config_["control"]["device_name"].as<std::string>();
-
-    serial_ = std::make_shared<wust_vl::common::drivers::SerialDriver>();
-    bool use_serial = config_["control"]["use_serial"].as<bool>();
-    if (use_serial) {
-        wust_vl::common::drivers::SerialDriver::SerialPortConfig cfg {
-            /*baud*/ 115200,
-            /*csize*/ 8,
-            boost::asio::serial_port_base::parity::none,
-            boost::asio::serial_port_base::stop_bits::one,
-            boost::asio::serial_port_base::flow_control::none
-        };
-        serial_->init_port(device_name, cfg);
-        serial_->set_receive_callback(std::bind(
-            &VisionBase::serialCallback,
-            this,
-            std::placeholders::_1,
-            std::placeholders::_2
-
-        ));
-        serial_->set_error_callback([&](const boost::system::error_code& ec) {
-            WUST_ERROR("serial") << "serial error: " << ec.message();
-        });
-    }
 
     timer_ = std::make_unique<wust_vl::common::utils::Timer>();
-    detect_color_ = config_["detect_color"].as<int>(0);
 
-    bool use_record = config_["record"]["use_record"].as<bool>(false);
-    if (use_record) {
-        std::string folder_path = config_["record"]["folder_path"].as<std::string>();
-        auto file_name = utils::makeTimestampedFileName();
-        std::string text_path = fmt::format("{}/{}.csv", folder_path, file_name);
-        std::string video_path = fmt::format("{}/{}.avi", folder_path, file_name);
-
-        std::filesystem::create_directory(folder_path);
-        auto rw = std::make_shared<RotateWriterCSV>(true);
-        rotate_writer_ =
-            std::make_shared<wust_vl::common::utils::Recorder<Eigen::Vector3d>>(text_path, rw);
-        auto imgw = std::make_shared<ImgWriter>(
-            video_path,
-            30,
-            cv::VideoWriter::fourcc('M', 'J', 'P', 'G')
-        );
-        img_writer_ = std::make_shared<wust_vl::common::utils::Recorder<cv::Mat>>("", imgw);
-    }
-    bool use_rotate_reader = config_["record"]["use_rotate_reader"].as<bool>(false);
-    if (use_rotate_reader) {
-        std::string csv_path = config_["record"]["read_csv_path"].as<std::string>();
-        rotate_reader_ = std::make_shared<RotateReaderCSV>(csv_path);
-    }
-    yaw_ramp_ = config_["control"]["yaw_ramp"].as<double>(0.0);
-    pitch_ramp_ = config_["control"]["pitch_ramp"].as<double>(0.0);
     WUST_MAIN("main") << "vision init already!";
     return true;
 }
@@ -257,7 +202,7 @@ void VisionBase::autoExposureControl(const cv::Mat& frame) {
 //     #include "cuda_infer/cvtcolor.hpp"
 // #endif
 void VisionBase::frameCallback(wust_vl::video::ImageFrame& frame) {
-    if (!run_flag_ || infer_running_count_ >= max_infer_running_) {
+    if (!run_flag_ || infer_running_count_ >= max_infer_running_config_->max_infer_running) {
         return;
     }
     CommonFrame common_frame;
@@ -377,15 +322,15 @@ void VisionBase::timerCallback(double dt_ms) {
     }
 
     send_data.detect_color = detect_color_;
-    send_data.pitch = cmd_pitch + cmd.v_pitch * pitch_ramp_;
-    send_data.yaw = cmd_yaw + cmd.v_yaw * yaw_ramp_;
+    send_data.pitch = cmd_pitch + cmd.v_pitch * control_config_->pitch_ramp_param.get();
+    send_data.yaw = cmd_yaw + cmd.v_yaw * control_config_->yaw_ramp_param.get();
     send_data.v_pitch = cmd.v_pitch;
     send_data.v_yaw = cmd.v_yaw;
     send_data.target_yaw = cmd.target_yaw;
     send_data.target_pitch = cmd.target_pitch;
     send_data.enable_pitch_diff = cmd.enable_pitch_diff;
     send_data.enable_yaw_diff = cmd.enable_yaw_diff;
-    send_data.shoot_rate = shoot_rate_;
+    send_data.shoot_rate = shoot_config_->rate_param.get();
     if (serial_) {
         serial_->write(std::move(wust_vl::common::drivers::toVector(send_data)));
     }
@@ -399,7 +344,7 @@ void VisionBase::start() {
     if (timer_) {
         const auto timercallback =
             std::bind(&VisionBase::timerCallback, this, std::placeholders::_1);
-        const double rate_hz = static_cast<double>(config_["control"]["control_rate"].as<int>());
+        const double rate_hz = control_config_->control_rate_param.get();
         timer_->start(rate_hz, timercallback);
     }
     if (serial_) {
@@ -446,7 +391,7 @@ bool isWebRunning() {
 
     return cached.load();
 }
-void VisionBase::debugThread() const {
+void VisionBase::debugThread() {
     const double us_interval = 1e6 / static_cast<double>(debug_fps_);
     const auto kInterval = std::chrono::microseconds(static_cast<int64_t>(us_interval));
     while (run_flag_) {
@@ -480,7 +425,7 @@ void VisionBase::debugThread() const {
                         gimbal_py.second = last_att->data.yaw;
                     }
                 }
-
+                wust_vl::common::utils::ParameterManager::instance().allReloadFromOldPath();
                 debuglog(dbg_armor, dbg_rune, last_cmd_, gimbal_py);
             } catch (std::exception& e) {
                 std::cout << "debug thread error: " << e.what() << std::endl;

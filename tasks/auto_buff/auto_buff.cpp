@@ -22,14 +22,11 @@ namespace auto_buff {
         bool init(
             const YAML::Node& config,
             int& use_detect_ncnn_count,
-            const Eigen::Matrix3d& R_camera2gimbal,
-            const Eigen::Vector3d& t_camera2gimbal,
-            const std::pair<cv::Mat, cv::Mat>& camera_info,
-            int max_detect_running
+            TFConfig::Ptr tf_config,
+            const std::pair<cv::Mat, cv::Mat>& camera_info
         ) {
             config_ = config;
-            R_camera2gimbal_ = R_camera2gimbal;
-            t_camera2gimbal_ = t_camera2gimbal;
+            tf_config_ = tf_config;
             camera_info_ = camera_info;
             if (config["rune_optimize"]["enable"].as<bool>()) {
                 ba_solver_ =
@@ -105,16 +102,16 @@ namespace auto_buff {
             Eigen::Vector3d v = Eigen::Vector3d::Zero();
             Eigen::Matrix3d R_gimbal2odom = Eigen::Matrix3d::Identity();
             if (shared_->motion_buffer) {
+                const auto delay =
+                    std::chrono::microseconds(static_cast<int64_t>(shared_->communication_delay_μs)
+                    );
+                const auto t_query = frame.timestamp + delay;
                 auto apply_motion = [&](const auto& att) {
-                    v = Eigen::Vector3d(att.data.vx, att.data.vy, att.data.vz);
+                    v << att.data.vx, att.data.vy, att.data.vz;
                     R_gimbal2odom = Eigen::AngleAxisd(att.data.yaw, Eigen::Vector3d::UnitZ())
                         * Eigen::AngleAxisd(-att.data.pitch, Eigen::Vector3d::UnitY())
                         * Eigen::AngleAxisd(att.data.roll, Eigen::Vector3d::UnitX());
                 };
-                auto delay = std::chrono::microseconds(
-                    static_cast<int64_t>(std::round(shared_->communication_delay_μs))
-                );
-                auto t_query = frame.timestamp + delay;
                 if (auto past_att = shared_->motion_buffer->get_interpolated(t_query)) {
                     apply_motion(*past_att);
                 } else if (auto last_att = shared_->motion_buffer->get_last()) {
@@ -124,8 +121,8 @@ namespace auto_buff {
 
             Eigen::Matrix4d T_camera_to_odom = utils::computeCameraToOdomTransform(
                 R_gimbal2odom,
-                R_camera2gimbal_,
-                t_camera2gimbal_
+                tf_config_->R_camera2gimbal,
+                tf_config_->t_camera2gimbal
             );
             T_camera_to_odom_ = T_camera_to_odom;
             auto_buff::RuneFan copy_fan = fan;
@@ -142,7 +139,6 @@ namespace auto_buff {
                     tvec,
                     false,
                     cv::SOLVEPNP_IPPE //平移更稳定，（旋转这里纯靠后面优化）
-
                 );
                 cv::Mat R_cv;
                 cv::Rodrigues(rvec, R_cv);
@@ -352,8 +348,7 @@ namespace auto_buff {
         bool debug_mode_ = false;
         DebugRune auto_buff_debug_;
         std::unique_ptr<wust_vl::common::concurrency::Averager<double>> latency_averager_;
-        Eigen::Matrix3d R_camera2gimbal_;
-        Eigen::Vector3d t_camera2gimbal_;
+        TFConfig::Ptr tf_config_;
         std::pair<cv::Mat, cv::Mat> camera_info_;
         YAML::Node config_;
         Eigen::Matrix4d T_camera_to_odom_;
@@ -371,19 +366,10 @@ namespace auto_buff {
     bool AutoBuff::init(
         const YAML::Node& config,
         int& use_detect_ncnn_count,
-        const Eigen::Matrix3d& R_camera2gimbal,
-        const Eigen::Vector3d& t_camera2gimbal,
-        const std::pair<cv::Mat, cv::Mat>& camera_info,
-        int max_detect_running
+        TFConfig::Ptr tf_config,
+        const std::pair<cv::Mat, cv::Mat>& camera_info
     ) {
-        return _impl->init(
-            config,
-            use_detect_ncnn_count,
-            R_camera2gimbal,
-            t_camera2gimbal,
-            camera_info,
-            max_detect_running
-        );
+        return _impl->init(config, use_detect_ncnn_count, tf_config, camera_info);
     }
     void AutoBuff::start() {
         _impl->start();

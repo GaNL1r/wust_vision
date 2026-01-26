@@ -1,4 +1,5 @@
 #include "trackerv3.hpp"
+
 namespace wust_vision {
 namespace auto_aim {
     struct Tracker::Impl {

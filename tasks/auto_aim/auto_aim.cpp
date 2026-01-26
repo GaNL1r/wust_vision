@@ -27,13 +27,11 @@ namespace auto_aim {
         bool init(
             const YAML::Node& config,
             int& use_detect_ncnn_count,
-            const Eigen::Matrix3d& R_camera2gimbal,
-            const Eigen::Vector3d& t_camera2gimbal,
+            TFConfig::Ptr tf_config,
             const std::pair<cv::Mat, cv::Mat>& camera_info
         ) {
             config_ = config;
-            R_camera2gimbal_ = R_camera2gimbal;
-            t_camera2gimbal_ = t_camera2gimbal;
+            tf_config_ = tf_config;
             camera_info_ = camera_info;
 
             const std::string armor_detect_backend =
@@ -172,9 +170,9 @@ namespace auto_aim {
             Eigen::Vector3d v = Eigen::Vector3d::Zero();
             Eigen::Matrix3d R_gimbal2odom = Eigen::Matrix3d::Identity();
             if (shared_->motion_buffer) {
-                const auto delay = std::chrono::microseconds(
-                    static_cast<int64_t>(shared_->communication_delay_μs + 0.5)
-                );
+                const auto delay =
+                    std::chrono::microseconds(static_cast<int64_t>(shared_->communication_delay_μs)
+                    );
                 const auto t_query = armors.timestamp + delay;
                 auto apply_motion = [&](const auto& att) {
                     v << att.data.vx, att.data.vy, att.data.vz;
@@ -190,8 +188,8 @@ namespace auto_aim {
             }
             T_camera_to_odom_ = utils::computeCameraToOdomTransform(
                 R_gimbal2odom,
-                R_camera2gimbal_,
-                t_camera2gimbal_
+                tf_config_->R_camera2gimbal,
+                tf_config_->t_camera2gimbal
             );
             armors.armors = armor_pose_estimator_->extractArmorPoses(
                 sorted_objs,
@@ -390,8 +388,7 @@ namespace auto_aim {
         bool debug_mode_ = false;
         DebugArmor auto_aim_debug_;
         std::unique_ptr<wust_vl::common::concurrency::Averager<double>> latency_averager_;
-        Eigen::Matrix3d R_camera2gimbal_;
-        Eigen::Vector3d t_camera2gimbal_;
+        TFConfig::Ptr tf_config_;
         std::pair<cv::Mat, cv::Mat> camera_info_;
         YAML::Node config_;
         std::shared_ptr<AutoAimShared> shared_;
@@ -409,12 +406,10 @@ namespace auto_aim {
     bool AutoAim::init(
         const YAML::Node& config,
         int& use_detect_ncnn_count,
-        const Eigen::Matrix3d& R_camera2gimbal,
-        const Eigen::Vector3d& t_camera2gimbal,
+        TFConfig::Ptr tf_config,
         const std::pair<cv::Mat, cv::Mat>& camera_info
     ) {
-        return _impl
-            ->init(config, use_detect_ncnn_count, R_camera2gimbal, t_camera2gimbal, camera_info);
+        return _impl->init(config, use_detect_ncnn_count, tf_config, camera_info);
     }
     void AutoAim::start() {
         _impl->start();

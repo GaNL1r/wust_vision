@@ -8,8 +8,7 @@ tf:
     [0.065434347168653831, 0.10641232476052895, 0.0436106400231024]
 control:
   control_rate: 1000
-  communication_delay_us: 1100
-  pitch_avg_windows: 1
+  communication_delay_us: 1000
   device_name: /dev/ttyACM0
   use_serial: false
   yaw_ramp: 0.0  #send_cmd = cmd.pos+cmd.vel*ramp
@@ -25,13 +24,11 @@ logger:
 shoot:
   bullet_speed: 22.0
   rate: 10
-  controller_delay: 0.00
-
 
 record:
   use_record: false
   folder_path: record
-  use_rotate_reade: false
-  read_csv_path: 
+  use_rotate_reader: false
+  read_csv_path: ""
 
 
