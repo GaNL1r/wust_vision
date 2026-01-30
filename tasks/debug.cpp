@@ -27,7 +27,6 @@ void drawDebugArmorContent(
 
     static const int next_indices[] = { 2, 0, 3, 1 };
 
-    // =================== 绘制装甲板 ===================
     for (size_t i = 0; i < armor_objs.size(); i++) {
         const auto pts = armor_objs[i].toPts();
 
@@ -83,7 +82,6 @@ void drawDebugArmorContent(
         2
     );
 
-    // =================== 目标绘制 ===================
     std::vector<cv::Point2f> all_corners;
 
     auto visualizeTargetProjection = [&](auto_aim::Target armor_target) -> auto_aim::Armors {
@@ -269,7 +267,6 @@ void drawDebugArmorContent(
         );
     }
 
-    // =================== 状态绘制 ===================
     std::string state_str;
     state_str = auto_aim_fsm_to_string(dbg.fsm);
 
@@ -291,7 +288,6 @@ void drawDebugArmorContent(
         2
     );
 
-    // =================== Attack ID ===================
     const std::string id_str =
         fmt::format("Attack: {}", armorNumberToString(dbg.target.tracked_id_));
     const cv::Size id_size = cv::getTextSize(id_str, cv::FONT_HERSHEY_SIMPLEX, 1.6, 2, &baseline);
@@ -310,7 +306,6 @@ void drawDebugArmorContent(
         2
     );
 
-    // =================== Fire 标志 ===================
     if (gimbal_cmd.fire_advice) {
         std::string fire_str = "Fire!";
         cv::putText(
@@ -324,7 +319,6 @@ void drawDebugArmorContent(
         );
     }
 
-    // =================== 云台指令 ===================
     const std::string gimbal_str = fmt::format(
         "Pitch: {:.2f}, Yaw: {:.2f}, Enable_pitch_diff: {:.2f}, Enable_yaw_diff: {:.2f}, V_yaw: {:.2f}, V_pitch: {:.2f}",
         gimbal_cmd.pitch,
@@ -526,7 +520,6 @@ void drawDebugRuneContent(
         );
     }
 
-    // =================== 云台指令 ===================
     const std::string gimbal_str = fmt::format(
         "Pitch: {:.2f}, Yaw: {:.2f}, Enable_pitch_diff: {:.2f}, Enable_yaw_diff: {:.2f}, V_yaw: {:.2f}, V_pitch: {:.2f}",
         gimbal_cmd.pitch,
@@ -555,231 +548,158 @@ void drawDebugRuneContent(
         2
     );
 }
+template<typename DebugT, typename DrawFn, typename OutputFn>
+void drawDebugOverlayImpl(
+    const DebugT& dbg,
+    std::pair<cv::Mat, cv::Mat> camera_info,
+    bool auto_fps,
+    DrawFn&& draw_fn,
+    OutputFn&& output_fn
+) {
+    static auto last_show_time = std::chrono::steady_clock::now();
+
+    if (dbg.src_img.img.empty())
+        return;
+
+    constexpr double min_interval_ms = 1000.0 / 30.0;
+    const auto now = std::chrono::steady_clock::now();
+
+    if (auto_fps
+        && std::chrono::duration<double, std::milli>(now - last_show_time).count()
+            < min_interval_ms)
+        return;
+
+    last_show_time = now;
+
+    cv::Mat debug_img;
+    cv::cvtColor(dbg.src_img.img, debug_img, cv::COLOR_BGR2RGB);
+    if (debug_img.empty())
+        return;
+    draw_fn(debug_img, dbg, camera_info);
+
+    output_fn(debug_img);
+}
+inline auto writeToFile = [](const cv::Mat& img) {
+    cv::Mat bgr;
+    cv::cvtColor(img, bgr, cv::COLOR_RGB2BGR);
+
+    std::vector<uchar> buf;
+    cv::imencode(".jpg", bgr, buf);
+
+    std::ofstream ofs("/dev/shm/debug_frame.jpg.tmp", std::ios::binary);
+    ofs.write(reinterpret_cast<const char*>(buf.data()), buf.size());
+    ofs.close();
+
+    std::rename("/dev/shm/debug_frame.jpg.tmp", "/dev/shm/debug_frame.jpg");
+};
+class ShmWriter {
+public:
+    static constexpr size_t shm_max_size = 2 * 1024 * 1024;
+
+    explicit ShmWriter(const char* name, mode_t mode = 0666) {
+        fd_ = shm_open(name, O_CREAT | O_RDWR, mode);
+        if (fd_ == -1) {
+            std::cerr << "[SHM] shm_open failed\n";
+            return;
+        }
+
+        if (ftruncate(fd_, shm_max_size) == -1) {
+            std::cerr << "[SHM] ftruncate failed\n";
+            close(fd_);
+            fd_ = -1;
+            return;
+        }
+
+        ptr_ = mmap(nullptr, shm_max_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd_, 0);
+
+        if (ptr_ == MAP_FAILED) {
+            std::cerr << "[SHM] mmap failed\n";
+            close(fd_);
+            fd_ = -1;
+            ptr_ = nullptr;
+        }
+    }
+
+    ~ShmWriter() {
+        if (ptr_)
+            munmap(ptr_, shm_max_size);
+        if (fd_ != -1)
+            close(fd_);
+    }
+
+    void operator()(const cv::Mat& img) const {
+        if (!ptr_)
+            return;
+
+        static const std::vector<int> jpeg_params = { cv::IMWRITE_JPEG_QUALITY, 75 };
+
+        std::vector<uchar> buf;
+        cv::imencode(".jpg", img, buf, jpeg_params);
+
+        if (buf.size() + 4 > shm_max_size)
+            return;
+
+        uint32_t size = static_cast<uint32_t>(buf.size());
+        std::memcpy(ptr_, &size, 4);
+        std::memcpy(static_cast<char*>(ptr_) + 4, buf.data(), size);
+    }
+
+private:
+    int fd_ { -1 };
+    void* ptr_ { nullptr };
+};
+inline auto showWindow(const char* win_name) {
+    return [win_name](const cv::Mat& img) {
+        cv::imshow(win_name, img);
+        cv::waitKey(1);
+    };
+}
+
 void drawDebugOverlayWrite(
     const DebugArmor& dbg,
     std::pair<cv::Mat, cv::Mat> camera_info,
     bool auto_fps
 ) {
-    static auto last_show_time = std::chrono::steady_clock::now();
-
-    if (dbg.src_img.img.empty())
-        return;
-    const cv::Mat src_img = dbg.src_img.img;
-    const auto now = std::chrono::steady_clock::now();
-    const double min_interval_ms = 1000.0 / 30.0;
-    if (std::chrono::duration<double, std::milli>(now - last_show_time).count() < min_interval_ms
-        && auto_fps)
-        return;
-    last_show_time = now;
-
-    // 图像构造
-    cv::Mat debug_img;
-    cv::cvtColor(dbg.src_img.img, debug_img, cv::COLOR_BGR2RGB);
-
-    if (debug_img.empty())
-        return;
-
-    // 封装后的绘图函数
-    drawDebugArmorContent(debug_img, dbg, camera_info);
-    // 编码写入共享内存路径
-    std::vector<uchar> buf;
-    cv::imencode(".jpg", debug_img, buf);
-    std::ofstream ofs("/dev/shm/debug_frame.jpg.tmp", std::ios::binary);
-    ofs.write(reinterpret_cast<const char*>(buf.data()), buf.size());
-    ofs.close();
-    std::rename("/dev/shm/debug_frame.jpg.tmp", "/dev/shm/debug_frame.jpg");
+    drawDebugOverlayImpl(dbg, camera_info, auto_fps, drawDebugArmorContent, writeToFile);
 }
+
 void drawDebugOverlayShm(
     const DebugArmor& dbg,
     std::pair<cv::Mat, cv::Mat> camera_info,
     bool auto_fps
 ) {
-    static auto last_show_time = std::chrono::steady_clock::now();
-    static int shm_fd = -1;
-    static void* shm_ptr = nullptr;
-    static bool shm_inited = false;
-
-    constexpr size_t shm_max_size = 2 * 1024 * 1024;
-    constexpr double min_interval_ms = 1000.0 / 30.0; // 30 FPS
-
-    if (dbg.src_img.img.empty())
-        return;
-
-    const auto now = std::chrono::steady_clock::now();
-    if (auto_fps
-        && std::chrono::duration<double, std::milli>(now - last_show_time).count()
-            < min_interval_ms)
-        return;
-    last_show_time = now;
-
-    if (!shm_inited) {
-        shm_fd = shm_open("/debug_frame", O_CREAT | O_RDWR, 0777);
-        if (shm_fd == -1) {
-            std::cerr << "[SHM] shm_open failed\n";
-            return;
-        }
-        if (ftruncate(shm_fd, shm_max_size) == -1) {
-            std::cerr << "[SHM] ftruncate failed\n";
-            close(shm_fd);
-            shm_fd = -1;
-            return;
-        }
-        shm_ptr = mmap(nullptr, shm_max_size, PROT_WRITE | PROT_READ, MAP_SHARED, shm_fd, 0);
-        if (shm_ptr == MAP_FAILED) {
-            std::cerr << "[SHM] mmap failed\n";
-            close(shm_fd);
-            shm_fd = -1;
-            shm_ptr = nullptr;
-            return;
-        }
-
-        shm_inited = true;
-    }
-
-    cv::Mat debug_img;
-    cv::cvtColor(dbg.src_img.img, debug_img, cv::COLOR_BGR2RGB);
-
-    drawDebugArmorContent(debug_img, dbg, camera_info);
-    static std::vector<int> jpeg_params = { cv::IMWRITE_JPEG_QUALITY, 75 };
-
-    std::vector<uchar> buf;
-    cv::imencode(".jpg", debug_img, buf, jpeg_params);
-
-    if (buf.size() + 4 > shm_max_size)
-        return;
-
-    uint32_t size = buf.size();
-    std::memcpy(shm_ptr, &size, 4);
-    std::memcpy(static_cast<char*>(shm_ptr) + 4, buf.data(), size);
+    static ShmWriter shm { "/debug_frame" };
+    drawDebugOverlayImpl(dbg, camera_info, auto_fps, drawDebugArmorContent, shm);
 }
+
 void drawDebugOverlayShow(
     const DebugArmor& dbg,
     std::pair<cv::Mat, cv::Mat> camera_info,
     bool auto_fps
 ) {
-    static auto last_show_time = std::chrono::steady_clock::now();
-
-    if (dbg.src_img.img.empty())
-        return;
-    const cv::Mat src_img = dbg.src_img.img;
-    const auto now = std::chrono::steady_clock::now();
-    const double min_interval_ms = 1000.0 / 30.0;
-    if (std::chrono::duration<double, std::milli>(now - last_show_time).count() < min_interval_ms
-        && auto_fps)
-        return;
-    last_show_time = now;
-
-    // 图像构造
-    cv::Mat debug_img;
-    cv::cvtColor(dbg.src_img.img, debug_img, cv::COLOR_BGR2RGB);
-    if (debug_img.empty())
-        return;
-
-    // 封装后的绘图函数
-    drawDebugArmorContent(debug_img, dbg, camera_info);
-
-    cv::imshow("debug_armor", debug_img);
-    cv::waitKey(1);
+    drawDebugOverlayImpl(
+        dbg,
+        camera_info,
+        auto_fps,
+        drawDebugArmorContent,
+        showWindow("debug_armor")
+    );
 }
-
 void drawDebugOverlayWrite(
     const DebugRune& dbg,
     std::pair<cv::Mat, cv::Mat> camera_info,
     bool auto_fps
 ) {
-    static auto last_show_time = std::chrono::steady_clock::now();
-
-    if (dbg.src_img.img.empty())
-        return;
-    const cv::Mat src_img = dbg.src_img.img;
-    const auto now = std::chrono::steady_clock::now();
-    const double min_interval_ms = 1000.0 / 30.0;
-    if (std::chrono::duration<double, std::milli>(now - last_show_time).count() < min_interval_ms
-        && auto_fps)
-        return;
-    last_show_time = now;
-
-    // 图像构造
-    cv::Mat debug_img;
-    cv::cvtColor(dbg.src_img.img, debug_img, cv::COLOR_BGR2RGB);
-
-    if (debug_img.empty())
-        return;
-
-    // 封装后的绘图函数
-    drawDebugRuneContent(debug_img, dbg, camera_info);
-    cv::cvtColor(debug_img, debug_img, cv::COLOR_RGB2BGR);
-    // 编码写入共享内存路径
-    std::vector<uchar> buf;
-    cv::imencode(".jpg", debug_img, buf);
-    std::ofstream ofs("/dev/shm/debug_frame.jpg.tmp", std::ios::binary);
-    ofs.write(reinterpret_cast<const char*>(buf.data()), buf.size());
-    ofs.close();
-    std::rename("/dev/shm/debug_frame.jpg.tmp", "/dev/shm/debug_frame.jpg");
+    drawDebugOverlayImpl(dbg, camera_info, auto_fps, drawDebugRuneContent, writeToFile);
 }
+
 void drawDebugOverlayShm(
     const DebugRune& dbg,
     std::pair<cv::Mat, cv::Mat> camera_info,
     bool auto_fps
 ) {
-    static auto last_show_time = std::chrono::steady_clock::now();
-    static int shm_fd = -1;
-    static void* shm_ptr = nullptr;
-    static bool shm_inited = false;
-
-    constexpr size_t shm_max_size = 2 * 1024 * 1024;
-    constexpr double min_interval_ms = 1000.0 / 30.0; // 30 FPS
-
-    if (dbg.src_img.img.empty())
-        return;
-
-    const auto now = std::chrono::steady_clock::now();
-    if (auto_fps
-        && std::chrono::duration<double, std::milli>(now - last_show_time).count()
-            < min_interval_ms)
-        return;
-    last_show_time = now;
-
-    if (!shm_inited) {
-        shm_fd = shm_open("/debug_frame", O_CREAT | O_RDWR, 0666);
-        if (shm_fd == -1) {
-            std::cerr << "[SHM] shm_open failed\n";
-            return;
-        }
-        if (ftruncate(shm_fd, shm_max_size) == -1) {
-            std::cerr << "[SHM] ftruncate failed\n";
-            close(shm_fd);
-            shm_fd = -1;
-            return;
-        }
-        shm_ptr = mmap(nullptr, shm_max_size, PROT_WRITE | PROT_READ, MAP_SHARED, shm_fd, 0);
-        if (shm_ptr == MAP_FAILED) {
-            std::cerr << "[SHM] mmap failed\n";
-            close(shm_fd);
-            shm_fd = -1;
-            shm_ptr = nullptr;
-            return;
-        }
-
-        shm_inited = true;
-    }
-
-    cv::Mat debug_img;
-    cv::cvtColor(dbg.src_img.img, debug_img, cv::COLOR_BGR2RGB);
-
-    drawDebugRuneContent(debug_img, dbg, camera_info);
-
-    static std::vector<int> jpeg_params = { cv::IMWRITE_JPEG_QUALITY, 75 };
-
-    std::vector<uchar> buf;
-    cv::imencode(".jpg", debug_img, buf, jpeg_params);
-
-    if (buf.size() + 4 > shm_max_size)
-        return;
-
-    uint32_t size = buf.size();
-    std::memcpy(shm_ptr, &size, 4);
-    std::memcpy(static_cast<char*>(shm_ptr) + 4, buf.data(), size);
+    static ShmWriter shm { "/debug_frame" };
+    drawDebugOverlayImpl(dbg, camera_info, auto_fps, drawDebugRuneContent, shm);
 }
 
 void drawDebugOverlayShow(
@@ -787,30 +707,13 @@ void drawDebugOverlayShow(
     std::pair<cv::Mat, cv::Mat> camera_info,
     bool auto_fps
 ) {
-    static auto last_show_time = std::chrono::steady_clock::now();
-
-    if (dbg.src_img.img.empty())
-        return;
-    const cv::Mat src_img = dbg.src_img.img;
-    const auto now = std::chrono::steady_clock::now();
-    const double min_interval_ms = 1000.0 / 30.0;
-    if (std::chrono::duration<double, std::milli>(now - last_show_time).count() < min_interval_ms
-        && auto_fps)
-        return;
-    last_show_time = now;
-
-    // 图像构造
-    cv::Mat debug_img;
-    cv::cvtColor(dbg.src_img.img, debug_img, cv::COLOR_BGR2RGB);
-
-    if (debug_img.empty())
-        return;
-
-    // 封装后的绘图函数
-    drawDebugRuneContent(debug_img, dbg, camera_info);
-
-    cv::imshow("debug_rune", debug_img);
-    cv::waitKey(1);
+    drawDebugOverlayImpl(
+        dbg,
+        camera_info,
+        auto_fps,
+        drawDebugRuneContent,
+        showWindow("debug_rune")
+    );
 }
 
 void writeTargetLogToJson(

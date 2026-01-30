@@ -270,7 +270,7 @@ namespace auto_aim {
         cmd.fire_advice = fire_now.fire;
 
         cmd.appera = cmd.isValid();
-        if (!cmd.appera) {
+        if (!cmd.appera) [[unlikely]] {
             reset();
             WUST_WARN("very_aimer") << "very_aimer nan!";
         }

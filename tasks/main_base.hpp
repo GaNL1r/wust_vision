@@ -6,9 +6,9 @@
 
 namespace wust_vision {
 template<typename T>
-concept VisionLike = requires(T v) {
+concept VisionLike = std::default_initializable<T> && requires(T v, bool b) {
     {
-        v.init(std::declval<bool>())
+        v.init(b)
         } -> std::same_as<bool>;
     {
         v.start()
@@ -23,7 +23,7 @@ inline int runVisionMain(int argc, char** argv) {
     printBanner();
     bool debug = false;
     if (argc > 1) {
-        std::string firstArg = argv[1];
+        const std::string firstArg = argv[1];
         debug = (firstArg == "true" || firstArg == "1");
         std::cout << "debug: " << firstArg << std::endl;
     }
@@ -57,7 +57,7 @@ inline int runVisionMain(int argc, char** argv) {
 
             while (!sig.shouldExit() && !exit_flag) {
                 wust_vl::common::concurrency::ThreadManager::instance().printStatus();
-                auto all_status =
+                const auto all_status =
                     wust_vl::common::concurrency::ThreadManager::instance().getAllThreadStatuses();
                 v.checkStateMatchMode();
                 for (auto& status: all_status) {

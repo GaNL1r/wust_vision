@@ -36,17 +36,17 @@ namespace auto_aim {
             if (use_armor_detect_common) {
                 armor_detect_common_ = std::make_unique<ArmorDetectorCommon>(config);
             }
-            double conf_threshold = config["tensorrt"]["conf_threshold"].as<float>();
-            double nms_threshold = config["tensorrt"]["nms_threshold"].as<float>();
-            int top_k = config["tensorrt"]["top_k"].as<int>();
-            int max_infer_running = config["tensorrt"]["max_infer_running"].as<int>();
-            double min_free_mem_ratio = config["tensorrt"]["min_free_mem_ratio"].as<double>();
+            const double conf_threshold = config["tensorrt"]["conf_threshold"].as<float>();
+            const double nms_threshold = config["tensorrt"]["nms_threshold"].as<float>();
+            const int top_k = config["tensorrt"]["top_k"].as<int>();
+            const int max_infer_running = config["tensorrt"]["max_infer_running"].as<int>();
+            const double min_free_mem_ratio = config["tensorrt"]["min_free_mem_ratio"].as<double>();
             use_cuda_pre_ = config["tensorrt"]["use_cuda_pre"].as<bool>();
             log_time_ = config["tensorrt"]["log_time"].as<bool>();
-            std::string model_type = config["tensorrt"]["model_type"].as<std::string>();
-            std::string model_path =
+            const std::string model_type = config["tensorrt"]["model_type"].as<std::string>();
+            const std::string model_path =
                 utils::expandEnv(config["tensorrt"]["model_path"].as<std::string>());
-            int device_id = config["tensorrt"]["device_id"].as<int>();
+            const int device_id = config["tensorrt"]["device_id"].as<int>();
             cudaSetDevice(device_id);
             const auto model = armor_infer::modeFromString(model_type);
             armor_infer_ = std::make_unique<armor_infer::ArmorInfer>(
@@ -55,18 +55,11 @@ namespace auto_aim {
                 nms_threshold,
                 top_k
             );
-            strides_ = { 8, 16, 32 };
-            armor_infer_->generate_grids_and_stride(
-                armor_infer_->getInputW(),
-                armor_infer_->getInputH(),
-                strides_,
-                grid_strides_
-            );
             trt_net_ = std::make_unique<wust_vl::ml_net::TensorRTNet>();
             wust_vl::ml_net::TensorRTNet::Params trt_params;
             trt_params.model_path = model_path;
             trt_params.input_dims =
-                nvinfer1::Dims4 { 1, 3, armor_infer_->getInputH(), armor_infer_->getInputW() };
+                nvinfer1::Dims4 { 1, 3, armor_infer_->inputH(), armor_infer_->inputW() };
             trt_net_->init(trt_params);
             const auto input_output_dims = trt_net_->getInputOutputDims();
             input_dims_ = std::get<0>(input_output_dims);
@@ -84,8 +77,8 @@ namespace auto_aim {
                         infer->cuda_infer->init(
                             MAX_SRC_IMG_W,
                             MAX_SRC_IMG_H,
-                            armor_infer_->getInputW(),
-                            armor_infer_->getInputH()
+                            armor_infer_->inputW(),
+                            armor_infer_->inputH()
                         );
                     }
                     if (!infer->context) {
@@ -133,8 +126,8 @@ namespace auto_aim {
                     infer->cuda_infer->init(
                         MAX_SRC_IMG_W,
                         MAX_SRC_IMG_H,
-                        armor_infer_->getInputW(),
-                        armor_infer_->getInputH()
+                        armor_infer_->inputW(),
+                        armor_infer_->inputH()
                     );
                 }
                 if (!infer->context) {
@@ -194,6 +187,7 @@ namespace auto_aim {
         void setCallback(DetectorCallback callback) {
             infer_callback_ = callback;
         }
+        struct Tag {};
         void processCallback(
             const CommonFrame& frame,
             Infer* infer,
@@ -217,24 +211,24 @@ namespace auto_aim {
                             transform_matrix,
                             trt_net_->getStream()
                         );
-                resized_img = armor_cuda_infer::tensorToMat( //nchw_float_to_hwc_uchar
-                    (float*)input_tensor_ptr,
-                    armor_infer_->getInputW(),
-                    armor_infer_->getInputH(),
+                resized_img = armor_cuda_infer::tensorToMat<Tag>( //nchw_float_to_hwc_uchar
+                    static_cast<float*>(input_tensor_ptr),
+                    armor_infer_->inputW(),
+                    armor_infer_->inputH(),
                     trt_net_->getStream()
                 );
             } else {
                 resized_img = utils::letterbox(
                     roi,
                     transform_matrix,
-                    armor_infer_->getInputW(),
-                    armor_infer_->getInputH()
+                    armor_infer_->inputW(),
+                    armor_infer_->inputH()
                 );
-                const float scale = armor_infer_->getUseNorm() ? 1.0f / 255.0f : 1.0f;
-                cv::Mat blob = cv::dnn::blobFromImage(
+                const float scale = armor_infer_->useNorm() ? 1.0f / 255.0f : 1.0f;
+                const cv::Mat blob = cv::dnn::blobFromImage(
                     resized_img,
                     scale,
-                    cv::Size(armor_infer_->getInputW(), armor_infer_->getInputH()),
+                    cv::Size(armor_infer_->inputW(), armor_infer_->inputH()),
                     cv::Scalar(0, 0, 0),
                     true
                 );
@@ -248,7 +242,7 @@ namespace auto_aim {
             const auto t2 = wust_vl::common::utils::time_utils::now();
             const cv::Mat
                 output_mat(output_dims_.d[1], output_dims_.d[2], CV_32F, trt_net_->output2Host());
-            objs_result = armor_infer_->postProcess(output_mat, transform_matrix, grid_strides_);
+            objs_result = armor_infer_->postProcess(output_mat);
             const auto t3 = wust_vl::common::utils::time_utils::now();
             if (log_time_) {
                 WUST_INFO("TRT") << std::fixed << std::setprecision(3) << "pre "
@@ -310,8 +304,6 @@ namespace auto_aim {
         bool log_time_;
         nvinfer1::Dims input_dims_;
         nvinfer1::Dims output_dims_;
-        std::vector<int> strides_;
-        std::vector<GridAndStride> grid_strides_;
         DetectorCallback infer_callback_;
         std::unique_ptr<ArmorDetectorCommon> armor_detect_common_;
         std::unique_ptr<wust_vl::common::concurrency::AdaptiveResourcePool<Infer>> infer_pool_;

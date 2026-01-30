@@ -11,7 +11,7 @@ namespace auto_aim {
             return std::make_unique<Tracker>(auto_aim_config_parameter);
         }
         ~Tracker();
-        Target track(const Armors& armors) noexcept;
+        [[nodiscard]] Target track(const Armors& armors) noexcept;
         int getFoundCount() const noexcept;
         void setFoundCount(int count) noexcept;
         void setLastTime(std::chrono::steady_clock::time_point t) noexcept;

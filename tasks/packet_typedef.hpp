@@ -16,13 +16,12 @@
 #pragma once
 
 #include <cstdint>
-#include <cstring>
 namespace wust_vision {
-const uint8_t ID_ROBOT_CMD = 0x01;
-const uint8_t ID_NAV_CMD = 0x02;
+constexpr uint8_t ID_ROBOT_CMD = 0x01;
+constexpr uint8_t ID_NAV_CMD = 0x02;
 
-const uint8_t ID_AIM_INFO = 0X02;
-const uint8_t ID_REFEREE_INFO = 0X03;
+constexpr uint8_t ID_AIM_INFO = 0X02;
+constexpr uint8_t ID_REFEREE_INFO = 0X03;
 struct ReceiveAimINFO {
     uint8_t cmd_ID; //命令码
     uint32_t time_stamp; //时间戳

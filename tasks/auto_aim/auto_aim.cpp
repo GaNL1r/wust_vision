@@ -152,7 +152,7 @@ namespace auto_aim {
         void ArmorDetectCallback(const std::vector<ArmorObject>& objs, const CommonFrame& frame) {
             std::vector<ArmorObject> sorted_objs = objs;
 
-            if (sorted_objs.size() > max_detect_armors_) {
+            if (sorted_objs.size() > max_detect_armors_) [[unlikely]] {
                 WUST_WARN(logger_) << "Detected " << sorted_objs.size()
                                    << " objects, too many, keeping top " << max_detect_armors_;
 

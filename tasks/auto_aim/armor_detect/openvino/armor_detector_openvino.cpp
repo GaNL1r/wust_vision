@@ -46,7 +46,7 @@ namespace auto_aim {
                     .set_layout("NHWC")
                     .set_color_format(ov::preprocess::ColorFormat::BGR);
 
-                float scale = armor_infer_->getUseNorm() ? 255.0f : 1.0f;
+                float scale = armor_infer_->useNorm() ? 255.0f : 1.0f;
                 ppp.input()
                     .preprocess()
                     .convert_element_type(ov::element::f32)
@@ -66,14 +66,6 @@ namespace auto_aim {
             params.mode = use_throughputmode ? ov::hint::PerformanceMode::THROUGHPUT
                                              : ov::hint::PerformanceMode::LATENCY;
             openvino_net_->init(params, ppp_init_fun);
-
-            strides_ = { 8, 16, 32 };
-            armor_infer_->generate_grids_and_stride(
-                armor_infer_->getInputW(),
-                armor_infer_->getInputH(),
-                strides_,
-                grid_strides_
-            );
         }
 
         ~Impl() {
@@ -94,8 +86,8 @@ namespace auto_aim {
             cv::Mat resized_img = utils::letterbox(
                 roi,
                 transform_matrix,
-                armor_infer_->getInputW(),
-                armor_infer_->getInputH()
+                armor_infer_->inputW(),
+                armor_infer_->inputH()
             );
             const auto input_info = openvino_net_->getInputInfo();
             const auto input_tensor =
@@ -108,8 +100,7 @@ namespace auto_aim {
             const cv::Mat output_buffer(output_shape[1], output_shape[2], CV_32F, output.data());
 
             // Parsed variable
-            auto objs_result =
-                armor_infer_->postProcess(output_buffer, transform_matrix, grid_strides_);
+            auto objs_result = armor_infer_->postProcess(output_buffer);
 
             std::vector<ArmorObject> armors;
             if (armor_detect_common_) {
@@ -151,8 +142,6 @@ namespace auto_aim {
 
     private:
         std::unique_ptr<wust_vl::ml_net::OpenvinoNet> openvino_net_;
-        std::vector<int> strides_;
-        std::vector<GridAndStride> grid_strides_;
         DetectorCallback infer_callback_;
         std::unique_ptr<ArmorDetectorCommon> armor_detect_common_;
         std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;

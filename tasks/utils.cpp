@@ -49,7 +49,7 @@ namespace utils {
         const double eps = 1e-7;
         const bool safe1 = std::abs(eulers[1]) >= eps;
         const bool safe2 = std::abs(eulers[1] - M_PI) >= eps;
-        bool safe = safe1 && safe2;
+        const bool safe = safe1 && safe2;
 
         if (safe) {
             eulers[0] = half_sum + half_diff;
@@ -175,8 +175,8 @@ namespace utils {
         const Eigen::Vector3d& pos_camera,
         const Eigen::Matrix4d& T_camera_to_odom
     ) noexcept {
-        Eigen::Vector4d pos_homo(pos_camera.x(), pos_camera.y(), pos_camera.z(), 1.0);
-        Eigen::Vector4d pos_odom = T_camera_to_odom * pos_homo;
+        const Eigen::Vector4d pos_homo(pos_camera.x(), pos_camera.y(), pos_camera.z(), 1.0);
+        const Eigen::Vector4d pos_odom = T_camera_to_odom * pos_homo;
         return pos_odom.head<3>();
     }
 
@@ -185,9 +185,9 @@ namespace utils {
         const Eigen::Quaterniond& q_camera,
         const Eigen::Matrix4d& T_camera_to_odom
     ) noexcept {
-        Eigen::Matrix3d R_camera_to_odom = T_camera_to_odom.block<3, 3>(0, 0);
-        Eigen::Matrix3d R_ori_camera = q_camera.normalized().toRotationMatrix();
-        Eigen::Matrix3d R_ori_odom = R_camera_to_odom * R_ori_camera;
+        const Eigen::Matrix3d R_camera_to_odom = T_camera_to_odom.block<3, 3>(0, 0);
+        const Eigen::Matrix3d R_ori_camera = q_camera.normalized().toRotationMatrix();
+        const Eigen::Matrix3d R_ori_odom = R_camera_to_odom * R_ori_camera;
         return Eigen::Quaterniond(R_ori_odom).normalized();
     }
     void pnpToEigen(
@@ -449,8 +449,8 @@ namespace utils {
 
         // 2. 遍历矩形四条边，检测交点
         for (int i = 0; i < 4; i++) {
-            cv::Point2f p1 = vertices[i];
-            cv::Point2f p2 = vertices[(i + 1) % 4];
+            const cv::Point2f p1 = vertices[i];
+            const cv::Point2f p2 = vertices[(i + 1) % 4];
             cv::Point2f inter;
 
             if (segmentIntersection(line_p1, line_p2, p1, p2, inter)) {
@@ -462,9 +462,9 @@ namespace utils {
     }
     std::string makeTimestampedFileName() {
         using namespace std::chrono;
-        auto now = system_clock::now();
-        auto time_t_now = system_clock::to_time_t(now);
-        auto ms = duration_cast<milliseconds>(now.time_since_epoch()) % 1000;
+        const auto now = system_clock::now();
+        const auto time_t_now = system_clock::to_time_t(now);
+        const auto ms = duration_cast<milliseconds>(now.time_since_epoch()) % 1000;
 
         std::tm tm_now {};
 #if defined(_MSC_VER)

@@ -31,13 +31,6 @@ namespace auto_aim {
             params.model_path = model_path;
             params.provider = provider_;
             onnxruntime_net_->init(params);
-            strides_ = { 8, 16, 32 };
-            armor_infer_->generate_grids_and_stride(
-                armor_infer_->getInputW(),
-                armor_infer_->getInputH(),
-                strides_,
-                grid_strides_
-            );
         }
 
         ~Impl() {
@@ -54,14 +47,14 @@ namespace auto_aim {
             cv::Mat resized_img = utils::letterbox(
                 roi,
                 transform_matrix,
-                armor_infer_->getInputW(),
-                armor_infer_->getInputH()
+                armor_infer_->inputW(),
+                armor_infer_->inputH()
             );
-            float scale = armor_infer_->getUseNorm() ? 1.0f / 255.0f : 1.0f;
+            float scale = armor_infer_->useNorm() ? 1.0f / 255.0f : 1.0f;
             cv::Mat blob = cv::dnn::blobFromImage(
                 resized_img,
                 scale,
-                cv::Size(armor_infer_->getInputW(), armor_infer_->getInputH()),
+                cv::Size(armor_infer_->inputW(), armor_infer_->inputH()),
                 cv::Scalar(0, 0, 0),
                 true
             );
@@ -75,7 +68,7 @@ namespace auto_aim {
 
             // Parsed variable
             std::vector<ArmorObject> objs_result;
-            objs_result = armor_infer_->postProcess(output_buffer, transform_matrix, grid_strides_);
+            objs_result = armor_infer_->postProcess(output_buffer);
             std::vector<ArmorObject> armors;
             if (armor_detect_common_) {
                 armors = armor_detect_common_->detectNet(
@@ -115,8 +108,6 @@ namespace auto_aim {
         }
 
         wust_vl::ml_net::OrtProvider provider_ = wust_vl::ml_net::OrtProvider::CPU;
-        std::vector<int> strides_;
-        std::vector<GridAndStride> grid_strides_;
         DetectorCallback infer_callback_;
         std::unique_ptr<ArmorDetectorCommon> armor_detect_common_;
         std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;

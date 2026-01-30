@@ -35,7 +35,8 @@ namespace auto_aim {
             double bullet_speed,
             const AutoAimFsm& auto_aim_fsm
         ) const;
-        GimbalCmd veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm);
+        [[nodiscard]] GimbalCmd
+        veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm);
     };
 
 }; // namespace auto_aim

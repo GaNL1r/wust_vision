@@ -50,7 +50,7 @@ namespace auto_aim {
             const AutoAimFsm& auto_aim_fsm
         );
 
-        GimbalCmd
+        [[nodiscard]] GimbalCmd
         veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm) override;
 
         int max_iter_ = 10;

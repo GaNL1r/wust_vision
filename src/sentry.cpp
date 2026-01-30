@@ -35,21 +35,7 @@ public:
     void handleAim(const ReceiveAimINFO& aim_data) {
         VisionBase::processAimData(aim_data);
     }
-    void handleReferee(const ReceiveReferee& ref) {
-        // wust_interfaces::msg::Rmul2024 msg;
-        // msg.header.stamp = ros2_->now();
-        // msg.myteam = ref.my_team;
-        // msg.game_time = ref.game_time;
-        // msg.max_health = ref.max_health;
-        // msg.cur_health = ref.cur_health;
-        // msg.r1_health = ref.r1_health;
-        // msg.r3_health = ref.r3_health;
-        // msg.r7_health = ref.r7_health;
-        // msg.b1_health = ref.b1_health;
-        // msg.b3_health = ref.b3_health;
-        // msg.b7_health = ref.b7_health;
-        // ros2_->publish("/rmul2024", msg);
-    }
+    void handleReferee(const ReceiveReferee& ref) {}
 
     void serialCallback(const uint8_t* data, std::size_t len) {
         try {

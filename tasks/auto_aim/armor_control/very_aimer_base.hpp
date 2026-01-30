@@ -566,9 +566,6 @@ namespace auto_aim {
     };
     class VeryAimerBase {
     public:
-        // static constexpr int HORIZON = 1000;
-        // static constexpr double DT = 1.0 / HORIZON;
-        // static constexpr int HALF_HORIZON = HORIZON / 2;
         using Ptr = std::unique_ptr<VeryAimerBase>;
         VeryAimerBase(wust_vl::common::utils::Parameter::Ptr auto_aim_config_parameter) {
             auto_aim_config_parameter_ = auto_aim_config_parameter;
@@ -582,35 +579,37 @@ namespace auto_aim {
                 enable_yaw_diff(ey),
                 enable_pitch_diff(ep) {}
         };
-        inline FireResult
+        [[nodiscard]] inline FireResult
         canFireAtTime(const VeryAimerTrajBase::Ptr& traj, double t) const noexcept;
         void reset();
-        int selectArmor(const Target& target, const AutoAimFsm& auto_aim_fsm) const noexcept;
-        ControlPoint
+        [[nodiscard]] int
+        selectArmor(const Target& target, const AutoAimFsm& auto_aim_fsm) const noexcept;
+        [[nodiscard]] ControlPoint
         getControlPoint(Eigen::Vector3d aim_target_pos, double diff_yaw, double bullet_speed)
             const noexcept;
-        std::tuple<double, double> calEnableDiff(
+        [[nodiscard]] std::tuple<double, double> calEnableDiff(
             Eigen::Vector3d aim_target_pos,
             double diff_yaw,
             const AutoAimFsm& auto_aim_fsm
         ) const noexcept;
-        inline double rad2deg(double r) const noexcept {
+        [[nodiscard]] inline double rad2deg(double r) const noexcept {
             return r / M_PI * 180.0;
         }
-        std::tuple<bool, bool, bool> getAimStatus(const AutoAimFsm& auto_aim_fsm) const noexcept;
+        [[nodiscard]] std::tuple<bool, bool, bool> getAimStatus(const AutoAimFsm& auto_aim_fsm
+        ) const noexcept;
 
-        ControlPoint choseAndGetControlPoint(
+        [[nodiscard]] ControlPoint choseAndGetControlPoint(
             const Target& target,
             double bullet_speed,
             const AutoAimFsm& auto_aim_fsm
         ) const noexcept;
-        std::pair<LimitTrajectory, Trajectory<AimPoint>> getTrajectory(
+        [[nodiscard]] std::pair<LimitTrajectory, Trajectory<AimPoint>> getTrajectory(
             Target& target,
             const ControlPoint& cp0,
             double bullet_speed,
             const AutoAimFsm& auto_aim_fsm
         ) const;
-        virtual GimbalCmd
+        [[nodiscard]] virtual GimbalCmd
         veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm) = 0;
         TrajectoryCompensatorConfig::Ptr trajectory_compensator_config_;
         wust_vl::common::utils::Parameter::Ptr auto_aim_config_parameter_;

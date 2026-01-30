@@ -33,9 +33,9 @@ void AimTarget::predictSelf(double dt_sec) noexcept {
     if (!have_host)
         return;
 
-    Eigen::Vector3d rel_pos = pos - host_pos;
+    const Eigen::Vector3d rel_pos = pos - host_pos;
 
-    double theta = host_v_yaw * dt_sec;
+    const double theta = host_v_yaw * dt_sec;
 
     Eigen::Matrix3d R;
     R = Eigen::AngleAxisd(theta, Eigen::Vector3d::UnitZ());
@@ -43,18 +43,18 @@ void AimTarget::predictSelf(double dt_sec) noexcept {
     pos = host_pos + R * rel_pos + host_vel * dt_sec;
 }
 void AimTarget::tf(Eigen::Matrix4d T_camera_to_odom) noexcept {
-    Eigen::Vector4d pos_camera(pos.x(), pos.y(), pos.z(), 1.0);
-    Eigen::Vector4d pos_odom = T_camera_to_odom * pos_camera;
+    const Eigen::Vector4d pos_camera(pos.x(), pos.y(), pos.z(), 1.0);
+    const Eigen::Vector4d pos_odom = T_camera_to_odom * pos_camera;
 
     pos.x() = pos_odom.x();
     pos.y() = pos_odom.y();
     pos.z() = pos_odom.z();
-    Eigen::Matrix3d R_camera_to_odom = T_camera_to_odom.block<3, 3>(0, 0);
-    Eigen::Quaterniond q_camera(ori.w(), ori.x(), ori.y(), ori.z());
-    Eigen::Matrix3d R_ori_camera = q_camera.normalized().toRotationMatrix();
+    const Eigen::Matrix3d R_camera_to_odom = T_camera_to_odom.block<3, 3>(0, 0);
+    const Eigen::Quaterniond q_camera(ori.w(), ori.x(), ori.y(), ori.z());
+    const Eigen::Matrix3d R_ori_camera = q_camera.normalized().toRotationMatrix();
 
-    Eigen::Matrix3d R_ori_odom = R_camera_to_odom * R_ori_camera;
-    Eigen::Quaterniond q_odom(R_ori_odom);
+    const Eigen::Matrix3d R_ori_odom = R_camera_to_odom * R_ori_camera;
+    const Eigen::Quaterniond q_odom(R_ori_odom);
 
     ori.w() = q_odom.w();
     ori.x() = q_odom.x();
@@ -68,9 +68,9 @@ AimTarget::toPts(const cv::Mat& camera_intrinsic, const cv::Mat& camera_distorti
         return pts;
     }
 
-    cv::Mat tvec = (cv::Mat_<double>(3, 1) << pos.x(), pos.y(), pos.z());
-    Eigen::Matrix3d tf_rot = ori.toRotationMatrix();
-    cv::Mat rot_mat =
+    const cv::Mat tvec = (cv::Mat_<double>(3, 1) << pos.x(), pos.y(), pos.z());
+    const Eigen::Matrix3d tf_rot = ori.toRotationMatrix();
+    const cv::Mat rot_mat =
         (cv::Mat_<double>(3, 3) << tf_rot(0, 0),
          tf_rot(0, 1),
          tf_rot(0, 2),
@@ -81,7 +81,6 @@ AimTarget::toPts(const cv::Mat& camera_intrinsic, const cv::Mat& camera_distorti
          tf_rot(2, 1),
          tf_rot(2, 2));
 
-    // 旋转矩阵 -> 旋转向量
     cv::Mat rvec;
     cv::Rodrigues(rot_mat, rvec);
 

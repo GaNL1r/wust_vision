@@ -2,7 +2,6 @@
 #include "tasks/auto_aim/armor_detect/armor_detector_common.hpp"
 #include "tasks/auto_aim/armor_detect/armor_infer.hpp"
 #include "wust_vl/ml_net/ncnn/ncnn_net.hpp"
-#include <ncnn/simpleomp.h>
 namespace wust_vision {
 namespace auto_aim {
 
@@ -44,14 +43,6 @@ namespace auto_aim {
             params.cpu_threads = cpu_threads;
             ncnn_net_ = std::make_unique<wust_vl::ml_net::NCNNNet>();
             ncnn_net_->init(params);
-
-            strides_ = { 8, 16, 32 };
-            armor_infer_->generate_grids_and_stride(
-                armor_infer_->getInputW(),
-                armor_infer_->getInputH(),
-                strides_,
-                grid_strides_
-            );
         }
         static Ptr create(const YAML::Node& config, bool use_armor_detect_common) {
             return std::make_unique<ArmorDetectorNCNN>(config, use_armor_detect_common);
@@ -74,8 +65,7 @@ namespace auto_aim {
             Eigen::Matrix3f& transform_matrix,
             int out_w,
             int out_h,
-            bool use_norm = true,
-            bool use_imagenet = true
+            bool use_norm = true
         ) {
             const int img_w = img.cols;
             const int img_h = img.rows;
@@ -116,29 +106,12 @@ namespace auto_aim {
                 114.f
             );
             if (use_norm) {
-                // 两种常用策略：
-                // A) 仅 scale 到 [0,1] -> mean = {0,0,0}, norm = {1/255,1/255,1/255}
-                // B) ImageNet (x/255 - mean)/std:
-                //    mean_vals = mean * 255, norm_vals = 1/(std * 255)
                 std::array<float, 3> mean_vals;
                 std::array<float, 3> norm_vals;
 
-                if (use_imagenet) {
-                    // 注意：这里顺序为 RGB（因为 from_pixels_resize 用的是 PIXEL_BGR2RGB）
-                    const std::array<float, 3> mean = { 0.485f, 0.456f, 0.406f }; // R,G,B
-                    const std::array<float, 3> stdv = { 0.229f, 0.224f, 0.225f }; // R,G,B
+                mean_vals = { 0.f, 0.f, 0.f };
+                norm_vals = { 1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f };
 
-                    for (int c = 0; c < 3; ++c) {
-                        mean_vals[c] = mean[c] * 255.0f; // mean * 255
-                        norm_vals[c] = 1.0f / (stdv[c] * 255.0f); // 1 / (std * 255)
-                    }
-                } else {
-                    // 只做 /255 -> [0,1]
-                    mean_vals = { 0.f, 0.f, 0.f };
-                    norm_vals = { 1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f };
-                }
-
-                // 执行归一化（会把数据转为 float 并按通道处理）
                 padded.substract_mean_normalize(mean_vals.data(), norm_vals.data());
             }
 
@@ -155,9 +128,9 @@ namespace auto_aim {
             ncnn::Mat in = letterbox_to_ncnn(
                 roi.clone(),
                 transform_matrix,
-                armor_infer_->getInputW(),
-                armor_infer_->getInputH(),
-                armor_infer_->getUseNorm()
+                armor_infer_->inputW(),
+                armor_infer_->inputH(),
+                armor_infer_->useNorm()
             );
             cv::Mat resized_img = ncnnMatToCvMat(in);
 
@@ -166,8 +139,7 @@ namespace auto_aim {
             cv::Mat output_buffer(out.h, out.w, CV_32F, out.data);
 
             // Parse YOLO output
-            auto objs_result =
-                armor_infer_->postProcess(output_buffer, transform_matrix, grid_strides_);
+            auto objs_result = armor_infer_->postProcess(output_buffer);
             std::vector<ArmorObject> armors;
             if (armor_detect_common_) {
                 armors = armor_detect_common_->detectNet(
@@ -208,8 +180,6 @@ namespace auto_aim {
 
     private:
         DetectorCallback infer_callback_;
-        std::vector<int> strides_;
-        std::vector<GridAndStride> grid_strides_;
         std::unique_ptr<ArmorDetectorCommon> armor_detect_common_;
         std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;
         int current_id_ = 0;
