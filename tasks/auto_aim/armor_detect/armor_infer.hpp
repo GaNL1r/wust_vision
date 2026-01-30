@@ -69,12 +69,11 @@ struct ModelTraits<Mode::AT> {
     static constexpr bool USE_NORM = true;
 };
 
-// ------------------------- utilities -------------------------
 [[nodiscard]] inline double sigmoid(double x) noexcept {
     return x >= 0 ? 1.0 / (1.0 + std::exp(-x)) : std::exp(x) / (1.0 + std::exp(x));
 }
 
-inline float rectIoU(const cv::Rect2f& a, const cv::Rect2f& b) noexcept {
+[[nodiscard]] inline float rectIoU(const cv::Rect2f& a, const cv::Rect2f& b) noexcept {
     const cv::Rect2f inter = a & b;
     const float inter_area = inter.area();
     const float union_area = a.area() + b.area() - inter_area;
@@ -151,28 +150,6 @@ topKAndNms(std::vector<ArmorObject>& objs, int top_k, float nms_threshold) {
     return result;
 }
 
-// ------------------------- per-mode implementations -------------------------
-
-// Generic accessor helpers to read a row or column safely
-template<typename Fn>
-static void for_each_anchor_row(const cv::Mat& mat, Fn fn) {
-    // interpret rows as anchors (each row contains elements)
-    const int rows = mat.rows;
-    for (int r = 0; r < rows; ++r) {
-        const float* rowptr = mat.ptr<float>(r);
-        fn(r, rowptr);
-    }
-}
-
-template<typename Fn>
-static void for_each_anchor_col(const cv::Mat& mat, Fn fn) {
-    // interpret columns as anchors (mat is dims x anchors)
-    const int cols = mat.cols;
-    for (int c = 0; c < cols; ++c) {
-        fn(c, [&mat, c](int r) -> float { return mat.at<float>(r, c); });
-    }
-}
-
 // However providing full modern unified class below that delegates using templated helpers.
 
 class ArmorInfer {
@@ -199,14 +176,12 @@ public:
                 use_norm_ = ModelTraits<Mode::TUP>::USE_NORM;
                 break;
             }
-
             case Mode::RP: {
                 input_w_ = ModelTraits<Mode::RP>::INPUT_W;
                 input_h_ = ModelTraits<Mode::RP>::INPUT_H;
                 use_norm_ = ModelTraits<Mode::RP>::USE_NORM;
                 break;
             }
-
             case Mode::AT: {
                 input_w_ = ModelTraits<Mode::AT>::INPUT_W;
                 input_h_ = ModelTraits<Mode::AT>::INPUT_H;

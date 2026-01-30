@@ -22,7 +22,7 @@ std::vector<ArmorObject> ArmorInfer::postProcessTUP_impl(const cv::Mat& out) con
     if (!_grid_strides) {
         _grid_strides = generate_grids_and_stride(inputW(), inputH(), { 8, 16, 32 });
     }
-    auto grid_strides = _grid_strides.value();
+    const auto& grid_strides = _grid_strides.value();
     std::vector<ArmorObject> out_objs;
     const int num_anchors =
         static_cast<int>(std::min<size_t>(grid_strides.size(), static_cast<size_t>(out.rows)));
