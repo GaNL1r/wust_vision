@@ -24,32 +24,57 @@ namespace auto_buff {
             GEN_PARAM(double, min_enable_pitch_deg);
             GEN_PARAM(double, min_enable_yaw_deg);
             bool first_load = false;
+            using OffsetEntry = wust_vl::common::utils::OffsetEntry;
 
+            static std::vector<OffsetEntry>
+            parseTrajectoryOffset(const YAML::Node& node, double& base_pitch, double& base_yaw) {
+                std::vector<OffsetEntry> entries;
+
+                if (!node || !node["trajectory_offset"]) {
+                    return entries;
+                }
+
+                for (const auto& n: node["trajectory_offset"]) {
+                    entries.push_back(OffsetEntry { .d_min = n["d_min"].as<double>(),
+                                                    .d_max = n["d_max"].as<double>(),
+                                                    .h_min = n["h_min"].as<double>(),
+                                                    .h_max = n["h_max"].as<double>(),
+                                                    .pitch_off = n["pitch_off"].as<double>(),
+                                                    .yaw_off = n["yaw_off"].as<double>() });
+                }
+
+                base_pitch = node["base_offset"]["pitch"].as<double>();
+                base_yaw = node["base_offset"]["yaw"].as<double>();
+
+                return entries;
+            }
+            std::vector<OffsetEntry> last_entries_;
+            double last_base_pitch_ = 0.0;
+            double last_base_yaw_ = 0.0;
+            bool first_load_ = true;
             void loadSelf(const YAML::Node& node) override {
-                if (!first_load) {
+                double base_pitch = 0.0;
+                double base_yaw = 0.0;
+
+                auto entries = parseTrajectoryOffset(node, base_pitch, base_yaw);
+
+                const bool trajectory_changed = first_load_ || entries != last_entries_
+                    || base_pitch != last_base_pitch_ || base_yaw != last_base_yaw_;
+                if (trajectory_changed) {
                     manual_compensator =
                         std::make_shared<wust_vl::common::utils::ManualCompensator>();
-                    std::vector<wust_vl::common::utils::OffsetEntry> entries;
 
-                    if (node["trajectory_offset"]) {
-                        for (const auto& node: node["trajectory_offset"]) {
-                            wust_vl::common::utils::OffsetEntry e;
-                            e.d_min = node["d_min"].as<double>();
-                            e.d_max = node["d_max"].as<double>();
-                            e.h_min = node["h_min"].as<double>();
-                            e.h_max = node["h_max"].as<double>();
-                            e.pitch_off = node["pitch_off"].as<double>();
-                            e.yaw_off = node["yaw_off"].as<double>();
-                            entries.push_back(e);
-                        }
-                        manual_compensator->setBasePitch(node["base_offset"]["pitch"].as<double>());
-                        manual_compensator->setBaseYaw(node["base_offset"]["yaw"].as<double>());
+                    manual_compensator->setBasePitch(base_pitch);
+                    manual_compensator->setBaseYaw(base_yaw);
+
+                    if (!manual_compensator->updateMapFlow(entries) || entries.empty()) {
+                        std::cout << "manual_compensator init failed" << std::endl;
                     }
-                    if (!manual_compensator->updateMapFlow(entries) || entries.size() < 1) {
-                        std::cout << "Trajectory compensator init failed" << std::endl;
-                    }
-                    first_load = true;
-                } else {
+
+                    last_entries_ = entries;
+                    last_base_pitch_ = base_pitch;
+                    last_base_yaw_ = base_yaw;
+                    first_load_ = false;
                 }
                 shooting_range_h_param.load(node);
                 shooting_range_w_param.load(node);

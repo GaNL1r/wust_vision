@@ -87,12 +87,9 @@ void drawDebugArmorContent(
     auto visualizeTargetProjection = [&](auto_aim::Target armor_target) -> auto_aim::Armors {
         auto_aim::Armors armor_data;
         armor_data.timestamp = armor_target.timestamp_;
-        double debug_dt = 0.01;
 
         if (armor_target.is_tracking) {
             Eigen::Vector3d pos = armor_target.position();
-            const Eigen::Vector3d vel = armor_target.velocity();
-            utils::addPosFromVelDt(pos, vel, debug_dt);
             if (pos.norm() > 0.5) {
                 armor_data.armors.clear();
                 const size_t a_n = armor_target.armor_num_;
