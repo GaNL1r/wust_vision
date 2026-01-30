@@ -184,7 +184,6 @@ namespace auto_aim {
                 boardTilt = -boardTilt;
 
             bool leftTilt = boardTilt > 0.0;
-
             if ((leftTilt && yaw0 > 0 && yaw1 < 0) || (!leftTilt && yaw0 < 0 && yaw1 > 0)) {
                 std::swap(rvecs[0], rvecs[1]);
                 std::swap(tvecs[0], tvecs[1]);
@@ -193,9 +192,7 @@ namespace auto_aim {
 
         std::unique_ptr<BaSolver> ba_solver_;
         double distance_fix_a2_ = 0;
-
         Eigen::Matrix3d R_gimbal_camera_;
-
         std::unique_ptr<wust_vl::algorithm::PnPSolver> pnp_solver_;
     };
     ArmorPoseEstimator::ArmorPoseEstimator(

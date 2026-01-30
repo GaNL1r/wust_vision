@@ -1,22 +1,5 @@
-// armor_infer_modern.hpp
 #pragma once
-
 #include "tasks/auto_aim/type.hpp"
-#include "tasks/type_common.hpp"
-
-#include <Eigen/Core>
-#include <opencv2/opencv.hpp>
-
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <functional>
-#include <limits>
-#include <numeric>
-#include <optional>
-#include <span>
-#include <string>
-#include <vector>
 
 namespace wust_vision::auto_aim::armor_infer {
 

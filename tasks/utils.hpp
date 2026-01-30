@@ -153,6 +153,21 @@ namespace utils {
             func();
         }
     }
-
+    template<typename T>
+    concept Point2DLike = requires(T p) {
+        {
+            p.x
+            } -> std::convertible_to<float>;
+        {
+            p.y
+            } -> std::convertible_to<float>;
+        T { 0.f, 0.f };
+    };
+    template<Point2DLike T>
+    [[nodiscard]] inline T transformPoint2D(const Eigen::Matrix3f& H, const T& p) noexcept {
+        const Eigen::Vector3f hp { p.x, p.y, 1.f };
+        const Eigen::Vector3f tp = H * hp;
+        return { tp.x(), tp.y() };
+    }
 } // namespace utils
 } // namespace wust_vision

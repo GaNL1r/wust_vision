@@ -2,6 +2,7 @@
 #include "type.hpp"
 #include "tasks/config.hpp"
 #include "wust_vl/common/utils/logger.hpp"
+#include <numeric>
 namespace wust_vision {
 namespace auto_aim {
 
@@ -38,30 +39,29 @@ namespace auto_aim {
         bottom += offset;
     }
     void Light::transform(const Eigen::Matrix<float, 3, 3>& transform_matrix) noexcept {
-        const auto map_point = [&](float x, float y) -> cv::Point2f {
-            Eigen::Vector3f pt(x, y, 1.f);
-            Eigen::Vector3f tr = transform_matrix * pt;
-            return { tr(0), tr(1) };
-        };
-        top = map_point(top.x, top.y);
-        bottom = map_point(bottom.x, bottom.y);
+        top = utils::transformPoint2D(transform_matrix, top);
+        bottom = utils::transformPoint2D(transform_matrix, bottom);
         length = cv::norm(top - bottom);
         cv::Point2f p[4];
         this->points(p);
 
-        width = cv::norm(map_point(p[0].x, p[0].y) - map_point(p[1].x, p[1].y));
+        width = cv::norm(
+            utils::transformPoint2D(transform_matrix, p[0])
+            - utils::transformPoint2D(transform_matrix, p[1])
+        );
         const cv::Point2f p0 = center;
         const cv::Point2f p1 = center + axis;
 
-        const cv::Point2f p0_t = map_point(p0.x, p0.y);
-        const cv::Point2f p1_t = map_point(p1.x, p1.y);
+        const cv::Point2f p0_t = utils::transformPoint2D(transform_matrix, p0);
+
+        const cv::Point2f p1_t = utils::transformPoint2D(transform_matrix, p1);
 
         axis = p1_t - p0_t;
         axis /= cv::norm(axis);
 
         tilt_angle =
             std::atan2(std::abs(top.x - bottom.x), std::abs(top.y - bottom.y)) / CV_PI * 180.0f;
-        center = map_point(center.x, center.y);
+        center = utils::transformPoint2D(transform_matrix, center);
     }
     int formArmorColor(const ArmorColor& color) noexcept {
         switch (color) {

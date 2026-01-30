@@ -1,4 +1,5 @@
 #include "type.hpp"
+#include "tasks/utils.hpp"
 namespace wust_vision {
 namespace auto_buff {
     void RunePan::draw(
@@ -9,19 +10,18 @@ namespace auto_buff {
     ) const {
         if (!is_valid || corners.size() < 3)
             return;
-        auto map_point = [&](float x, float y) -> cv::Point2f {
-            Eigen::Vector3f pt(x, y, 1.f);
-            Eigen::Vector3f tr;
+        auto map_point = [&](const cv::Point2f p) -> cv::Point2f {
+            cv::Point2f tp;
             if (is_up) {
-                tr = transform_matrix * pt;
+                tp = utils::transformPoint2D(transform_matrix, p);
             } else {
-                tr = pt;
+                tp = p;
             }
-            return { tr(0), tr(1) };
+            return tp;
         };
         std::vector<cv::Point2f> sorted_corners = corners;
         for (auto& pt: sorted_corners) {
-            pt = map_point(pt.x, pt.y);
+            pt = map_point(pt);
             pt += offset;
         }
         // 画边
@@ -197,10 +197,9 @@ namespace auto_buff {
         points2d.push_back(other.points2d[2]);
         points2d.push_back(other.points2d[3]);
         points2d.push_back(other.points2d[4]);
-        // ---------- 计算 roll 差 ----------
+
         double roll = -angle_diffs[id];
 
-        // ---------- 旋转后的 3D 点加入 ----------
         points3d.push_back(rotateX(points3d[1], roll));
         points3d.push_back(rotateX(points3d[2], roll));
         points3d.push_back(rotateX(points3d[3], roll));
@@ -243,14 +242,9 @@ namespace auto_buff {
         }
     }
     void RuneFan::transform(const Eigen::Matrix<float, 3, 3>& transform_matrix) {
-        auto map_point = [&](float x, float y) -> cv::Point2f {
-            Eigen::Vector3f pt(x, y, 1.f);
-            Eigen::Vector3f tr = transform_matrix * pt;
-            return { tr(0), tr(1) };
-        };
         for (auto& fan: fans) {
             for (auto& pt: fan.points2d) {
-                pt = map_point(pt.x, pt.y);
+                pt = utils::transformPoint2D(transform_matrix, pt);
             }
         }
     }

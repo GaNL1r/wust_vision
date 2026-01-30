@@ -1,6 +1,4 @@
-#include "tasks/auto_aim/armor_detect/armor_infer.hpp"
-#include <algorithm>
-#include <cmath>
+#include "armor_infer.hpp"
 namespace wust_vision::auto_aim::armor_infer {
 [[nodiscard]] static inline std::vector<GridAndStride>
 generate_grids_and_stride(int target_w, int target_h, const std::vector<int>& strides) noexcept {

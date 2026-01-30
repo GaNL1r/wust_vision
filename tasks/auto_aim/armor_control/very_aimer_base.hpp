@@ -116,7 +116,7 @@ namespace auto_aim {
             return c;
         }
 
-        static inline QuinticSegment
+        [[nodiscard]] static inline QuinticSegment
         build(const GimbalState::State& s0, const GimbalState::State& s1, double T) noexcept {
             QuinticSegment seg;
             seg.head = s0;
@@ -172,14 +172,14 @@ namespace auto_aim {
             return std::isfinite(max_acc) ? max_acc : 0.0;
         }
 
-        double inline duration() const noexcept {
+        [[nodiscard]] double inline duration() const noexcept {
             return T;
         }
 
-        double inline MaxAcc(void) const noexcept {
+        [[nodiscard]] double inline MaxAcc(void) const noexcept {
             return QuinticSegment::maxAbsAcc(c, T);
         }
-        GimbalState::State inline eval(double t) const noexcept {
+        [[nodiscard]] GimbalState::State inline eval(double t) const noexcept {
             GimbalState::State s;
             if (T <= 0.0)
                 return s;
@@ -222,7 +222,7 @@ namespace auto_aim {
             }
         }
 
-        std::pair<std::vector<GimbalState::State>, std::vector<GimbalState::State>>
+        [[nodiscard]] std::pair<std::vector<GimbalState::State>, std::vector<GimbalState::State>>
         computeNodeStates(const std::vector<GimbalState>& gp, const std::vector<double>& dt)
             const noexcept {
             const size_t N = gp.size();
@@ -433,7 +433,8 @@ namespace auto_aim {
             simpleTraj(yaw_traj, yaw_states);
             simpleTraj(pitch_traj, pitch_states);
         }
-        inline GimbalState::State getStateAtTime(double t, const Traj& traj) const noexcept {
+        [[nodiscard]] inline GimbalState::State
+        getStateAtTime(double t, const Traj& traj) const noexcept {
             if (traj.segs.empty())
                 return {};
 
@@ -452,7 +453,7 @@ namespace auto_aim {
             const double t0 = traj.seg_prefix_time[i];
             return traj.segs[i].eval(t - t0);
         }
-        inline GimbalState getStateAtTime(double t) const noexcept {
+        [[nodiscard]] inline GimbalState getStateAtTime(double t) const noexcept {
             GimbalState::State yaw = getStateAtTime(t, yaw_traj);
             GimbalState::State pitch = getStateAtTime(t, pitch_traj);
             return GimbalState(yaw, pitch);

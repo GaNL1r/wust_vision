@@ -90,13 +90,8 @@ namespace auto_aim {
             for (auto& l: lights) {
                 l.transform(transform_matrix);
             }
-            auto map_point = [&](float x, float y) -> cv::Point2f {
-                Eigen::Vector3f pt(x, y, 1.f);
-                Eigen::Vector3f tr = transform_matrix * pt;
-                return { tr(0), tr(1) };
-            };
             for (auto& pt: pts) {
-                pt = map_point(pt.x, pt.y);
+                pt = utils::transformPoint2D(transform_matrix, pt);
             }
         }
         ArmorObject(const Light& l1, const Light& l2);
