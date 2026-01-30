@@ -193,6 +193,7 @@ namespace auto_aim {
             Infer* infer,
             const std::optional<ArmorNumber>& target_number
         ) const {
+            std::vector<ArmorObject> armors;
             const auto t0 = wust_vl::common::utils::time_utils::now();
             Eigen::Matrix3f transform_matrix;
             std::vector<ArmorObject> objs_result;
@@ -211,7 +212,14 @@ namespace auto_aim {
                             transform_matrix,
                             trt_net_->getStream()
                         );
-                resized_img = armor_cuda_infer::tensorToMat<Tag>( //nchw_float_to_hwc_uchar
+                if (input_tensor_ptr == nullptr) {
+                    std::cerr << "[ERROR] Failed to preprocess image" << std::endl;
+                    if (this->infer_callback_) {
+                        this->infer_callback_(armors, frame);
+                        return;
+                    }
+                }
+                resized_img = infer->cuda_infer->tensorToMat( //nchw_float_to_hwc_uchar
                     static_cast<float*>(input_tensor_ptr),
                     armor_infer_->inputW(),
                     armor_infer_->inputH(),
@@ -255,7 +263,7 @@ namespace auto_aim {
                                  << wust_vl::common::utils::time_utils::durationMs(t0, t3);
             }
             infer_pool_->release(infer);
-            std::vector<ArmorObject> armors;
+
             if (armor_detect_common_) {
                 armors = armor_detect_common_->detectNet(
                     resized_img,

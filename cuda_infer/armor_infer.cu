@@ -24,23 +24,25 @@
 namespace armor_cuda_infer {
 __global__ void
 nchw_float_to_hwc_uchar4(const float* __restrict__ src, uchar4* __restrict__ dst, int W, int H) {
-    const int x = blockIdx.x * blockDim.x + threadIdx.x;
-    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
     if (x >= W || y >= H)
         return;
 
-    const int idx = y * W + x;
-    const int plane = W * H;
+    int idx = y * W + x;
+    int plane = W * H;
 
-    const float r = __ldg(src + idx + plane * 0);
-    const float g = __ldg(src + idx + plane * 1);
-    const float b = __ldg(src + idx + plane * 2);
+    float r = __ldg(src + idx + plane * 0);
+    float g = __ldg(src + idx + plane * 1);
+    float b = __ldg(src + idx + plane * 2);
 
     dst[idx] = make_uchar4((unsigned char)b, (unsigned char)g, (unsigned char)r, 255);
 }
 
-cv::Mat
-tensorToMatImpl(float* d_nchw, int W, int H, cudaStream_t stream, uchar4* d_hwc, size_t cap) {
+cv::Mat CudaInfer::tensorToMat(float* d_nchw, int W, int H, cudaStream_t stream) {
+    static uchar4* d_hwc = nullptr;
+    static size_t cap = 0;
+
     size_t need = W * H * sizeof(uchar4);
     if (cap < need) {
         if (d_hwc)
@@ -61,6 +63,7 @@ tensorToMatImpl(float* d_nchw, int W, int H, cudaStream_t stream, uchar4* d_hwc,
     cudaStreamSynchronize(stream);
     return img;
 }
+
 CudaInfer::CudaInfer() = default;
 CudaInfer::~CudaInfer() {
     release();
@@ -120,20 +123,20 @@ float* CudaInfer::preprocess(
         fprintf(stderr, "[Error] Null pointer in preprocess input\n");
         return nullptr;
     }
-
-    const float scale = fminf(input_w_ / (float)img_w, input_h_ / (float)img_h);
-    const int rw = round(img_w * scale), rh = round(img_h * scale);
+    getOutEnoughMem(img_w, img_h);
+    float scale = fminf(input_w_ / (float)img_w, input_h_ / (float)img_h);
+    int rw = round(img_w * scale), rh = round(img_h * scale);
     int pad_l = (input_w_ - rw) / 2, pad_t = (input_h_ - rh) / 2;
 
     tf_matrix << 1.f / scale, 0, -pad_l / scale, 0, 1.f / scale, -pad_t / scale, 0, 0, 1;
 
-    const size_t img_size = img_w * img_h * 3;
+    size_t img_size = img_w * img_h * 3;
     CUDA_CHECK(
         cudaMemcpyAsync(d_input_bgr_, input_bgr_host, img_size, cudaMemcpyHostToDevice, stream)
     );
 
-    const dim3 threads(TILE_W, TILE_H);
-    const dim3 blocks((input_w_ + TILE_W - 1) / TILE_W, (input_h_ + TILE_H - 1) / TILE_H);
+    dim3 threads(TILE_W, TILE_H);
+    dim3 blocks((input_w_ + TILE_W - 1) / TILE_W, (input_h_ + TILE_H - 1) / TILE_H);
 
     letterbox_kernel_shared<<<blocks, threads, 0, stream>>>(
         d_input_bgr_,
@@ -165,17 +168,17 @@ float* CudaInfer::preprocess_gpu(
         fprintf(stderr, "[Error] Null pointer in preprocess input\n");
         return nullptr;
     }
-
-    const float scale = fminf(input_w_ / (float)img_w, input_h_ / (float)img_h);
-    const int rw = round(img_w * scale), rh = round(img_h * scale);
-    const int pad_l = (input_w_ - rw) / 2, pad_t = (input_h_ - rh) / 2;
+    getOutEnoughMem(img_w, img_h);
+    float scale = fminf(input_w_ / (float)img_w, input_h_ / (float)img_h);
+    int rw = round(img_w * scale), rh = round(img_h * scale);
+    int pad_l = (input_w_ - rw) / 2, pad_t = (input_h_ - rh) / 2;
 
     tf_matrix << 1.f / scale, 0, -pad_l / scale, 0, 1.f / scale, -pad_t / scale, 0, 0, 1;
 
-    const size_t img_size = img_w * img_h * 3;
+    size_t img_size = img_w * img_h * 3;
 
-    const dim3 threads(TILE_W, TILE_H);
-    const dim3 blocks((input_w_ + TILE_W - 1) / TILE_W, (input_h_ + TILE_H - 1) / TILE_H);
+    dim3 threads(TILE_W, TILE_H);
+    dim3 blocks((input_w_ + TILE_W - 1) / TILE_W, (input_h_ + TILE_H - 1) / TILE_H);
 
     letterbox_kernel_shared<<<blocks, threads, 0, stream>>>(
         input_bgr_device,
@@ -208,12 +211,12 @@ float* CudaInfer::preprocess_pitched(
         fprintf(stderr, "[Error] Null pointer in preprocess input\n");
         return nullptr;
     }
-
-    const float scale = fminf((float)input_w_ / img_w, (float)input_h_ / img_h);
-    const int rw = round(img_w * scale);
-    const int rh = round(img_h * scale);
-    const int pad_l = (input_w_ - rw) / 2;
-    const int pad_t = (input_h_ - rh) / 2;
+    getOutEnoughMem(img_w, img_h);
+    float scale = fminf((float)input_w_ / img_w, (float)input_h_ / img_h);
+    int rw = round(img_w * scale);
+    int rh = round(img_h * scale);
+    int pad_l = (input_w_ - rw) / 2;
+    int pad_t = (input_h_ - rh) / 2;
     tf_matrix << 1.f / scale, 0, -pad_l / scale, 0, 1.f / scale, -pad_t / scale, 0, 0, 1;
     CUDA_CHECK(cudaMemcpy2DAsync(
         d_input_bgr_pitched_,
@@ -226,8 +229,8 @@ float* CudaInfer::preprocess_pitched(
         stream
     ));
 
-    const dim3 threads(TILE_W, TILE_H);
-    const dim3 blocks((input_w_ + TILE_W - 1) / TILE_W, (input_h_ + TILE_H - 1) / TILE_H);
+    dim3 threads(TILE_W, TILE_H);
+    dim3 blocks((input_w_ + TILE_W - 1) / TILE_W, (input_h_ + TILE_H - 1) / TILE_H);
 
     letterbox_kernel_pitched<<<blocks, threads, 0, stream>>>(
         d_input_bgr_pitched_,
@@ -261,20 +264,19 @@ float* CudaInfer::preprocess_pitched_gpu(
         fprintf(stderr, "[Error] Null pointer in preprocess_pitched_gpu\n");
         return nullptr;
     }
+    getOutEnoughMem(img_w, img_h);
+    float scale = fminf(static_cast<float>(input_w_) / img_w, static_cast<float>(input_h_) / img_h);
 
-    const float scale =
-        fminf(static_cast<float>(input_w_) / img_w, static_cast<float>(input_h_) / img_h);
+    int rw = static_cast<int>(roundf(img_w * scale));
+    int rh = static_cast<int>(roundf(img_h * scale));
 
-    const int rw = static_cast<int>(roundf(img_w * scale));
-    const int rh = static_cast<int>(roundf(img_h * scale));
-
-    const int pad_l = (input_w_ - rw) / 2;
-    const int pad_t = (input_h_ - rh) / 2;
+    int pad_l = (input_w_ - rw) / 2;
+    int pad_t = (input_h_ - rh) / 2;
 
     tf_matrix << 1.f / scale, 0.f, -pad_l / scale, 0.f, 1.f / scale, -pad_t / scale, 0.f, 0.f, 1.f;
 
-    const dim3 threads(TILE_W, TILE_H);
-    const dim3 blocks((input_w_ + TILE_W - 1) / TILE_W, (input_h_ + TILE_H - 1) / TILE_H);
+    dim3 threads(TILE_W, TILE_H);
+    dim3 blocks((input_w_ + TILE_W - 1) / TILE_W, (input_h_ + TILE_H - 1) / TILE_H);
 
     letterbox_kernel_pitched<<<blocks, threads, 0, stream>>>(
         input_bgr_device,

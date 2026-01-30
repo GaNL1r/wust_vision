@@ -10,14 +10,7 @@
 #include <vector>
 
 namespace armor_cuda_infer {
-cv::Mat
-tensorToMatImpl(float* d_nchw, int W, int H, cudaStream_t stream, uchar4* d_hwc, size_t cap);
-template<typename Tag>
-[[nodiscard]] cv::Mat tensorToMat(float* d_nchw, int W, int H, cudaStream_t stream) {
-    static uchar4* d_hwc = nullptr;
-    static size_t cap = 0;
-    return tensorToMatImpl(d_nchw, W, H, stream, d_hwc, cap);
-}
+
 
 class CudaInfer {
 public:
@@ -62,7 +55,7 @@ public:
         Eigen::Matrix3f& tf_matrix,
         cudaStream_t stream
     );
-
+    cv::Mat tensorToMat(float* d_nchw, int W, int H, cudaStream_t stream);
 private:
     CudaInfer(const CudaInfer&) = delete;
     CudaInfer& operator=(const CudaInfer&) = delete;
