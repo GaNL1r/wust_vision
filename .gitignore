@@ -26,4 +26,4 @@ __pycache__
 
 
 bin
-build/at*
+model/at*
