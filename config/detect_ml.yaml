@@ -23,7 +23,7 @@ armor_detector:
     color_diff_thresh: 0
   tensorrt:
     conf_threshold: 0.2
-    model_path: ${VISION_ROOT}/model/opt-1208-001.onnx
+    model_path: ${VISION_ROOT}/model/at.onnx
     device_id: 0
     nms_threshold: 0.3
     top_k: 128
@@ -31,7 +31,7 @@ armor_detector:
     min_free_mem_ratio: 0.1
     use_cuda_pre: true
     log_time: false
-    model_type: tup
+    model_type: at
   openvino:
     conf_threshold: 0.2
     device_name: AUTO

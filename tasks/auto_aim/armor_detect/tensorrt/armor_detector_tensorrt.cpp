@@ -183,7 +183,7 @@ namespace auto_aim {
 
             cv::Mat resized_img;
             const float scale = armor_infer_->useNorm() ? 1.0f / 255.0f : 1.0f;
-            const bool swap_rb = armor_infer_->useBgr();
+            const bool swap_rb = armor_infer_->inputRGB();
             if (infer->cuda_infer && use_cuda_pre_) {
                 input_tensor_ptr =
                     infer->cuda_infer

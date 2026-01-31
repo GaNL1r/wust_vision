@@ -50,7 +50,7 @@ namespace auto_aim {
                 armor_infer_->inputW(),
                 armor_infer_->inputH()
             );
-            const bool swap_rb = armor_infer_->useBgr();
+            const bool swap_rb = armor_infer_->inputRGB();
             const float scale = armor_infer_->useNorm() ? 1.0f / 255.0f : 1.0f;
             cv::Mat blob = cv::dnn::blobFromImage(
                 resized_img,

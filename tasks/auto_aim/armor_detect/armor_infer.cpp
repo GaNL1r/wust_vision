@@ -100,12 +100,7 @@ std::vector<ArmorObject> ArmorInfer::postProcessRP_impl(const cv::Mat& out) cons
         }
         obj.box = cv::boundingRect(obj.pts);
 
-        if (color_id.x == 0)
-            obj.color = ArmorColor::RED;
-        else if (color_id.x == 1)
-            obj.color = ArmorColor::BLUE;
-        else
-            obj.color = ArmorColor::NONE;
+        obj.color = static_cast<ArmorColor>(color_id.x);
 
         obj.number = static_cast<ArmorNumber>(class_id.x);
         obj.prob = confidence;
@@ -117,69 +112,8 @@ std::vector<ArmorObject> ArmorInfer::postProcessRP_impl(const cv::Mat& out) cons
 
 std::vector<ArmorObject> ArmorInfer::postProcessAT_impl(const cv::Mat& out) const {
     std::vector<ArmorObject> out_objs;
-    if (out.empty())
-        return out_objs;
 
-    // AT expects dims x anchors (rows = dims, cols = anchors)
-    const int dims = out.rows;
-    const int anchors = out.cols;
     constexpr int nkpt = ModelTraits<Mode::AT>::NUM_KPTS;
-    constexpr int kpt_dim = 2;
-    constexpr int nk = nkpt * kpt_dim;
-    const int num_cls = dims - 4 - nk;
-    if (num_cls <= 0) {
-        // invalid layout
-        return out_objs;
-    }
-
-    for (int a = 0; a < anchors; ++a) {
-        auto read = [&](int r) -> float { return out.at<float>(r, a); };
-        const float cx = read(0);
-        const float cy = read(1);
-        const float w = read(2);
-        const float h = read(3);
-        if (!std::isfinite(cx) || !std::isfinite(cy) || w <= 0.f || h <= 0.f)
-            continue;
-
-        float best_score = -std::numeric_limits<float>::infinity();
-        int best_idx = -1;
-        for (int c = 0; c < num_cls; ++c) {
-            const float sc = read(4 + c);
-            if (sc > best_score) {
-                best_score = sc;
-                best_idx = c;
-            }
-        }
-        if (best_idx < 0 || best_score < conf_threshold_)
-            continue;
-
-        const int combined = best_idx;
-        const int color = combined / ModelTraits<Mode::AT>::NUM_CLASSES;
-        const int cls = combined % ModelTraits<Mode::AT>::NUM_CLASSES;
-
-        ArmorObject obj;
-        obj.number = ArmorNumber::NO3; // placeholder — original set NO3
-        obj.color = ArmorColor::BLUE; // original default
-        obj.prob = best_score;
-
-        // keypoints start at row (4 + num_cls)
-        const int kp_base = 4 + num_cls;
-        obj.pts.reserve(nkpt);
-        for (int k = 0; k < nkpt; ++k) {
-            const float kx = read(kp_base + 2 * k + 0);
-            const float ky = read(kp_base + 2 * k + 1);
-            obj.pts.emplace_back(kx, ky);
-        }
-        obj.box = cv::boundingRect(obj.pts);
-        out_objs.push_back(std::move(obj));
-    }
-
-    return topKAndNms(out_objs, top_k_, nms_threshold_);
-}
-std::vector<ArmorObject> ArmorInfer::postProcessAT2_impl(const cv::Mat& out) const {
-    std::vector<ArmorObject> out_objs;
-
-    constexpr int nkpt = ModelTraits<Mode::AT2>::NUM_KPTS;
     constexpr int nk = nkpt * 2; // keypoints flattened
     auto max_det = out.rows;
     auto det_dim = out.cols;
@@ -200,7 +134,7 @@ std::vector<ArmorObject> ArmorInfer::postProcessAT2_impl(const cv::Mat& out) con
 
         ArmorObject obj;
         obj.prob = conf;
-        auto color_num = ModelTraits<Mode::AT2>::CLASSES[cls];
+        auto color_num = ModelTraits<Mode::AT>::CLASSES[cls];
         obj.color = color_num.first;
         obj.number = color_num.second;
 

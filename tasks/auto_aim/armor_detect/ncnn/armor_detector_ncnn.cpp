@@ -136,7 +136,7 @@ namespace auto_aim {
             //     ncnn::Mat::from_pixels(resized_img.data, ncnn::Mat::PIXEL_BGR2RGB, INPUT_W, INPUT_H);
             Eigen::Matrix3f transform_matrix;
             auto roi = frame.src_img(frame.expanded);
-            const bool swap_rb = armor_infer_->useBgr();
+            const bool swap_rb = armor_infer_->inputRGB();
             const float scale = armor_infer_->useNorm() ? 1.0f / 255.0f : 1.0f;
             ncnn::Mat in = letterbox_to_ncnn(
                 roi.clone(),
