@@ -176,5 +176,45 @@ std::vector<ArmorObject> ArmorInfer::postProcessAT_impl(const cv::Mat& out) cons
 
     return topKAndNms(out_objs, top_k_, nms_threshold_);
 }
+std::vector<ArmorObject> ArmorInfer::postProcessAT2_impl(const cv::Mat& out) const {
+    std::vector<ArmorObject> out_objs;
 
+    constexpr int nkpt = ModelTraits<Mode::AT2>::NUM_KPTS;
+    constexpr int nk = nkpt * 2; // keypoints flattened
+    auto max_det = out.rows;
+    auto det_dim = out.cols;
+    auto output_ptr = out.ptr<float>();
+    for (int i = 0; i < max_det; ++i) {
+        const float* row = output_ptr + i * det_dim;
+        float conf = row[4];
+        if (!std::isfinite(conf) || conf < conf_threshold_)
+            continue;
+        float x = row[0];
+        float y = row[1];
+        float w = row[2];
+        float h = row[3];
+        int cls = static_cast<int>(row[5]);
+
+        if (!std::isfinite(x) || !std::isfinite(y) || w <= 0.f || h <= 0.f)
+            continue;
+
+        ArmorObject obj;
+        obj.prob = conf;
+        auto color_num = ModelTraits<Mode::AT2>::CLASSES[cls];
+        obj.color = color_num.first;
+        obj.number = color_num.second;
+
+        obj.pts.reserve(nkpt);
+        for (int k = 0; k < nkpt; ++k) {
+            float kx = row[6 + 2 * k];
+            float ky = row[6 + 2 * k + 1];
+            obj.pts.emplace_back(kx, ky);
+        }
+
+        obj.box = cv::boundingRect(obj.pts);
+        out_objs.emplace_back(std::move(obj));
+    }
+
+    return out_objs;
+}
 } // namespace wust_vision::auto_aim::armor_infer

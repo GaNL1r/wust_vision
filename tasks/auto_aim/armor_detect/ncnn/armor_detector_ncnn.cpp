@@ -65,7 +65,8 @@ namespace auto_aim {
             Eigen::Matrix3f& transform_matrix,
             int out_w,
             int out_h,
-            bool use_norm = true
+            float norm,
+            bool swap_rb = true
         ) {
             const int img_w = img.cols;
             const int img_h = img.rows;
@@ -81,15 +82,26 @@ namespace auto_aim {
 
             transform_matrix << 1.0f / scale, 0, -pad_left / scale, 0, 1.0f / scale,
                 -pad_top / scale, 0, 0, 1;
-
-            ncnn::Mat out = ncnn::Mat::from_pixels_resize(
-                img.data,
-                ncnn::Mat::PIXEL_BGR2RGB,
-                img_w,
-                img_h,
-                resize_w,
-                resize_h
-            );
+            ncnn::Mat out;
+            if (swap_rb) {
+                out = ncnn::Mat::from_pixels_resize(
+                    img.data,
+                    ncnn::Mat::PIXEL_BGR2RGB,
+                    img_w,
+                    img_h,
+                    resize_w,
+                    resize_h
+                );
+            } else {
+                out = ncnn::Mat::from_pixels_resize(
+                    img.data,
+                    ncnn::Mat::PIXEL_RGB,
+                    img_w,
+                    img_h,
+                    resize_w,
+                    resize_h
+                );
+            }
 
             int pad_right = out_w - resize_w - pad_left;
             int pad_bottom = out_h - resize_h - pad_top;
@@ -105,15 +117,14 @@ namespace auto_aim {
                 ncnn::BORDER_CONSTANT,
                 114.f
             );
-            if (use_norm) {
-                std::array<float, 3> mean_vals;
-                std::array<float, 3> norm_vals;
 
-                mean_vals = { 0.f, 0.f, 0.f };
-                norm_vals = { 1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f };
+            std::array<float, 3> mean_vals;
+            std::array<float, 3> norm_vals;
 
-                padded.substract_mean_normalize(mean_vals.data(), norm_vals.data());
-            }
+            mean_vals = { 0.f, 0.f, 0.f };
+            norm_vals = { norm, norm, norm };
+
+            padded.substract_mean_normalize(mean_vals.data(), norm_vals.data());
 
             return padded;
         }
@@ -125,12 +136,15 @@ namespace auto_aim {
             //     ncnn::Mat::from_pixels(resized_img.data, ncnn::Mat::PIXEL_BGR2RGB, INPUT_W, INPUT_H);
             Eigen::Matrix3f transform_matrix;
             auto roi = frame.src_img(frame.expanded);
+            const bool swap_rb = armor_infer_->useBgr();
+            const float scale = armor_infer_->useNorm() ? 1.0f / 255.0f : 1.0f;
             ncnn::Mat in = letterbox_to_ncnn(
                 roi.clone(),
                 transform_matrix,
                 armor_infer_->inputW(),
                 armor_infer_->inputH(),
-                armor_infer_->useNorm()
+                scale,
+                swap_rb
             );
             cv::Mat resized_img = ncnnMatToCvMat(in);
 

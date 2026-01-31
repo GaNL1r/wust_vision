@@ -11,7 +11,6 @@
 
 namespace armor_cuda_infer {
 
-
 class CudaInfer {
 public:
     CudaInfer();
@@ -29,6 +28,8 @@ public:
         const unsigned char* input_bgr_host,
         int img_w,
         int img_h,
+        float norm,
+        bool swap_rb,
         Eigen::Matrix3f& tf_matrix,
         cudaStream_t stream
     );
@@ -37,6 +38,8 @@ public:
         int img_w,
         int img_h,
         int host_step,
+        float norm,
+        bool swap_rb,
         Eigen::Matrix3f& tf_matrix,
         cudaStream_t stream
     );
@@ -44,6 +47,8 @@ public:
         const unsigned char* input_bgr_device,
         int img_w,
         int img_h,
+        float norm,
+        bool swap_rb,
         Eigen::Matrix3f& tf_matrix,
         cudaStream_t stream
     );
@@ -52,10 +57,13 @@ public:
         int img_w,
         int img_h,
         int host_step,
+        float norm,
+        bool swap_rb,
         Eigen::Matrix3f& tf_matrix,
         cudaStream_t stream
     );
-    cv::Mat tensorToMat(float* d_nchw, int W, int H, cudaStream_t stream);
+    cv::Mat tensorToMat(float* d_nchw, int W, int H, float norm, cudaStream_t stream) const;
+
 private:
     CudaInfer(const CudaInfer&) = delete;
     CudaInfer& operator=(const CudaInfer&) = delete;

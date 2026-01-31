@@ -87,7 +87,6 @@ namespace auto_aim {
                     std::cerr << "[detect] Exception: " << e.what() << std::endl;
                 }
             }
-
             return valid_armors;
         }
 

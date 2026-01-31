@@ -22,28 +22,37 @@
         } \
     } while (0)
 namespace armor_cuda_infer {
-__global__ void
-nchw_float_to_hwc_uchar4(const float* __restrict__ src, uchar4* __restrict__ dst, int W, int H) {
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
+__global__ void nchw_float_to_hwc_uchar4(
+    const float* __restrict__ src,
+    uchar4* __restrict__ dst,
+    int W,
+    int H,
+    float norm
+) {
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
     if (x >= W || y >= H)
         return;
 
-    int idx = y * W + x;
-    int plane = W * H;
+    const int idx = y * W + x;
+    const int plane = W * H;
 
     float r = __ldg(src + idx + plane * 0);
     float g = __ldg(src + idx + plane * 1);
     float b = __ldg(src + idx + plane * 2);
 
+    r = fminf(fmaxf(r / norm, 0.f), 255.f);
+    g = fminf(fmaxf(g / norm, 0.f), 255.f);
+    b = fminf(fmaxf(b / norm, 0.f), 255.f);
+
     dst[idx] = make_uchar4((unsigned char)b, (unsigned char)g, (unsigned char)r, 255);
 }
 
-cv::Mat CudaInfer::tensorToMat(float* d_nchw, int W, int H, cudaStream_t stream) {
+cv::Mat CudaInfer::tensorToMat(float* d_nchw, int W, int H, float norm, cudaStream_t stream) const {
     static uchar4* d_hwc = nullptr;
     static size_t cap = 0;
 
-    size_t need = W * H * sizeof(uchar4);
+    const size_t need = W * H * sizeof(uchar4);
     if (cap < need) {
         if (d_hwc)
             cudaFree(d_hwc);
@@ -51,16 +60,16 @@ cv::Mat CudaInfer::tensorToMat(float* d_nchw, int W, int H, cudaStream_t stream)
         cap = need;
     }
 
-    dim3 block(TILE_W, TILE_H);
-    dim3 grid((W + block.x - 1) / block.x, (H + block.y - 1) / block.y);
+    const dim3 block(TILE_W, TILE_H);
+    const dim3 grid((W + block.x - 1) / block.x, (H + block.y - 1) / block.y);
 
-    nchw_float_to_hwc_uchar4<<<grid, block, 0, stream>>>(d_nchw, d_hwc, W, H);
+    nchw_float_to_hwc_uchar4<<<grid, block, 0, stream>>>(d_nchw, d_hwc, W, H, norm);
 
     cv::Mat img(H, W, CV_8UC4);
 
     cudaMemcpyAsync(img.data, d_hwc, need, cudaMemcpyDeviceToHost, stream);
 
-    cudaStreamSynchronize(stream);
+    // cudaStreamSynchronize(stream);
     return img;
 }
 
@@ -112,6 +121,8 @@ float* CudaInfer::preprocess(
     const unsigned char* input_bgr_host,
     int img_w,
     int img_h,
+    float norm,
+    bool swap_rb,
     Eigen::Matrix3f& tf_matrix,
     cudaStream_t stream
 ) {
@@ -147,7 +158,9 @@ float* CudaInfer::preprocess(
         input_h_,
         scale,
         pad_t,
-        pad_l
+        pad_l,
+        norm,
+        swap_rb
     );
 
     CUDA_CHECK(cudaGetLastError());
@@ -157,6 +170,8 @@ float* CudaInfer::preprocess_gpu(
     const unsigned char* input_bgr_device,
     int img_w,
     int img_h,
+    float norm,
+    bool swap_rb,
     Eigen::Matrix3f& tf_matrix,
     cudaStream_t stream
 ) {
@@ -189,7 +204,9 @@ float* CudaInfer::preprocess_gpu(
         input_h_,
         scale,
         pad_t,
-        pad_l
+        pad_l,
+        norm,
+        swap_rb
     );
 
     CUDA_CHECK(cudaGetLastError());
@@ -200,6 +217,8 @@ float* CudaInfer::preprocess_pitched(
     int img_w,
     int img_h,
     int host_step,
+    float norm,
+    bool swap_rb,
     Eigen::Matrix3f& tf_matrix,
     cudaStream_t stream
 ) {
@@ -228,7 +247,6 @@ float* CudaInfer::preprocess_pitched(
         cudaMemcpyHostToDevice,
         stream
     ));
-
     dim3 threads(TILE_W, TILE_H);
     dim3 blocks((input_w_ + TILE_W - 1) / TILE_W, (input_h_ + TILE_H - 1) / TILE_H);
 
@@ -242,7 +260,9 @@ float* CudaInfer::preprocess_pitched(
         input_h_,
         scale,
         pad_t,
-        pad_l
+        pad_l,
+        norm,
+        swap_rb
     );
 
     CUDA_CHECK(cudaGetLastError());
@@ -253,6 +273,8 @@ float* CudaInfer::preprocess_pitched_gpu(
     int img_w,
     int img_h,
     int input_step,
+    float norm,
+    bool swap_rb,
     Eigen::Matrix3f& tf_matrix,
     cudaStream_t stream
 ) {
@@ -288,7 +310,9 @@ float* CudaInfer::preprocess_pitched_gpu(
         input_h_,
         scale,
         pad_t,
-        pad_l
+        pad_l,
+        norm,
+        swap_rb
     );
 
     CUDA_CHECK(cudaGetLastError());

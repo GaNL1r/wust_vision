@@ -22,34 +22,9 @@ __global__ void letterbox_kernel_shared(
     int out_h,
     float scale,
     int pad_t,
-    int pad_l
-);
-cudaTextureObject_t createTextureObject(float4* d_img, int width, int height);
-__global__ void letterbox_kernel_texture(
-    float* __restrict__ output_nchw,
-    int out_w,
-    int out_h,
-    float scale,
-    int pad_t,
     int pad_l,
-    cudaTextureObject_t texture
-);
-__global__ void convertBGRUcharToFloat4Kernel(
-    const unsigned char* __restrict__ input_bgr,
-    float4* __restrict__ output_float4,
-    int width,
-    int height
-);
-__global__ void letterbox_kernel_uchar_textureless(
-    const uchar* __restrict__ input_bgr,
-    float* __restrict__ output_nchw,
-    int in_w,
-    int in_h,
-    int out_w,
-    int out_h,
-    float scale,
-    int pad_t,
-    int pad_l
+    float norm,
+    bool swap_rb
 );
 extern "C" __global__ void letterbox_kernel_pitched(
     const unsigned char* __restrict__ d_input_bgr,
@@ -61,5 +36,7 @@ extern "C" __global__ void letterbox_kernel_pitched(
     int OUT_H,
     float scale,
     int pad_t,
-    int pad_l
+    int pad_l,
+    float norm,
+    bool swap_rb
 );

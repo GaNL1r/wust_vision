@@ -286,20 +286,20 @@ namespace auto_aim {
                 self->heartbeat();
                 printStats();
                 Armors armors;
-                bool skip;
-                if (armor_queue_->dequeue_wait(armors, skip)) {
+                // bool skip;
+                // if (armor_queue_->dequeue_wait(armors, skip)) {
+                //     armorsCallback(armors);
+                //     tracker_finish_count_++;
+                //     if (skip) {
+                //         WUST_DEBUG(logger_) << "OrderQueue skip";
+                //     }
+                // }
+                if (armor_queue_->try_dequeue(armors)) {
                     armorsCallback(armors);
                     tracker_finish_count_++;
-                    if (skip) {
-                        WUST_DEBUG(logger_) << "OrderQueue skip";
-                    }
+                } else {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 }
-                // if (!armor_queue_->try_dequeue(armors)) {
-                //     std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                //     continue;
-                // }
-                // armorsCallback(armors);
-                // tracker_finish_count_++;
             }
         }
         void setDebug(bool debug) {

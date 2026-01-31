@@ -50,13 +50,14 @@ namespace auto_aim {
                 armor_infer_->inputW(),
                 armor_infer_->inputH()
             );
-            float scale = armor_infer_->useNorm() ? 1.0f / 255.0f : 1.0f;
+            const bool swap_rb = armor_infer_->useBgr();
+            const float scale = armor_infer_->useNorm() ? 1.0f / 255.0f : 1.0f;
             cv::Mat blob = cv::dnn::blobFromImage(
                 resized_img,
                 scale,
                 cv::Size(armor_infer_->inputW(), armor_infer_->inputH()),
                 cv::Scalar(0, 0, 0),
-                true
+                swap_rb
             );
 
             auto output_data = onnxruntime_net_->infer(blob.ptr<float>(), blob.total());

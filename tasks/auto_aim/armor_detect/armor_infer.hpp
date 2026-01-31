@@ -6,7 +6,7 @@ namespace wust_vision::auto_aim::armor_infer {
 static constexpr float MERGE_CONF_ERROR = 0.15f;
 static constexpr float MERGE_MIN_IOU = 0.9f;
 
-enum class Mode { TUP, RP, AT };
+enum class Mode { TUP, RP, AT, AT2 };
 
 inline Mode modeFromString(const std::string& m) {
     if (m == "tup" || m == "TUP")
@@ -15,6 +15,8 @@ inline Mode modeFromString(const std::string& m) {
         return Mode::RP;
     if (m == "at" || m == "AT")
         return Mode::AT;
+    if (m == "at2" || m == "AT2")
+        return Mode::AT2;
     return Mode::TUP;
 }
 
@@ -29,6 +31,7 @@ struct ModelTraits<Mode::TUP> {
     static constexpr int NUM_CLASSES = 8;
     static constexpr int NUM_COLORS = 4;
     static constexpr bool USE_NORM = false;
+    static constexpr bool USE_BGR = true;
 };
 
 // RP
@@ -39,6 +42,7 @@ struct ModelTraits<Mode::RP> {
     static constexpr int NUM_CLASSES = 9;
     static constexpr int NUM_COLORS = 4;
     static constexpr bool USE_NORM = true;
+    static constexpr bool USE_BGR = true;
 };
 
 // AT
@@ -50,6 +54,49 @@ struct ModelTraits<Mode::AT> {
     static constexpr int NUM_COLORS = 4;
     static constexpr int NUM_KPTS = 4;
     static constexpr bool USE_NORM = true;
+    static constexpr bool USE_BGR = false;
+};
+template<>
+struct ModelTraits<Mode::AT2> {
+    static constexpr int INPUT_W = 640;
+    static constexpr int INPUT_H = 640;
+    static constexpr int NUM_KPTS = 4;
+    static constexpr bool USE_NORM = true;
+    static constexpr bool USE_BGR = false;
+    static constexpr std::array<std::pair<ArmorColor, ArmorNumber>, 64> CLASSES = { {
+        { ArmorColor::BLUE, ArmorNumber::SENTRY },    { ArmorColor::BLUE, ArmorNumber::NO1 },
+        { ArmorColor::BLUE, ArmorNumber::NO2 },       { ArmorColor::BLUE, ArmorNumber::NO3 },
+        { ArmorColor::BLUE, ArmorNumber::NO4 },       { ArmorColor::BLUE, ArmorNumber::NO5 },
+        { ArmorColor::BLUE, ArmorNumber::OUTPOST },   { ArmorColor::BLUE, ArmorNumber::BASE },
+        { ArmorColor::BLUE, ArmorNumber::SENTRY },    { ArmorColor::BLUE, ArmorNumber::NO1 },
+        { ArmorColor::BLUE, ArmorNumber::NO2 },       { ArmorColor::BLUE, ArmorNumber::NO3 },
+        { ArmorColor::BLUE, ArmorNumber::NO4 },       { ArmorColor::BLUE, ArmorNumber::NO5 },
+        { ArmorColor::BLUE, ArmorNumber::OUTPOST },   { ArmorColor::BLUE, ArmorNumber::BASE },
+        { ArmorColor::RED, ArmorNumber::SENTRY },     { ArmorColor::RED, ArmorNumber::NO1 },
+        { ArmorColor::RED, ArmorNumber::NO2 },        { ArmorColor::RED, ArmorNumber::NO3 },
+        { ArmorColor::RED, ArmorNumber::NO4 },        { ArmorColor::RED, ArmorNumber::NO5 },
+        { ArmorColor::RED, ArmorNumber::OUTPOST },    { ArmorColor::RED, ArmorNumber::BASE },
+        { ArmorColor::RED, ArmorNumber::SENTRY },     { ArmorColor::RED, ArmorNumber::NO1 },
+        { ArmorColor::RED, ArmorNumber::NO2 },        { ArmorColor::RED, ArmorNumber::NO3 },
+        { ArmorColor::RED, ArmorNumber::NO4 },        { ArmorColor::RED, ArmorNumber::NO5 },
+        { ArmorColor::RED, ArmorNumber::OUTPOST },    { ArmorColor::RED, ArmorNumber::BASE },
+        { ArmorColor::NONE, ArmorNumber::SENTRY },    { ArmorColor::NONE, ArmorNumber::NO1 },
+        { ArmorColor::NONE, ArmorNumber::NO2 },       { ArmorColor::NONE, ArmorNumber::NO3 },
+        { ArmorColor::NONE, ArmorNumber::NO4 },       { ArmorColor::NONE, ArmorNumber::NO5 },
+        { ArmorColor::NONE, ArmorNumber::OUTPOST },   { ArmorColor::NONE, ArmorNumber::BASE },
+        { ArmorColor::NONE, ArmorNumber::SENTRY },    { ArmorColor::NONE, ArmorNumber::NO1 },
+        { ArmorColor::NONE, ArmorNumber::NO2 },       { ArmorColor::NONE, ArmorNumber::NO3 },
+        { ArmorColor::NONE, ArmorNumber::NO4 },       { ArmorColor::NONE, ArmorNumber::NO5 },
+        { ArmorColor::NONE, ArmorNumber::OUTPOST },   { ArmorColor::NONE, ArmorNumber::BASE },
+        { ArmorColor::PURPLE, ArmorNumber::SENTRY },  { ArmorColor::PURPLE, ArmorNumber::NO1 },
+        { ArmorColor::PURPLE, ArmorNumber::NO2 },     { ArmorColor::PURPLE, ArmorNumber::NO3 },
+        { ArmorColor::PURPLE, ArmorNumber::NO4 },     { ArmorColor::PURPLE, ArmorNumber::NO5 },
+        { ArmorColor::PURPLE, ArmorNumber::OUTPOST }, { ArmorColor::PURPLE, ArmorNumber::BASE },
+        { ArmorColor::PURPLE, ArmorNumber::SENTRY },  { ArmorColor::PURPLE, ArmorNumber::NO1 },
+        { ArmorColor::PURPLE, ArmorNumber::NO2 },     { ArmorColor::PURPLE, ArmorNumber::NO3 },
+        { ArmorColor::PURPLE, ArmorNumber::NO4 },     { ArmorColor::PURPLE, ArmorNumber::NO5 },
+        { ArmorColor::PURPLE, ArmorNumber::OUTPOST }, { ArmorColor::PURPLE, ArmorNumber::BASE },
+    } };
 };
 
 [[nodiscard]] inline double sigmoid(double x) noexcept {
@@ -157,18 +204,27 @@ public:
                 input_w_ = ModelTraits<Mode::TUP>::INPUT_W;
                 input_h_ = ModelTraits<Mode::TUP>::INPUT_H;
                 use_norm_ = ModelTraits<Mode::TUP>::USE_NORM;
+                use_bgr_ = ModelTraits<Mode::TUP>::USE_BGR;
                 break;
             }
             case Mode::RP: {
                 input_w_ = ModelTraits<Mode::RP>::INPUT_W;
                 input_h_ = ModelTraits<Mode::RP>::INPUT_H;
                 use_norm_ = ModelTraits<Mode::RP>::USE_NORM;
+                use_bgr_ = ModelTraits<Mode::RP>::USE_BGR;
                 break;
             }
             case Mode::AT: {
                 input_w_ = ModelTraits<Mode::AT>::INPUT_W;
                 input_h_ = ModelTraits<Mode::AT>::INPUT_H;
                 use_norm_ = ModelTraits<Mode::AT>::USE_NORM;
+                use_bgr_ = ModelTraits<Mode::AT>::USE_BGR;
+            }
+            case Mode::AT2: {
+                input_w_ = ModelTraits<Mode::AT2>::INPUT_W;
+                input_h_ = ModelTraits<Mode::AT2>::INPUT_H;
+                use_norm_ = ModelTraits<Mode::AT2>::USE_NORM;
+                use_bgr_ = ModelTraits<Mode::AT2>::USE_BGR;
             }
 
             break;
@@ -194,6 +250,9 @@ public:
     bool useNorm() const noexcept {
         return use_norm_;
     }
+    bool useBgr() const noexcept {
+        return use_bgr_;
+    }
 
     // main dispatching entry (keeps original signature)
     [[nodiscard]] std::vector<ArmorObject> postProcess(const cv::Mat& output_buffer) const {
@@ -204,6 +263,8 @@ public:
                 return postProcessRP_impl(output_buffer);
             case Mode::AT:
                 return postProcessAT_impl(output_buffer);
+            case Mode::AT2:
+                return postProcessAT2_impl(output_buffer);
         }
         return {};
     }
@@ -215,6 +276,8 @@ private:
 
     std::vector<ArmorObject> postProcessAT_impl(const cv::Mat& out) const;
 
+    std::vector<ArmorObject> postProcessAT2_impl(const cv::Mat& out) const;
+
 private:
     Mode mode_;
     int input_w_ { 0 };
@@ -223,6 +286,7 @@ private:
     float nms_threshold_ { 0.45f };
     int top_k_ { 100 };
     bool use_norm_ { false };
+    bool use_bgr_ { false };
 };
 
 } // namespace wust_vision::auto_aim::armor_infer

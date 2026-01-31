@@ -46,12 +46,21 @@ namespace auto_aim {
                     .set_layout("NHWC")
                     .set_color_format(ov::preprocess::ColorFormat::BGR);
 
-                float scale = armor_infer_->useNorm() ? 255.0f : 1.0f;
-                ppp.input()
-                    .preprocess()
-                    .convert_element_type(ov::element::f32)
-                    .convert_color(ov::preprocess::ColorFormat::RGB)
-                    .scale({ scale });
+                const bool swap_rb = armor_infer_->useBgr();
+                const float scale = armor_infer_->useNorm() ? 1.0f / 255.0f : 1.0f;
+                if (swap_rb) {
+                    ppp.input()
+                        .preprocess()
+                        .convert_element_type(ov::element::f32)
+                        .convert_color(ov::preprocess::ColorFormat::RGB)
+                        .scale({ scale });
+                } else {
+                    ppp.input()
+                        .preprocess()
+                        .convert_element_type(ov::element::f32)
+                        .convert_color(ov::preprocess::ColorFormat::BGR)
+                        .scale({ scale });
+                }
 
                 ppp.input().model().set_layout("NCHW");
 

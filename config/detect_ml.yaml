@@ -12,7 +12,7 @@ armor_detector:
     backend: opencv
     threshold: 0.5
   light:
-    binary_thres: 80
+    binary_thres: 150
     expand_ratio_h: 1.9
     expand_ratio_w: 1.2
     max_angle: 45
@@ -34,7 +34,7 @@ armor_detector:
     model_type: tup
   openvino:
     conf_threshold: 0.2
-    device_name: GPU
+    device_name: AUTO
     model_path: ${VISION_ROOT}/model/opt-1208-001.onnx
     nms_threshold: 0.3
     top_k: 128
@@ -42,10 +42,10 @@ armor_detector:
     model_type: tup
   onnxruntime:
     conf_threshold: 0.2
-    model_path: ${VISION_ROOT}/model/opt-1208-001.onnx
+    model_path: ${VISION_ROOT}/model/best_fp16.onnx
     nms_threshold: 0.3
     top_k: 128
-    model_type: tup
+    model_type: at2
     provider: CUDA
   ncnn:
     conf_threshold: 0.2
@@ -56,7 +56,7 @@ armor_detector:
     use_gpu: true
     use_lightmode: false
     device_id: 0
-    cpu_threads: 1
+    cpu_threads: 20
     nms_threshold: 0.3
     top_k: 128
     model_type: tup

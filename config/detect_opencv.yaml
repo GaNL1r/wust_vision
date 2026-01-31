@@ -1,6 +1,6 @@
 armor_detector:
   light:
-    binary_thres: 70
+    binary_thres: 120
     max_angle: 40
     max_ratio: 0.4
     min_ratio: 0.001

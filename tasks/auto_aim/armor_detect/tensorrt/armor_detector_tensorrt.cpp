@@ -144,28 +144,9 @@ namespace auto_aim {
 
             pool_params.release_func = release_func;
 
-            pool_params.can_restore = [=](size_t active_count) {
-                // size_t free_mem = 0, total_mem = 0;
-                // cudaMemGetInfo(&free_mem, &total_mem);
+            pool_params.can_restore = [=](size_t active_count) { return false; };
 
-                // double free_ratio = static_cast<double>(free_mem) / total_mem;
-                // size_t used_mem = total_mem - free_mem;
-                // size_t avg_used_per_resource = active_count > 0 ? used_mem / active_count : 1;
-                // size_t safe_margin = avg_used_per_resource;
-
-                // bool enough_for_one_more = free_mem > (avg_used_per_resource + safe_margin);
-
-                // return free_ratio > params_.min_free_mem_ratio * 1.2 && enough_for_one_more;
-                return false;
-            };
-
-            pool_params.should_release = [=](size_t active_count) {
-                // size_t free_mem = 0, total_mem = 0;
-                // cudaMemGetInfo(&free_mem, &total_mem);
-                // double free_ratio = static_cast<double>(free_mem) / total_mem;
-                // return free_ratio < params_.min_free_mem_ratio && active_count > 1;
-                return false;
-            };
+            pool_params.should_release = [=](size_t active_count) { return false; };
 
             pool_params.logger = [](const std::string& msg) {
                 WUST_INFO("ArmorDetectorTrt:infer pool") << msg;
@@ -201,6 +182,8 @@ namespace auto_aim {
             const cv::Mat roi = frame.src_img(frame.expanded);
 
             cv::Mat resized_img;
+            const float scale = armor_infer_->useNorm() ? 1.0f / 255.0f : 1.0f;
+            const bool swap_rb = armor_infer_->useBgr();
             if (infer->cuda_infer && use_cuda_pre_) {
                 input_tensor_ptr =
                     infer->cuda_infer
@@ -209,20 +192,16 @@ namespace auto_aim {
                             roi.cols,
                             roi.rows,
                             roi.step,
+                            scale,
+                            swap_rb,
                             transform_matrix,
                             trt_net_->getStream()
                         );
-                if (input_tensor_ptr == nullptr) {
-                    std::cerr << "[ERROR] Failed to preprocess image" << std::endl;
-                    if (this->infer_callback_) {
-                        this->infer_callback_(armors, frame);
-                        return;
-                    }
-                }
                 resized_img = infer->cuda_infer->tensorToMat( //nchw_float_to_hwc_uchar
                     static_cast<float*>(input_tensor_ptr),
                     armor_infer_->inputW(),
                     armor_infer_->inputH(),
+                    scale,
                     trt_net_->getStream()
                 );
             } else {
@@ -232,13 +211,12 @@ namespace auto_aim {
                     armor_infer_->inputW(),
                     armor_infer_->inputH()
                 );
-                const float scale = armor_infer_->useNorm() ? 1.0f / 255.0f : 1.0f;
                 const cv::Mat blob = cv::dnn::blobFromImage(
                     resized_img,
                     scale,
                     cv::Size(armor_infer_->inputW(), armor_infer_->inputH()),
                     cv::Scalar(0, 0, 0),
-                    true
+                    swap_rb
                 );
                 trt_net_->input2Device(blob.ptr<float>());
                 input_tensor_ptr = trt_net_->getInputTensorPtr();
@@ -250,6 +228,7 @@ namespace auto_aim {
             const auto t2 = wust_vl::common::utils::time_utils::now();
             const cv::Mat
                 output_mat(output_dims_.d[1], output_dims_.d[2], CV_32F, trt_net_->output2Host());
+            cudaStreamSynchronize(trt_net_->getStream());
             objs_result = armor_infer_->postProcess(output_mat);
             const auto t3 = wust_vl::common::utils::time_utils::now();
             if (log_time_) {
