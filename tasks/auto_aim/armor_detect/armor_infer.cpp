@@ -63,7 +63,7 @@ std::vector<ArmorObject> ArmorInfer::postProcessTUP_impl(const cv::Mat& out) con
         obj.box = cv::boundingRect(obj.pts);
         obj.color = static_cast<ArmorColor>(color_id.x);
         obj.number = static_cast<ArmorNumber>(class_id.x);
-        obj.prob = confidence;
+        obj.confidence = confidence;
         out_objs.push_back(std::move(obj));
     }
     return topKAndNms(out_objs, top_k_, nms_threshold_);
@@ -103,7 +103,7 @@ std::vector<ArmorObject> ArmorInfer::postProcessRP_impl(const cv::Mat& out) cons
         obj.color = static_cast<ArmorColor>(color_id.x);
 
         obj.number = static_cast<ArmorNumber>(class_id.x);
-        obj.prob = confidence;
+        obj.confidence = confidence;
         out_objs.push_back(std::move(obj));
     }
 
@@ -133,7 +133,7 @@ std::vector<ArmorObject> ArmorInfer::postProcessAT_impl(const cv::Mat& out) cons
             continue;
 
         ArmorObject obj;
-        obj.prob = conf;
+        obj.confidence = conf;
         auto color_num = ModelTraits<Mode::AT>::CLASSES[cls];
         obj.color = color_num.first;
         obj.number = color_num.second;

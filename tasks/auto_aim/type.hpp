@@ -45,7 +45,6 @@ namespace auto_aim {
     struct ArmorObject {
         ArmorColor color;
         ArmorNumber number;
-        float prob;
         std::vector<cv::Point2f> pts;
         cv::Rect box;
 
@@ -105,7 +104,6 @@ namespace auto_aim {
             number(),
             new_x(),
             new_y(),
-            prob(),
             pts() {}
     };
 

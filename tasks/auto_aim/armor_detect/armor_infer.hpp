@@ -43,7 +43,6 @@ struct ModelTraits<Mode::RP> {
     static constexpr bool INPUT_RGB = false;
 };
 
-
 template<>
 struct ModelTraits<Mode::AT> {
     static constexpr int INPUT_W = 640;
@@ -121,7 +120,7 @@ inline void nms_merge_sorted_bboxes(
             if (std::isnan(iou) || iou > nms_threshold) {
                 keep = false;
                 if (a.number == b.number && a.color == b.color && iou > MERGE_MIN_IOU
-                    && std::abs(a.prob - b.prob) < MERGE_CONF_ERROR)
+                    && std::abs(a.confidence - b.confidence) < MERGE_CONF_ERROR)
                 {
                     // accumulate points for later averaging
                     for (const auto& pt: a.pts)
@@ -138,7 +137,7 @@ inline void nms_merge_sorted_bboxes(
 inline std::vector<ArmorObject>
 topKAndNms(std::vector<ArmorObject>& objs, int top_k, float nms_threshold) {
     std::sort(objs.begin(), objs.end(), [](const ArmorObject& a, const ArmorObject& b) {
-        return a.prob > b.prob;
+        return a.confidence > b.confidence;
     });
     if (static_cast<int>(objs.size()) > top_k)
         objs.resize(static_cast<size_t>(top_k));
@@ -245,7 +244,6 @@ public:
                 return postProcessRP_impl(output_buffer);
             case Mode::AT:
                 return postProcessAT_impl(output_buffer);
-
         }
         return {};
     }
@@ -256,7 +254,6 @@ private:
     std::vector<ArmorObject> postProcessRP_impl(const cv::Mat& out) const;
 
     std::vector<ArmorObject> postProcessAT_impl(const cv::Mat& out) const;
-
 
 private:
     Mode mode_;

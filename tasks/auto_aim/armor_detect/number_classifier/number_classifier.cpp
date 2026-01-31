@@ -76,7 +76,7 @@ namespace auto_aim {
         }
 
         const cv::Mat image = armor.number_img / 255.0;
-        
+
         cv::Mat blob;
         cv::dnn::blobFromImage(image, blob);
 

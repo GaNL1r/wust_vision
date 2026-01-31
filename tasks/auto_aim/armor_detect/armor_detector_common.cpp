@@ -95,62 +95,71 @@ namespace auto_aim {
             }
 
             armor.whole_gray_img = litroi_gray;
-
-            cv::Mat litroi_binary;
-            try {
-                cv::threshold(
-                    litroi_gray,
-                    litroi_binary,
-                    params_.light_params.binary_thres,
-                    255,
-                    cv::THRESH_BINARY
-                );
-            } catch (...) {
-                return false;
+            if (params_.enable_cv) {
+                cv::Mat litroi_binary;
+                try {
+                    cv::threshold(
+                        litroi_gray,
+                        litroi_binary,
+                        params_.light_params.binary_thres,
+                        255,
+                        cv::THRESH_BINARY
+                    );
+                    armor.whole_binary_img = litroi_binary;
+                } catch (...) {
+                    return false;
+                }
             }
-            const cv::Point2f offset(static_cast<float>(new_x), static_cast<float>(new_y));
+            if (params_.enable_classify) {
+                const cv::Point2f offset(static_cast<float>(new_x), static_cast<float>(new_y));
 
-            cv::Point2f src_vertices[4] = { armor.pts[1] - offset,
-                                            armor.pts[0] - offset,
-                                            armor.pts[3] - offset,
-                                            armor.pts[2] - offset };
+                cv::Point2f src_vertices[4] = { armor.pts[1] - offset,
+                                                armor.pts[0] - offset,
+                                                armor.pts[3] - offset,
+                                                armor.pts[2] - offset };
 
-            const int warp_width = is_large ? large_armor_width : small_armor_width;
-            const int top_light_y = (warp_height - light_length) / 2 - 1;
-            const int bottom_light_y = top_light_y + light_length;
-            if (warp_width <= 0 || warp_height <= 0)
-                return false;
-            cv::Point2f dst_vertices[4] = {
-                { 0.f, static_cast<float>(bottom_light_y) },
-                { 0.f, static_cast<float>(top_light_y) },
-                { static_cast<float>(warp_width - 1), static_cast<float>(top_light_y) },
-                { static_cast<float>(warp_width - 1), static_cast<float>(bottom_light_y) }
-            };
+                const int warp_width = is_large ? large_armor_width : small_armor_width;
+                const int top_light_y = (warp_height - light_length) / 2 - 1;
+                const int bottom_light_y = top_light_y + light_length;
+                if (warp_width <= 0 || warp_height <= 0)
+                    return false;
+                cv::Point2f dst_vertices[4] = {
+                    { 0.f, static_cast<float>(bottom_light_y) },
+                    { 0.f, static_cast<float>(top_light_y) },
+                    { static_cast<float>(warp_width - 1), static_cast<float>(top_light_y) },
+                    { static_cast<float>(warp_width - 1), static_cast<float>(bottom_light_y) }
+                };
 
-            const cv::Mat warp_mat = cv::getPerspectiveTransform(src_vertices, dst_vertices);
+                const cv::Mat warp_mat = cv::getPerspectiveTransform(src_vertices, dst_vertices);
 
-            cv::Mat number_image;
-            cv::warpPerspective(
-                litroi_gray,
-                number_image,
-                warp_mat,
-                cv::Size(warp_width, warp_height),
-                cv::INTER_LINEAR,
-                cv::BORDER_CONSTANT,
-                0
-            );
+                cv::Mat number_image;
+                cv::warpPerspective(
+                    litroi_gray,
+                    number_image,
+                    warp_mat,
+                    cv::Size(warp_width, warp_height),
+                    cv::INTER_LINEAR,
+                    cv::BORDER_CONSTANT,
+                    0
+                );
 
-            const int roi_x = (warp_width - roi_size.width) >> 1;
-            const cv::Rect num_roi(roi_x, 0, roi_size.width, roi_size.height);
+                const int roi_x = (warp_width - roi_size.width) >> 1;
+                const cv::Rect num_roi(roi_x, 0, roi_size.width, roi_size.height);
 
-            if ((num_roi & cv::Rect(0, 0, warp_width, warp_height)) != num_roi)
-                return false;
+                if ((num_roi & cv::Rect(0, 0, warp_width, warp_height)) != num_roi)
+                    return false;
 
-            cv::Mat num_crop = number_image(num_roi);
+                cv::Mat num_crop = number_image(num_roi);
 
-            cv::threshold(num_crop, armor.number_img, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+                cv::threshold(
+                    num_crop,
+                    armor.number_img,
+                    0,
+                    255,
+                    cv::THRESH_BINARY | cv::THRESH_OTSU
+                );
+            }
 
-            armor.whole_binary_img = litroi_binary;
             armor.whole_rgb_img = litroi_color;
             armor.new_x = new_x;
             armor.new_y = new_y;
@@ -354,45 +363,51 @@ namespace auto_aim {
                 {
                     continue;
                 }
+                if (params_.enable_classify || params_.enable_cv) {
+                    bool ok = false;
 
-                bool ok = false;
+                    ok = extractNetImage(src_img, armor);
 
-                ok = extractNetImage(src_img, armor);
+                    if (!ok)
+                        continue;
+                }
 
-                if (!ok)
-                    continue;
-                number_classifier_->classifyNumber(armor);
+                if (params_.enable_classify) {
+                    number_classifier_->classifyNumber(armor);
+                    if (armor.confidence < params_.classifier_threshold)
+                        continue;
+                }
 
                 if (target_number.has_value()) {
                     if (!isSameTarget(target_number.value(), armor.number)) {
                         continue;
                     }
                 }
-                if (armor.confidence < params_.classifier_threshold)
-                    continue;
+
                 if (armor.color == ArmorColor::NONE || armor.color == ArmorColor::PURPLE) {
                     armor.is_ok = false;
                     armor.transform(transform_matrix);
                     armors.emplace_back(armor);
                     continue;
                 }
+                if (params_.enable_cv) {
+                    findLights(armor.whole_rgb_img, armor.whole_binary_img, armor);
 
-                findLights(armor.whole_rgb_img, armor.whole_binary_img, armor);
-
-                if (refineLightsFromArmorPts(armor)) {
-                    if (isArmor(armor.lights[0], armor.lights[1])) {
-                        armor.is_ok = true;
-                        corner_corrector_->correctCorners(armor, armor.whole_gray_img);
-                        for (auto& light: armor.lights) {
-                            const cv::Point2f offset { static_cast<float>(armor.new_x),
-                                                       static_cast<float>(armor.new_y) };
-                            light.addOffset(offset);
+                    if (refineLightsFromArmorPts(armor)) {
+                        if (isArmor(armor.lights[0], armor.lights[1])) {
+                            armor.is_ok = true;
+                            corner_corrector_->correctCorners(armor, armor.whole_gray_img);
+                            for (auto& light: armor.lights) {
+                                const cv::Point2f offset { static_cast<float>(armor.new_x),
+                                                           static_cast<float>(armor.new_y) };
+                                light.addOffset(offset);
+                            }
                         }
                     }
-                }
 
-                if (armor.is_ok) {
-                    armor.is_ok = armor.checkOkptsRight(params_.max_pts_error);
+                    if (armor.is_ok) {
+                        armor.is_ok = armor.checkOkptsRight(params_.max_pts_error);
+                    }
                 }
 
                 if (!armor.is_ok) {
@@ -426,12 +441,16 @@ namespace auto_aim {
             float expand_ratio_w = 1.1f;
             float expand_ratio_h = 1.1f;
             double max_pts_error = 20.0;
+            bool enable_cv = false;
+            bool enable_classify = true;
             void load(const YAML::Node& config) {
-                expand_ratio_w = config["light"]["expand_ratio_w"].as<float>(1.1);
-                expand_ratio_h = config["light"]["expand_ratio_h"].as<float>(1.1);
-                max_pts_error = config["light"]["max_pts_error"].as<double>(20.0);
-                light_params.load(config["light"]);
-                armor_params.load(config["armor"]);
+                expand_ratio_w = config["cv"]["light"]["expand_ratio_w"].as<float>(1.1);
+                expand_ratio_h = config["cv"]["light"]["expand_ratio_h"].as<float>(1.1);
+                max_pts_error = config["cv"]["light"]["max_pts_error"].as<double>(20.0);
+                enable_cv = config["cv"]["enable"].as<bool>();
+                light_params.load(config["cv"]["light"]);
+                armor_params.load(config["cv"]["armor"]);
+                enable_classify = config["classify"]["enable"].as<bool>();
                 classify_model_path =
                     utils::expandEnv(config["classify"]["model_path"].as<std::string>());
                 classify_label_path =
