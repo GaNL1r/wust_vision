@@ -26,4 +26,7 @@ __pycache__
 
 
 bin
-model/at*
+model/at2.onnx
+model/at.onnx
+model/at2.engine
+model/at.engine
