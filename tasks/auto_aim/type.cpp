@@ -248,14 +248,15 @@ namespace auto_aim {
             const std::vector<std::pair<IDType, IDType>> pairs = { { 0, 3 },
                                                                    { 1, 2 },
                                                                    { 0, 2 },
-                                                                   { 1, 3 } };
+                                                                //    { 1, 3 } 
+                                                                };
             return pairs;
         } else {
             const std::vector<std::pair<IDType, IDType>> pairs = { { 0, 5 },
                                                                    { 1, 4 },
                                                                    { 2, 3 },
-                                                                   { 0, 3 },
-                                                                   { 2, 5 }
+                                                                //    { 0, 3 },
+                                                                //    { 2, 5 }
 
             };
             return pairs;

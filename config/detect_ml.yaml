@@ -1,5 +1,5 @@
 armor_detector:
-  cv:
+  cv: #装甲板灯条完整无损坏才可以用
     enable: true
     armor:
       max_angle: 40

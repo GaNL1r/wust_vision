@@ -109,7 +109,7 @@ if [[ "$1" == "build" || "$1" == "rebuild" || "$1" == "run" ]]; then
                 fi
             done
 
-            # GUARD_SCRIPT="$CONFIG_DIR/guard.sh"
+            GUARD_SCRIPT="$CONFIG_DIR/guard.sh"
             TARGET_PATH="$RUN_PROGRAM"
 
             if [ ! -f "$GUARD_SCRIPT" ]; then
