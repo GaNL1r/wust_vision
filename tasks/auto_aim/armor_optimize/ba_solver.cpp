@@ -17,7 +17,6 @@
 
 #include "ba_solver.hpp"
 #include <ceres/autodiff_cost_function.h>
-#include <ceres/local_parameterization.h>
 #include <ceres/loss_function.h>
 #include <ceres/problem.h>
 #include <ceres/solver.h>
@@ -244,7 +243,6 @@ namespace auto_aim {
                 cam(R_camera_imu, armor_pitch, roll, t_camera_armor, K, dist_eigen_);
 
             ceres::Problem problem;
-            problem.AddParameterBlock(&yaw, 1, new YawLocalParameterization());
 
             // for (size_t i = 0; i < object_points.size(); ++i) {
             //     ceres::CostFunction* cost =
@@ -372,23 +370,6 @@ namespace auto_aim {
 
             return d;
         }
-        class YawLocalParameterization: public ceres::LocalParameterization {
-        public:
-            bool Plus(const double* x, const double* delta, double* x_plus_delta) const override {
-                x_plus_delta[0] = x[0] + delta[0];
-                return true;
-            }
-            bool ComputeJacobian(const double* x, double* jacobian) const override {
-                jacobian[0] = 1.0;
-                return true;
-            }
-            int GlobalSize() const override {
-                return 1;
-            }
-            int LocalSize() const override {
-                return 1;
-            }
-        };
 
         struct CameraProjector {
             EIGEN_MAKE_ALIGNED_OPERATOR_NEW

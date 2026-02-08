@@ -245,18 +245,20 @@ namespace auto_aim {
     template<typename IDType>
     std::vector<std::pair<IDType, IDType>> ArmorObject::buildSymPairs() noexcept {
         if constexpr (N_LANDMARKS == 4) {
-            const std::vector<std::pair<IDType, IDType>> pairs = { { 0, 3 },
-                                                                   { 1, 2 },
-                                                                   { 0, 2 },
-                                                                //    { 1, 3 } 
-                                                                };
+            const std::vector<std::pair<IDType, IDType>> pairs = {
+                { 0, 3 },
+                { 1, 2 },
+                { 0, 2 },
+                //    { 1, 3 }
+            };
             return pairs;
         } else {
-            const std::vector<std::pair<IDType, IDType>> pairs = { { 0, 5 },
-                                                                   { 1, 4 },
-                                                                   { 2, 3 },
-                                                                //    { 0, 3 },
-                                                                //    { 2, 5 }
+            const std::vector<std::pair<IDType, IDType>> pairs = {
+                { 0, 5 },
+                { 1, 4 },
+                { 2, 3 },
+                //    { 0, 3 },
+                //    { 2, 5 }
 
             };
             return pairs;
