@@ -1,5 +1,5 @@
 #include "auto_aim.hpp"
-#include "tasks/auto_aim/armor_control/very_aimer_factory.hpp"
+#include "tasks/auto_aim/armor_control/very_aimer.hpp"
 #include "tasks/auto_aim/armor_detect/armor_pose_estimator.hpp"
 #include "tasks/auto_aim/armor_tracker/trackerv3.hpp"
 #include "tasks/config.hpp"
@@ -36,12 +36,9 @@ namespace auto_aim {
             auto config = YAML::LoadFile(config_path);
             auto_aim_config_parameter_->loadFromFile(config_path);
             auto_exposure_cfg_ = AutoExposureCfg::create();
-            very_aimer_ =
-                VeryAimerFactory::create(config["very_aimer"], auto_aim_config_parameter_);
-            auto_aim_config_parameter_->registerGroup(*very_aimer_->trajectory_compensator_config_);
+            very_aimer_ = VeryAimer::create(auto_aim_config_parameter_);
             auto_aim_config_parameter_->registerGroup(*auto_exposure_cfg_);
             auto_aim_config_parameter_->registerGroup(*auto_aim_fsm_cl_.config_);
-            auto_aim_config_parameter_->registerGroup(*very_aimer_->config_);
             tracker_ = Tracker::create(auto_aim_config_parameter_);
             auto_aim_config_parameter_->reloadFromOldPath();
 
@@ -381,7 +378,7 @@ namespace auto_aim {
         std::unique_ptr<wust_vl::common::concurrency::OrderedQueue<Armors>> armor_queue_;
         wust_vl::common::concurrency::MonitoredThread::Ptr processing_thread_;
         std::unique_ptr<wust_vl::common::utils::Timer> timer_;
-        VeryAimerBase::Ptr very_aimer_;
+        VeryAimer::Ptr very_aimer_;
         std::unique_ptr<ArmorPoseEstimator> armor_pose_estimator_;
         AutoAimFsmController auto_aim_fsm_cl_;
         AutoExposureCfg::Ptr auto_exposure_cfg_;
