@@ -98,13 +98,13 @@ namespace auto_buff {
         double q_xyz = target_config_->q_xyz_param.get();
         double q_yaw = target_config_->q_yaw_param.get();
         // clang-format off
-    //   xc   yc   zc  yaw  roll           v_roll
-    q << q_xyz,      0,        0,        0,        0,              0,            
-         0,          q_xyz,    0,        0,        0,              0,             
-         0,          0,        q_xyz,    0,        0,              0,            
-         0,          0,        0,        q_yaw,    0,              0,              
-         0,          0,        0,        0,        q_roll_roll,    q_roll_vroll,  
-         0,          0,        0,        0,        q_roll_vroll,   q_vroll_vroll;
+        //   xc   yc   zc  yaw  roll           v_roll
+        q << q_xyz,      0,        0,        0,        0,              0,            
+            0,          q_xyz,    0,        0,        0,              0,             
+            0,          0,        q_xyz,    0,        0,              0,            
+            0,          0,        0,        q_yaw,    0,              0,              
+            0,          0,        0,        0,        q_roll_roll,    q_roll_vroll,  
+            0,          0,        0,        0,        q_roll_vroll,   q_vroll_vroll;
 
         // clang-format on
         return q;
@@ -139,7 +139,7 @@ namespace auto_buff {
         auto matched = match(fans.fans);
         bool has_match = false;
         for (auto [id, fan]: matched) {
-            measurement_ = getmean(fan);
+            measurement_ = getMeasure(fan);
             update_ids.push_back(id);
             auto yu_rv2 = [this](const Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>& z) {
                 return this->computeMeasurementCovariance(z);
@@ -265,7 +265,7 @@ namespace auto_buff {
         std::vector<std::vector<double>> cost(n_obs, std::vector<double>(armors_num, max_cost + 1));
         std::vector<ypdrune_motion_model::VecZ> meas_list(n_obs);
         for (int j = 0; j < n_obs; ++j) {
-            meas_list[j] = getmean(fans[j]);
+            meas_list[j] = getMeasure(fans[j]);
         }
         for (int j = 0; j < n_obs; ++j) {
             for (int id = 0; id < armors_num; ++id) {
@@ -283,9 +283,8 @@ namespace auto_buff {
                 nu[(int)ypdrune_motion_model::Meas::ORI_ROLL] =
                     angles::normalize_angle(nu[(int)ypdrune_motion_model::Meas::ORI_ROLL]);
                 auto R = computeMeasurementCovariance(z_pred);
-                auto Rinv = R.inverse();
 
-                double d2 = (nu.transpose() * Rinv * nu)(0, 0);
+                double d2 = nu.transpose() * R.ldlt().solve(nu);
 
                 // 门控
                 if (std::isfinite(d2) && d2 < GATE) {

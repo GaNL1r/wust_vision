@@ -336,9 +336,7 @@ namespace auto_aim {
                 nu[(int)MModel::MeasureID::ORI_YAW] =
                     angles::normalize_angle(nu[(int)MModel::MeasureID::ORI_YAW]);
                 auto R = computeMeasurementCovariance(z_pred);
-                auto Rinv = R.inverse();
-
-                double d2 = (nu.transpose() * Rinv * nu)(0, 0);
+                double d2 = nu.transpose() * R.ldlt().solve(nu);
 
                 // 门控
                 if (std::isfinite(d2) && d2 < GATE) {

@@ -1,4 +1,4 @@
-#include "ba_solver.hpp"
+#include "rune_where.hpp"
 #include "tasks/utils.hpp"
 #include <Eigen/Dense>
 #include <ceres/autodiff_cost_function.h>
@@ -10,36 +10,73 @@
 
 namespace wust_vision {
 namespace auto_buff {
-    struct BaSolver::Impl {
+    struct RuneWhere::Impl {
     public:
-        Impl(const YAML::Node& config, const cv::Mat& camera_matrix) {
-            cv::cv2eigen(camera_matrix, K_);
+        Impl(const YAML::Node& config, const std::pair<cv::Mat, cv::Mat>& camera_info) {
+            cv::cv2eigen(camera_info.first, K_);
+            camera_info_ = camera_info;
         }
 
         struct Params {
-            enum class OptMode : int {
-                GOLDEN = 0,
-                CERES = 1
-
-            } mode;
+            enum class OptMode : int { GOLDEN = 0, CERES = 1, NONE = 2 } opt_mode;
             OptMode fromString(const std::string& mode) {
                 if (mode == "golden" || mode == "GOLDEN") {
                     return OptMode::GOLDEN;
                 } else if (mode == "ceres" || mode == "CERES") {
                     return OptMode::CERES;
+                } else if (mode == "none" || mode == "NONE") {
+                    return OptMode::NONE;
                 } else {
-                    return OptMode::GOLDEN;
+                    return OptMode::NONE;
                 }
             }
+
             int ceres_max_iter = 40;
             int golden_search_side_deg = 60;
             void load(const YAML::Node& node) {
-                mode = fromString(node["mode"].as<std::string>());
-                ceres_max_iter = node["ceres_max_iter"].as<int>();
-                golden_search_side_deg = node["golden_search_side_deg"].as<int>();
+                opt_mode = fromString(node["roll_opt"]["mode"].as<std::string>());
+                ceres_max_iter = node["roll_opt"]["ceres_max_iter"].as<int>();
+                golden_search_side_deg = node["roll_opt"]["golden_search_side_deg"].as<int>();
             }
         } params_;
+        auto_buff::RuneFan
+        where(auto_buff::RuneFan f, Eigen::Matrix4d T_camera_to_odom) const noexcept {
+            const Eigen::Matrix3d R_imu_cam = T_camera_to_odom.block<3, 3>(0, 0);
+            for (auto& fan: f.fans) {
+                cv::Mat rvec, tvec;
+                cv::solvePnP(
+                    fan.getObjs(),
+                    fan.landmarks(),
+                    camera_info_.first,
+                    camera_info_.second,
+                    rvec,
+                    tvec,
+                    false,
+                    cv::SOLVEPNP_IPPE //平移更稳定，（旋转这里纯靠后面优化）
+                );
+                cv::Mat R_cv;
+                cv::Rodrigues(rvec, R_cv);
+                Eigen::Matrix3d R = utils::cvToEigen(R_cv);
+                Eigen::Vector3d t = utils::cvToEigen(tvec);
+                if (params_.opt_mode != Params::OptMode::NONE) {
+                    R = solveBa_R(fan, t, R, R_imu_cam);
+                }
 
+                fan.ori = Eigen::Quaterniond(R);
+                fan.pos = t;
+                Eigen::Vector3d pos_camera = fan.pos;
+                fan.target_pos = utils::transformPosition(pos_camera, T_camera_to_odom);
+
+                const Eigen::Quaterniond
+                    q_camera(fan.ori.w(), fan.ori.x(), fan.ori.y(), fan.ori.z());
+                const Eigen::Quaterniond q_odom =
+                    utils::transformOrientation(q_camera, T_camera_to_odom);
+                fan.target_ori = q_odom;
+
+                f.is_valid = true;
+            }
+            return f;
+        }
         double reprojectionErrorRoll(
             double roll,
             const std::vector<Eigen::Vector3d>& obj,
@@ -189,7 +226,7 @@ namespace auto_buff {
                 object_points.emplace_back(p.x, p.y, p.z);
             }
             const auto& landmarks = rune_fan.landmarks();
-            if (params_.mode == Params::OptMode::CERES) {
+            if (params_.opt_mode == Params::OptMode::CERES) {
                 roll = ceresRoll(
                     roll,
                     object_points,
@@ -200,7 +237,7 @@ namespace auto_buff {
                     t_camera_armor,
                     K_
                 );
-            } else if (params_.mode == Params::OptMode::GOLDEN) {
+            } else if (params_.opt_mode == Params::OptMode::GOLDEN) {
                 roll = goldenRoll(
                     roll,
                     object_points,
@@ -227,8 +264,6 @@ namespace auto_buff {
             return R_camera_imu * R_yaw * R_roll * R_pitch;
         }
 
-    private:
-        Eigen::Matrix3d K_;
         struct RollProjectionError {
             RollProjectionError(
                 const Eigen::Vector2d& uv,
@@ -283,20 +318,17 @@ namespace auto_buff {
             const Eigen::Vector3d t_;
             const Eigen::Matrix3d K_;
         };
+        Eigen::Matrix3d K_;
+        std::pair<cv::Mat, cv::Mat> camera_info_;
     };
-    BaSolver::BaSolver(const YAML::Node& config, const cv::Mat& camera_matrix) {
-        _impl = std::make_unique<Impl>(config, camera_matrix);
+    RuneWhere::RuneWhere(const YAML::Node& config, const std::pair<cv::Mat, cv::Mat>& camera_info) {
+        _impl = std::make_unique<Impl>(config, camera_info);
     }
-    BaSolver::~BaSolver() {
+    RuneWhere::~RuneWhere() {
         _impl.reset();
     }
-    Eigen::Matrix3d BaSolver::solveBa_R(
-        const auto_buff::RuneFan::Simple& rune_fan,
-        const Eigen::Vector3d& t_camera_armor,
-        const Eigen::Matrix3d& R_camera_armor,
-        const Eigen::Matrix3d& R_imu_camera
-    ) const noexcept {
-        return _impl->solveBa_R(rune_fan, t_camera_armor, R_camera_armor, R_imu_camera);
+    auto_buff::RuneFan RuneWhere::where(auto_buff::RuneFan f, Eigen::Matrix4d T_camera_to_odom) {
+        return _impl->where(f, T_camera_to_odom);
     }
 } // namespace auto_buff
 } // namespace wust_vision

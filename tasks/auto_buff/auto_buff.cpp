@@ -1,8 +1,8 @@
 #include "auto_buff.hpp"
 #include "tasks/auto_buff/rune_control/aimer.hpp"
 #include "tasks/auto_buff/rune_detector/rune_detector.hpp"
-#include "tasks/auto_buff/rune_optimize/ba_solver.hpp"
 #include "tasks/auto_buff/rune_tracker/rune_tracker.hpp"
+#include "tasks/auto_buff/rune_where/rune_where.hpp"
 #include "tasks/utils.hpp"
 namespace wust_vision {
 namespace auto_buff {
@@ -37,10 +37,8 @@ namespace auto_buff {
             );
             tf_config_ = tf_config;
             camera_info_ = camera_info;
-            if (config["rune_optimize"]["enable"].as<bool>()) {
-                ba_solver_ =
-                    auto_buff::BaSolver::create(config["rune_optimize"], camera_info.first);
-            }
+
+            rune_where_ = auto_buff::RuneWhere::create(config["rune_where"], camera_info);
 
             rune_detector_ = RuneDetectorCV::make_detector(config["rune_detector"]);
             rune_detector_->setCallback(std::bind(
@@ -119,48 +117,15 @@ namespace auto_buff {
                 tf_config_->t_camera2gimbal
             );
             T_camera_to_odom_ = T_camera_to_odom;
-            auto_buff::RuneFan copy_fan = fan;
-            const Eigen::Matrix3d R_imu_cam = T_camera_to_odom.block<3, 3>(0, 0);
-            double pnp_distance = 0.0;
-            for (auto& fan: copy_fan.fans) {
-                cv::Mat rvec, tvec;
-                cv::solvePnP(
-                    fan.getObjs(),
-                    fan.landmarks(),
-                    camera_info_.first,
-                    camera_info_.second,
-                    rvec,
-                    tvec,
-                    false,
-                    cv::SOLVEPNP_IPPE //平移更稳定，（旋转这里纯靠后面优化）
-                );
-                cv::Mat R_cv;
-                cv::Rodrigues(rvec, R_cv);
-                Eigen::Matrix3d R = utils::cvToEigen(R_cv);
-                Eigen::Vector3d t = utils::cvToEigen(tvec);
-                pnp_distance = t.norm();
-                if (ba_solver_) {
-                    R = ba_solver_->solveBa_R(fan, t, R, R_imu_cam);
-                }
-                fan.ori = Eigen::Quaterniond(R);
-                fan.pos = t;
-                Eigen::Vector3d pos_camera = fan.pos;
-                fan.target_pos = utils::transformPosition(pos_camera, T_camera_to_odom);
-
-                Eigen::Quaterniond q_camera(fan.ori.w(), fan.ori.x(), fan.ori.y(), fan.ori.z());
-                Eigen::Quaterniond q_odom = utils::transformOrientation(q_camera, T_camera_to_odom);
-                fan.target_ori = q_odom;
-
-                copy_fan.is_valid = true;
-            }
-
+            auto_buff::RuneFan copy_fan = rune_where_->where(fan, T_camera_to_odom);
             rune_queue_->enqueue(copy_fan);
             if (debug_mode_) {
                 std::lock_guard<std::mutex> lock(dbg_mutex_);
                 auto_buff_debug_.src_img = { std::move(debug_img), frame.timestamp };
                 auto_buff_debug_.T_camera_to_odom = T_camera_to_odom_;
                 auto_buff_debug_.expanded = frame.expanded;
-                auto_buff_debug_.pnp_distance = pnp_distance;
+                auto_buff_debug_.pnp_distance =
+                    copy_fan.fans.empty() ? 0.0 : copy_fan.fans[0].pos.norm();
             }
 
             detect_finish_count_++;
@@ -218,12 +183,11 @@ namespace auto_buff {
                 std::lock_guard<std::mutex> lock(target_mutex_);
                 rune_target = rune_target_;
             }
-
-            if (gimbal_cmd.fire_advice) {
-                fire_count_++;
-            }
             if (rune_target.checkTargetAppear()) {
                 gimbal_cmd = aimer_->aim(rune_target, shared_->bullet_speed);
+            }
+            if (gimbal_cmd.fire_advice) {
+                fire_count_++;
             }
             if (debug_mode_) {
                 std::lock_guard<std::mutex> lock(dbg_mutex_);
@@ -327,7 +291,7 @@ namespace auto_buff {
         RuneDetectorCV::Ptr rune_detector_;
         RuneTracker::Ptr rune_tracker_;
         auto_buff::Aimer::Ptr aimer_;
-        auto_buff::BaSolver::Ptr ba_solver_;
+        RuneWhere::Ptr rune_where_;
         std::string logger_ = "auto_buff";
         std::unique_ptr<wust_vl::common::concurrency::OrderedQueue<auto_buff::RuneFan>> rune_queue_;
         wust_vl::common::concurrency::MonitoredThread::Ptr processing_thread_;

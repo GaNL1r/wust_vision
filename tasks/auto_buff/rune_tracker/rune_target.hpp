@@ -61,7 +61,6 @@ namespace auto_buff {
         double last_roll_ = 0;
         bool is_inited = false;
         bool is_tracking = false;
-        bool is_temp_lost_ = false;
         int last_id;
         std::vector<int> update_ids;
         RuneTargetConfig::Ptr target_config_;
@@ -231,7 +230,7 @@ namespace auto_buff {
             return power_rune;
         }
         Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>
-        getmean(const auto_buff::RuneFan::Simple& fan) {
+        getMeasure(const auto_buff::RuneFan::Simple& fan) {
             auto p = fan.target_pos;
 
             double measured_yaw = orientationToYaw(fan.target_ori);

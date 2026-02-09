@@ -2,26 +2,12 @@
 #include "tasks/utils.hpp"
 namespace wust_vision {
 namespace auto_buff {
-    void RunePan::draw(
-        cv::Mat& img,
-        const cv::Point2f& offset,
-        const Eigen::Matrix<float, 3, 3>& transform_matrix,
-        bool is_up
-    ) const {
+    void RunePan::draw(cv::Mat& img, const cv::Point2f& offset) const {
         if (!is_valid || corners.size() < 3)
             return;
-        auto map_point = [&](const cv::Point2f p) -> cv::Point2f {
-            cv::Point2f tp;
-            if (is_up) {
-                tp = utils::transformPoint2D(transform_matrix, p);
-            } else {
-                tp = p;
-            }
-            return tp;
-        };
+
         std::vector<cv::Point2f> sorted_corners = corners;
         for (auto& pt: sorted_corners) {
-            pt = map_point(pt);
             pt += offset;
         }
         // 画边

@@ -55,22 +55,10 @@ namespace auto_buff {
             const std::vector<cv::Vec4i>& hierarchy,
             cv::Size image_size,
             cv::Point2f offset,
-            const Eigen::Matrix<float, 3, 3>& transform_matrix,
-            bool is_up,
             cv::Mat& debug_img,
             std::vector<bool>& used_flags
         ) {
             auto_buff::RuneCenter result;
-            auto map_point = [&](float x, float y) -> cv::Point2f {
-                Eigen::Vector3f pt(x, y, 1.f);
-                Eigen::Vector3f tr;
-                if (is_up) {
-                    tr = transform_matrix * pt;
-                } else {
-                    tr = pt;
-                }
-                return { tr(0), tr(1) };
-            };
             struct Node {
                 cv::Point2f center;
                 int idx;
@@ -114,7 +102,6 @@ namespace auto_buff {
                     cv::Point2f pts[4];
                     rr.points(pts);
                     for (size_t k = 0; k < 4; k++) {
-                        pts[k] = map_point(pts[k].x, pts[k].y);
                         pts[k] += offset;
                     }
                     for (int k = 0; k < 4; k++) {
@@ -147,7 +134,7 @@ namespace auto_buff {
             if (!debug_img.empty()) {
                 cv::circle(
                     debug_img,
-                    map_point(img_center.x, img_center.y) + offset,
+                    img_center + offset,
                     5,
                     cv::Scalar(0, 255, 255),
                     -1
@@ -156,7 +143,6 @@ namespace auto_buff {
                 cv::Point2f pts[4];
                 best_rr.points(pts);
                 for (size_t k = 0; k < 4; k++) {
-                    pts[k] = map_point(pts[k].x, pts[k].y);
                     pts[k] += offset;
                 }
                 for (int k = 0; k < 4; k++) {
@@ -343,16 +329,16 @@ namespace auto_buff {
                 if (rr.width < 2 || rr.height < 2)
                     continue;
 
-                cv::Mat roi = color(rr);
-                cv::Scalar avg = cv::mean(roi);
+                const cv::Mat roi = color(rr);
+                const cv::Scalar avg = cv::mean(roi);
 
-                double B = avg[0], G = avg[1], R = avg[2];
+                const double B = avg[0], G = avg[1], R = avg[2];
 
-                double diff_RB = R - B;
-                double diff_BR = B - R;
+                const double diff_RB = R - B;
+                const double diff_BR = B - R;
 
-                bool is_red = (diff_RB > diff_thresh);
-                bool is_blue = (diff_BR > diff_thresh);
+                const bool is_red = (diff_RB > diff_thresh);
+                const bool is_blue = (diff_BR > diff_thresh);
 
                 bool invalid = false;
 
@@ -390,16 +376,6 @@ namespace auto_buff {
                 debug_img = frame.src_img.clone();
             }
             cv::Mat roi = frame.src_img(frame.expanded);
-            Eigen::Matrix3f transform_matrix;
-            bool is_up = isUpscaled(frame.expanded, params_.target_width, params_.target_height);
-            if (is_up) {
-                roi = utils::letterbox(
-                    roi,
-                    transform_matrix,
-                    params_.target_width,
-                    params_.target_height
-                );
-            }
 
             cv::Mat processed_img = preProcess(roi, frame.detect_color);
 
@@ -424,19 +400,10 @@ namespace auto_buff {
                 frame.detect_color,
                 params_.color_diff_threshold
             );
-            auto rune_center = getRuneCenter(
-                contours,
-                hierarchy,
-                roi.size(),
-                frame.offset,
-                transform_matrix,
-                is_up,
-                debug_img,
-                used_flags
-            );
+            auto rune_center =
+                getRuneCenter(contours, hierarchy, roi.size(), frame.offset, debug_img, used_flags);
             std::vector<auto_buff::RunePan> rune_pans =
                 markRuneTarget(contours, hierarchy, used_flags);
-            double avg_pan_area = 0.0;
             for (auto& rune_pan: rune_pans) {
                 if (rune_center.is_valid) {
                     rune_pan.addReferRuneCenter(rune_center);
@@ -451,7 +418,7 @@ namespace auto_buff {
                     fan.fans.push_back(simple);
                 }
                 if (!debug_img.empty())
-                    rune_pan.draw(debug_img, frame.offset, transform_matrix, is_up);
+                    rune_pan.draw(debug_img, frame.offset);
             }
             auto_buff::RuneFan tmp = fan;
             for (int i = 0; i < tmp.fans.size(); i++) {
@@ -462,12 +429,8 @@ namespace auto_buff {
                     fan.fans[i].addOther(tmp.fans[j]);
                 }
             }
-            if (is_up) {
-                fan.transform(transform_matrix);
-            }
             fan.addOffset(frame.offset);
             if (callback_) {
-                // cv::Mat img_copy = processed_img.clone();
                 callback_(fan, frame, debug_img);
             }
         }

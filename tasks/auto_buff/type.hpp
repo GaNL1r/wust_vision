@@ -26,12 +26,7 @@ namespace auto_buff {
         bool is_valid = false;
         bool has_refer = false;
 
-        void draw(
-            cv::Mat& img,
-            const cv::Point2f& offset,
-            const Eigen::Matrix<float, 3, 3>& transform_matrix,
-            bool is_up
-        ) const;
+        void draw(cv::Mat& img, const cv::Point2f& offset) const;
         double getArea() const;
         void addReferRuneCenter(const RuneCenter& rc);
     };

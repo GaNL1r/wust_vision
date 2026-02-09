@@ -14,15 +14,15 @@ rune_detector:
   target_width: 640
   target_height: 640
 
-rune_optimize:
-  enable: true
-  mode: ceres
-  ceres_max_iter: 40
-  golden_search_side_deg: 60
+rune_where:
+  roll_opt:
+    mode: ceres
+    ceres_max_iter: 40
+    golden_search_side_deg: 60
 
 rune_tracker:
   lost_time_thres: 2.0
-  tracking_thres: 10
+  tracking_thres: 5
   max_dis_diff: 1.0
   match_gate: 15.0
   esekf_iter_num: 2

@@ -19,20 +19,16 @@
 #include "tasks/auto_buff/type.hpp"
 namespace wust_vision {
 namespace auto_buff {
-    class BaSolver {
+    class RuneWhere {
     public:
-        using Ptr = std::unique_ptr<BaSolver>;
-        BaSolver(const YAML::Node& config, const cv::Mat& camera_matrix);
-        static Ptr create(const YAML::Node& config, const cv::Mat& camera_matrix) {
-            return std::make_unique<BaSolver>(config, camera_matrix);
+        using Ptr = std::unique_ptr<RuneWhere>;
+        RuneWhere(const YAML::Node& config, const std::pair<cv::Mat, cv::Mat>& camera_info);
+        static Ptr
+        create(const YAML::Node& config, const std::pair<cv::Mat, cv::Mat>& camera_info) {
+            return std::make_unique<RuneWhere>(config, camera_info);
         }
-        ~BaSolver();
-        Eigen::Matrix3d solveBa_R(
-            const auto_buff::RuneFan::Simple& rune_fan,
-            const Eigen::Vector3d& t_camera_armor,
-            const Eigen::Matrix3d& R_camera_armor,
-            const Eigen::Matrix3d& R_imu_camera
-        ) const noexcept;
+        ~RuneWhere();
+        auto_buff::RuneFan where(auto_buff::RuneFan f, Eigen::Matrix4d T_camera_to_odom);
 
     private:
         struct Impl;
