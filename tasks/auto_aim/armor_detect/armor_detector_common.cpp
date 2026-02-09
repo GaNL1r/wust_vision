@@ -13,7 +13,6 @@
 // limitations under the License.
 #include "tasks/auto_aim/armor_detect/armor_detector_common.hpp"
 #include "tasks/auto_aim/armor_detect/armor_detector_base.hpp"
-#include "tasks/auto_aim/armor_detect/light_corner_corrector.hpp"
 #include "tasks/auto_aim/armor_detect/number_classifier/factory.hpp"
 #include "tasks/utils.hpp"
 #include "wust_vl/common/utils/timer.hpp"
@@ -28,7 +27,6 @@ namespace auto_aim {
                 params_.classify_model_path,
                 params_.classify_label_path
             );
-            corner_corrector_ = std::make_unique<LightCornerCorrector>();
         }
 
         bool extractNetImage(const cv::Mat& src, ArmorObject& armor) const noexcept {
@@ -396,7 +394,6 @@ namespace auto_aim {
                     if (refineLightsFromArmorPts(armor)) {
                         if (isArmor(armor.lights[0], armor.lights[1])) {
                             armor.is_ok = true;
-                            corner_corrector_->correctCorners(armor, armor.whole_gray_img);
                             for (auto& light: armor.lights) {
                                 const cv::Point2f offset { static_cast<float>(armor.new_x),
                                                            static_cast<float>(armor.new_y) };
@@ -429,7 +426,6 @@ namespace auto_aim {
 
             return armors;
         }
-        std::unique_ptr<LightCornerCorrector> corner_corrector_;
         std::unique_ptr<NumberClassifierBase> number_classifier_;
         struct ArmorDetectCommonParams {
             std::string classify_backend = "opencv";

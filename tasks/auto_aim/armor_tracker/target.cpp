@@ -2,7 +2,7 @@
 namespace wust_vision {
 namespace auto_aim {
     Target::Target() {
-        target_state_ = Eigen::VectorXd::Zero(MModel::X_N);
+        target_state_.x = Eigen::VectorXd::Zero(MModel::X_N);
     }
     Target::Target(const Armor& a, TargetConfig::Ptr target_config) {
         Eigen::DiagonalMatrix<double, ypdv2armor_motion_model::X_N> p0;
@@ -20,7 +20,6 @@ namespace auto_aim {
             radius_pre_ = 0.2;
         }
         target_config_ = target_config;
-        target_state_ = Eigen::VectorXd::Zero(MModel::X_N);
         const auto yfv2 = MModel::Predict(0.005);
         ctx_.armor_num = armor_num_;
         ctx_.id = 0;
@@ -42,12 +41,12 @@ namespace auto_aim {
                                    ) {
             Eigen::Matrix<double, MModel::Z_N, 1> r = z - z_pred;
             r[0] = angles::shortest_angular_distance(
-                z_pred[(int)MModel::Meas::YPD_Y],
-                z[(int)MModel::Meas::YPD_Y]
+                z_pred[(int)MModel::MeasureID::YPD_Y],
+                z[(int)MModel::MeasureID::YPD_Y]
             ); // yaw
             r[3] = angles::shortest_angular_distance(
-                z_pred[(int)MModel::Meas::ORI_YAW],
-                z[(int)MModel::Meas::ORI_YAW]
+                z_pred[(int)MModel::MeasureID::ORI_YAW],
+                z[(int)MModel::MeasureID::ORI_YAW]
             ); // ori_yaw
             return r;
         });
@@ -57,12 +56,12 @@ namespace auto_aim {
                                      Eigen::Matrix<double, MModel::X_N, 1>& nominal
                                  ) {
             for (int i = 0; i < MModel::X_N; i++) {
-                if (i == (int)MModel::State::YAW)
+                if (i == (int)MModel::StateID::YAW)
                     continue;
                 nominal[i] += delta[i];
             }
-            nominal[(int)MModel::State::YAW] = angles::normalize_angle(
-                nominal[(int)MModel::State::YAW] + delta[(int)MModel::State::YAW]
+            nominal[(int)MModel::StateID::YAW] = angles::normalize_angle(
+                nominal[(int)MModel::StateID::YAW] + delta[(int)MModel::StateID::YAW]
             );
         });
 
@@ -72,14 +71,13 @@ namespace auto_aim {
         last_yaw_ = 0;
         const double yaw = orientationToYaw(a.target_ori);
 
-        target_state_ = Eigen::VectorXd::Zero(MModel::X_N);
+        target_state_.x = Eigen::VectorXd::Zero(MModel::X_N);
         const double r = radius_pre_;
         const double xc = xa + r * cos(yaw);
         const double yc = ya + r * sin(yaw);
         const double zc = za;
-        target_state_ << xc, 0, yc, 0, zc, 0, yaw, 0, r, 0, 0;
-
-        esekf_ypd_.setState(target_state_);
+        target_state_.x << xc, 0, yc, 0, zc, 0, yaw, 0, r, 0, 0;
+        esekf_ypd_.setState(target_state_.x);
         tracked_id_ = a.number;
         type_ = a.type;
         last_t_ = a.timestamp;
@@ -155,87 +153,54 @@ namespace auto_aim {
         // clang-format on
         return q;
     }
-    MModel::Predict Target::getPredictFunc(double dt, Eigen::Vector3d self_v) const noexcept {
+    MModel::Predict Target::getPredictFunc(double dt) const noexcept {
         MModel::Predict predict_func;
         if (tracked_id_ == ArmorNumber::OUTPOST) {
-            predict_func = MModel::Predict { dt,
-                                             MModel::MotionModel::CONSTANT_ROTATION,
-                                             self_v.x(),
-                                             self_v.y(),
-                                             self_v.z() };
+            predict_func = MModel::Predict {
+                dt,
+                MModel::MotionModel::CONSTANT_ROTATION,
+            };
         } else {
-            predict_func = MModel::Predict { dt,
-                                             MModel::MotionModel::CONSTANT_VEL_ROT,
-                                             self_v.x(),
-                                             self_v.y(),
-                                             self_v.z() };
+            predict_func = MModel::Predict {
+                dt,
+                MModel::MotionModel::CONSTANT_VEL_ROT,
+            };
         }
         return predict_func;
     }
-    void Target::predict(std::chrono::steady_clock::time_point t, Eigen::Vector3d self_v) noexcept {
+    void Target::predict(std::chrono::steady_clock::time_point t) noexcept {
         const double dt = wust_vl::common::utils::time_utils::durationSec(last_t_, t);
 
-        predict(dt, self_v);
+        predict(dt);
 
         last_t_ = t;
     }
-    void Target::predict(double dt, Eigen::Vector3d self_v) noexcept {
-        MModel::Predict predict_func = getPredictFunc(dt, self_v);
+    void Target::predict(double dt) noexcept {
+        MModel::Predict predict_func = getPredictFunc(dt);
 
         esekf_ypd_.setPredictFunc(predict_func);
         const auto yu_qv2 = [dt, this]() { return computeProcessNoise(dt); };
 
         esekf_ypd_.setUpdateQ(yu_qv2);
 
-        target_state_ = esekf_ypd_.predict();
-
-        if (!jumped) {
-            target_state_[(int)MModel::State::R] = radius_pre_;
-            target_state_[(int)MModel::State::L] = 0.0;
-            target_state_[(int)MModel::State::H] = 0.0;
-            esekf_ypd_.setState(target_state_);
-        }
-        if (position().norm() < 0.5) {
+        target_state_.x = esekf_ypd_.predict();
+        if (target_state_.pos().norm() < 0.5) {
             is_tracking = false;
         }
-        if (tracked_id_ == ArmorNumber::OUTPOST) {
-            if (target_state_[(int)MModel::State::R] < 0.25) {
-                target_state_[(int)MModel::State::R] = 0.25;
-            }
-            if (target_state_[(int)MModel::State::R] > 0.35) {
-                target_state_[(int)MModel::State::R] = 0.35;
-            }
-            if (std::abs(target_state_[(int)MModel::State::VYAW]) > 1.5) {
-                constexpr double outpost_v_yaw_err = 0.2;
-                const double lower = std::max(0.0, outpost_v_yaw - outpost_v_yaw_err);
-                const double upper = outpost_v_yaw + outpost_v_yaw_err;
-
-                const const double sign = std::copysign(
-                    1.0,
-                    target_state_[(int)MModel::State::VYAW]
-                ); // 保存符号
-                double abs_val = std::abs(target_state_[(int)MModel::State::VYAW]);
-                abs_val = std::clamp(abs_val, lower, upper);
-                target_state_[(int)MModel::State::VYAW] = sign * abs_val;
-            }
-
-            esekf_ypd_.setState(target_state_);
-        }
     }
-    void Target::predictSimple(
-        std::chrono::steady_clock::time_point t,
-        Eigen::Vector3d self_v
-    ) noexcept {
+    void Target::predictSimple(std::chrono::steady_clock::time_point t) noexcept {
         const double dt = wust_vl::common::utils::time_utils::durationSec(last_t_, t);
 
-        predictSimple(dt, self_v);
+        predictSimple(dt);
 
         last_t_ = t;
     }
-    void Target::predictSimple(double dt, Eigen::Vector3d self_v) noexcept {
-        MModel::Predict predict_func = getPredictFunc(dt, self_v);
-
-        predict_func.f(target_state_, target_state_);
+    void Target::predictSimple(double dt) noexcept {
+        MModel::Predict predict_func = getPredictFunc(dt);
+        predict_func.f(target_state_.x, target_state_.x);
+        if (target_state_.pos().norm() < 0.5) {
+            is_tracking = false;
+        }
     }
     bool Target::update(const std::pair<int, Armor>& a) noexcept {
         const auto armor = a.second;
@@ -249,21 +214,10 @@ namespace auto_aim {
         if (id != 0)
             jumped = true;
 
-        if (id != last_id) {
-            is_switch_ = true;
-        } else {
-            is_switch_ = false;
-        }
-
-        if (is_switch_)
-            switch_count_++;
-
-        last_id = id;
-        update_count_++;
         ctx_.id = id;
         esekf_ypd_.setMeasureFunc(MModel::Measure { ctx_ });
 
-        target_state_ = esekf_ypd_.update(measurement_);
+        target_state_.x = esekf_ypd_.update(measurement_);
         timestamp_ = armor.timestamp;
         last_t_ = timestamp_;
         return true;
@@ -283,11 +237,7 @@ namespace auto_aim {
         }
 
         const float car_box_half =
-            std::max(
-                target_state_[(int)MModel::State::R],
-                target_state_[(int)MModel::State::R] + target_state_[(int)MModel::State::L]
-            )
-            + 0.15;
+            std::max(target_state_.r(), target_state_.r() + target_state_.l()) + 0.15;
 
         static std::vector<cv::Point3f> CAR_BOX;
         CAR_BOX = { { 0, car_box_half, -car_box_half },
@@ -296,7 +246,8 @@ namespace auto_aim {
                     { 0, car_box_half, car_box_half } };
 
         const Eigen::Matrix4d T_odom_to_camera = T_camera_to_odom.inverse();
-        const Eigen::Vector4d pos_odom(position().x(), position().y(), position().z(), 1.0);
+        const Eigen::Vector4d
+            pos_odom(target_state_.cx(), target_state_.cy(), target_state_.cz(), 1.0);
         const Eigen::Vector4d pos_cam = T_odom_to_camera * pos_odom;
 
         if (pos_cam.z() <= 0.2) {
@@ -375,15 +326,15 @@ namespace auto_aim {
                 MModel::Measure::MeasureCtx tmp_ctx(id, armors_num);
                 MModel::Measure measure(tmp_ctx);
                 MModel::VecZ z_pred;
-                measure.h(target_state_, z_pred);
+                measure.h(target_state_.x, z_pred);
 
                 MModel::VecZ nu = meas_list[j] - z_pred;
-                nu[(int)MModel::Meas::YPD_Y] =
-                    angles::normalize_angle(nu[(int)MModel::Meas::YPD_Y]);
-                nu[(int)MModel::Meas::YPD_P] =
-                    angles::normalize_angle(nu[(int)MModel::Meas::YPD_P]);
-                nu[(int)MModel::Meas::ORI_YAW] =
-                    angles::normalize_angle(nu[(int)MModel::Meas::ORI_YAW]);
+                nu[(int)MModel::MeasureID::YPD_Y] =
+                    angles::normalize_angle(nu[(int)MModel::MeasureID::YPD_Y]);
+                nu[(int)MModel::MeasureID::YPD_P] =
+                    angles::normalize_angle(nu[(int)MModel::MeasureID::YPD_P]);
+                nu[(int)MModel::MeasureID::ORI_YAW] =
+                    angles::normalize_angle(nu[(int)MModel::MeasureID::ORI_YAW]);
                 auto R = computeMeasurementCovariance(z_pred);
                 auto Rinv = R.inverse();
 

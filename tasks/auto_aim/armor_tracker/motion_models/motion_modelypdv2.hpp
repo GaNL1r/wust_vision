@@ -29,8 +29,8 @@ enum class MotionModel {
 constexpr int X_N = 11, Z_N = 4;
 using VecZ = Eigen::Matrix<double, Z_N, 1>;
 using VecX = Eigen::Matrix<double, X_N, 1>;
-enum class Meas : uint8_t { YPD_Y = 0, YPD_P = 1, YPD_D = 2, ORI_YAW = 3, Z_N = 4 };
-enum class State : uint8_t {
+enum class MeasureID : uint8_t { YPD_Y = 0, YPD_P = 1, YPD_D = 2, ORI_YAW = 3, Z_N = 4 };
+enum class StateID : uint8_t {
     CX = 0,
     VCX = 1,
     CY = 2,
@@ -46,20 +46,59 @@ enum class State : uint8_t {
     outpost02DZ = 10,
     X_N = 11
 };
+struct State {
+    VecX x;
+    [[nodiscard]] inline double cx() const noexcept {
+        return x((int)StateID::CX);
+    }
+    [[nodiscard]] inline double cy() const noexcept {
+        return x((int)StateID::CY);
+    }
+    [[nodiscard]] inline double cz() const noexcept {
+        return x((int)StateID::CZ);
+    }
+    [[nodiscard]] inline Eigen::Vector3d pos() const noexcept {
+        return Eigen::Vector3d(cx(), cy(), cz());
+    }
+    [[nodiscard]] inline double vcx() const noexcept {
+        return x((int)StateID::VCX);
+    }
+    [[nodiscard]] inline double vcy() const noexcept {
+        return x((int)StateID::VCY);
+    }
+    [[nodiscard]] inline double vcz() const noexcept {
+        return x((int)StateID::VCZ);
+    }
+    [[nodiscard]] inline Eigen::Vector3d vel() const noexcept {
+        return Eigen::Vector3d(vcx(), vcy(), vcz());
+    }
+    [[nodiscard]] inline double vyaw() const noexcept {
+        return x((int)StateID::VYAW);
+    }
+    [[nodiscard]] inline double yaw() const noexcept {
+        return x((int)StateID::YAW);
+    }
+    [[nodiscard]] inline double r() const noexcept {
+        return x((int)StateID::R);
+    }
+    [[nodiscard]] inline double l() const noexcept {
+        return x((int)StateID::L);
+    }
+    [[nodiscard]] inline double h() const noexcept {
+        return x((int)StateID::H);
+    }
+    [[nodiscard]] inline double outpost01DZ() const noexcept {
+        return x((int)StateID::outpost01DZ);
+    }
+    [[nodiscard]] inline double outpost02DZ() const noexcept {
+        return x((int)StateID::outpost02DZ);
+    }
+};
 struct Predict {
     Predict() = default;
-    explicit Predict(
-        double dt,
-        MotionModel model = MotionModel::CONSTANT_VEL_ROT,
-        double vrx = 0.0,
-        double vry = 0.0,
-        double vrz = 0.0
-    ):
+    explicit Predict(double dt, MotionModel model = MotionModel::CONSTANT_VEL_ROT):
         dt(dt),
-        model(model),
-        vrx(vrx),
-        vry(vry),
-        vrz(vrz) {}
+        model(model) {}
 
     template<typename T>
     void operator()(const T x0[X_N], T x1[X_N]) const {
@@ -70,27 +109,23 @@ struct Predict {
         // v_xyz
         if (model == MotionModel::CONSTANT_VEL_ROT || model == MotionModel::CONSTANT_VELOCITY) {
             // linear velocity
-            x1[(int)State::CX] += x0[(int)State::VCX] * T(dt);
-            x1[(int)State::CY] += x0[(int)State::VCY] * T(dt);
-            x1[(int)State::CZ] += x0[(int)State::VCZ] * T(dt);
+            x1[(int)StateID::CX] += x0[(int)StateID::VCX] * T(dt);
+            x1[(int)StateID::CY] += x0[(int)StateID::VCY] * T(dt);
+            x1[(int)StateID::CZ] += x0[(int)StateID::VCZ] * T(dt);
         } else {
             // no velocity
-            x1[(int)State::VCX] *= T(0.);
-            x1[(int)State::VCY] *= T(0.);
-            x1[(int)State::VCZ] *= T(0.);
+            x1[(int)StateID::VCX] *= T(0.);
+            x1[(int)StateID::VCY] *= T(0.);
+            x1[(int)StateID::VCZ] *= T(0.);
         }
-
-        x1[(int)State::CX] -= T(vrx) * T(dt);
-        x1[(int)State::CY] -= T(vry) * T(dt);
-        x1[(int)State::CZ] -= T(vrz) * T(dt);
 
         // v_yaw
         if (model == MotionModel::CONSTANT_VEL_ROT || model == MotionModel::CONSTANT_ROTATION) {
             // angular velocity
-            x1[(int)State::YAW] += x0[(int)State::VYAW] * T(dt);
+            x1[(int)StateID::YAW] += x0[(int)StateID::VYAW] * T(dt);
         } else {
             // no rotation
-            x1[(int)State::VYAW] *= T(0.);
+            x1[(int)StateID::VYAW] *= T(0.);
         }
     }
     void f(const VecX& x0, VecX& x1) const {
@@ -101,7 +136,6 @@ struct Predict {
 
     double dt;
     MotionModel model;
-    double vrx, vry, vrz;
 };
 template<typename T>
 T normalize_angle_t(T angle) {
@@ -121,31 +155,44 @@ struct Measure {
     template<typename T>
     void operator()(const T x[X_N], T z[Z_N]) const {
         // Compute armor position
-        T angle = normalize_angle_t(x[(int)State::YAW] + ctx.id * 2 * M_PI / ctx.armor_num);
-        auto outpost = ctx.armor_num == 3;
-        auto use_l_h = (ctx.armor_num == 4) && (ctx.id == 1 || ctx.id == 3);
-        T r = (use_l_h) ? x[(int)State::R] + x[(int)State::L] : x[(int)State::R];
-        T armor_x = x[(int)State::CX] - ceres::cos(angle) * r;
-        T armor_y = x[(int)State::CY] - ceres::sin(angle) * r;
-        T armor_z = (outpost) ? getoutpost_armor_z(x)
-            : (use_l_h)       ? x[(int)State::CZ] + x[(int)State::H]
-                              : x[(int)State::CZ];
-
+        auto [armor_x, armor_y, armor_z, angle] = h_armor_xyza(x);
         T xy_dist = ceres::sqrt(armor_x * armor_x + armor_y * armor_y);
         T dist = ceres::sqrt(xy_dist * xy_dist + armor_z * armor_z);
-
         // Observation model
-        z[(int)Meas::YPD_Y] = ceres::atan2(armor_y, armor_x); // yaw
-        z[(int)Meas::YPD_P] = ceres::atan2(armor_z, xy_dist); // pitch
-        z[(int)Meas::YPD_D] = dist; // distance
-        z[(int)Meas::ORI_YAW] = angle; // orientation_yaw
+        z[(int)MeasureID::YPD_Y] = ceres::atan2(armor_y, armor_x); // yaw
+        z[(int)MeasureID::YPD_P] = ceres::atan2(armor_z, xy_dist); // pitch
+        z[(int)MeasureID::YPD_D] = dist; // distance
+        z[(int)MeasureID::ORI_YAW] = angle; // orientation_yaw
+    }
+    template<typename T>
+    T get_angle(const T x[X_N]) const {
+        return normalize_angle_t(x[(int)StateID::YAW] + ctx.id * 2 * M_PI / ctx.armor_num);
+    }
+    template<typename T>
+    std::tuple<T, T, T, T> h_armor_xyza(const T x[X_N]) const {
+        T angle = get_angle(x);
+        auto outpost = ctx.armor_num == 3;
+        auto use_l_h = (ctx.armor_num == 4) && (ctx.id == 1 || ctx.id == 3);
+        T r = (use_l_h) ? x[(int)StateID::R] + x[(int)StateID::L] : x[(int)StateID::R];
+        T armor_x = x[(int)StateID::CX] - ceres::cos(angle) * r;
+        T armor_y = x[(int)StateID::CY] - ceres::sin(angle) * r;
+        T armor_z = (outpost) ? getoutpost_armor_z(x)
+            : (use_l_h)       ? x[(int)StateID::CZ] + x[(int)StateID::H]
+                              : x[(int)StateID::CZ];
+        return { armor_x, armor_y, armor_z, angle };
+    }
+    Eigen::Vector4d h_armor_xyza(const VecX& x) const {
+        assert(x.size() == X_N);
+        auto [armor_x, armor_y, armor_z, angle] = h_armor_xyza(x.data());
+
+        return { armor_x, armor_y, armor_z, angle };
     }
     template<typename T>
     T getoutpost_armor_z(const T x[X_N]) const {
-        return (ctx.id == 0) ? x[(int)State::CZ]
-            : (ctx.id == 1)  ? x[(int)State::CZ] + x[(int)State::outpost01DZ]
-            : (ctx.id == 2)  ? x[(int)State::CZ] + x[(int)State::outpost02DZ]
-                             : x[(int)State::CZ];
+        return (ctx.id == 0) ? x[(int)StateID::CZ]
+            : (ctx.id == 1)  ? x[(int)StateID::CZ] + x[(int)StateID::outpost01DZ]
+            : (ctx.id == 2)  ? x[(int)StateID::CZ] + x[(int)StateID::outpost02DZ]
+                             : x[(int)StateID::CZ];
     }
     void h(const VecX& x, VecZ& z) const {
         assert(x.size() == X_N);

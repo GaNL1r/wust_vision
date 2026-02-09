@@ -705,7 +705,7 @@ struct VeryAimer::Impl {
         const int armor_num = static_cast<int>(armor_list.size());
         int i_chosen = 0;
 
-        const double center_yaw = std::atan2(target.position().y(), target.position().x());
+        const double center_yaw = std::atan2(target.target_state_.cy(), target.target_state_.cx());
 
         std::vector<double> delta_angles;
         delta_angles.reserve(armor_num);
@@ -764,9 +764,9 @@ struct VeryAimer::Impl {
                     if (std::abs(delta_angles[i]) > coming_angle)
                         continue;
 
-                    if (target.v_yaw() > 0 && delta_angles[i] < leaving_angle)
+                    if (target.target_state_.vyaw() > 0 && delta_angles[i] < leaving_angle)
                         best_idx = i;
-                    if (target.v_yaw() < 0 && delta_angles[i] > -leaving_angle)
+                    if (target.target_state_.vyaw() < 0 && delta_angles[i] > -leaving_angle)
                         best_idx = i;
                 }
             }
@@ -867,16 +867,16 @@ struct VeryAimer::Impl {
         if (aim_center) {
             const double raw_z = aim_pos.z();
             double c_xy_dis = std::sqrt(
-                target.position().x() * target.position().x()
-                + target.position().y() * target.position().y()
+                target.target_state_.cx() * target.target_state_.cx()
+                + target.target_state_.cy() * target.target_state_.cy()
             );
-            const double c_yaw = std::atan2(target.position().y(), target.position().x());
+            const double c_yaw = std::atan2(target.target_state_.cy(), target.target_state_.cx());
             c_xy_dis -= target.getArmor2CenterXYDis(target_select);
             aim_pos.x() = c_xy_dis * std::cos(c_yaw);
             aim_pos.y() = c_xy_dis * std::sin(c_yaw);
             aim_pos.z() = raw_z;
         }
-        const double center_yaw = std::atan2(target.position().y(), target.position().x());
+        const double center_yaw = std::atan2(target.target_state_.cy(), target.target_state_.cx());
         const double d_angle =
             angles::shortest_angular_distance(center_yaw, armors_xyza[target_select][3]);
         ControlPoint cp = getControlPoint(aim_pos, d_angle, bullet_speed);
@@ -983,8 +983,8 @@ struct VeryAimer::Impl {
 
         if (aim_center) {
             const double raw_z = res->fin_aim_pos.z();
-            double c_xy_dis = std::hypot(target.position().x(), target.position().y());
-            const double c_yaw = std::atan2(target.position().y(), target.position().x());
+            double c_xy_dis = std::hypot(target.target_state_.cx(), target.target_state_.cy());
+            const double c_yaw = std::atan2(target.target_state_.cy(), target.target_state_.cx());
 
             c_xy_dis -= target.getArmor2CenterXYDis(fin_target_select);
 
@@ -1002,13 +1002,13 @@ struct VeryAimer::Impl {
             Eigen::Vector3d euler;
             euler.x() = M_PI / 2.0;
             euler.y() = (target.tracked_id_ == ArmorNumber::OUTPOST) ? -0.2618 : 0.2618;
-            euler.z() = target.yaw();
+            euler.z() = target.target_state_.yaw();
 
             at.ori = utils::eulerToQuat(euler, utils::EulerOrder::ZYX);
             res->aim_target = at;
         }
 
-        const double center_yaw = std::atan2(target.position().y(), target.position().x());
+        const double center_yaw = std::atan2(target.target_state_.cy(), target.target_state_.cx());
 
         const double d_angle =
             angles::shortest_angular_distance(center_yaw, fin_armors_xyza[fin_target_select][3]);
@@ -1189,7 +1189,8 @@ struct VeryAimer::Impl {
         double target_pitch = build->cp0.pitch;
 
         if (aim_center) {
-            const double center_yaw = std::atan2(target.position().y(), target.position().x());
+            const double center_yaw =
+                std::atan2(target.target_state_.cy(), target.target_state_.cx());
 
             const double d_angle = angles::shortest_angular_distance(
                 center_yaw,

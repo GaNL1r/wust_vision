@@ -36,9 +36,6 @@ namespace auto_aim {
                 ba_solver_ = std::make_unique<BaSolver>(config["armor_optimize"], camera_info);
             }
             distance_fix_a2_ = config["armor_optimize"]["distance_fix_a2"].as<double>();
-
-            R_gimbal_camera_ = Eigen::Matrix3d::Identity();
-            R_gimbal_camera_ << 0, 0, 1, -1, 0, 0, 0, -1, 0;
         }
         std::vector<Armor> extractArmorPoses(
             const std::vector<ArmorObject>& armors,
@@ -81,37 +78,29 @@ namespace auto_aim {
                 };
 
             for (auto const& a: armors) {
-                std::vector<cv::Mat> rvecs, tvecs;
+                cv::Mat rvec, tvec;
                 std::string type = (a.number == ArmorNumber::NO1 || a.number == ArmorNumber::BASE)
                     ? "large"
                     : "small";
 
-                if (!pnp_solver_->solvePnPGeneric(
+                if (!pnp_solver_->solvePnP(
                         a.landmarks(),
-                        rvecs,
-                        tvecs,
+                        rvec,
+                        tvec,
                         type,
                         camera_intrinsic,
                         camera_distortion
-                    ))
-                {
+                    )) {
                     WUST_WARN("PNP") << "PNP failed";
                     continue;
                 }
-
-                sortPnPResult(a, rvecs, tvecs, type, camera_intrinsic, camera_distortion);
-
                 cv::Mat R_cv;
-                cv::Rodrigues(rvecs[0], R_cv);
+                cv::Rodrigues(rvec, R_cv);
                 Eigen::Matrix3d R = utils::cvToEigen(R_cv);
-                Eigen::Vector3d t = utils::cvToEigen(tvecs[0]);
-
-                double roll_deg =
-                    utils::matrixToEuler(R_gimbal_camera_ * R, utils::EulerOrder::ZXY)[0] * 180
-                    / M_PI;
+                Eigen::Vector3d t = utils::cvToEigen(tvec);
                 if (ba_solver_) {
                     Eigen::Matrix3d R0 = R;
-                    R = ba_solver_->solveBa_R(a, t, R, R_imu_cam, type);
+                    R = ba_solver_->solveBa_R(a, t, R0, R_imu_cam, type);
                 }
 
                 armors_msg.push_back(makeArmor(a, t, R));
@@ -119,80 +108,8 @@ namespace auto_aim {
 
             return armors_msg;
         }
-
-        void sortPnPResult(
-            const ArmorObject& armor,
-            std::vector<cv::Mat>& rvecs,
-            std::vector<cv::Mat>& tvecs,
-            std::string coord_frame_name,
-            const cv::Mat& camera_intrinsic,
-            const cv::Mat& camera_distortion
-        ) const {
-            constexpr double ERR_RATIO_TH = 3.0;
-            constexpr double ROLL_TH_RAD = 10.0 * M_PI / 180.0; // 保留接口一致性
-            if (rvecs.size() < 2 || tvecs.size() < 2)
-                return;
-            double err0 = pnp_solver_->calculateReprojectionError(
-                armor.landmarks(),
-                rvecs[0],
-                tvecs[0],
-                coord_frame_name,
-                camera_intrinsic,
-                camera_distortion
-            );
-            double err1 = pnp_solver_->calculateReprojectionError(
-                armor.landmarks(),
-                rvecs[1],
-                tvecs[1],
-                coord_frame_name,
-                camera_intrinsic,
-                camera_distortion
-            );
-            if (err0 <= 0.0 || err1 <= 0.0)
-                return;
-            if (err1 / err0 > ERR_RATIO_TH)
-                return;
-            cv::Mat R0_cv, R1_cv;
-            cv::Rodrigues(rvecs[0], R0_cv);
-            cv::Rodrigues(rvecs[1], R1_cv);
-
-            Eigen::Matrix3d R0 = R_gimbal_camera_ * utils::cvToEigen(R0_cv);
-            Eigen::Matrix3d R1 = R_gimbal_camera_ * utils::cvToEigen(R1_cv);
-
-            // yaw = atan2(r21, r11)
-            double yaw0 = std::atan2(R0(1, 0), R0(0, 0));
-            double yaw1 = std::atan2(R1(1, 0), R1(0, 0));
-
-            double boardTilt = 0.0;
-
-            if (armor.is_ok) {
-                double l_ang =
-                    std::atan2(armor.lights[0].axis.y, armor.lights[0].axis.x) * 180.0 / M_PI;
-                double r_ang =
-                    std::atan2(armor.lights[1].axis.y, armor.lights[1].axis.x) * 180.0 / M_PI;
-                boardTilt = (l_ang + r_ang) * 0.5 + 90.0;
-            } else {
-                auto corners = armor.sortCorners(armor.pts);
-                cv::Point2f leftVec = corners[1] - corners[0]; // 左上 - 左下
-                cv::Point2f rightVec = corners[2] - corners[3]; // 右上 - 右下
-                double l_ang = std::atan2(leftVec.y, leftVec.x) * 180.0 / M_PI;
-                double r_ang = std::atan2(rightVec.y, rightVec.x) * 180.0 / M_PI;
-                boardTilt = (l_ang + r_ang) * 0.5 + 90.0;
-            }
-
-            if (armor.number == ArmorNumber::OUTPOST)
-                boardTilt = -boardTilt;
-
-            bool leftTilt = boardTilt > 0.0;
-            if ((leftTilt && yaw0 > 0 && yaw1 < 0) || (!leftTilt && yaw0 < 0 && yaw1 > 0)) {
-                std::swap(rvecs[0], rvecs[1]);
-                std::swap(tvecs[0], tvecs[1]);
-            }
-        }
-
         std::unique_ptr<BaSolver> ba_solver_;
         double distance_fix_a2_ = 0;
-        Eigen::Matrix3d R_gimbal_camera_;
         std::unique_ptr<wust_vl::algorithm::PnPSolver> pnp_solver_;
     };
     ArmorPoseEstimator::ArmorPoseEstimator(

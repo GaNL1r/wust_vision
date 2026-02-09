@@ -42,7 +42,6 @@ target_sources(auto_aim PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/armor_detector_common.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/armor_infer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/armor_pose_estimator.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/light_corner_corrector.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/number_classifier/number_classifier.cpp
 )
 target_include_directories(auto_aim PUBLIC

@@ -89,7 +89,7 @@ void drawDebugArmorContent(
         armor_data.timestamp = armor_target.timestamp_;
 
         if (armor_target.is_tracking) {
-            Eigen::Vector3d pos = armor_target.position();
+            Eigen::Vector3d pos = armor_target.target_state_.pos();
             if (pos.norm() > 0.5) {
                 armor_data.armors.clear();
                 const size_t a_n = armor_target.armor_num_;
@@ -240,7 +240,7 @@ void drawDebugArmorContent(
         cv::circle(debug_img, avg, 10, cv::Scalar(50, 255, 50), -1);
 
         const double scale = 50.0;
-        const double dy = scale * target.v_yaw();
+        const double dy = scale * target.target_state_.vyaw();
         const cv::Point2f start_pt = avg;
         const cv::Point2f end_pt = start_pt + cv::Point2f(0, dy);
         cv::arrowedLine(
@@ -255,7 +255,7 @@ void drawDebugArmorContent(
         );
         cv::putText(
             debug_img,
-            fmt::format("V_yaw: {:.2f}", target.v_yaw()),
+            fmt::format("V_yaw: {:.2f}", target.target_state_.vyaw()),
             avg + cv::Point2f(0, -20),
             cv::FONT_HERSHEY_SIMPLEX,
             1.0,
@@ -732,19 +732,19 @@ void writeTargetLogToJson(
             .count();
     jt["timestamp_age_ms"] = age_ms_t;
 
-    jt["position"] = { { "x", armor_target.position().x() },
-                       { "y", armor_target.position().y() },
-                       { "z", armor_target.position().z() } };
+    jt["position"] = { { "x", armor_target.target_state_.cx() },
+                       { "y", armor_target.target_state_.cy() },
+                       { "z", armor_target.target_state_.cz() } };
 
-    jt["velocity"] = { { "x", armor_target.velocity().x() },
-                       { "y", armor_target.velocity().y() },
-                       { "z", armor_target.velocity().z() } };
+    jt["velocity"] = { { "x", armor_target.target_state_.vcx() },
+                       { "y", armor_target.target_state_.vcy() },
+                       { "z", armor_target.target_state_.vcz() } };
 
-    jt["r"] = armor_target.r();
-    jt["l"] = armor_target.l();
-    jt["h"] = armor_target.h();
-    jt["yaw"] = armor_target.yaw();
-    jt["v_yaw"] = armor_target.v_yaw();
+    jt["r"] = armor_target.target_state_.r();
+    jt["l"] = armor_target.target_state_.l();
+    jt["h"] = armor_target.target_state_.h();
+    jt["yaw"] = armor_target.target_state_.yaw();
+    jt["v_yaw"] = armor_target.target_state_.vyaw();
 
     // -------- RuneTarget 部分 --------
     nlohmann::json jr;
@@ -990,7 +990,7 @@ void debuglog(
     log.armor_dis_log.handleOnce(last_distance_, j);
     log.gimbal_pitch_log.handleOnce(gimbal_py.first * 180.0 / M_PI, j);
     log.gimbal_yaw_log.handleOnce(gimbal_py.second * 180.0 / M_PI, j);
-    log.target_v_yaw_log.handleOnce(target.v_yaw(), j);
+    log.target_v_yaw_log.handleOnce(target.target_state_.vyaw(), j);
     log.control_v_pitch_log.handleOnce(i_use.v_pitch, j);
     log.control_v_yaw_log.handleOnce(i_use.v_yaw, j);
     log.fire_log.handleOnce(i_use.fire_advice, j);

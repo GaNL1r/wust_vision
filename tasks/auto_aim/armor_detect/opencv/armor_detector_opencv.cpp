@@ -19,7 +19,6 @@
 // limitations under the License.
 
 #include "tasks/auto_aim/armor_detect/opencv/armor_detector_opencv.hpp"
-#include "tasks/auto_aim/armor_detect/light_corner_corrector.hpp"
 #include "tasks/auto_aim/armor_detect/number_classifier/number_classifier.hpp"
 #include "tasks/utils.hpp"
 namespace wust_vision {
@@ -27,7 +26,6 @@ namespace auto_aim {
     struct ArmorDetectorOpenCV::Impl {
     public:
         Impl(const YAML::Node& config) {
-            corner_corrector_ = std::make_unique<LightCornerCorrector>();
             auto classify_model_path =
                 utils::expandEnv(config["classify"]["model_path"].as<std::string>());
             auto classify_label_path =
@@ -75,10 +73,6 @@ namespace auto_aim {
                         && armor.type == ArmorType::LARGE)
                     {
                         continue;
-                    }
-
-                    if (corner_corrector_) {
-                        corner_corrector_->correctCorners(armor, gray_img);
                     }
 
                     valid_armors.push_back(armor);
@@ -364,7 +358,6 @@ namespace auto_aim {
 
         LightParams light_params_;
         ArmorParams armor_params_;
-        std::unique_ptr<LightCornerCorrector> corner_corrector_;
         double classifier_threshold_ = 0.5;
         std::unique_ptr<NumberClassifier> number_classifier_;
         DetectorCallback infer_callback_;

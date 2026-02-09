@@ -27,14 +27,15 @@ namespace auto_aim {
             Armors armors;
             armors = armors_msg;
             std::erase_if(armors.armors, [this](const Armor& a) {
-                double center_yaw = std::atan2(target_.position().y(), target_.position().x());
+                double center_yaw =
+                    std::atan2(target_.target_state_.cy(), target_.target_state_.cx());
                 bool state_check = tracker_state == TRACKING;
                 bool outpost_check = target_.tracked_id_ == ArmorNumber::OUTPOST && !a.is_ok;
                 bool pose_check =
                     (std::abs(angles::normalize_angle(
                          orientationToYaw(a.target_ori, center_yaw) - center_yaw
                      )) > (target_config_->max_yaw_diff_deg_param.get() * M_PI / 180.0)
-                     || std::abs((a.target_pos - target_.position()).norm())
+                     || std::abs((a.target_pos - target_.target_state_.pos()).norm())
                          > target_config_->max_dis_diff_param.get())
                     && target_.is_inited
                     && std::abs(wust_vl::common::utils::time_utils::durationMs(
@@ -105,7 +106,6 @@ namespace auto_aim {
             }
 
             target_.is_tracking = (tracker_state == TRACKING || tracker_state == TEMP_LOST);
-            target_.is_temp_lost_ = (tracker_state == TEMP_LOST);
 
             if (found)
                 ++found_count_;
@@ -139,8 +139,7 @@ namespace auto_aim {
             if (armors.armors.empty())
                 return false;
 
-            target_.predict(armors.timestamp, armors.v);
-
+            target_.predict(armors.timestamp);
             std::vector<Armor> candidates;
             candidates.reserve(armors.armors.size());
 

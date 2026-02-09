@@ -75,10 +75,10 @@ namespace auto_aim {
             }
         }
 
-        const cv::Mat image = armor.number_img / 255.0;
+        const cv::Mat image = armor.number_img;
 
         cv::Mat blob;
-        cv::dnn::blobFromImage(image, blob);
+        cv::dnn::blobFromImage(image, blob, 1.0 / 255.0);
 
         thread_net->setInput(blob);
         cv::Mat outputs = thread_net->forward();

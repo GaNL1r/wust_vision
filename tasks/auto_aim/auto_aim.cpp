@@ -47,59 +47,9 @@ namespace auto_aim {
             );
             max_detect_armors_ = config["max_detect_armors"].as<int>(10);
             armor_pose_estimator_ = std::make_unique<ArmorPoseEstimator>(config, camera_info_);
-
             const std::string armor_detect_backend =
                 config["armor_detect_backend"].as<std::string>("");
-            auto isBackendEnabled = [&use_detect_ncnn_count](const std::string& backend) -> bool {
-#ifdef USE_OPENVINO
-                if (backend == "openvino")
-                    return true;
-#endif
-#ifdef USE_TRT
-                if (backend == "tensorrt")
-                    return true;
-#endif
-#ifdef USE_NCNN
-                if (backend == "ncnn") {
-                    use_detect_ncnn_count++;
-                    return true;
-                }
-
-#endif
-#ifdef USE_ORT
-                if (backend == "onnxruntime")
-                    return true;
-#endif
-                if (backend == "opencv")
-                    return true;
-                return false;
-            };
-
-            auto getConfigPath = [](const std::string& backend) -> std::string {
-                if (backend == "opencv")
-                    return OPENCV_CONFIG;
-                else
-                    return ML_CONFIG;
-                return "";
-            };
-
-            auto loadArmorDetectorBackend = [&](const std::string& backend) {
-                if (!isBackendEnabled(backend)) {
-                    throw std::runtime_error(
-                        "Backend " + backend + " is not enabled at compile time."
-                    );
-                }
-                std::string config_path = getConfigPath(backend);
-                if (config_path.empty()) {
-                    throw std::runtime_error("No config path for backend: " + backend);
-                }
-                auto armor_detect_config = YAML::LoadFile(config_path);
-                return DetectorFactory::createArmorDetector(backend, armor_detect_config, true);
-            };
-            if (armor_detect_backend.empty()) {
-                throw std::runtime_error("armor_detect_backend not set in config.");
-            }
-            armor_detector_ = loadArmorDetectorBackend(armor_detect_backend);
+            armor_detector_ = DetectorFactory::createArmorDetector(armor_detect_backend, true);
             armor_detector_->setCallback(std::bind(
                 &AutoAim::Impl::ArmorDetectCallback,
                 this,
@@ -224,7 +174,7 @@ namespace auto_aim {
                 return;
             }
             Target target = tracker_->track(armors);
-            auto_aim_fsm_cl_.update(std::abs(target.v_yaw()), target.jumped);
+            auto_aim_fsm_cl_.update(std::abs(target.target_state_.vyaw()), target.jumped);
             const auto now = std::chrono::steady_clock::now();
             {
                 std::lock_guard<std::mutex> lock(target_mutex_);
@@ -250,7 +200,7 @@ namespace auto_aim {
             }
             AimTarget aim_target;
             const bool appear = target.checkTargetAppear();
-            if (appear && target.position().norm() > 0.5) {
+            if (appear && target.target_state_.pos().norm() > 0.5) {
                 try {
                     gimbal_cmd = very_aimer_->veryAim(
                         target,

@@ -17,6 +17,7 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include <concepts>
 #include <opencv2/opencv.hpp>
 #include <thread>
 #include <yaml-cpp/yaml.h>
