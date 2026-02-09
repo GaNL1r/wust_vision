@@ -26,7 +26,7 @@ __global__ void letterbox_kernel_shared(
     float norm,
     bool swap_rb
 );
-extern "C" __global__ void letterbox_kernel_pitched(
+__global__ void letterbox_kernel_pitched(
     const unsigned char* __restrict__ d_input_bgr,
     size_t pitch,
     int src_w,
