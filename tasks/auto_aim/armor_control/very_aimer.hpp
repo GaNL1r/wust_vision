@@ -1,13 +1,21 @@
 #pragma once
-#include "tasks/auto_aim/armor_tracker/target.hpp"
-#include "tasks/auto_aim/auto_aim_fsm.hpp"
 #include <memory>
+namespace wust_vl::common::utils {
+class Parameter;
+}
+using wust_vlParamterPtr = std::shared_ptr<wust_vl::common::utils::Parameter>;
+namespace wust_vision {
+struct GimbalCmd;
+}
 namespace wust_vision::auto_aim {
+enum class AutoAimFsm;
+
+class Target;
 class VeryAimer {
 public:
     using Ptr = std::unique_ptr<VeryAimer>;
-    VeryAimer(wust_vl::common::utils::Parameter::Ptr auto_aim_config_parameter);
-    static Ptr create(wust_vl::common::utils::Parameter::Ptr auto_aim_config_parameter) {
+    VeryAimer(wust_vlParamterPtr auto_aim_config_parameter);
+    static Ptr create(wust_vlParamterPtr auto_aim_config_parameter) {
         return std::make_unique<VeryAimer>(auto_aim_config_parameter);
     };
     ~VeryAimer();

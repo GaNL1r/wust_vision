@@ -27,7 +27,7 @@ armor_detector:
   
   tensorrt:
     conf_threshold: 0.2
-    model_path: ${VISION_ROOT}/model/at.onnx
+    model_path: ${VISION_ROOT}/model/opt-1208-001.onnx
     device_id: 0
     nms_threshold: 0.3
     top_k: 128
@@ -35,7 +35,7 @@ armor_detector:
     min_free_mem_ratio: 0.1
     use_cuda_pre: true
     log_time: false
-    model_type: at
+    model_type: tup
   openvino:
     conf_threshold: 0.2
     device_name: AUTO
@@ -46,10 +46,10 @@ armor_detector:
     model_type: tup
   onnxruntime:
     conf_threshold: 0.2
-    model_path: ${VISION_ROOT}/model/best_fp16.onnx
+    model_path: ${VISION_ROOT}/model/opt-1208-001.onnx
     nms_threshold: 0.3
     top_k: 128
-    model_type: at2
+    model_type: tup
     provider: CUDA
   ncnn:
     conf_threshold: 0.2

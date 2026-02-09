@@ -2,8 +2,12 @@
 #include "very_aimer.hpp"
 #include "tasks/auto_aim/armor_control/tinympc/tiny_api.hpp"
 #include "tasks/auto_aim/armor_control/tinympc/types.hpp"
+#include "tasks/auto_aim/armor_tracker/target.hpp"
+#include "tasks/auto_aim/auto_aim_fsm.hpp"
+#include "tasks/type_common.hpp"
 #include "traj.hpp"
 #include "wust_vl/common/utils/manual_compensator.hpp"
+#include "wust_vl/common/utils/parameter.hpp"
 namespace wust_vision::auto_aim {
 
 struct VeryAimer::Impl {
@@ -607,8 +611,9 @@ struct VeryAimer::Impl {
         auto_aim_config_parameter_ = auto_aim_config_parameter;
         reset();
     }
-    [[nodiscard]] inline double rad2deg(double r) const noexcept {
-        return r / M_PI * 180.0;
+    [[nodiscard]] inline static double rad2deg(double r) noexcept {
+        static constexpr double rad_deg = 180.0 / M_PI;
+        return r * rad_deg;
     }
     void reset() {
         config_ = VeryAimerConfig::create();
