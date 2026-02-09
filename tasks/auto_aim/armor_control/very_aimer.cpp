@@ -11,9 +11,13 @@
 namespace wust_vision::auto_aim {
 
 struct VeryAimer::Impl {
-    static inline double lerpAngle(double a0, double a1, double t) {
+    [[nodiscard]] static inline double lerpAngle(double a0, double a1, double t) noexcept {
         double d = std::remainder(a1 - a0, 2.0 * M_PI);
         return a0 + t * d;
+    }
+    [[nodiscard]] inline static double rad2deg(double r) noexcept {
+        static constexpr double rad_deg = 180.0 / M_PI;
+        return r * rad_deg;
     }
     struct ControlPoint {
         double yaw;
@@ -611,10 +615,7 @@ struct VeryAimer::Impl {
         auto_aim_config_parameter_ = auto_aim_config_parameter;
         reset();
     }
-    [[nodiscard]] inline static double rad2deg(double r) noexcept {
-        static constexpr double rad_deg = 180.0 / M_PI;
-        return r * rad_deg;
-    }
+
     void reset() {
         config_ = VeryAimerConfig::create();
         trajectory_compensator_config_ = TrajectoryCompensatorConfig::create();
@@ -718,7 +719,7 @@ struct VeryAimer::Impl {
             delta_angles.push_back(angles::normalize_angle(armor_list[i][3] - center_yaw));
         }
 
-        const auto pick_best_by_min_abs = [&](const std::vector<int>& idxs) -> int {
+        const auto pick_best_by_min_delta = [&](const std::vector<int>& idxs) -> int {
             int best = -1;
             double best_val = std::numeric_limits<double>::infinity();
             for (int i: idxs) {
@@ -745,7 +746,7 @@ struct VeryAimer::Impl {
                     }
                     int pick = (lock_id >= 0 && lock_id < armor_num)
                         ? lock_id
-                        : pick_best_by_min_abs(candidates);
+                        : pick_best_by_min_delta(candidates);
                     if (pick >= 0) {
                         i_chosen = pick;
                     }
@@ -761,31 +762,31 @@ struct VeryAimer::Impl {
         if (armor_num > 0) {
             int best_idx = -1;
 
-            if (target.tracked_id_ != ArmorNumber::OUTPOST) {
-                const double coming_angle = config_->comming_angle_param.get() * M_PI / 180.0;
-                const double leaving_angle = config_->leaving_angle_param.get() * M_PI / 180.0;
+            // if (target.tracked_id_ != ArmorNumber::OUTPOST) {
+            //     const double coming_angle = config_->comming_angle_param.get() * M_PI / 180.0;
+            //     const double leaving_angle = config_->leaving_angle_param.get() * M_PI / 180.0;
 
-                for (int i = 0; i < armor_num; ++i) {
-                    if (std::abs(delta_angles[i]) > coming_angle)
-                        continue;
+            //     for (int i = 0; i < armor_num; ++i) {
+            //         if (std::abs(delta_angles[i]) > coming_angle)
+            //             continue;
 
-                    if (target.target_state_.vyaw() > 0 && delta_angles[i] < leaving_angle)
-                        best_idx = i;
-                    if (target.target_state_.vyaw() < 0 && delta_angles[i] > -leaving_angle)
-                        best_idx = i;
-                }
-            }
+            //         if (target.target_state_.vyaw() > 0 && delta_angles[i] < leaving_angle)
+            //             best_idx = i;
+            //         if (target.target_state_.vyaw() < 0 && delta_angles[i] > -leaving_angle)
+            //             best_idx = i;
+            //     }
+            // }
 
             if (best_idx < 0) {
                 std::vector<int> all(armor_num);
                 std::iota(all.begin(), all.end(), 0);
-                best_idx = pick_best_by_min_abs(all);
+                best_idx = pick_best_by_min_delta(all);
             }
             if (aim_pair) {
                 std::vector<int> all;
                 all.push_back(0);
                 all.push_back(2);
-                best_idx = pick_best_by_min_abs(all);
+                best_idx = pick_best_by_min_delta(all);
             }
 
             i_chosen = best_idx;

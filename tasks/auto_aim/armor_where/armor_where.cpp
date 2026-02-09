@@ -15,7 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "ba_solver.hpp"
+#include "armor_where.hpp"
+#include "wust_vl/algorithm/pnp_solver.hpp"
 #include <ceres/autodiff_cost_function.h>
 #include <ceres/loss_function.h>
 #include <ceres/problem.h>
@@ -24,37 +25,117 @@
 namespace wust_vision {
 namespace auto_aim {
 
-    struct BaSolver::Impl {
+    struct ArmorWhere::Impl {
     public:
         Impl(const YAML::Node& config, const std::pair<cv::Mat, cv::Mat>& camera_info) {
             camera_info_ = camera_info;
             cv::cv2eigen(camera_info.first, K_);
             dist_eigen_ = toEigenDist(camera_info.second);
             params_.load(config);
+            pnp_solver_ = std::make_unique<wust_vl::algorithm::PnPSolver>(cv::SOLVEPNP_IPPE);
+            pnp_solver_->setObjectPoints(
+                "small",
+                ArmorObject::buildObjectPoints<cv::Point3f>(SMALL_ARMOR_WIDTH, SMALL_ARMOR_HEIGHT)
+            );
+            pnp_solver_->setObjectPoints(
+                "large",
+                ArmorObject::buildObjectPoints<cv::Point3f>(LARGE_ARMOR_WIDTH, LARGE_ARMOR_HEIGHT)
+            );
         }
         struct Params {
-            enum class OptMode : int {
-                GOLDEN = 0,
-                CERES = 1
-
-            } mode;
+            enum class OptMode : int { GOLDEN = 0, CERES = 1, NONE = 2 } opt_mode;
             OptMode fromString(const std::string& mode) {
                 if (mode == "golden" || mode == "GOLDEN") {
                     return OptMode::GOLDEN;
                 } else if (mode == "ceres" || mode == "CERES") {
                     return OptMode::CERES;
+                } else if (mode == "none" || mode == "NONE") {
+                    return OptMode::NONE;
                 } else {
-                    return OptMode::GOLDEN;
+                    return OptMode::NONE;
                 }
             }
             int ceres_max_iter = 40;
             int golden_search_side_deg = 60;
+            double distance_fix_a2 = 0;
             void load(const YAML::Node& node) {
-                mode = fromString(node["mode"].as<std::string>());
-                ceres_max_iter = node["ceres_max_iter"].as<int>();
-                golden_search_side_deg = node["golden_search_side_deg"].as<int>();
+                opt_mode = fromString(node["yaw_opt"]["mode"].as<std::string>());
+                ceres_max_iter = node["yaw_opt"]["ceres_max_iter"].as<int>();
+                golden_search_side_deg = node["yaw_opt"]["golden_search_side_deg"].as<int>();
+                distance_fix_a2 = node["distance_fix_a2"].as<double>();
             }
         } params_;
+
+        std::vector<Armor> where(
+            const std::vector<ArmorObject>& armors,
+            Eigen::Matrix4d T_camera_to_odom
+        ) const noexcept {
+            std::vector<Armor> armors_msg;
+
+            const Eigen::Matrix3d R_imu_cam = T_camera_to_odom.block<3, 3>(0, 0);
+            auto makeArmor =
+                [&](const ArmorObject& obj, const Eigen::Vector3d& t, const Eigen::Matrix3d& R) {
+                    Armor msg;
+                    msg.type = (obj.number == ArmorNumber::NO1 || obj.number == ArmorNumber::BASE)
+                        ? "large"
+                        : "small";
+                    msg.number = obj.number;
+                    Eigen::Quaterniond q(R);
+                    Eigen::Quaterniond add_roll {
+                        Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d::UnitX())
+                    };
+                    Eigen::Quaterniond new_q = q * add_roll;
+
+                    auto [yaw, pitch, dist] = utils::xyz2ypd_rad(t.x(), t.y(), t.z());
+                    dist += params_.distance_fix_a2 * dist * dist;
+                    auto [x, y, z] = utils::ypd2xyz_rad(yaw, pitch, dist);
+
+                    msg.pos = { x, y, z };
+                    msg.ori = new_q;
+                    auto_aim::transformArmorData(msg, T_camera_to_odom);
+                    msg.distance_to_image_center =
+                        pnp_solver_->calculateDistanceToCenter(obj.center, camera_info_.first);
+                    msg.is_ok = obj.is_ok;
+                    if (obj.color == ArmorColor::NONE || obj.color == ArmorColor::PURPLE) {
+                        msg.is_none_purple = true;
+                    } else {
+                        msg.is_none_purple = false;
+                    }
+                    return msg;
+                };
+
+            for (auto const& a: armors) {
+                cv::Mat rvec, tvec;
+                std::string type = (a.number == ArmorNumber::NO1 || a.number == ArmorNumber::BASE)
+                    ? "large"
+                    : "small";
+
+                if (!pnp_solver_->solvePnP(
+                        a.landmarks(),
+                        rvec,
+                        tvec,
+                        type,
+                        camera_info_.first,
+                        camera_info_.second
+                    ))
+                {
+                    WUST_WARN("PNP") << "PNP failed";
+                    continue;
+                }
+                cv::Mat R_cv;
+                cv::Rodrigues(rvec, R_cv);
+                Eigen::Matrix3d R = utils::cvToEigen(R_cv);
+                Eigen::Vector3d t = utils::cvToEigen(tvec);
+                if (params_.opt_mode != Params::OptMode::NONE) {
+                    Eigen::Matrix3d R0 = R;
+                    R = solveBa_R(a, t, R0, R_imu_cam, type);
+                }
+
+                armors_msg.push_back(makeArmor(a, t, R));
+            }
+
+            return armors_msg;
+        }
         std::vector<Eigen::Vector2d> reprojectionArmor(
             double yaw,
             const std::vector<Eigen::Vector3d>& object_points,
@@ -305,7 +386,7 @@ namespace auto_aim {
             const auto& lm = armor.landmarks();
             const auto& sym_pairs = ArmorObject::buildSymPairs<int>();
             double yaw = yaw_init;
-            if (params_.mode == Params::OptMode::CERES) {
+            if (params_.opt_mode == Params::OptMode::CERES) {
                 yaw = ceresYaw(
                     yaw_init,
                     objPts,
@@ -317,7 +398,7 @@ namespace auto_aim {
                     t_camera_armor,
                     K
                 );
-            } else if (params_.mode == Params::OptMode::GOLDEN) {
+            } else if (params_.opt_mode == Params::OptMode::GOLDEN) {
                 yaw = goldenYaw(
                     yaw_init,
                     objPts,
@@ -527,21 +608,22 @@ namespace auto_aim {
         Eigen::Matrix3d K_;
         std::pair<cv::Mat, cv::Mat> camera_info_;
         Eigen::Vector<double, 5> dist_eigen_;
+        std::unique_ptr<wust_vl::algorithm::PnPSolver> pnp_solver_;
     };
-    BaSolver::BaSolver(const YAML::Node& config, const std::pair<cv::Mat, cv::Mat>& camera_info) {
+    ArmorWhere::ArmorWhere(
+        const YAML::Node& config,
+        const std::pair<cv::Mat, cv::Mat>& camera_info
+    ) {
         _impl = std::make_unique<Impl>(config, camera_info);
     }
-    BaSolver::~BaSolver() {
+    ArmorWhere::~ArmorWhere() {
         _impl.reset();
     }
-    Eigen::Matrix3d BaSolver::solveBa_R(
-        const ArmorObject& armor,
-        const Eigen::Vector3d& t_camera_armor,
-        const Eigen::Matrix3d& R_camera_armor,
-        const Eigen::Matrix3d& R_imu_camera,
-        const std::string& type
+    std::vector<Armor> ArmorWhere::where(
+        const std::vector<ArmorObject>& armors,
+        Eigen::Matrix4d T_camera_to_odom
     ) const noexcept {
-        return _impl->solveBa_R(armor, t_camera_armor, R_camera_armor, R_imu_camera, type);
+        return _impl->where(armors, T_camera_to_odom);
     }
 } // namespace auto_aim
 } // namespace wust_vision

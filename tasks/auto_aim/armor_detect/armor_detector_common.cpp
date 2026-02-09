@@ -108,9 +108,9 @@ namespace auto_aim {
                     return false;
                 }
             }
-            if (params_.enable_classify) {
-                const cv::Point2f offset(static_cast<float>(new_x), static_cast<float>(new_y));
+            const cv::Point2f offset(static_cast<float>(new_x), static_cast<float>(new_y));
 
+            if (params_.enable_classify) {
                 cv::Point2f src_vertices[4] = { armor.pts[1] - offset,
                                                 armor.pts[0] - offset,
                                                 armor.pts[3] - offset,
@@ -159,8 +159,7 @@ namespace auto_aim {
             }
 
             armor.whole_rgb_img = litroi_color;
-            armor.new_x = new_x;
-            armor.new_y = new_y;
+            armor.local_offset = offset;
 
             return true;
         }
@@ -395,9 +394,7 @@ namespace auto_aim {
                         if (isArmor(armor.lights[0], armor.lights[1])) {
                             armor.is_ok = true;
                             for (auto& light: armor.lights) {
-                                const cv::Point2f offset { static_cast<float>(armor.new_x),
-                                                           static_cast<float>(armor.new_y) };
-                                light.addOffset(offset);
+                                light.addOffset(armor.local_offset);
                             }
                         }
                     }

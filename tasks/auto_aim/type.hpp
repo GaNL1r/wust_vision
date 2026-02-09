@@ -57,20 +57,56 @@ namespace auto_aim {
         cv::Mat whole_gray_img;
 
         std::vector<Light> lights;
-
+        cv::Point2f local_offset;
         cv::Point2f center;
-        double new_x = 0;
-        double new_y = 0;
         bool is_ok = false;
-        bool is_ok_yaw = false;
         ArmorType type;
         static constexpr const int N_LANDMARKS = 6;
         static constexpr const int N_LANDMARKS_2 = N_LANDMARKS * 2;
 
         template<typename PointType>
-        std::vector<PointType> static buildObjectPoints(const double& w, const double& h) noexcept;
+        static std::vector<PointType> buildObjectPoints(const double& w, const double& h) noexcept {
+            if constexpr (N_LANDMARKS == 4) {
+                return {
+                    PointType(0, w / 2, -h / 2), // 右下
+                    PointType(0, w / 2, h / 2), // 右上
+                    PointType(0, -w / 2, h / 2), // 左上
+                    PointType(0, -w / 2, -h / 2) // 左下
+                };
+            } else {
+                return {
+                    PointType(0, w / 2, -h / 2), // 右下
+                    PointType(0, w / 2, 0.0), // 右中
+                    PointType(0, w / 2, h / 2), // 右上
+
+                    PointType(0, -w / 2, h / 2), // 左上
+                    PointType(0, -w / 2, 0.0), // 左中
+                    PointType(0, -w / 2, -h / 2) // 左下
+                };
+            }
+        }
         template<typename IDType>
-        std::vector<std::pair<IDType, IDType>> static buildSymPairs() noexcept;
+        static std::vector<std::pair<IDType, IDType>> buildSymPairs() noexcept {
+            if constexpr (N_LANDMARKS == 4) {
+                static const std::vector<std::pair<IDType, IDType>> pairs = {
+                    { 0, 3 },
+                    { 1, 2 },
+                    { 0, 2 },
+                    //    { 1, 3 }
+                };
+                return pairs;
+            } else {
+                static const std::vector<std::pair<IDType, IDType>> pairs = {
+                    { 0, 5 },
+                    { 1, 4 },
+                    { 2, 3 },
+                    //    { 0, 3 },
+                    //    { 2, 5 }
+
+                };
+                return pairs;
+            }
+        }
         std::vector<cv::Point2f> toPts() const noexcept;
         bool checkOkptsRight(double max_error) const noexcept;
         std::array<cv::Point2f, 4> sortCorners(const std::vector<cv::Point2f>& pts) const noexcept;
@@ -94,17 +130,7 @@ namespace auto_aim {
             }
         }
         ArmorObject(const Light& l1, const Light& l2);
-        ArmorObject():
-            box(),
-            center(),
-            color(),
-            confidence(),
-            is_ok(),
-            is_ok_yaw(),
-            number(),
-            new_x(),
-            new_y(),
-            pts() {}
+        ArmorObject() = default;
     };
 
     struct Armor {
@@ -133,40 +159,6 @@ namespace auto_aim {
         int id;
         Eigen::Vector3d v;
     };
-    static constexpr double outpost_v_yaw = 0.8 * M_PI;
-    static constexpr double DZ_1 = 0.1;
-    static constexpr double DZ_2 = -0.1;
-    static constexpr double DZ_3 = 0.2;
-    static constexpr double DZ_4 = -0.2;
-    static constexpr std::array<double, 4> outpostDZ = { DZ_1, DZ_2, DZ_3, DZ_4 };
-    inline double outpost_diff_from_id(int id) noexcept {
-        switch (id) {
-            case 1:
-                return DZ_1;
-            case 2:
-                return DZ_2;
-            case 3:
-                return DZ_3;
-            case 4:
-                return DZ_4;
-            default:
-                return 0.0;
-        }
-    }
-
-    inline int quantize_outpost_diff(double dz) noexcept {
-        static constexpr double candidates[] = { DZ_1, DZ_2, DZ_3, DZ_4 };
-        int best_id = 1;
-        double min_diff = std::abs(dz - candidates[0]);
-        for (int i = 1; i < 4; ++i) {
-            double diff = std::abs(dz - candidates[i]);
-            if (diff < min_diff) {
-                min_diff = diff;
-                best_id = i + 1; // ID 从 1 开始
-            }
-        }
-        return best_id;
-    }
 
     void transformArmorData(Armors& armors, Eigen::Matrix4d T_camera_to_odom) noexcept;
     void transformArmorData(Armor& armor, const Eigen::Matrix4d& T_camera_to_odom) noexcept;

@@ -220,51 +220,6 @@ namespace auto_aim {
         }
     }
 
-    template<typename PointType>
-    std::vector<PointType>
-    ArmorObject::buildObjectPoints(const double& w, const double& h) noexcept {
-        if constexpr (N_LANDMARKS == 4) {
-            return {
-                PointType(0, w / 2, -h / 2), // 右下
-                PointType(0, w / 2, h / 2), // 右上
-                PointType(0, -w / 2, h / 2), // 左上
-                PointType(0, -w / 2, -h / 2) // 左下
-            };
-        } else {
-            return {
-                PointType(0, w / 2, -h / 2), // 右下
-                PointType(0, w / 2, 0.0), // 右中
-                PointType(0, w / 2, h / 2), // 右上
-
-                PointType(0, -w / 2, h / 2), // 左上
-                PointType(0, -w / 2, 0.0), // 左中
-                PointType(0, -w / 2, -h / 2) // 左下
-            };
-        }
-    }
-    template<typename IDType>
-    std::vector<std::pair<IDType, IDType>> ArmorObject::buildSymPairs() noexcept {
-        if constexpr (N_LANDMARKS == 4) {
-            const std::vector<std::pair<IDType, IDType>> pairs = {
-                { 0, 3 },
-                { 1, 2 },
-                { 0, 2 },
-                //    { 1, 3 }
-            };
-            return pairs;
-        } else {
-            const std::vector<std::pair<IDType, IDType>> pairs = {
-                { 0, 5 },
-                { 1, 4 },
-                { 2, 3 },
-                //    { 0, 3 },
-                //    { 2, 5 }
-
-            };
-            return pairs;
-        }
-    }
-
     std::vector<cv::Point2f> ArmorObject::toPts() const noexcept {
         if (is_ok) {
             return { lights[0].top, lights[0].bottom, lights[1].bottom, lights[1].top };

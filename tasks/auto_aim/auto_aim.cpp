@@ -1,7 +1,7 @@
 #include "auto_aim.hpp"
 #include "tasks/auto_aim/armor_control/very_aimer.hpp"
-#include "tasks/auto_aim/armor_detect/armor_pose_estimator.hpp"
 #include "tasks/auto_aim/armor_tracker/trackerv3.hpp"
+#include "tasks/auto_aim/armor_where/armor_where.hpp"
 #include "tasks/config.hpp"
 #include "wust_vl/common/concurrency/queues.hpp"
 // clang-format off
@@ -46,7 +46,7 @@ namespace auto_aim {
                 *auto_aim_config_parameter_.get()
             );
             max_detect_armors_ = config["max_detect_armors"].as<int>(10);
-            armor_pose_estimator_ = std::make_unique<ArmorPoseEstimator>(config, camera_info_);
+            armor_where_ = ArmorWhere::create(config["armor_where"], camera_info_);
             const std::string armor_detect_backend =
                 config["armor_detect_backend"].as<std::string>("");
             armor_detector_ = DetectorFactory::createArmorDetector(armor_detect_backend, true);
@@ -145,12 +145,7 @@ namespace auto_aim {
                 tf_config_->R_camera2gimbal,
                 tf_config_->t_camera2gimbal
             );
-            armors.armors = armor_pose_estimator_->extractArmorPoses(
-                sorted_objs,
-                T_camera_to_odom_,
-                camera_info_.first,
-                camera_info_.second
-            );
+            armors.armors = armor_where_->where(sorted_objs, T_camera_to_odom_);
             armors.v = v;
             for (auto& armor: armors.armors) {
                 armor.timestamp = armors.timestamp;
@@ -329,7 +324,7 @@ namespace auto_aim {
         wust_vl::common::concurrency::MonitoredThread::Ptr processing_thread_;
         std::unique_ptr<wust_vl::common::utils::Timer> timer_;
         VeryAimer::Ptr very_aimer_;
-        std::unique_ptr<ArmorPoseEstimator> armor_pose_estimator_;
+        ArmorWhere::Ptr armor_where_;
         AutoAimFsmController auto_aim_fsm_cl_;
         AutoExposureCfg::Ptr auto_exposure_cfg_;
         cv::Rect expanded_;
