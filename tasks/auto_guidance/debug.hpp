@@ -1,10 +1,11 @@
 #pragma once
 #include "tasks/auto_guidance/guidance_tracker/guidance_target.hpp"
+#include "wust_vl/video/icamera.hpp"
 namespace wust_vision {
 namespace auto_guidance {
 
     struct AutoGuidanceDebug {
-        cv::Mat src_img;
+        wust_vl::video::ImageFrame img_frame;
         double latency_ms;
         GuidanceTarget target;
         GreenLights lights;

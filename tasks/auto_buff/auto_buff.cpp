@@ -76,7 +76,7 @@ namespace auto_buff {
                 T_camera_to_odom_,
                 camera_info_.first,
                 camera_info_.second,
-                frame.src_img.size()
+                frame.img_frame.src_img.size()
             );
             if (bbox.area() > 100) {
                 frame.expanded = bbox;
@@ -97,7 +97,7 @@ namespace auto_buff {
                 const auto delay =
                     std::chrono::microseconds(static_cast<int64_t>(shared_->communication_delay_μs)
                     );
-                const auto t_query = frame.timestamp + delay;
+                const auto t_query = frame.img_frame.timestamp + delay;
                 auto apply_motion = [&](const auto& att) {
                     v << att.data.vx, att.data.vy, att.data.vz;
                     R_gimbal2odom = Eigen::AngleAxisd(att.data.yaw, Eigen::Vector3d::UnitZ())
@@ -121,7 +121,7 @@ namespace auto_buff {
             rune_queue_->enqueue(copy_fan);
             if (debug_mode_) {
                 std::lock_guard<std::mutex> lock(dbg_mutex_);
-                auto_buff_debug_.src_img = { std::move(debug_img), frame.timestamp };
+                auto_buff_debug_.img_frame = frame.img_frame;
                 auto_buff_debug_.T_camera_to_odom = T_camera_to_odom_;
                 auto_buff_debug_.expanded = frame.expanded;
                 auto_buff_debug_.pnp_distance =

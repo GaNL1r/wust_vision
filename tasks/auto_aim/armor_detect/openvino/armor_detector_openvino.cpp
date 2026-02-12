@@ -91,7 +91,11 @@ namespace auto_aim {
         ) const {
             const auto start = std::chrono::steady_clock::now();
             Eigen::Matrix3f transform_matrix;
-            const auto roi = frame.src_img(frame.expanded);
+            const auto _roi = frame.img_frame.src_img(frame.expanded);
+            cv::Mat roi = _roi;
+            if (frame.img_frame.pixel_format == wust_vl::video::PixelFormat::RGB) {
+                cv::cvtColor(_roi, roi, cv::COLOR_BGR2RGB);
+            }
             cv::Mat resized_img = utils::letterbox(
                 roi,
                 transform_matrix,

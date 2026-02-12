@@ -1,4 +1,4 @@
-type: video_player
+type: uvc
 
 camera_info_path: ${VISION_ROOT}/config/camera_info.yaml
 
@@ -23,6 +23,8 @@ hik_camera:
   use_raw: false
   use_rgb: false
   use_ea: false
+  use_cuda_cvt: false
+
   
 video_player:
   fps: 60
@@ -36,3 +38,13 @@ video_player:
   path: /home/hy/rune_dl/runeA.mp4
   #path: /home/hy/wust_data/video/Sentry.mp4
   start_frame: 0
+
+uvc:
+  device_name: "/dev/v4l/by-id/usb-RYS_USB_Camera_200901010001-video-index0"
+  fps: 60
+  width: 1280
+  height: 720
+  exposure: 200
+  gain: 10.0
+  gamma: 100
+  trigger_mode: false

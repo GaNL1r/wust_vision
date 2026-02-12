@@ -15,41 +15,8 @@ namespace auto_buff {
             cv::Mat bin;
             cv::cvtColor(src, bin, cv::COLOR_RGB2GRAY);
             cv::threshold(bin, bin, params_.bin_threshold, 255, cv::THRESH_BINARY);
-
-            cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
-
-            // cv::dilate(bin, bin, kernel, cv::Point(-1, -1), 1);
-
-            // cv::morphologyEx(bin, bin, cv::MORPH_CLOSE, kernel, cv::Point(-1, -1), 1);
-            // cv::morphologyEx(bin, bin, cv::MORPH_OPEN, kernel, cv::Point(-1, -1), 1);
             return bin;
         }
-        // cv::Mat preProcess(const cv::Mat& src, bool use_red) {
-        //     cv::Mat channel, bin;
-
-        //
-        //     if (use_red) {
-        //
-        //         cv::extractChannel(src, channel, 2); // 2 = R
-        //     } else {
-        //
-        //         cv::extractChannel(src, channel, 0); // 0 = B
-        //     }
-
-        //
-        //     cv::threshold(channel, bin, 50, 255, cv::THRESH_BINARY);
-
-        //
-        //     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
-
-        //
-        //     cv::dilate(bin, bin, kernel, cv::Point(-1, -1), 1);
-        //     cv::morphologyEx(bin, bin, cv::MORPH_CLOSE, kernel, cv::Point(-1, -1), 1);
-        //     cv::morphologyEx(bin, bin, cv::MORPH_OPEN, kernel, cv::Point(-1, -1), 1);
-
-        //     return bin;
-        // }
-
         inline auto_buff::RuneCenter getRuneCenter(
             const std::vector<std::vector<cv::Point>>& contours,
             const std::vector<cv::Vec4i>& hierarchy,
@@ -368,14 +335,14 @@ namespace auto_buff {
         void pushInput(CommonFrame& frame, bool is_big, bool debug) {
             frame.id = current_id_++;
             auto_buff::RuneFan fan { .is_valid = false,
-                                     .timestamp = frame.timestamp,
+                                     .timestamp = frame.img_frame.timestamp,
                                      .id = frame.id,
                                      .is_big = is_big };
             cv::Mat debug_img;
             if (debug) {
-                debug_img = frame.src_img.clone();
+                debug_img = frame.img_frame.src_img.clone();
             }
-            cv::Mat roi = frame.src_img(frame.expanded);
+            cv::Mat roi = frame.img_frame.src_img(frame.expanded);
 
             cv::Mat processed_img = preProcess(roi, frame.detect_color);
 

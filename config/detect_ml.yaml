@@ -33,7 +33,7 @@ armor_detector:
     top_k: 128
     max_infer_running: 3
     min_free_mem_ratio: 0.1
-    use_cuda_pre: true
+    use_cuda_pre: false
     log_time: false
     model_type: tup
   openvino:

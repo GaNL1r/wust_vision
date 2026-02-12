@@ -138,9 +138,9 @@ namespace auto_guidance {
     void drawDebugOverlayWrite(const AutoGuidanceDebug& dbg, bool auto_fps) {
         static auto last_show_time = std::chrono::steady_clock::now();
 
-        if (dbg.src_img.empty())
+        if (dbg.img_frame.src_img.empty())
             return;
-        cv::Mat src_img = dbg.src_img;
+        cv::Mat src_img = dbg.img_frame.src_img;
         auto now = std::chrono::steady_clock::now();
         const double min_interval_ms = 1000.0 / 30.0;
         if (std::chrono::duration<double, std::milli>(now - last_show_time).count()
@@ -172,9 +172,9 @@ namespace auto_guidance {
         const char* shm_name = "/debug_frame";
         const size_t shm_max_size = 2 * 1024 * 1024; // 2MB 最大图像编码缓存
 
-        if (dbg.src_img.empty())
+        if (dbg.img_frame.src_img.empty())
             return;
-        cv::Mat src_img = dbg.src_img;
+        cv::Mat src_img = dbg.img_frame.src_img;
 
         auto now = std::chrono::steady_clock::now();
         const double min_interval_ms = 1000.0 / 30.0;
@@ -237,9 +237,9 @@ namespace auto_guidance {
     void drawDebugOverlayShow(const AutoGuidanceDebug& dbg, bool auto_fps) {
         static auto last_show_time = std::chrono::steady_clock::now();
 
-        if (dbg.src_img.empty())
+        if (dbg.img_frame.src_img.empty())
             return;
-        cv::Mat src_img = dbg.src_img;
+        cv::Mat src_img = dbg.img_frame.src_img;
         auto now = std::chrono::steady_clock::now();
         const double min_interval_ms = 1000.0 / 30.0;
         if (std::chrono::duration<double, std::milli>(now - last_show_time).count()

@@ -179,11 +179,12 @@ namespace auto_aim {
             Eigen::Matrix3f transform_matrix;
             std::vector<ArmorObject> objs_result;
             void* input_tensor_ptr;
-            const cv::Mat roi = frame.src_img(frame.expanded);
+            const cv::Mat roi = frame.img_frame.src_img(frame.expanded);
 
             cv::Mat resized_img;
             const float scale = armor_infer_->useNorm() ? 1.0f / 255.0f : 1.0f;
-            const bool swap_rb = armor_infer_->inputRGB();
+            const bool swap_rb = armor_infer_->inputRGB()
+                != (frame.img_frame.pixel_format == wust_vl::video::PixelFormat::RGB);
             if (infer->cuda_infer && use_cuda_pre_) {
                 input_tensor_ptr =
                     infer->cuda_infer

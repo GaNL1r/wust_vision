@@ -4,11 +4,13 @@
 #include "wust_vl/common/utils/motion_buffer.hpp"
 #include "wust_vl/common/utils/parameter.hpp"
 #include "wust_vl/common/utils/trajectory_compensator.hpp"
+#include "wust_vl/video/icamera.hpp"
 #include <opencv2/opencv.hpp>
 namespace wust_vision {
 struct CommonFrame {
-    cv::Mat src_img;
-    std::chrono::steady_clock::time_point timestamp;
+    // cv::Mat src_img;
+    // std::chrono::steady_clock::time_point timestamp;
+    wust_vl::video::ImageFrame img_frame;
     int id;
     int detect_color;
     cv::Rect expanded;
@@ -24,10 +26,6 @@ struct GridAndStride {
     int grid0;
     int grid1;
     int stride;
-};
-struct imgframe {
-    cv::Mat img;
-    std::chrono::steady_clock::time_point timestamp;
 };
 
 enum class AttackMode { ARMOR = 0, SMALL_RUNE, BIG_RUNE, UNKNOWN };

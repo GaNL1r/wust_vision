@@ -47,12 +47,12 @@ namespace auto_guidance {
             detect_finish_count_++;
             GreenLights lights;
             lights.lights = objs;
-            lights.timestamp = frame.timestamp;
+            lights.timestamp = frame.img_frame.timestamp;
             lights.id = frame.id;
             for (auto& light: lights.lights) {
                 light.solvePnP(camera_info_.first, camera_info_.second);
-                light.timestamp = frame.timestamp;
-                light.image_size = frame.src_img.size();
+                light.timestamp = frame.img_frame.timestamp;
+                light.image_size = frame.img_frame.src_img.size();
             }
             green_lights_ = lights;
             lights_queue_->enqueue(lights);
@@ -60,7 +60,7 @@ namespace auto_guidance {
             if (debug_) {
                 std::lock_guard<std::mutex> lock(dbg_mutex_);
                 dbg_.lights = lights;
-                dbg_.src_img = frame.src_img;
+                dbg_.img_frame = frame.img_frame;
             }
         }
 

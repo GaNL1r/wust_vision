@@ -345,7 +345,7 @@ namespace auto_aim {
         void pushInput(CommonFrame& frame, const std::optional<ArmorNumber>& target_number) {
             frame.id = current_id_++;
             std::vector<ArmorObject> objs_result;
-            auto roi = frame.src_img(frame.expanded);
+            auto roi = frame.img_frame.src_img(frame.expanded);
 
             objs_result = detect(roi, frame.detect_color, target_number);
 

@@ -62,7 +62,7 @@ namespace auto_guidance {
         void processCallback(const CommonFrame& frame) const {
             Eigen::Matrix3f transform_matrix;
             const cv::Mat resized_img = utils::letterbox(
-                frame.src_img,
+                frame.img_frame.src_img,
                 transform_matrix,
                 green_light_infer_->getInputW(),
                 green_light_infer_->getInputH()

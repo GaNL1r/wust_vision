@@ -7,7 +7,7 @@
 #include "tasks/packet_typedef.hpp"
 namespace wust_vision {
 struct DebugArmor {
-    imgframe src_img;
+    wust_vl::video::ImageFrame img_frame;
     auto_aim::Armors armors;
     auto_aim::Target target;
     GimbalCmd gimbal_cmd;
@@ -20,7 +20,7 @@ struct DebugArmor {
     cv::Rect expanded;
 };
 struct DebugRune {
-    imgframe src_img;
+    wust_vl::video::ImageFrame img_frame;
     auto_buff::RuneTarget target;
     AimTarget aim_target;
     auto_buff::PowerRune power_rune;

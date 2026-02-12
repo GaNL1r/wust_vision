@@ -555,7 +555,7 @@ void drawDebugOverlayImpl(
 ) {
     static auto last_show_time = std::chrono::steady_clock::now();
 
-    if (dbg.src_img.img.empty())
+    if (dbg.img_frame.src_img.empty())
         return;
 
     constexpr double min_interval_ms = 1000.0 / 30.0;
@@ -569,7 +569,14 @@ void drawDebugOverlayImpl(
     last_show_time = now;
 
     cv::Mat debug_img;
-    cv::cvtColor(dbg.src_img.img, debug_img, cv::COLOR_BGR2RGB);
+    if (dbg.img_frame.pixel_format == wust_vl::video::PixelFormat::GRAY) {
+        cv::cvtColor(dbg.img_frame.src_img, debug_img, cv::COLOR_GRAY2RGB);
+    } else if (dbg.img_frame.pixel_format == wust_vl::video::PixelFormat::BGR) {
+        cv::cvtColor(dbg.img_frame.src_img, debug_img, cv::COLOR_BGR2RGB);
+    } else {
+        debug_img = dbg.img_frame.src_img;
+    }
+
     if (debug_img.empty())
         return;
     draw_fn(debug_img, dbg, camera_info);

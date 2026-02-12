@@ -200,41 +200,31 @@ void VisionBase::autoExposureControl(const cv::Mat& frame) {
         } break;
     }
 }
-// #ifdef USE_TRT
-//     #include "cuda_infer/cvtcolor.hpp"
-// #endif
+
 void VisionBase::frameCallback(wust_vl::video::ImageFrame& frame) {
     if (!run_flag_ || infer_running_count_ >= max_infer_running_config_->max_infer_running) {
         return;
     }
     CommonFrame common_frame;
-    common_frame.timestamp = frame.timestamp;
     if (frame.src_img.empty()) {
         return;
     }
     common_frame.detect_color = detect_color_;
-    if (frame.src_img.channels() == 3) {
-        common_frame.src_img = std::move(frame.src_img);
-    } else {
-        // #ifdef USE_TRT
-        //         static cuda_cvt::CudaBayer_EA cuda_cvt;
-        //         cuda_cvt.process(frame.src_img, common_frame.src_img, frame.pixel_type);
-        // #endif
-    }
-
-    common_frame.expanded = cv::Rect(0, 0, common_frame.src_img.cols, common_frame.src_img.rows);
+    common_frame.img_frame = std::move(frame);
+    common_frame.expanded =
+        cv::Rect(0, 0, common_frame.img_frame.src_img.cols, common_frame.img_frame.src_img.rows);
     common_frame.offset = cv::Point2f(0, 0);
-    autoExposureControl(common_frame.src_img);
+    autoExposureControl(common_frame.img_frame.src_img);
     if (img_writer_) {
-        img_writer_->push(common_frame.src_img);
+        img_writer_->push(common_frame.img_frame.src_img);
     }
     thread_pool_->enqueue([this, frame = std::move(common_frame)]() mutable {
         infer_running_count_++;
-        if (frame.src_img.data == nullptr) {
+        if (frame.img_frame.src_img.data == nullptr) {
             infer_running_count_--;
             return;
         }
-        if (frame.src_img.empty()) {
+        if (frame.img_frame.src_img.empty()) {
             infer_running_count_--;
             return;
         }

@@ -66,7 +66,7 @@ namespace auto_guidance {
 
         void processCallback(const CommonFrame& frame) {
             std::vector<GreenLight> lights;
-            cv::Mat img = frame.src_img.clone();
+            cv::Mat img = frame.img_frame.src_img.clone();
 
             cv::Mat hsv;
             cv::cvtColor(img, hsv, cv::COLOR_BGR2HSV);

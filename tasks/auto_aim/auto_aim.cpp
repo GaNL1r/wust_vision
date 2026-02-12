@@ -83,7 +83,7 @@ namespace auto_aim {
                 T_camera_to_odom_,
                 camera_info_.first,
                 camera_info_.second,
-                frame.src_img.size()
+                frame.img_frame.src_img.size()
             );
             if (bbox.area() > 100) {
                 frame.expanded = bbox;
@@ -119,7 +119,7 @@ namespace auto_aim {
             }
 
             Armors armors;
-            armors.timestamp = frame.timestamp;
+            armors.timestamp = frame.img_frame.timestamp;
             armors.id = frame.id;
             Eigen::Vector3d v = Eigen::Vector3d::Zero();
             Eigen::Matrix3d R_gimbal2odom = Eigen::Matrix3d::Identity();
@@ -154,8 +154,7 @@ namespace auto_aim {
             ++detect_finish_count_;
             if (debug_mode_) {
                 std::lock_guard<std::mutex> lock(dbg_mutex_);
-                auto_aim_debug_.src_img.img = frame.src_img;
-                auto_aim_debug_.src_img.timestamp = armors.timestamp;
+                auto_aim_debug_.img_frame = frame.img_frame;
                 auto_aim_debug_.armors = armors;
                 auto_aim_debug_.T_camera_to_odom = T_camera_to_odom_;
                 auto_aim_debug_.detect_color = frame.detect_color;
