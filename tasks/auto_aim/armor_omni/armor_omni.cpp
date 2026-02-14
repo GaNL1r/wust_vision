@@ -23,10 +23,10 @@ struct ArmorOmni::Impl {
             camera->start();
         }
         int self_id;
-        int active_count = 0;
+        double total_score = 0;
         std::shared_ptr<wust_vl::video::Camera> camera;
     };
-
+    static constexpr const char* OMNI_CONFIG = "config/omni/omni.yaml";
     static constexpr const char* _ML_CONFIG = "config/omni/detect_ml.yaml";
     static constexpr const char* _OPENCV_CONFIG = "config/omni/detect_opencv.yaml";
     ~Impl() {
@@ -37,9 +37,9 @@ struct ArmorOmni::Impl {
         }
     }
 
-    Impl(const YAML::Node& config, bool detect_color_init) {
+    Impl(bool detect_color_init) {
         detect_color_ = detect_color_init;
-        config_ = config;
+        config_ = YAML::LoadFile(OMNI_CONFIG);
         auto cameras = config_["cameras"].as<std::vector<std::string>>();
         for (size_t i = 0; i < cameras.size(); ++i) {
             One::Ptr one = One::create(i);
@@ -49,7 +49,8 @@ struct ArmorOmni::Impl {
         fps_ = config_["fps"].as<int>(30);
         active_time_ = config_["active_time"].as<double>(0.5);
         max_infer_running_ = config_["max_infer_running"].as<int>(0);
-        const std::string armor_detect_backend = config["armor_detect_backend"].as<std::string>("");
+        const std::string armor_detect_backend =
+            config_["armor_detect_backend"].as<std::string>("");
         armor_detector_ = DetectorFactory::createArmorDetector(
             armor_detect_backend,
             false,
@@ -135,13 +136,13 @@ struct ArmorOmni::Impl {
     int getBestTarget() {
         update();
         int best_target = -1;
-        int best_score = -1;
+        double max_score = -1;
         if (active_results_.empty()) {
             return best_target;
         }
         for (int i = 0; i < ones_.size(); ++i) {
-            if (ones_[i]->active_count > best_score) {
-                best_score = ones_[i]->active_count;
+            if (ones_[i]->total_score > max_score) {
+                max_score = ones_[i]->total_score;
                 best_target = i;
             }
         }
@@ -151,7 +152,6 @@ struct ArmorOmni::Impl {
         auto one = std::any_cast<One::Ptr>(frame.any_ctx);
         std::cout << "one_id: " << one->self_id << std::endl;
         for (auto& obj: objs) {
-            one->active_count++;
             Obj _obj;
             _obj.armor = obj;
             _obj.one = one;
@@ -171,11 +171,16 @@ struct ArmorOmni::Impl {
                 ))
                 > active_time_)
             {
-                obj.one->active_count--;
                 active_results_.pop_front();
             } else {
                 break;
             }
+        }
+        for (auto& one: ones_) {
+            one->total_score = 0;
+        }
+        for (auto& obj: active_results_) {
+            obj.one->total_score += obj.armor.confidence;
         }
     }
     int fps_;
@@ -193,8 +198,7 @@ struct ArmorOmni::Impl {
     std::unique_ptr<wust_vl::common::utils::Timer> timer_;
     ArmorDetectorBase::Ptr armor_detector_;
 };
-ArmorOmni::ArmorOmni(const YAML::Node& config, bool detect_color_init):
-    _impl(std::make_unique<Impl>(config, detect_color_init)) {}
+ArmorOmni::ArmorOmni(bool detect_color_init): _impl(std::make_unique<Impl>(detect_color_init)) {}
 ArmorOmni::~ArmorOmni() {
     _impl.reset();
 }

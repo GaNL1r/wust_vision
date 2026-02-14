@@ -6,9 +6,9 @@ namespace auto_aim {
     class ArmorOmni {
     public:
         using Ptr = std::unique_ptr<ArmorOmni>;
-        ArmorOmni(const YAML::Node& config, bool detect_color_init);
-        static Ptr create(const YAML::Node& config, bool detect_color_init) {
-            return std::make_unique<ArmorOmni>(config, detect_color_init);
+        ArmorOmni(bool detect_color_init);
+        static Ptr create(bool detect_color_init) {
+            return std::make_unique<ArmorOmni>(detect_color_init);
         }
         ~ArmorOmni();
         void start();
