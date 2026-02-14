@@ -91,7 +91,7 @@ namespace auto_aim {
                 static const std::vector<std::pair<IDType, IDType>> pairs = {
                     { 0, 3 },
                     { 1, 2 },
-                    { 0, 2 },
+                    // { 0, 2 },
                     //    { 1, 3 }
                 };
                 return pairs;
@@ -117,6 +117,9 @@ namespace auto_aim {
             for (auto& pt: pts) {
                 pt += offset;
             }
+            center += offset;
+            box.x += offset.x;
+            box.y += offset.y;
             for (auto& l: lights) {
                 l.addOffset(offset);
             }
@@ -125,6 +128,8 @@ namespace auto_aim {
             for (auto& l: lights) {
                 l.transform(transform_matrix);
             }
+            center = utils::transformPoint2D(transform_matrix, center);
+            box = utils::transformRect(transform_matrix, box);
             for (auto& pt: pts) {
                 pt = utils::transformPoint2D(transform_matrix, pt);
             }

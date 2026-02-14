@@ -123,16 +123,18 @@ std::vector<ArmorObject> ArmorInfer::postProcessAT_impl(const cv::Mat& out) cons
         float conf = row[4];
         if (!std::isfinite(conf) || conf < conf_threshold_)
             continue;
-        float x = row[0];
-        float y = row[1];
-        float w = row[2];
-        float h = row[3];
+        float x1 = row[0];
+        float y1 = row[1];
+        float x2 = row[2];
+        float y2 = row[3];
         int cls = static_cast<int>(row[5]);
 
-        if (!std::isfinite(x) || !std::isfinite(y) || w <= 0.f || h <= 0.f)
+        if (!std::isfinite(x1) || !std::isfinite(y1) || !std::isfinite(x2) || !std::isfinite(y2)
+            || x2 <= x1 || y2 <= y1)
             continue;
 
         ArmorObject obj;
+        obj.box = cv::Rect2f(x1, y1, x2 - x1, y2 - y1);
         obj.confidence = conf;
         auto color_num = ModelTraits<Mode::AT>::CLASSES[cls];
         obj.color = color_num.first;
@@ -145,10 +147,47 @@ std::vector<ArmorObject> ArmorInfer::postProcessAT_impl(const cv::Mat& out) cons
             obj.pts.emplace_back(kx, ky);
         }
 
-        obj.box = cv::boundingRect(obj.pts);
         out_objs.emplace_back(std::move(obj));
     }
 
+    return out_objs;
+}
+std::vector<ArmorObject> ArmorInfer::postProcessBOX_impl(const cv::Mat& out) const {
+    std::vector<ArmorObject> out_objs;
+    auto max_det = out.rows;
+    auto det_dim = out.cols;
+    auto output_ptr = out.ptr<float>();
+    for (int i = 0; i < max_det; ++i) {
+        const float* row = output_ptr + i * det_dim;
+        float conf = row[4];
+        if (!std::isfinite(conf) || conf < conf_threshold_)
+            continue;
+        float x1 = row[0];
+        float y1 = row[1];
+        float x2 = row[2];
+        float y2 = row[3];
+        int cls = static_cast<int>(row[5]);
+
+        if (!std::isfinite(x1) || !std::isfinite(y1) || !std::isfinite(x2) || !std::isfinite(y2)
+            || x2 <= x1 || y2 <= y1)
+            continue;
+
+        ArmorObject obj;
+        obj.box = cv::Rect2f(x1, y1, x2 - x1, y2 - y1);
+        obj.confidence = conf;
+        auto color_num = ModelTraits<Mode::BOX>::CLASSES[cls];
+        obj.color = color_num.first;
+        obj.number = color_num.second;
+        std::vector<cv::Point2f> pts;
+        pts.resize(4);
+        pts[0] = cv::Point2f(obj.box.x + obj.box.width, obj.box.y + obj.box.height); // 右下
+        pts[1] = cv::Point2f(obj.box.x + obj.box.width, obj.box.y); // 右上
+        pts[2] = cv::Point2f(obj.box.x, obj.box.y); // 左上
+        pts[3] = cv::Point2f(obj.box.x, obj.box.y + obj.box.height); // 左下
+        obj.pts = std::move(pts);
+
+        out_objs.emplace_back(std::move(obj));
+    }
     return out_objs;
 }
 } // namespace wust_vision::auto_aim::armor_infer

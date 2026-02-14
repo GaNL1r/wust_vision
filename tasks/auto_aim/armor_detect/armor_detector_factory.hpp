@@ -36,8 +36,12 @@ namespace auto_aim {
 
     class DetectorFactory {
     public:
-        static ArmorDetectorBase::Ptr
-        createArmorDetector(const std::string& backend, bool use_armor_detect_common) {
+        static ArmorDetectorBase::Ptr createArmorDetector(
+            const std::string& backend,
+            bool use_armor_detect_common,
+            std::string cv_config_path = OPENCV_CONFIG,
+            std::string ml_config_path = ML_CONFIG
+        ) {
             // 检查编译时是否支持
             auto isBackendEnabled = [&backend]() -> bool {
 #ifdef USE_OPENVINO
@@ -67,12 +71,11 @@ namespace auto_aim {
                 throw std::runtime_error("Backend " + backend + " is not enabled at compile time.");
             }
 
-            // 选择配置文件路径
-            auto getConfigPath = [](const std::string& backend) -> std::string {
+            auto getConfigPath = [&](const std::string& backend) -> std::string {
                 if (backend == "opencv")
-                    return OPENCV_CONFIG;
+                    return cv_config_path;
                 else
-                    return ML_CONFIG;
+                    return ml_config_path;
             };
 
             std::string config_path = getConfigPath(backend);

@@ -38,17 +38,38 @@ namespace auto_aim {
                 nms_threshold,
                 top_k
             );
-            openvino_net_ = std::make_unique<wust_vl::ml_net::OpenvinoNet>();
-            const auto ppp_init_fun = [this](ov::preprocess::PrePostProcessor& ppp) {
-                ppp.input()
-                    .tensor()
-                    .set_element_type(ov::element::u8)
-                    .set_layout("NHWC")
-                    .set_color_format(ov::preprocess::ColorFormat::BGR);
+            std::string model_path =
+                utils::expandEnv(config["openvino"]["model_path"].as<std::string>());
 
-                const bool swap_rb = armor_infer_->inputRGB();
-                const float scale = armor_infer_->useNorm() ? 1.0f / 255.0f : 1.0f;
-                if (swap_rb) {
+            auto device_name = config["openvino"]["device_name"].as<std::string>();
+            ov_params_.model_path = model_path;
+            ov_params_.device_name = device_name;
+            ov_params_.mode = use_throughputmode ? ov::hint::PerformanceMode::THROUGHPUT
+                                                 : ov::hint::PerformanceMode::LATENCY;
+            initOpenVINO();
+        }
+        void
+        initOpenVINO(wust_vl::video::PixelFormat pixel_format = wust_vl::video::PixelFormat::BGR) {
+            openvino_net_.reset();
+            openvino_net_ = std::make_unique<wust_vl::ml_net::OpenvinoNet>();
+            const auto ppp_init_fun = [this, pixel_format](ov::preprocess::PrePostProcessor& ppp) {
+                if (pixel_format == wust_vl::video::PixelFormat::RGB) {
+                    ppp.input()
+                        .tensor()
+                        .set_element_type(ov::element::u8)
+                        .set_layout("NHWC")
+                        .set_color_format(ov::preprocess::ColorFormat::RGB);
+                } else {
+                    ppp.input()
+                        .tensor()
+                        .set_element_type(ov::element::u8)
+                        .set_layout("NHWC")
+                        .set_color_format(ov::preprocess::ColorFormat::BGR);
+                }
+                pixel_format_ = pixel_format;
+                const bool RGB = armor_infer_->inputRGB();
+                const float scale = armor_infer_->useNorm() ? 255.0f : 1.0f;
+                if (RGB) {
                     ppp.input()
                         .preprocess()
                         .convert_element_type(ov::element::f32)
@@ -66,15 +87,8 @@ namespace auto_aim {
 
                 ppp.output().tensor().set_element_type(ov::element::f32);
             };
-            std::string model_path =
-                utils::expandEnv(config["openvino"]["model_path"].as<std::string>());
-            wust_vl::ml_net::OpenvinoNet::Params params;
-            auto device_name = config["openvino"]["device_name"].as<std::string>();
-            params.model_path = model_path;
-            params.device_name = device_name;
-            params.mode = use_throughputmode ? ov::hint::PerformanceMode::THROUGHPUT
-                                             : ov::hint::PerformanceMode::LATENCY;
-            openvino_net_->init(params, ppp_init_fun);
+
+            openvino_net_->init(ov_params_, ppp_init_fun);
         }
 
         ~Impl() {
@@ -91,11 +105,7 @@ namespace auto_aim {
         ) const {
             const auto start = std::chrono::steady_clock::now();
             Eigen::Matrix3f transform_matrix;
-            const auto _roi = frame.img_frame.src_img(frame.expanded);
-            cv::Mat roi = _roi;
-            if (frame.img_frame.pixel_format == wust_vl::video::PixelFormat::RGB) {
-                cv::cvtColor(_roi, roi, cv::COLOR_BGR2RGB);
-            }
+            const auto roi = frame.img_frame.src_img(frame.expanded);
             cv::Mat resized_img = utils::letterbox(
                 roi,
                 transform_matrix,
@@ -149,16 +159,27 @@ namespace auto_aim {
             return false;
         }
         void pushInput(CommonFrame& frame, const std::optional<ArmorNumber>& target_number) {
+            if (resetting_) {
+                return;
+            }
             frame.id = current_id_++;
+            if (frame.img_frame.pixel_format != pixel_format_) {
+                resetting_ = true;
+                initOpenVINO(frame.img_frame.pixel_format);
+                resetting_ = false;
+            }
             processCallback(frame, target_number);
         }
 
     private:
+        wust_vl::video::PixelFormat pixel_format_ = wust_vl::video::PixelFormat::BGR;
         std::unique_ptr<wust_vl::ml_net::OpenvinoNet> openvino_net_;
         DetectorCallback infer_callback_;
         std::unique_ptr<ArmorDetectorCommon> armor_detect_common_;
         std::unique_ptr<armor_infer::ArmorInfer> armor_infer_;
         int current_id_ = 0;
+        wust_vl::ml_net::OpenvinoNet::Params ov_params_;
+        bool resetting_ = false;
     };
     ArmorDetectorOpenVino::ArmorDetectorOpenVino(
         const YAML::Node& config,

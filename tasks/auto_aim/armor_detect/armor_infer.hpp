@@ -6,7 +6,7 @@ namespace wust_vision::auto_aim::armor_infer {
 static constexpr float MERGE_CONF_ERROR = 0.15f;
 static constexpr float MERGE_MIN_IOU = 0.9f;
 
-enum class Mode { TUP, RP, AT };
+enum class Mode { TUP, RP, AT, BOX416, BOX320, BOX };
 
 inline Mode modeFromString(const std::string& m) {
     if (m == "tup" || m == "TUP")
@@ -15,6 +15,10 @@ inline Mode modeFromString(const std::string& m) {
         return Mode::RP;
     if (m == "at" || m == "AT")
         return Mode::AT;
+    if (m == "box416" || m == "BOX416")
+        return Mode::BOX416;
+    if (m == "box320" || m == "BOX320")
+        return Mode::BOX320;
     return Mode::TUP;
 }
 
@@ -83,6 +87,38 @@ struct ModelTraits<Mode::AT> {
         { ArmorColor::PURPLE, ArmorNumber::NO2 },     { ArmorColor::PURPLE, ArmorNumber::NO3 },
         { ArmorColor::PURPLE, ArmorNumber::NO4 },     { ArmorColor::PURPLE, ArmorNumber::NO5 },
         { ArmorColor::PURPLE, ArmorNumber::OUTPOST }, { ArmorColor::PURPLE, ArmorNumber::BASE },
+    } };
+};
+template<>
+struct ModelTraits<Mode::BOX416> {
+    static constexpr int INPUT_W = 416;
+    static constexpr int INPUT_H = 416;
+};
+template<>
+struct ModelTraits<Mode::BOX320> {
+    static constexpr int INPUT_W = 320;
+    static constexpr int INPUT_H = 320;
+};
+template<>
+struct ModelTraits<Mode::BOX> {
+    static constexpr int INPUT_W = 416;
+    static constexpr int INPUT_H = 416;
+    static constexpr bool INPUT_RGB = false;
+    static constexpr bool USE_NORM = true;
+    static constexpr std::array<std::pair<ArmorColor, ArmorNumber>, 12> CLASSES = { {
+        { ArmorColor::BLUE, ArmorNumber::NO1 },
+        { ArmorColor::BLUE, ArmorNumber::NO2 },
+        { ArmorColor::BLUE, ArmorNumber::NO3 },
+        { ArmorColor::BLUE, ArmorNumber::NO4 },
+        { ArmorColor::BLUE, ArmorNumber::NO5 },
+        { ArmorColor::BLUE, ArmorNumber::SENTRY },
+        { ArmorColor::RED, ArmorNumber::NO1 },
+        { ArmorColor::RED, ArmorNumber::NO2 },
+        { ArmorColor::RED, ArmorNumber::NO3 },
+        { ArmorColor::RED, ArmorNumber::NO4 },
+        { ArmorColor::RED, ArmorNumber::NO5 },
+        { ArmorColor::RED, ArmorNumber::SENTRY },
+
     } };
 };
 
@@ -206,9 +242,22 @@ public:
                 input_h_ = ModelTraits<Mode::AT>::INPUT_H;
                 use_norm_ = ModelTraits<Mode::AT>::USE_NORM;
                 input_rgb_ = ModelTraits<Mode::AT>::INPUT_RGB;
+                break;
             }
-
-            break;
+            case Mode::BOX416: {
+                input_w_ = ModelTraits<Mode::BOX416>::INPUT_W;
+                input_h_ = ModelTraits<Mode::BOX416>::INPUT_H;
+                use_norm_ = ModelTraits<Mode::BOX>::USE_NORM;
+                input_rgb_ = ModelTraits<Mode::BOX>::INPUT_RGB;
+                break;
+            }
+            case Mode::BOX320: {
+                input_w_ = ModelTraits<Mode::BOX320>::INPUT_W;
+                input_h_ = ModelTraits<Mode::BOX320>::INPUT_H;
+                use_norm_ = ModelTraits<Mode::BOX>::USE_NORM;
+                input_rgb_ = ModelTraits<Mode::BOX>::INPUT_RGB;
+                break;
+            } break;
         }
     }
 
@@ -244,6 +293,10 @@ public:
                 return postProcessRP_impl(output_buffer);
             case Mode::AT:
                 return postProcessAT_impl(output_buffer);
+            case Mode::BOX416:
+                return postProcessBOX_impl(output_buffer);
+            case Mode::BOX320:
+                return postProcessBOX_impl(output_buffer);
         }
         return {};
     }
@@ -254,6 +307,8 @@ private:
     std::vector<ArmorObject> postProcessRP_impl(const cv::Mat& out) const;
 
     std::vector<ArmorObject> postProcessAT_impl(const cv::Mat& out) const;
+
+    std::vector<ArmorObject> postProcessBOX_impl(const cv::Mat& out) const;
 
 private:
     Mode mode_;

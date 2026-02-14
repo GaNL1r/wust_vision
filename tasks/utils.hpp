@@ -170,5 +170,23 @@ namespace utils {
         const Eigen::Vector3f tp = H * hp;
         return { tp.x(), tp.y() };
     }
+    inline cv::Rect2f transformRect(const Eigen::Matrix3f& H, const cv::Rect2f& rect) {
+        cv::Point2f p1(rect.x, rect.y);
+        cv::Point2f p2(rect.x + rect.width, rect.y);
+        cv::Point2f p3(rect.x, rect.y + rect.height);
+        cv::Point2f p4(rect.x + rect.width, rect.y + rect.height);
+
+        auto tp1 = utils::transformPoint2D(H, p1);
+        auto tp2 = utils::transformPoint2D(H, p2);
+        auto tp3 = utils::transformPoint2D(H, p3);
+        auto tp4 = utils::transformPoint2D(H, p4);
+
+        float min_x = std::min({ tp1.x, tp2.x, tp3.x, tp4.x });
+        float min_y = std::min({ tp1.y, tp2.y, tp3.y, tp4.y });
+        float max_x = std::max({ tp1.x, tp2.x, tp3.x, tp4.x });
+        float max_y = std::max({ tp1.y, tp2.y, tp3.y, tp4.y });
+
+        return cv::Rect2f(min_x, min_y, max_x - min_x, max_y - min_y);
+    }
 } // namespace utils
 } // namespace wust_vision

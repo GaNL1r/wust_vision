@@ -5,16 +5,16 @@
 #include "wust_vl/common/utils/parameter.hpp"
 #include "wust_vl/common/utils/trajectory_compensator.hpp"
 #include "wust_vl/video/icamera.hpp"
+#include <any>
 #include <opencv2/opencv.hpp>
 namespace wust_vision {
 struct CommonFrame {
-    // cv::Mat src_img;
-    // std::chrono::steady_clock::time_point timestamp;
     wust_vl::video::ImageFrame img_frame;
     int id;
     int detect_color;
     cv::Rect expanded;
     cv::Point2f offset = cv::Point2f(0, 0);
+    std::any any_ctx;
 };
 enum class EnemyColor {
     RED = 0,

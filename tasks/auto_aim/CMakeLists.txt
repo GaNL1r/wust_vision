@@ -42,6 +42,7 @@ target_sources(auto_aim PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/armor_detector_common.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/armor_infer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/number_classifier/number_classifier.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/armor_omni/armor_omni.cpp
 )
 target_include_directories(auto_aim PUBLIC
     ${WUST_VL_INCLUDE_DIRS}
