@@ -220,10 +220,6 @@ void VisionBase::frameCallback(wust_vl::video::ImageFrame& frame) {
     }
     thread_pool_->enqueue([this, frame = std::move(common_frame)]() mutable {
         infer_running_count_++;
-        if (frame.img_frame.src_img.data == nullptr) {
-            infer_running_count_--;
-            return;
-        }
         if (frame.img_frame.src_img.empty()) {
             infer_running_count_--;
             return;

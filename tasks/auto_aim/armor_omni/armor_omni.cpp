@@ -15,17 +15,42 @@ struct ArmorOmni::Impl {
         static Ptr create(int id) {
             return std::make_shared<One>(id);
         }
-        void load(const YAML::Node& config) {
+        void load(const YAML::Node& config) noexcept {
             camera = std::make_shared<wust_vl::video::Camera>();
             camera->init(config);
         }
-        void start() {
+        void start() noexcept {
             camera->start();
         }
         int self_id;
         double total_score = 0;
         std::shared_ptr<wust_vl::video::Camera> camera;
     };
+    struct Score {
+        Score() {
+            score = 0;
+            one = nullptr;
+        }
+        Score(double s, const One::Ptr& o): score(s), one(o) {
+            if (one) {
+                one->total_score += score;
+            }
+        }
+        ~Score() {
+            if (one) {
+                one->total_score -= score;
+            }
+        }
+        One::Ptr one;
+        double score;
+    };
+    struct Obj {
+        ArmorObject armor;
+        Score score;
+        One::Ptr one;
+        std::chrono::steady_clock::time_point timestamp;
+    };
+
     static constexpr const char* OMNI_CONFIG = "config/omni/omni.yaml";
     static constexpr const char* _ML_CONFIG = "config/omni/detect_ml.yaml";
     static constexpr const char* _OPENCV_CONFIG = "config/omni/detect_opencv.yaml";
@@ -67,12 +92,8 @@ struct ArmorOmni::Impl {
             std::make_unique<wust_vl::common::concurrency::ThreadPool>(max_infer_running_);
         timer_ = std::make_unique<wust_vl::common::utils::Timer>();
     }
-    struct Obj {
-        ArmorObject armor;
-        One::Ptr one;
-        std::chrono::steady_clock::time_point timestamp;
-    };
-    void start() {
+
+    void start() noexcept {
         run_flag_ = true;
         for (auto& one: ones_) {
             one->start();
@@ -90,7 +111,7 @@ struct ArmorOmni::Impl {
         one_id = (one_id + 1) % ones_.size();
         return id;
     }
-    void timerCallback(double dt_ms) {
+    void timerCallback(double dt_ms) noexcept {
         if (!run_flag_ || main_tracking_) {
             return;
         }
@@ -110,12 +131,11 @@ struct ArmorOmni::Impl {
         detect(common_frame);
     }
     void detect(CommonFrame& common_frame) {
+        if (infer_running_count_ >= max_infer_running_ || !thread_pool_) {
+            return;
+        }
         thread_pool_->enqueue([this, frame = std::move(common_frame)]() mutable {
             infer_running_count_++;
-            if (frame.img_frame.src_img.data == nullptr) {
-                infer_running_count_--;
-                return;
-            }
             if (frame.img_frame.src_img.empty()) {
                 infer_running_count_--;
                 return;
@@ -127,13 +147,13 @@ struct ArmorOmni::Impl {
         });
     }
 
-    void setDetectColor(bool flag) {
+    void setDetectColor(bool flag) noexcept {
         detect_color_ = flag;
     }
-    void updateMainTracking(bool flag) {
+    void updateMainTracking(bool flag) noexcept {
         main_tracking_ = flag;
     }
-    int getBestTarget() {
+    int getBestTarget() noexcept {
         update();
         int best_target = -1;
         double max_score = -1;
@@ -148,7 +168,8 @@ struct ArmorOmni::Impl {
         }
         return best_target;
     }
-    void ArmorDetectCallback(const std::vector<ArmorObject>& objs, const CommonFrame& frame) {
+    void
+    ArmorDetectCallback(const std::vector<ArmorObject>& objs, const CommonFrame& frame) noexcept {
         auto one = std::any_cast<One::Ptr>(frame.any_ctx);
         std::cout << "one_id: " << one->self_id << std::endl;
         for (auto& obj: objs) {
@@ -156,12 +177,13 @@ struct ArmorOmni::Impl {
             _obj.armor = obj;
             _obj.one = one;
             _obj.timestamp = frame.img_frame.timestamp;
+            _obj.score = Score(obj.confidence, one);
             std::lock_guard<std::mutex> lock(active_results_mutex_);
             active_results_.push_back(std::move(_obj));
         }
         update();
     }
-    void update() {
+    void update() noexcept {
         std::lock_guard<std::mutex> lock(active_results_mutex_);
         while (!active_results_.empty()) {
             auto& obj = active_results_.front();
@@ -175,12 +197,6 @@ struct ArmorOmni::Impl {
             } else {
                 break;
             }
-        }
-        for (auto& one: ones_) {
-            one->total_score = 0;
-        }
-        for (auto& obj: active_results_) {
-            obj.one->total_score += obj.armor.confidence;
         }
     }
     int fps_;

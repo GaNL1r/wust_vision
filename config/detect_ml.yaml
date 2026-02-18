@@ -39,11 +39,11 @@ armor_detector:
   openvino:
     conf_threshold: 0.2
     device_name: CPU
-    model_path: /home/hy/data/armor_box/yolo26_320_int8_ort.onnx
+    model_path: /home/hy/data/armor_box/runs/detect/runs/train/armor_box416_0/weights/best.onnx
     nms_threshold: 0.3
     top_k: 128
-    use_throughputmode: true
-    model_type: box320
+    use_throughputmode: false
+    model_type: box416
   onnxruntime:
     conf_threshold: 0.2
     model_path: ${VISION_ROOT}/model/opt-1208-001.onnx

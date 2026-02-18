@@ -44,7 +44,7 @@ uvc:
   fps: 60
   width: 1280
   height: 720
-  exposure: 200
+  exposure: 100
   gain: 10.0
   gamma: 100
   trigger_mode: false
