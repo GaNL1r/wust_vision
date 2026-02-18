@@ -7,7 +7,7 @@ if(BUILD_WITH_OPENVINO)
 endif()
 
 
-list(APPEND BUILD_LIBS  yaml-cpp)
+list(APPEND BUILD_LIBS )
 
 add_library(auto_guidance OBJECT)
 if(BUILD_WITH_OPENVINO)
@@ -15,6 +15,7 @@ if(BUILD_WITH_OPENVINO)
         ${CMAKE_CURRENT_SOURCE_DIR}/guidance_detector/openvino/guidance_detector_openvino.cpp
     )
 endif()
+target_link_libraries(auto_guidance PRIVATE project_min_deps)
 target_compile_options(auto_guidance PRIVATE -w)
 target_compile_definitions(auto_guidance PRIVATE ${BUILD_DEFINITIONS})
 target_include_directories(auto_guidance PRIVATE

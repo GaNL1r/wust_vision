@@ -6,3 +6,4 @@ target_sources(auto_sniper PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/auto_sniper.cpp
 
 )
+target_link_libraries(auto_sniper PRIVATE project_min_deps)

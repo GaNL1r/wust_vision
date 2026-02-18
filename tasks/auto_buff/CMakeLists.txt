@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.14)
 project(auto_buff LANGUAGES CXX)
 set(BUILD_DEFINITIONS "")
-list(APPEND BUILD_LIBS   ${CERES_LIBRARIES} ${WUST_VL_LIBS})
+list(APPEND BUILD_LIBS   ${CERES_LIBRARIES} ${WUST_VL_LIBS} ${OpenCV_LIBS})
 add_library(auto_buff OBJECT)
-target_link_libraries(auto_buff PRIVATE )
+target_link_libraries(auto_buff PRIVATE project_min_deps)
 target_compile_options(auto_buff PRIVATE -w)
 target_compile_definitions(auto_buff PRIVATE ${BUILD_DEFINITIONS})
 target_sources(auto_buff PRIVATE

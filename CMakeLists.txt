@@ -62,35 +62,25 @@ endif()
 add_library(project_options INTERFACE)
 target_compile_definitions(project_options INTERFACE ${BUILD_DEFINITIONS})
 
-include_directories(${EIGEN3_INCLUDE_DIR} ${OpenCV_INCLUDE_DIRS} ${Ceres_INCLUDE_DIRS})
+include_directories(${EIGEN3_INCLUDE_DIR} ${OpenCV_INCLUDE_DIRS})
 
-# ------------------- 公共依赖 target -------------------
 add_library(project_min_deps INTERFACE)
-
-target_include_directories(project_min_deps INTERFACE
-    ${WUST_VL_INCLUDE_DIRS}
-    ${HikSDK_INCLUDE_DIR}
-)
-
 target_link_libraries(project_min_deps INTERFACE
-    ${WUST_VL_LIBS}
-    ${HikSDK_LIB}
+    wust_vl::wust_vl
+    HikSDK::HikSDK
     yaml-cpp
     fmt::fmt
     ${OpenCV_LIBS}
-    ${CERES_LIBRARIES}
+    Ceres::ceres
     utils
 )
 
-
-# ------------------- Subdirectories -------------------
 add_subdirectory(tasks/auto_aim)
 add_subdirectory(tasks/auto_buff)
 add_subdirectory(tasks/auto_sniper)
 add_subdirectory(tasks/auto_guidance)
 add_subdirectory(tasks)
 
-# ------------------- Executables -------------------
 add_executable(standard src/standard.cpp)
 target_link_libraries(standard
     project_min_deps
@@ -111,7 +101,7 @@ target_link_libraries(dart
 
 add_executable(test_usbcamera test/test_usbcamera.cpp)
 target_link_libraries(test_usbcamera project_min_deps)
-# ------------------- ROS2 -------------------
+
 find_package(ament_cmake QUIET)
 find_package(rclcpp QUIET)
 find_package(geometry_msgs QUIET)

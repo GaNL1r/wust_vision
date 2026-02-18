@@ -20,7 +20,9 @@ struct ArmorOmni::Impl {
             camera->init(config);
         }
         void start() noexcept {
-            camera->start();
+            if (camera) {
+                camera->start();
+            }
         }
         int self_id;
         double total_score = 0;
@@ -155,18 +157,7 @@ struct ArmorOmni::Impl {
     }
     int getBestTarget() noexcept {
         update();
-        int best_target = -1;
-        double max_score = -1;
-        if (active_results_.empty()) {
-            return best_target;
-        }
-        for (int i = 0; i < ones_.size(); ++i) {
-            if (ones_[i]->total_score > max_score) {
-                max_score = ones_[i]->total_score;
-                best_target = i;
-            }
-        }
-        return best_target;
+        return best_target_;
     }
     void
     ArmorDetectCallback(const std::vector<ArmorObject>& objs, const CommonFrame& frame) noexcept {
@@ -198,6 +189,17 @@ struct ArmorOmni::Impl {
                 break;
             }
         }
+        if (active_results_.empty()) {
+            return;
+        } else {
+            double max_score = -1;
+            for (int i = 0; i < ones_.size(); ++i) {
+                if (ones_[i]->total_score > max_score) {
+                    max_score = ones_[i]->total_score;
+                    best_target_ = i;
+                }
+            }
+        }
     }
     int fps_;
     int max_infer_running_ = 0;
@@ -213,6 +215,7 @@ struct ArmorOmni::Impl {
     std::unique_ptr<wust_vl::common::concurrency::ThreadPool> thread_pool_;
     std::unique_ptr<wust_vl::common::utils::Timer> timer_;
     ArmorDetectorBase::Ptr armor_detector_;
+    int best_target_ = -1;
 };
 ArmorOmni::ArmorOmni(bool detect_color_init): _impl(std::make_unique<Impl>(detect_color_init)) {}
 ArmorOmni::~ArmorOmni() {

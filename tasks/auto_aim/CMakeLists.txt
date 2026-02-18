@@ -14,14 +14,14 @@ if(BUILD_WITH_ORT)
   list(APPEND BUILD_LIBS ${Ort_LIB})
 endif()
 add_subdirectory(armor_control/tinympc)
-list(APPEND BUILD_LIBS tinympcstatic   ${CERES_LIBRARIES} ${WUST_VL_LIBS} )
+list(APPEND BUILD_LIBS tinympcstatic )
 
 add_library(auto_aim OBJECT)
 
 target_compile_options(auto_aim PRIVATE -w)
 target_compile_definitions(auto_aim PRIVATE ${BUILD_DEFINITIONS})
 target_link_libraries(auto_aim PRIVATE
-    project_options 
+    project_options  HikSDK::HikSDK
 )
 target_include_directories(auto_aim PRIVATE
     include
@@ -44,10 +44,7 @@ target_sources(auto_aim PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_detect/number_classifier/number_classifier.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_omni/armor_omni.cpp
 )
-target_include_directories(auto_aim PUBLIC
-    ${WUST_VL_INCLUDE_DIRS}
-    ${HikSDK_INCLUDE_DIR}
-)
+
 
 if(BUILD_WITH_OPENVINO)
     target_sources(auto_aim PRIVATE
