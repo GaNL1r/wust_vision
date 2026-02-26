@@ -16,7 +16,7 @@ rune_detector:
 
 rune_where:
   roll_opt:
-    mode: ceres
+    mode: golden
     ceres_max_iter: 40
     golden_search_side_deg: 60
 

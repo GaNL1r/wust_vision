@@ -1,4 +1,4 @@
-type: uvc
+type: video_player
 
 camera_info_path: ${VISION_ROOT}/config/camera_info.yaml
 
@@ -35,7 +35,7 @@ video_player:
   #path: /home/hy/wust_data/video/jiao.avi
   #path: /home/hy/Z_LION_AutoAim2025/src/auto_aim_publisher/videos/sample.avi
   #path: /home/hy/wust_data/record/20251111_134416_187.avi
-  path: /home/hy/rune_dl/runeA.mp4
+  path: /home/hy/data/video_save/5.21成都.mp4
   #path: /home/hy/wust_data/video/Sentry.mp4
   start_frame: 0
 
