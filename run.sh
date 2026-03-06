@@ -87,6 +87,7 @@ if [[ "$1" == "build" || "$1" == "rebuild" || "$1" == "run" ]]; then
     if [ "$1" == "run" ]; then
         echo -e "${yellow}\n<--- Running WUST_VISION --->${reset}"
         RUN_PROGRAM="$BIN_DIR/$2"
+        sudo pkill -9 $2
         ORIGINAL_ARGS=("$@")
         shift 2
 

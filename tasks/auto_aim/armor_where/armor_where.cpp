@@ -47,12 +47,10 @@ namespace auto_aim {
                     return OptMode::NONE;
                 }
             }
-            int ceres_max_iter = 40;
             int golden_search_side_deg = 60;
             double distance_fix_a2 = 0;
             void load(const YAML::Node& node) {
                 opt_mode = fromString(node["yaw_opt"]["mode"].as<std::string>());
-                ceres_max_iter = node["yaw_opt"]["ceres_max_iter"].as<int>();
                 golden_search_side_deg = node["yaw_opt"]["golden_search_side_deg"].as<int>();
                 distance_fix_a2 = node["distance_fix_a2"].as<double>();
             }
@@ -278,20 +276,11 @@ namespace auto_aim {
                 );
             }
 
-            // build yaw + pitch rotation
-            const double cy = std::cos(yaw), sy = std::sin(yaw);
-            Eigen::Matrix3d R_yaw;
-            R_yaw << cy, -sy, 0, sy, cy, 0, 0, 0, 1;
+            const Eigen::AngleAxisd ay(yaw, Eigen::Vector3d::UnitZ());
+            const Eigen::AngleAxisd ap(armor_pitch, Eigen::Vector3d::UnitY());
+            const Eigen::AngleAxisd ar(roll, Eigen::Vector3d::UnitX());
 
-            const double cp = std::cos(armor_pitch), sp = std::sin(armor_pitch);
-            Eigen::Matrix3d R_pitch;
-            R_pitch << cp, 0, sp, 0, 1, 0, -sp, 0, cp;
-
-            const double cr = std::cos(roll), sr = std::sin(roll);
-            Eigen::Matrix3d R_roll;
-            R_roll << cr, -sr, 0, sr, cr, 0, 0, 0, 1;
-
-            const Eigen::Matrix3d R_result = R_camera_imu * R_yaw * R_pitch * R_roll;
+            const Eigen::Matrix3d R_result = R_camera_imu * (ay * ap * ar).toRotationMatrix();
             return R_result;
         }
 

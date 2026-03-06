@@ -29,7 +29,7 @@ public:
             bool use_logcli = node["use_logcli"].as<bool>();
             bool use_logfile = node["use_logfile"].as<bool>();
             bool use_simplelog = node["use_simplelog"].as<bool>();
-            initLogger(log_level, log_path, use_logcli, use_logfile, use_simplelog);
+            wust_vl::initLogger(log_level, log_path, use_logcli, use_logfile, use_simplelog);
             first_load = true;
         } else {
         }

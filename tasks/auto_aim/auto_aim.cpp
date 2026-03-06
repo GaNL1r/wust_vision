@@ -150,16 +150,19 @@ namespace auto_aim {
             for (auto& armor: armors.armors) {
                 armor.timestamp = armors.timestamp;
             }
+
             armor_queue_->enqueue(armors);
             ++detect_finish_count_;
             if (debug_mode_) {
                 std::lock_guard<std::mutex> lock(dbg_mutex_);
-                auto_aim_debug_.img_frame = frame.img_frame;
-                auto_aim_debug_.armors = armors;
-                auto_aim_debug_.T_camera_to_odom = T_camera_to_odom_;
-                auto_aim_debug_.detect_color = frame.detect_color;
-                auto_aim_debug_.armor_objs = sorted_objs;
-                auto_aim_debug_.expanded = frame.expanded;
+                auto& dbg = auto_aim_debug_;
+
+                dbg.img_frame = frame.img_frame;
+                dbg.armors = armors;
+                dbg.T_camera_to_odom = T_camera_to_odom_;
+                dbg.detect_color = frame.detect_color;
+                dbg.armor_objs = sorted_objs;
+                dbg.expanded = frame.expanded;
             }
         }
         void armorsCallback(const Armors& armors) {
@@ -177,11 +180,12 @@ namespace auto_aim {
             const auto latency_ms =
                 wust_vl::common::utils::time_utils::durationMs(armors.timestamp, now);
             latency_averager_->add(latency_ms);
-            auto_aim_debug_.latency_ms = latency_averager_->average();
+            auto& dbg = auto_aim_debug_;
+            dbg.latency_ms = latency_averager_->average();
             if (debug_mode_) {
                 std::lock_guard<std::mutex> lock(dbg_mutex_);
-                auto_aim_debug_.target = target;
-                auto_aim_debug_.fsm = auto_aim_fsm_cl_.fsm_state_;
+                dbg.target = target;
+                dbg.fsm = auto_aim_fsm_cl_.fsm_state_;
             }
         }
 

@@ -82,7 +82,6 @@ namespace auto_aim {
 
         thread_net->setInput(blob);
         cv::Mat outputs = thread_net->forward();
-
         double max_val;
         cv::minMaxLoc(outputs, nullptr, &max_val);
 

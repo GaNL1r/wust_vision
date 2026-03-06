@@ -201,28 +201,28 @@ void VisionBase::autoExposureControl(const cv::Mat& frame) {
     }
 }
 
-void VisionBase::frameCallback(wust_vl::video::ImageFrame& frame) {
+void VisionBase::frameCallback(wust_vl::video::ImageFrame& img_frame) {
     if (!run_flag_ || infer_running_count_ >= max_infer_running_config_->max_infer_running) {
         return;
     }
-    CommonFrame common_frame;
-    if (frame.src_img.empty()) {
+    if (img_frame.src_img.empty()) {
         return;
     }
-    common_frame.detect_color = detect_color_;
-    common_frame.img_frame = std::move(frame);
-    common_frame.expanded =
-        cv::Rect(0, 0, common_frame.img_frame.src_img.cols, common_frame.img_frame.src_img.rows);
-    common_frame.offset = cv::Point2f(0, 0);
-    autoExposureControl(common_frame.img_frame.src_img);
-    if (img_writer_) {
-        img_writer_->push(common_frame.img_frame.src_img);
-    }
-    thread_pool_->enqueue([this, frame = std::move(common_frame)]() mutable {
+
+    thread_pool_->enqueue([this, img_frame = std::move(img_frame)]() mutable {
         infer_running_count_++;
+        CommonFrame frame;
+        frame.detect_color = detect_color_;
+        frame.img_frame = std::move(img_frame);
+        frame.expanded = cv::Rect(0, 0, frame.img_frame.src_img.cols, frame.img_frame.src_img.rows);
+        frame.offset = cv::Point2f(0, 0);
         if (frame.img_frame.src_img.empty()) {
             infer_running_count_--;
             return;
+        }
+        autoExposureControl(frame.img_frame.src_img);
+        if (img_writer_) {
+            img_writer_->push(frame.img_frame.src_img);
         }
         AttackMode mode = toAttackMode(attack_mode_);
         switch (mode) {

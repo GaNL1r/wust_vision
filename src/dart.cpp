@@ -26,7 +26,7 @@ public:
         bool use_logcli = config_["logger"]["use_logcli"].as<bool>();
         bool use_logfile = config_["logger"]["use_logfile"].as<bool>();
         bool use_simplelog = config_["logger"]["use_simplelog"].as<bool>();
-        initLogger(log_level_, log_path_, use_logcli, use_logfile, use_simplelog);
+        wust_vl::initLogger(log_level_, log_path_, use_logcli, use_logfile, use_simplelog);
 
         YAML::Node camera_config = config_["camera"];
         camera_ = std::make_unique<wust_vl::video::Camera>();

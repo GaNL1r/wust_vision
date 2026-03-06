@@ -7,7 +7,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_UNITY_BUILD ON)
 set(CMAKE_UNITY_BUILD_BATCH_SIZE 16) 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
-set(CMAKE_BUILD_TYPE "Release")
+set(CMAKE_BUILD_TYPE "Debug")
 message(STATUS "--------------------CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}--------------------")
 
 
@@ -38,6 +38,7 @@ if(BUILD_WITH_TRT)
     set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};/home/hy/TensorRT-10.6.0.26")
     find_package(TensorRT REQUIRED)
     include_directories(${TensorRT_INCLUDE_DIR})
+    include_directories(/usr/local/cuda/include)
     set(CMAKE_CUDA_COMPILER /usr/local/cuda/bin/nvcc)
     set(CMAKE_CUDA_ARCHITECTURES 86)
     enable_language(CUDA)
@@ -73,6 +74,7 @@ target_link_libraries(project_min_deps INTERFACE
     ${OpenCV_LIBS}
     Ceres::ceres
     utils
+    
 )
 
 add_subdirectory(tasks/auto_aim)

@@ -16,7 +16,6 @@ armor_map:
 armor_where:
   yaw_opt:
     mode: golden
-    ceres_max_iter: 100
     golden_search_side_deg: 60
   distance_fix_a2: 0.0
 

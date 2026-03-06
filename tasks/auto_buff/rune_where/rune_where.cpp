@@ -23,11 +23,9 @@ namespace auto_buff {
                 }
             }
 
-            int ceres_max_iter = 40;
             int golden_search_side_deg = 60;
             void load(const YAML::Node& node) {
                 opt_mode = fromString(node["roll_opt"]["mode"].as<std::string>());
-                ceres_max_iter = node["roll_opt"]["ceres_max_iter"].as<int>();
                 golden_search_side_deg = node["roll_opt"]["golden_search_side_deg"].as<int>();
             }
         } params_;

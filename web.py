@@ -31,7 +31,7 @@ fd = None
 # 权限修复锁
 permission_lock = threading.Lock()
 
-
+port = 8000
 def ensure_shared_memory_permissions():
     """确保共享内存文件存在且权限正确"""
     with permission_lock:
@@ -199,7 +199,7 @@ def index():
             s.close()
         return IP
 
-    url = f"http://{get_local_ip()}:5000"
+    url = f"http://{get_local_ip()}:{port}"
     return render_template("index.html", server_url=url)
 
 
@@ -255,9 +255,9 @@ if __name__ == "__main__":
             s.close()
         return IP
 
-    url = f"http://{get_local_ip()}:5000"
+    url = f"http://{get_local_ip()}:{port}"
     print(f"✅ Web 调试器已启动: {url}")
     print(f"   - 共享内存模式: {'是' if use_shared_memory else '否'}")
     print(f"   - 访问地址: {url}")
 
-    app.run(host="0.0.0.0", port=5000, threaded=True)
+    app.run(host="0.0.0.0", port=port, threaded=True)

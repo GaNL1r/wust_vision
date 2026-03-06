@@ -1,4 +1,4 @@
-type: video_player
+type: uvc
 
 camera_info_path: ${VISION_ROOT}/config/camera_info.yaml
 
@@ -23,7 +23,7 @@ hik_camera:
   use_raw: false
   use_rgb: false
   use_ea: false
-  use_cuda_cvt: false
+  use_cuda_cvt: true
 
   
 video_player:
@@ -44,7 +44,7 @@ uvc:
   fps: 60
   width: 1280
   height: 720
-  exposure: 100
+  exposure: 40
   gain: 10.0
   gamma: 100
   trigger_mode: false

@@ -216,12 +216,12 @@ namespace auto_buff {
                         WUST_DEBUG(logger_) << "OrderQueue skip";
                     }
                 }
-                // if (!rune_queue_->try_dequeue(auto_buff)) {
-                //     std::this_thread::sleep_for(std::chrono::milliseconds(3));
-                //     continue;
+                // if (rune_queue_->try_dequeue(auto_buff)) {
+                //     runeTargetCallback(auto_buff);
+                //     tracker_finish_count_++;
+                // } else {
+                //     std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 // }
-                // runeTargetCallback(auto_buff);
-                // tracker_finish_count_++;
             }
         }
         void setDebug(bool debug) {

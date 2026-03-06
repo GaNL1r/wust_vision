@@ -38,43 +38,14 @@ public:
     void handleReferee(const ReceiveReferee& ref) {}
 
     void serialCallback(const uint8_t* data, std::size_t len) {
+        if (len != sizeof(ReceiveAimINFO)) {
+            return;
+        }
         try {
-            if (!data || len == 0)
-                return;
-
-            uint8_t cmd = data[0];
-
-            if (cmd == ID_AIM_INFO) {
-                if (len < sizeof(ReceiveAimINFO)) {
-                    std::cerr << "AIM: bad length " << len << " (need >= " << sizeof(ReceiveAimINFO)
-                              << ")\n";
-                    return;
-                }
-                ReceiveAimINFO aim;
-                std::memcpy(&aim, data, sizeof(aim));
-                if (aim.cmd_ID != ID_AIM_INFO) {
-                    std::cerr << "AIM: cmd_ID mismatch\n";
-                    return;
-                }
-                handleAim(aim);
-
-            } else if (cmd == ID_REFEREE_INFO) {
-                if (len < sizeof(ReceiveReferee)) {
-                    std::cerr << "REF: bad length " << len << " (need >= " << sizeof(ReceiveReferee)
-                              << ")\n";
-                    return;
-                }
-                ReceiveReferee ref;
-                std::memcpy(&ref, data, sizeof(ref));
-                if (ref.cmd_ID != ID_REFEREE_INFO) {
-                    std::cerr << "REF: cmd_ID mismatch\n";
-                    return;
-                }
-                handleReferee(ref);
-
-            } else {
-                std::cerr << "serialCallback: unknown cmd " << static_cast<int>(cmd) << '\n';
-            }
+            const std::vector<uint8_t> buf(data, data + len);
+            const ReceiveAimINFO aim_data =
+                wust_vl::common::drivers::fromVector<ReceiveAimINFO>(buf);
+            processAimData(aim_data);
 
         } catch (const std::exception& e) {
             std::cerr << "serialCallback exception: " << e.what() << std::endl;
@@ -92,8 +63,8 @@ public:
                                       wust_vl::common::utils::time_utils::now().time_since_epoch()
             )
                                       .count());
-        send_data.vx = msg->linear.x;
-        send_data.vy = msg->linear.y;
+        send_data.vx = -msg->linear.y;
+        send_data.vy = msg->linear.x;
         send_data.wz = msg->angular.z;
         if (serial_) {
             serial_->write(std::move(wust_vl::common::drivers::toVector(send_data)));
