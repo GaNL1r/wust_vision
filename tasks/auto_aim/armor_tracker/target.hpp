@@ -80,8 +80,7 @@ namespace auto_aim {
         MModel::VecZ measurement_ = Eigen::Matrix<double, MModel::Z_N, 1>::Zero();
         MModel::State target_state_ = MModel::State();
         double radius_pre_;
-        double last_yaw_ = 0;
-        double last_ypd_y = 0;
+
         int armor_num_ = 4;
         bool jumped = false;
         bool is_inited = false;
@@ -112,14 +111,7 @@ namespace auto_aim {
             }
             return tracked_id_;
         }
-        [[nodiscard]] double orientationToYaw(const Eigen::Quaterniond& q) noexcept {
-            double roll, pitch, yaw;
-            const Eigen::Vector3d euler = utils::quatToEuler(q, utils::EulerOrder::ZYX, false);
-            yaw = euler[0];
-            yaw = this->last_yaw_ + angles::shortest_angular_distance(this->last_yaw_, yaw);
-            this->last_yaw_ = yaw;
-            return yaw;
-        }
+
         [[nodiscard]] std::vector<double> getArmorYaws() const noexcept {
             std::vector<double> yaw_list;
             yaw_list.reserve(armor_num_);
@@ -175,31 +167,14 @@ namespace auto_aim {
                    ) < target_config_->lost_time_thres_param.get();
             return appear;
         }
-        [[nodiscard]] bool diverged() const noexcept {
-            return diverged(target_state_);
-        }
-        [[nodiscard]] bool diverged(const MModel::State& target_state) const noexcept {
-            const auto r_ok = target_state.r() > 0.05 && target_state.r() < 0.5;
-            auto l_ok = target_state.r() + target_state.l() > 0.05
-                && target_state.r() + target_state.l() < 0.5;
-            if (tracked_id_ == ArmorNumber::OUTPOST) {
-                l_ok = true;
-            }
-            const auto v_yaw_ok = std::abs(target_state.vyaw()) < 30.0;
-            const Eigen::Vector3d vel = target_state.vel();
-            const auto v_xyz_ok = std::abs(vel.norm()) < 10.0;
-            const auto pos_ok = target_state.pos().norm() < 10.0 && target_state.pos().norm() > 0.5;
-            if (r_ok && l_ok && v_xyz_ok && v_yaw_ok && pos_ok)
-                return false;
 
-            return true;
-        }
         [[nodiscard]] Eigen::Matrix<double, MModel::Z_N, 1> getMeasure(const Armor& a) noexcept {
             const auto p = a.target_pos;
-            const double measured_yaw = orientationToYaw(a.target_ori);
+            const double measured_yaw = utils::orientationToYaw<Target>(a.target_ori);
             double ypd_y = std::atan2(p.y(), p.x());
-            ypd_y = this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
-            this->last_ypd_y = ypd_y;
+            static double last_ypd_y = 0;
+            ypd_y = last_ypd_y + angles::shortest_angular_distance(last_ypd_y, ypd_y);
+            last_ypd_y = ypd_y;
             const double ypd_p = std::atan2(p.z(), std::sqrt(p.x() * p.x() + p.y() * p.y()));
             const double ypd_d = std::sqrt(p.x() * p.x() + p.y() * p.y() + p.z() * p.z());
 

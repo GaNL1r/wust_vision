@@ -61,10 +61,6 @@ namespace auto_aim {
                 found = updateTarget(armors);
             }
             updateFsm(found);
-            if ((target_.diverged()) && tracker_state != LOST) {
-                tracker_state = LOST;
-                WUST_WARN("tracker") << "Target diverged!";
-            }
 
             return target_;
         }
@@ -131,7 +127,7 @@ namespace auto_aim {
                 return false;
             }
             target_ = Target(init_target, target_config_);
-            updateTarget(others);
+            // updateTarget(others);
             tracker_state = DETECTING;
             return true;
         }

@@ -50,6 +50,7 @@ struct SendRobotCmdData {
     uint8_t cmd_ID; //命令码
     uint32_t time_stamp;
     uint8_t appear;
+    uint8_t fire;
     uint8_t shoot_rate = 3;
     float pitch; //最佳控制yaw pitch
     float yaw;

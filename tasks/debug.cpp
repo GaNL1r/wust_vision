@@ -82,6 +82,138 @@ void drawDebugArmorContent(
         2
     );
 
+    static std::deque<std::pair<Eigen::Vector3d, double>> traj3d;
+
+    double _now =
+        std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+
+    traj3d.emplace_back(aim_target.pos, _now);
+
+    while (!traj3d.empty() && _now - traj3d.front().second > 1.0)
+        traj3d.pop_front();
+    aim_target.tf(dbg.T_camera_to_odom.inverse());
+    if (!aim_target.is_old) {
+        const auto pts = aim_target.toPts(camera_info.first, camera_info.second);
+
+        if (!pts.empty()) {
+            if (traj3d.size() > 1) {
+                std::vector<std::pair<cv::Point, double>> img_pts;
+
+                for (auto& p: traj3d) {
+                    auto p3d_odom = p.first;
+
+                    Eigen::Vector4d p_odom(p3d_odom.x(), p3d_odom.y(), p3d_odom.z(), 1);
+
+                    Eigen::Vector4d p_camera = dbg.T_camera_to_odom.inverse() * p_odom;
+
+                    std::vector<cv::Point3f> obj;
+                    obj.emplace_back(p_camera.x(), p_camera.y(), p_camera.z());
+
+                    std::vector<cv::Point2f> proj;
+
+                    cv::projectPoints(
+                        obj,
+                        cv::Vec3d(0, 0, 0),
+                        cv::Vec3d(0, 0, 0),
+                        camera_info.first,
+                        camera_info.second,
+                        proj
+                    );
+
+                    if (!proj.empty()) {
+                        const auto& pt = proj[0];
+
+                        if (std::isfinite(pt.x) && std::isfinite(pt.y)) {
+                            img_pts.emplace_back(cv::Point(int(pt.x), int(pt.y)), p.second);
+                        }
+                    }
+                }
+
+                if (img_pts.size() >= 2) {
+                    double now = std::chrono::duration<double>(
+                                     std::chrono::steady_clock::now().time_since_epoch()
+                    )
+                                     .count();
+
+                    const double max_age = 1.0;
+
+                    for (size_t i = 1; i < img_pts.size(); ++i) {
+                        double age = now - img_pts[i].second;
+
+                        double t = std::clamp(age / max_age, 0.0, 1.0);
+
+                        int r = int(255 * (1.0 - t));
+                        int b = int(255 * t);
+
+                        cv::Scalar color(b, 0, r);
+
+                        cv::line(
+                            debug_img,
+                            img_pts[i - 1].first,
+                            img_pts[i].first,
+                            color,
+                            2,
+                            cv::LINE_AA
+                        );
+                    }
+                }
+            }
+
+            cv::Point2f center(0.f, 0.f);
+
+            for (auto pt: pts)
+                center += pt;
+
+            center *= 1.0f / pts.size();
+
+            cv::Scalar color(255, 255, 255);
+
+            for (int i = 0; i < 4; i++)
+                cv::line(debug_img, pts[i], pts[(i + 1) % 4], color, 2);
+
+            for (int i = 4; i < 8; i++)
+                cv::line(debug_img, pts[i], pts[4 + (i + 1) % 4], color, 2);
+
+            for (int i = 0; i < 4; i++)
+                cv::line(debug_img, pts[i], pts[i + 4], color, 2);
+
+            if (gimbal_cmd.fire_advice) {
+                int cross_len = 60;
+
+                cv::line(
+                    debug_img,
+                    center + cv::Point2f(-cross_len, -cross_len),
+                    center + cv::Point2f(+cross_len, +cross_len),
+                    cv::Scalar(0, 0, 255),
+                    5
+                );
+
+                cv::line(
+                    debug_img,
+                    center + cv::Point2f(-cross_len, +cross_len),
+                    center + cv::Point2f(+cross_len, -cross_len),
+                    cv::Scalar(0, 0, 255),
+                    5
+                );
+            }
+
+            const double scale = 10.0;
+
+            const double v_yaw = gimbal_cmd.v_yaw;
+            const double v_pitch = gimbal_cmd.v_pitch;
+
+            const double dx = -scale * v_yaw;
+            const double dy = scale * v_pitch;
+
+            const cv::Point2f start_pt = center;
+            const cv::Point2f end_pt = start_pt + cv::Point2f(dx, dy);
+
+            const cv::Scalar color_x =
+                dbg.detect_color ? cv::Scalar(255, 50, 50) : cv::Scalar(50, 50, 255);
+
+            cv::arrowedLine(debug_img, start_pt, end_pt, color_x, 4, cv::LINE_AA, 0, 0.2);
+        }
+    }
     std::vector<cv::Point2f> all_corners;
 
     auto visualizeTargetProjection = [&](auto_aim::Target armor_target) -> auto_aim::Armors {
@@ -177,58 +309,6 @@ void drawDebugArmorContent(
                 cv::Scalar(50, 255, 255),
                 1
             );
-        }
-    }
-    aim_target.tf(dbg.T_camera_to_odom.inverse());
-    if (!aim_target.is_old) {
-        const auto pts = aim_target.toPts(camera_info.first, camera_info.second);
-        if (!pts.empty()) {
-            cv::Scalar color = cv::Scalar(255, 255, 255);
-            for (int i = 0; i < 4; i++)
-                cv::line(debug_img, pts[i], pts[(i + 1) % 4], color, 2);
-
-            // 后表面
-            for (int i = 4; i < 8; i++)
-                cv::line(debug_img, pts[i], pts[4 + (i + 1) % 4], color, 2);
-
-            // 侧边
-            for (int i = 0; i < 4; i++)
-                cv::line(debug_img, pts[i], pts[i + 4], color, 2);
-            cv::Point2f center(0.f, 0.f);
-            for (auto pt: pts) {
-                center += pt;
-            }
-            center *= 1.0 / pts.size();
-
-            if (gimbal_cmd.fire_advice) {
-                int cross_len = 60;
-                cv::line(
-                    debug_img,
-                    center + cv::Point2f(-cross_len, -cross_len),
-                    center + cv::Point2f(+cross_len, +cross_len),
-                    cv::Scalar(0, 0, 255),
-                    5
-                );
-                cv::line(
-                    debug_img,
-                    center + cv::Point2f(-cross_len, +cross_len),
-                    center + cv::Point2f(+cross_len, -cross_len),
-                    cv::Scalar(0, 0, 255),
-                    5
-                );
-            }
-
-            const double scale = 10.0;
-            const double v_yaw = gimbal_cmd.v_yaw;
-            const double v_pitch = gimbal_cmd.v_pitch;
-            const double dx = -scale * v_yaw;
-            const double dy = scale * v_pitch;
-
-            const cv::Point2f start_pt = center;
-            const cv::Point2f end_pt = start_pt + cv::Point2f(dx, dy);
-            const cv::Scalar color_x =
-                dbg.detect_color ? cv::Scalar(255, 50, 50) : cv::Scalar(50, 50, 255);
-            cv::arrowedLine(debug_img, start_pt, end_pt, color_x, 4, cv::LINE_AA, 0, 0.2);
         }
     }
 

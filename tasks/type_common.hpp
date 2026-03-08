@@ -1,5 +1,6 @@
 #pragma once
 #include "3rdparty/angles.h"
+#include "tasks/packet_typedef.hpp"
 #include "wust_vl/common/utils/logger.hpp"
 #include "wust_vl/common/utils/motion_buffer.hpp"
 #include "wust_vl/common/utils/parameter.hpp"
@@ -177,6 +178,11 @@ struct GimbalCmd {
             return false;
 
         return true;
+    }
+    inline void noShoot() {
+        fire_advice = false;
+        enable_pitch_diff = 0;
+        enable_pitch_diff = 0;
     }
 };
 

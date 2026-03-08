@@ -293,10 +293,6 @@ void VisionBase::timerCallback(double dt_ms) {
 
     double cmd_pitch = cmd.pitch;
     double cmd_yaw = cmd.yaw;
-    if (cmd.pitch >= 45.0) {
-        cmd_pitch = 45.0;
-    }
-
     SendRobotCmdData send_data;
     send_data.cmd_ID = ID_ROBOT_CMD;
     send_data.time_stamp = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -319,6 +315,7 @@ void VisionBase::timerCallback(double dt_ms) {
     send_data.enable_pitch_diff = cmd.enable_pitch_diff;
     send_data.enable_yaw_diff = cmd.enable_yaw_diff;
     send_data.shoot_rate = shoot_config_->rate_param.get();
+    send_data.fire = cmd.fire_advice;
     if (serial_) {
         serial_->write(std::move(wust_vl::common::drivers::toVector(send_data)));
     }

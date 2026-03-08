@@ -22,7 +22,7 @@ armor_where:
 armor_tracker:
   lost_time_thres: 2.0
   tracking_thres: 10
-  max_yaw_diff_deg: 70.0
+  max_yaw_diff_deg: 60.0
   max_dis_diff: 3.0
   match_gate: 50
   qxyz_common: [200.0, 200.0, 1.0]
@@ -55,11 +55,11 @@ auto_aim_fsm:
 very_aimer:
   type: "seg" #seg or mpc
   
-  sample_total_time: 1.0
+  sample_total_time: 2.0
   
   sample_horizon: 500
 
-  control_delay: 0.01
+  control_delay: 0.1
   delay_enable_fire_error: 0.0035
   
   max_yaw_acc: 40
@@ -67,18 +67,18 @@ very_aimer:
   max_pitch_acc: 25
   
 
-  prediction_delay: -0.0 
+  prediction_delay: -0.01 
   comming_angle: 60
   leaving_angle: 20
 
-  yaw_limit_deg: 60
+  yaw_limit_deg: 40
   shooting_range_h: 0.1
   shooting_range_w: 0.1
   min_enable_pitch_deg: 0.25
   min_enable_yaw_deg: 0.25
   base_offset:
-      yaw: -3.5
-      pitch: -3.8
+      yaw: -2.0
+      pitch: 0.0
   trajectory_offset:
     - d_max: 3
       d_min: 0
@@ -123,5 +123,5 @@ auto_exposure:
   step_gain: 15.0
   decay_step: 1.0
   exposure_min: 100.0
-  exposure_max: 3500.0
+  exposure_max: 1500.0
   control_interval_ms: 300

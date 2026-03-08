@@ -14,6 +14,7 @@
 #pragma once
 
 // ceres
+#include <algorithm>
 #include <ceres/ceres.h>
 // project
 #include "KalmanHyLib/kalman_hybird_lib.hpp"
@@ -127,6 +128,19 @@ struct Predict {
             // no rotation
             x1[(int)StateID::VYAW] *= T(0.);
         }
+        clampState(x1);
+    }
+    template<typename T>
+    void clampState(T x1[X_N]) const {
+        auto& r = x1[(int)StateID::R];
+        auto& l = x1[(int)StateID::L];
+        r = std::clamp(r, T(0.1), T(0.5));
+        T sum = r + l;
+        sum = std::clamp(sum, T(0.1), T(0.5));
+
+        l = sum - r;
+        auto& h = x1[(int)StateID::H];
+        h = std::clamp(h, T(-0.5), T(0.5));
     }
     void f(const VecX& x0, VecX& x1) const {
         assert(x0.size() == X_N);

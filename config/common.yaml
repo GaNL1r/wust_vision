@@ -1,5 +1,5 @@
 max_infer_running: 6
-detect_color: 1
+detect_color: 0
 attack_mode: 0
 debug_fps: 60
 tf:
@@ -8,9 +8,9 @@ tf:
     [0.065434347168653831, 0.10641232476052895, 0.0436106400231024]
 control:
   control_rate: 1000
-  communication_delay_us: 1000
+  communication_delay_us: 0.000
   device_name: /dev/ttyACM0
-  use_serial: false
+  use_serial: true
   yaw_ramp: 0.0  #send_cmd = cmd.pos+cmd.vel*ramp
   pitch_ramp: 0.0
   
@@ -22,8 +22,8 @@ logger:
   use_simplelog: true
 
 shoot:
-  bullet_speed: 22.0
-  rate: 10
+  bullet_speed: 26.0
+  rate: 5
 
 record:
   use_record: false

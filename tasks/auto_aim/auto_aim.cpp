@@ -209,6 +209,22 @@ namespace auto_aim {
                 } catch (...) {
                     WUST_ERROR(logger_) << "VeryAim error";
                 }
+                // double center_yaw =
+                //     std::atan2(target.target_state_.cy(), target.target_state_.cx());
+                // Eigen::Vector3d vel = target.target_state_.vel();
+                // double vx = vel.x();
+                // double vy = vel.y();
+
+                // double vx_center = std::cos(center_yaw) * vx + std::sin(center_yaw) * vy;
+                // double vy_center = -std::sin(center_yaw) * vx + std::cos(center_yaw) * vy;
+
+                // Eigen::Vector3d vel_center;
+                // vel_center << vx_center, vy_center, vel.z();
+                // if (vel_center.y() > -0.5) {
+                //     gimbal_cmd.fire_advice = false;
+                //     gimbal_cmd.enable_pitch_diff = 0.0;
+                //     gimbal_cmd.enable_yaw_diff = 0.0;
+                // }
             }
             if (gimbal_cmd.fire_advice) {
                 fire_count_++;

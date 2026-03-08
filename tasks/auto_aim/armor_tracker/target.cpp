@@ -68,8 +68,7 @@ namespace auto_aim {
         const double xa = a.target_pos.x();
         const double ya = a.target_pos.y();
         const double za = a.target_pos.z();
-        last_yaw_ = 0;
-        const double yaw = orientationToYaw(a.target_ori);
+        const double yaw = utils::orientationToYaw<Target>(a.target_ori);
 
         target_state_.x = Eigen::VectorXd::Zero(MModel::X_N);
         const double r = radius_pre_;

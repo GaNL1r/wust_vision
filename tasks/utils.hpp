@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "3rdparty/angles.h"
 #include <Eigen/Dense>
 #include <concepts>
 #include <opencv2/opencv.hpp>
@@ -187,6 +188,16 @@ namespace utils {
         float max_y = std::max({ tp1.y, tp2.y, tp3.y, tp4.y });
 
         return cv::Rect2f(min_x, min_y, max_x - min_x, max_y - min_y);
+    }
+    template<class Tag>
+    [[nodiscard]] double orientationToYaw(const Eigen::Quaterniond& q) noexcept {
+        static double last_yaw = 0;
+        double roll, pitch, yaw;
+        const Eigen::Vector3d euler = utils::quatToEuler(q, utils::EulerOrder::ZYX, false);
+        yaw = euler[0];
+        yaw = last_yaw + angles::shortest_angular_distance(last_yaw, yaw);
+        last_yaw = yaw;
+        return yaw;
     }
 } // namespace utils
 } // namespace wust_vision
