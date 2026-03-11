@@ -3,10 +3,7 @@
 
 namespace wust_vision {
 namespace auto_buff {
-    constexpr double RUNE_PAN_REAL_DIS = 0.15;
-    constexpr double RUNE_FAN_REAL_W = 0.05;
-    constexpr double RUNE_FAN_REAL_H = 0.3;
-    constexpr double RUNE_R = 0.05;
+    constexpr double RUNE_PAN_BOX_DIS = 0.15;
     constexpr double RUNE_R2PANCENTER = 0.7;
     struct RuneCenter {
         cv::Point2f center;
@@ -47,18 +44,14 @@ namespace auto_buff {
             std::vector<cv::Point2f> points2d;
             std::vector<cv::Point3f> points3d = {
                 { 0.0f, 0.0f, 0.0f }, // P0
+                { 0.0f, RUNE_PAN_BOX_DIS / 2.0f, RUNE_R2PANCENTER + RUNE_PAN_BOX_DIS / 2.0f }, // P1
+                { 0.0f, RUNE_PAN_BOX_DIS / 2.0f, RUNE_R2PANCENTER - RUNE_PAN_BOX_DIS / 2.0f }, // P2
                 { 0.0f,
-                  RUNE_PAN_REAL_DIS / 2.0f,
-                  RUNE_R2PANCENTER + RUNE_PAN_REAL_DIS / 2.0f }, // P1
+                  -RUNE_PAN_BOX_DIS / 2.0f,
+                  RUNE_R2PANCENTER - RUNE_PAN_BOX_DIS / 2.0f }, // P3
                 { 0.0f,
-                  RUNE_PAN_REAL_DIS / 2.0f,
-                  RUNE_R2PANCENTER - RUNE_PAN_REAL_DIS / 2.0f }, // P2
-                { 0.0f,
-                  -RUNE_PAN_REAL_DIS / 2.0f,
-                  RUNE_R2PANCENTER - RUNE_PAN_REAL_DIS / 2.0f }, // P3
-                { 0.0f,
-                  -RUNE_PAN_REAL_DIS / 2.0f,
-                  RUNE_R2PANCENTER + RUNE_PAN_REAL_DIS / 2.0f }, // P4
+                  -RUNE_PAN_BOX_DIS / 2.0f,
+                  RUNE_R2PANCENTER + RUNE_PAN_BOX_DIS / 2.0f }, // P4
                 { 0.0f, 0.0f, RUNE_R2PANCENTER } // P5
             };
             inline cv::Point3f rotateX(const cv::Point3f& p, double roll) {

@@ -9,63 +9,58 @@ namespace auto_buff {
         is_big_ = false;
         start_time_ = fan.timestamp;
         target_config_ = target_config;
-        auto f = ypdrune_motion_model::Predict(0.005);
-        auto h = ypdrune_motion_model::Measure(0);
+        auto f = MModel::Predict(0.005);
+        auto h = MModel::Measure(0);
         auto u_q = [this]() {
-            Eigen::Matrix<double, ypdrune_motion_model::X_N, ypdrune_motion_model::X_N> q;
+            Eigen::Matrix<double, MModel::X_N, MModel::X_N> q;
             return q;
         };
 
-        auto u_r = [this](const Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>& z) {
-            Eigen::Matrix<double, ypdrune_motion_model::Z_N, ypdrune_motion_model::Z_N> r;
+        auto u_r = [this](const Eigen::Matrix<double, MModel::Z_N, 1>& z) {
+            Eigen::Matrix<double, MModel::Z_N, MModel::Z_N> r;
             return r;
         };
-        Eigen::DiagonalMatrix<double, ypdrune_motion_model::X_N> p0;
+        Eigen::DiagonalMatrix<double, MModel::X_N> p0;
         p0.setIdentity();
-        esekf_ypd_ = ypdrune_motion_model::RuneESKF(f, h, u_q, u_r, p0);
+        esekf_ypd_ = MModel::RuneESKF(f, h, u_q, u_r, p0);
         esekf_ypd_.setResidualFunc([](const Eigen::VectorXd& z_pred, const Eigen::VectorXd& z) {
             Eigen::VectorXd r = z - z_pred;
-            r[(int)ypdrune_motion_model::Meas::YPD_Y] = angles::shortest_angular_distance(
-                z_pred[(int)ypdrune_motion_model::Meas::YPD_Y],
-                z[(int)ypdrune_motion_model::Meas::YPD_Y]
+            r[(int)MModel::Meas::YPD_Y] = angles::shortest_angular_distance(
+                z_pred[(int)MModel::Meas::YPD_Y],
+                z[(int)MModel::Meas::YPD_Y]
             ); // yaw
-            r[(int)ypdrune_motion_model::Meas::ORI_YAW] = angles::shortest_angular_distance(
-                z_pred[(int)ypdrune_motion_model::Meas::ORI_YAW],
-                z[(int)ypdrune_motion_model::Meas::ORI_YAW]
+            r[(int)MModel::Meas::ORI_YAW] = angles::shortest_angular_distance(
+                z_pred[(int)MModel::Meas::ORI_YAW],
+                z[(int)MModel::Meas::ORI_YAW]
             ); // ori_yaw
-            r[(int)ypdrune_motion_model::Meas::ORI_ROLL] = angles::shortest_angular_distance(
-                z_pred[(int)ypdrune_motion_model::Meas::ORI_ROLL],
-                z[(int)ypdrune_motion_model::Meas::ORI_ROLL]
+            r[(int)MModel::Meas::ORI_ROLL] = angles::shortest_angular_distance(
+                z_pred[(int)MModel::Meas::ORI_ROLL],
+                z[(int)MModel::Meas::ORI_ROLL]
             ); // ori_roll
             return r;
         });
         esekf_ypd_.setIterationNum(target_config_->esekf_iter_num_param.get());
-        esekf_ypd_.setInjectFunc(
-            [](const Eigen::Matrix<double, ypdrune_motion_model::X_N, 1>& delta,
-               Eigen::Matrix<double, ypdrune_motion_model::X_N, 1>& nominal) {
-                for (int i = 0; i < ypdrune_motion_model::X_N; i++) {
-                    if (i == (int)ypdrune_motion_model::Meas::ORI_YAW
-                        || i == (int)ypdrune_motion_model::Meas::ORI_ROLL)
-                        continue;
-                    nominal[i] += delta[i];
-                }
-                nominal[(int)ypdrune_motion_model::Meas::ORI_YAW] = angles::normalize_angle(
-                    nominal[(int)ypdrune_motion_model::Meas::ORI_YAW]
-                    + delta[(int)ypdrune_motion_model::Meas::ORI_YAW]
-                );
-                nominal[(int)ypdrune_motion_model::Meas::ORI_ROLL] = angles::normalize_angle(
-                    nominal[(int)ypdrune_motion_model::Meas::ORI_ROLL]
-                    + delta[(int)ypdrune_motion_model::Meas::ORI_ROLL]
-                );
+        esekf_ypd_.setInjectFunc([](const Eigen::Matrix<double, MModel::X_N, 1>& delta,
+                                    Eigen::Matrix<double, MModel::X_N, 1>& nominal) {
+            for (int i = 0; i < MModel::X_N; i++) {
+                if (i == (int)MModel::Meas::ORI_YAW || i == (int)MModel::Meas::ORI_ROLL)
+                    continue;
+                nominal[i] += delta[i];
             }
-        );
+            nominal[(int)MModel::Meas::ORI_YAW] = angles::normalize_angle(
+                nominal[(int)MModel::Meas::ORI_YAW] + delta[(int)MModel::Meas::ORI_YAW]
+            );
+            nominal[(int)MModel::Meas::ORI_ROLL] = angles::normalize_angle(
+                nominal[(int)MModel::Meas::ORI_ROLL] + delta[(int)MModel::Meas::ORI_ROLL]
+            );
+        });
 
         double xc = fan.fans.front().target_pos.x();
         double yc = fan.fans.front().target_pos.y();
         double zc = fan.fans.front().target_pos.z();
-        double yaw = orientationToYaw(fan.fans.front().target_ori);
-        double roll = orientationToRoll(fan.fans.front().target_ori);
-        target_state_ = Eigen::VectorXd::Zero(ypdrune_motion_model::X_N);
+        double yaw = utils::orientationToYaw<RuneTarget>(fan.fans.front().target_ori);
+        double roll = utils::orientationToRoll<RuneTarget>(fan.fans.front().target_ori);
+        target_state_ = Eigen::VectorXd::Zero(MModel::X_N);
         target_state_ << xc, yc, zc, yaw, roll, pre_v_roll;
         esekf_ypd_.setState(target_state_);
         fitter_.update(0, 0);
@@ -74,11 +69,9 @@ namespace auto_buff {
         last_t_ = fan.timestamp;
         timestamp_ = fan.timestamp;
     }
-    Eigen::Matrix<double, ypdrune_motion_model::Z_N, ypdrune_motion_model::Z_N>
-    RuneTarget::computeMeasurementCovariance(
-        const Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>& z
-    ) const {
-        Eigen::Matrix<double, ypdrune_motion_model::Z_N, ypdrune_motion_model::Z_N> r;
+    Eigen::Matrix<double, MModel::Z_N, MModel::Z_N>
+    RuneTarget::computeMeasurementCovariance(const Eigen::Matrix<double, MModel::Z_N, 1>& z) const {
+        Eigen::Matrix<double, MModel::Z_N, MModel::Z_N> r;
         // clang-format off
     r << target_config_->yp_r_param.get() , 0 , 0 ,  0 , 0,
          0 , target_config_->yp_r_param.get() , 0 ,  0 , 0,
@@ -88,9 +81,9 @@ namespace auto_buff {
         // clang-format on
         return r;
     }
-    Eigen::Matrix<double, ypdrune_motion_model::X_N, ypdrune_motion_model::X_N>
-    RuneTarget::computeProcessNoise(double dt) const {
-        Eigen::Matrix<double, ypdrune_motion_model::X_N, ypdrune_motion_model::X_N> q;
+    Eigen::Matrix<double, MModel::X_N, MModel::X_N> RuneTarget::computeProcessNoise(double dt
+    ) const {
+        Eigen::Matrix<double, MModel::X_N, MModel::X_N> q;
         double t = dt;
         double v1 = target_config_->q_roll_param.get();
         double q_roll_roll = pow(t, 4) / 4 * v1, q_roll_vroll = pow(t, 3) / 2 * v1,
@@ -119,15 +112,12 @@ namespace auto_buff {
     void RuneTarget::predict(double dt) {
         dt_ = dt;
 
-        esekf_ypd_.setPredictFunc(ypdrune_motion_model::Predict { dt });
+        esekf_ypd_.setPredictFunc(MModel::Predict { dt });
         auto u_q = [dt, this]() { return computeProcessNoise(dt); };
 
         esekf_ypd_.setUpdateQ(u_q);
 
         target_state_ = esekf_ypd_.predict();
-        if (centerPos().norm() < 0.5) {
-            is_tracking = false;
-        }
     }
     bool RuneTarget::update(const auto_buff::RuneFan& fans) {
         timestamp_ = fans.timestamp;
@@ -141,11 +131,11 @@ namespace auto_buff {
         for (auto [id, fan]: matched) {
             measurement_ = getMeasure(fan);
             update_ids.push_back(id);
-            auto yu_rv2 = [this](const Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>& z) {
+            auto yu_rv2 = [this](const Eigen::Matrix<double, MModel::Z_N, 1>& z) {
                 return this->computeMeasurementCovariance(z);
             };
             esekf_ypd_.setUpdateR(yu_rv2);
-            esekf_ypd_.setMeasureFunc(ypdrune_motion_model::Measure { id });
+            esekf_ypd_.setMeasureFunc(MModel::Measure { id });
 
             esekf_ypd_.update(measurement_);
             if (!is_big_)
@@ -263,25 +253,25 @@ namespace auto_buff {
         const double GATE = target_config_->match_gate_param.get();
         const double max_cost = 1e9;
         std::vector<std::vector<double>> cost(n_obs, std::vector<double>(armors_num, max_cost + 1));
-        std::vector<ypdrune_motion_model::VecZ> meas_list(n_obs);
+        std::vector<MModel::VecZ> meas_list(n_obs);
         for (int j = 0; j < n_obs; ++j) {
             meas_list[j] = getMeasure(fans[j]);
         }
         for (int j = 0; j < n_obs; ++j) {
             for (int id = 0; id < armors_num; ++id) {
-                ypdrune_motion_model::Measure measure(id);
-                ypdrune_motion_model::VecZ z_pred;
+                MModel::Measure measure(id);
+                MModel::VecZ z_pred;
                 measure.h(target_state_, z_pred);
 
-                ypdrune_motion_model::VecZ nu = meas_list[j] - z_pred;
-                nu[(int)ypdrune_motion_model::Meas::YPD_Y] =
-                    angles::normalize_angle(nu[(int)ypdrune_motion_model::Meas::YPD_Y]);
-                nu[(int)ypdrune_motion_model::Meas::YPD_P] =
-                    angles::normalize_angle(nu[(int)ypdrune_motion_model::Meas::YPD_P]);
-                nu[(int)ypdrune_motion_model::Meas::ORI_YAW] =
-                    angles::normalize_angle(nu[(int)ypdrune_motion_model::Meas::ORI_YAW]);
-                nu[(int)ypdrune_motion_model::Meas::ORI_ROLL] =
-                    angles::normalize_angle(nu[(int)ypdrune_motion_model::Meas::ORI_ROLL]);
+                MModel::VecZ nu = meas_list[j] - z_pred;
+                nu[(int)MModel::Meas::YPD_Y] =
+                    angles::normalize_angle(nu[(int)MModel::Meas::YPD_Y]);
+                nu[(int)MModel::Meas::YPD_P] =
+                    angles::normalize_angle(nu[(int)MModel::Meas::YPD_P]);
+                nu[(int)MModel::Meas::ORI_YAW] =
+                    angles::normalize_angle(nu[(int)MModel::Meas::ORI_YAW]);
+                nu[(int)MModel::Meas::ORI_ROLL] =
+                    angles::normalize_angle(nu[(int)MModel::Meas::ORI_ROLL]);
                 auto R = computeMeasurementCovariance(z_pred);
 
                 double d2 = nu.transpose() * R.ldlt().solve(nu);

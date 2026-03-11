@@ -53,6 +53,8 @@ auto_aim_fsm:
   transfer_thresh: 50
 
 very_aimer:
+  fuck_test: true
+  fuck_test_thresh: 0.5
   type: "seg" #seg or mpc
   
   sample_total_time: 2.0

@@ -315,7 +315,6 @@ void VisionBase::timerCallback(double dt_ms) {
     send_data.enable_pitch_diff = cmd.enable_pitch_diff;
     send_data.enable_yaw_diff = cmd.enable_yaw_diff;
     send_data.shoot_rate = shoot_config_->rate_param.get();
-    send_data.fire = cmd.fire_advice;
     if (serial_) {
         serial_->write(std::move(wust_vl::common::drivers::toVector(send_data)));
     }

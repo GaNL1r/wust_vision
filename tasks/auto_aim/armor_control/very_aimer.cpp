@@ -504,6 +504,8 @@ struct VeryAimer::Impl {
         GEN_PARAM(double, shooting_range_w);
         GEN_PARAM(double, min_enable_pitch_deg);
         GEN_PARAM(double, min_enable_yaw_deg);
+        GEN_PARAM(bool, fuck_test);
+        GEN_PARAM(double, fuck_test_thresh);
         double sample_dt = 0.01;
         int sample_half_horizon = 100;
         bool first_load = false;
@@ -561,6 +563,8 @@ struct VeryAimer::Impl {
             max_pitch_acc_param.load(node);
             sample_total_time_param.load(node);
             sample_horizon_param.load(node);
+            fuck_test_param.load(node);
+            fuck_test_thresh_param.load(node);
         }
     };
 
@@ -1237,7 +1241,23 @@ struct VeryAimer::Impl {
         cmd.distance = build->fin_aim_pos.norm();
         cmd.fly_time = predict.fly_time;
 
-        const auto fire = canFireAtTime(build, half_t);
+        auto fire = canFireAtTime(build, half_t);
+        if (config_->fuck_test_param.get()) {
+            double center_yaw = std::atan2(target.target_state_.cy(), target.target_state_.cx());
+            Eigen::Vector3d vel = target.target_state_.vel();
+            double vx_center = std::cos(center_yaw) * vel.x() + std::sin(center_yaw) * vel.y();
+            double vy_center = -std::sin(center_yaw) * vel.x() + std::cos(center_yaw) * vel.y();
+
+            double thresh = config_->fuck_test_thresh_param.get();
+            bool no_shoot = (target.target_state_.vyaw() > 0 && vy_center < thresh)
+                || (target.target_state_.vyaw() <= 0 && vy_center > -thresh);
+
+            if (no_shoot) {
+                fire.fire = false;
+                fire.enable_pitch_diff = 0.0;
+                fire.enable_yaw_diff = 0.0;
+            }
+        }
 
         cmd.enable_yaw_diff = rad2deg(fire.enable_yaw_diff);
         cmd.enable_pitch_diff = rad2deg(fire.enable_pitch_diff);

@@ -22,6 +22,11 @@ constexpr uint8_t ID_NAV_CMD = 0x02;
 
 constexpr uint8_t ID_AIM_INFO = 0X02;
 constexpr uint8_t ID_REFEREE_INFO = 0X03;
+constexpr const char* TARGET_TOPIC = "vision_target";
+constexpr const char* NAV_STATE_TOPIC = "rose_state";
+constexpr const char* MODE_TOPIC = "sentry_mode";
+constexpr const char* ROBO_STATE_TOPIC = "robo_state";
+constexpr const char* GOAL_TOPIC = "rose_goal";
 struct ReceiveAimINFO {
     uint8_t cmd_ID; //命令码
     uint32_t time_stamp; //时间戳
@@ -50,7 +55,6 @@ struct SendRobotCmdData {
     uint8_t cmd_ID; //命令码
     uint32_t time_stamp;
     uint8_t appear;
-    uint8_t fire;
     uint8_t shoot_rate = 3;
     float pitch; //最佳控制yaw pitch
     float yaw;
@@ -63,6 +67,9 @@ struct SendRobotCmdData {
         enable_pitch_diff; //计算当前yaw pitch 与本包次发送target_yaw target_pitch的差绝对值小于enable（角度）开火
     float v_yaw;
     float v_pitch;
+    float a_yaw;
+    float a_pitch;
+
     uint8_t detect_color; // 0 red 1 blue
 } __attribute__((packed));
 
@@ -73,24 +80,18 @@ struct NavRobotCmdData {
     float vx;
     float vy;
     float wz;
-
+    uint8_t mode;
 } __attribute__((packed));
 
-struct ReceiveReferee //rmul2024
+struct ReceiveReferee //考核/rmul_2026
 {
     uint8_t cmd_ID; //命令码
     uint32_t time_stamp;
+    float big_yaw_in_world;
     int game_time; //gamestate 到4 从0开始，其他状态发-1
-    uint8_t my_team;
     int max_health;
     int cur_health;
     int cur_bullet;
-    int r1_health;
-    int r3_health;
-    int r7_health;
-    int b1_health;
-    int b3_health;
-    int b7_health;
 
 } __attribute__((packed));
 } // namespace wust_vision

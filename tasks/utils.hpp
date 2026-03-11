@@ -199,5 +199,15 @@ namespace utils {
         last_yaw = yaw;
         return yaw;
     }
+    template<class Tag>
+    [[nodiscard]] double orientationToRoll(const Eigen::Quaterniond& q) noexcept {
+        static double last_roll = 0;
+        double roll, pitch, yaw;
+        Eigen::Vector3d euler = utils::quatToEuler(q, utils::EulerOrder::ZYX, false);
+        roll = euler[2];
+        roll = last_roll + angles::shortest_angular_distance(last_roll, roll);
+        last_roll = roll;
+        return roll;
+    }
 } // namespace utils
 } // namespace wust_vision

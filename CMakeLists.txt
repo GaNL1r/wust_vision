@@ -110,7 +110,8 @@ find_package(geometry_msgs QUIET)
 find_package(std_msgs QUIET)
 find_package(tf2_ros QUIET)
 find_package(sensor_msgs QUIET)
-
+find_package(visualization_msgs QUIET)
+find_package(sentry_interfase QUIET)
 set(ROS2_CORE_FOUND FALSE)
 set(ROS2_FULL_FOUND FALSE)
 
@@ -130,7 +131,7 @@ endif()
 
 if(ROS2_FULL_FOUND)
   message(STATUS "ROS2 full environment found, compiling test_ros2 and sentry.")
-  include_directories(${geometry_msgs_INCLUDE_DIRS} ${sensor_msgs_INCLUDE_DIRS} ${rclcpp_INCLUDE_DIRS} ${rcl_interfaces_INCLUDE_DIRS} ${tf2_ros_INCLUDE_DIRS} ${wust_interfaces_INCLUDE_DIRS} )
+  include_directories(${geometry_msgs_INCLUDE_DIRS} ${sensor_msgs_INCLUDE_DIRS} ${rclcpp_INCLUDE_DIRS} ${rcl_interfaces_INCLUDE_DIRS} ${tf2_ros_INCLUDE_DIRS} ${wust_interfaces_INCLUDE_DIRS} ${visualization_msgs_INCLUDE_DIRS} ${sentry_interfase_INCLUDE_DIRS})
 
   add_executable(sentry src/sentry.cpp)
   target_link_libraries(sentry
@@ -142,7 +143,7 @@ if(ROS2_FULL_FOUND)
     tasks_common
     toros2
   )
-  ament_target_dependencies(sentry rclcpp std_msgs geometry_msgs  tf2_ros)
+  ament_target_dependencies(sentry rclcpp std_msgs geometry_msgs  tf2_ros visualization_msgs sentry_interfase)
   add_executable(hero src/hero.cpp)
   target_link_libraries(hero
     project_min_deps
@@ -166,9 +167,9 @@ if(ROS2_FULL_FOUND)
     toros2
   )
   ament_target_dependencies(sim rclcpp std_msgs geometry_msgs  tf2_ros sensor_msgs )
-  add_executable(control test/control.cpp)
-  target_link_libraries(control project_min_deps toros2)
-  ament_target_dependencies(control rclcpp std_msgs)
+  add_executable(nav test/nav.cpp)
+  target_link_libraries(nav project_min_deps toros2)
+  ament_target_dependencies(nav rclcpp std_msgs geometry_msgs)
 else()
   message(WARNING "ROS2 dependencies incomplete, skipping ...")
 endif()

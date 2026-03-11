@@ -1,5 +1,6 @@
 #pragma once
 
+#include "tasks/auto_aim/armor_tracker/target.hpp"
 #include "tasks/debug.hpp"
 #include "tasks/type_common.hpp"
 #include "wust_vl/video/camera.hpp"
@@ -34,6 +35,7 @@ namespace auto_aim {
         void setDebug(bool debug);
         DebugArmor getDebugFrame();
         GimbalCmd solve(double dt_ms);
+        Target getTarget();
         void setShared(std::shared_ptr<AutoAimShared> shared);
         bool isActive();
         void processingWait();

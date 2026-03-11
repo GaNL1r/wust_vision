@@ -7,6 +7,7 @@
 #include <wust_vl/common/utils/timer.hpp>
 namespace wust_vision {
 namespace auto_buff {
+    namespace MModel = ypdrune_motion_model;
     struct RuneTargetConfig: wust_vl::common::utils::ParamGroup {
         static constexpr const char* kKey = "rune_tracker";
         const char* key() const override {
@@ -56,11 +57,8 @@ namespace auto_buff {
             double pre_v_roll
         );
         bool is_big_ = false;
-        double last_yaw_ = 0;
         double last_ypd_y = 0;
-        double last_roll_ = 0;
         bool is_inited = false;
-        bool is_tracking = false;
         int last_id;
         std::vector<int> update_ids;
         RuneTargetConfig::Ptr target_config_;
@@ -70,11 +68,11 @@ namespace auto_buff {
         double dt_;
         double last_time_ = 0;
         SinSpeedFitter fitter_;
-        ypdrune_motion_model::RuneESKF esekf_ypd_;
-        Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1> measurement_ =
-            Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>::Zero();
-        Eigen::Matrix<double, ypdrune_motion_model::X_N, 1> target_state_ =
-            Eigen::Matrix<double, ypdrune_motion_model::X_N, 1>::Zero();
+        MModel::RuneESKF esekf_ypd_;
+        Eigen::Matrix<double, MModel::Z_N, 1> measurement_ =
+            Eigen::Matrix<double, MModel::Z_N, 1>::Zero();
+        Eigen::Matrix<double, MModel::X_N, 1> target_state_ =
+            Eigen::Matrix<double, MModel::X_N, 1>::Zero();
         cv::Rect expanded(
             Eigen::Matrix4d T_camera_to_odom,
             const cv::Mat& camera_intrinsic,
@@ -84,29 +82,12 @@ namespace auto_buff {
         bool update(const auto_buff::RuneFan& fan);
         void predict(std::chrono::steady_clock::time_point t);
         void predict(double dt);
-        Eigen::Matrix<double, ypdrune_motion_model::Z_N, ypdrune_motion_model::Z_N>
-        computeMeasurementCovariance(const Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>& z
-        ) const;
-        Eigen::Matrix<double, ypdrune_motion_model::X_N, ypdrune_motion_model::X_N>
-        computeProcessNoise(double dt) const;
-        double orientationToYaw(const Eigen::Quaterniond& q) noexcept {
-            double roll, pitch, yaw;
-            Eigen::Vector3d euler = utils::quatToEuler(q, utils::EulerOrder::ZYX, false);
-            yaw = euler[0];
-            yaw = this->last_yaw_ + angles::shortest_angular_distance(this->last_yaw_, yaw);
-            this->last_yaw_ = yaw;
-            return yaw;
-        }
-        double orientationToRoll(const Eigen::Quaterniond& q) noexcept {
-            double roll, pitch, yaw;
-            Eigen::Vector3d euler = utils::quatToEuler(q, utils::EulerOrder::ZYX, false);
-            roll = euler[2];
-            roll = this->last_roll_ + angles::shortest_angular_distance(this->last_roll_, roll);
-            this->last_roll_ = roll;
-            return roll;
-        }
+        Eigen::Matrix<double, MModel::Z_N, MModel::Z_N>
+        computeMeasurementCovariance(const Eigen::Matrix<double, MModel::Z_N, 1>& z) const;
+        Eigen::Matrix<double, MModel::X_N, MModel::X_N> computeProcessNoise(double dt) const;
+
         inline bool checkTargetAppear() {
-            bool appear = is_tracking
+            bool appear = is_inited
                 && wust_vl::common::utils::time_utils::durationSec(
                        timestamp_,
                        wust_vl::common::utils::time_utils::now()
@@ -126,8 +107,8 @@ namespace auto_buff {
                 double angle = fitter_.predictAngle(to_start);
                 double speed = fitter_.predictSpeed(to_start);
                 auto state = esekf_ypd_.getState();
-                state[(int)ypdrune_motion_model::State::ROLL] = angles::normalize_angle(angle);
-                state[(int)ypdrune_motion_model::State::VROLL] = speed;
+                state[(int)MModel::State::ROLL] = angles::normalize_angle(angle);
+                state[(int)MModel::State::VROLL] = speed;
                 esekf_ypd_.setState(state);
             } else {
                 predict(dt);
@@ -146,15 +127,15 @@ namespace auto_buff {
         }
 
         Eigen::Vector3d centerPos() const {
-            return { target_state_((int)ypdrune_motion_model::State::CX),
-                     target_state_((int)ypdrune_motion_model::State::CY),
-                     target_state_((int)ypdrune_motion_model::State::CZ) };
+            return { target_state_((int)MModel::State::CX),
+                     target_state_((int)MModel::State::CY),
+                     target_state_((int)MModel::State::CZ) };
         }
         std::vector<double> getAngles() {
             std::vector<double> angles;
             for (int i = 0; i < 5; i++) {
                 auto angle = angles::normalize_angle(
-                    target_state_[(int)ypdrune_motion_model::State::ROLL] + i * 2 * M_PI / 5
+                    target_state_[(int)MModel::State::ROLL] + i * 2 * M_PI / 5
                 );
                 angles.push_back(angle);
             }
@@ -167,7 +148,7 @@ namespace auto_buff {
             return false;
         }
         double roll() const {
-            return target_state_[(int)ypdrune_motion_model::State::ROLL];
+            return target_state_[(int)MModel::State::ROLL];
         }
         double curr_roll() const {
             return roll() + last_id * 2 * M_PI / 5;
@@ -176,10 +157,10 @@ namespace auto_buff {
             return roll() + id * 2 * M_PI / 5;
         }
         double yaw() const {
-            return target_state_[(int)ypdrune_motion_model::State::YAW];
+            return target_state_[(int)MModel::State::YAW];
         }
         double v_roll() const {
-            return target_state_[(int)ypdrune_motion_model::State::VROLL];
+            return target_state_[(int)MModel::State::VROLL];
         }
         std::vector<std::pair<int, auto_buff::RuneFan::Simple>>
         match(const std::vector<auto_buff::RuneFan::Simple>& fans);
@@ -200,7 +181,7 @@ namespace auto_buff {
         computeBladeTipPose(const Eigen::Vector3d& center_pos, const Eigen::Quaterniond& q, int id)
             const {
             // tip 的局部坐标（沿 local X 方向）
-            Eigen::Vector3d local_tip(-0.15, 0.0, 0.7);
+            Eigen::Vector3d local_tip(0.0, 0.0, RUNE_R2PANCENTER);
 
             Eigen::Vector3d tip_pos = center_pos + q * local_tip;
 
@@ -229,18 +210,17 @@ namespace auto_buff {
             power_rune.hit_id = last_id;
             return power_rune;
         }
-        Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1>
-        getMeasure(const auto_buff::RuneFan::Simple& fan) {
+        Eigen::Matrix<double, MModel::Z_N, 1> getMeasure(const auto_buff::RuneFan::Simple& fan) {
             auto p = fan.target_pos;
 
-            double measured_yaw = orientationToYaw(fan.target_ori);
-            double measured_roll = orientationToRoll(fan.target_ori);
+            double measured_yaw = utils::orientationToYaw<RuneTarget>(fan.target_ori);
+            double measured_roll = utils::orientationToRoll<RuneTarget>(fan.target_ori);
             double ypd_y = std::atan2(p.y(), p.x());
             ypd_y = this->last_ypd_y + angles::shortest_angular_distance(this->last_ypd_y, ypd_y);
             this->last_ypd_y = ypd_y;
             double ypd_p = std::atan2(p.z(), std::sqrt(p.x() * p.x() + p.y() * p.y()));
             double ypd_d = std::sqrt(p.x() * p.x() + p.y() * p.y() + p.z() * p.z());
-            Eigen::Matrix<double, ypdrune_motion_model::Z_N, 1> measure;
+            Eigen::Matrix<double, MModel::Z_N, 1> measure;
             measure << ypd_y, ypd_p, ypd_d, measured_yaw, measured_roll;
             return measure;
         }

@@ -1,5 +1,6 @@
 #include "auto_aim.hpp"
 #include "tasks/auto_aim/armor_control/very_aimer.hpp"
+#include "tasks/auto_aim/armor_tracker/target.hpp"
 #include "tasks/auto_aim/armor_tracker/trackerv3.hpp"
 #include "tasks/auto_aim/armor_where/armor_where.hpp"
 #include "tasks/config.hpp"
@@ -188,7 +189,14 @@ namespace auto_aim {
                 dbg.fsm = auto_aim_fsm_cl_.fsm_state_;
             }
         }
-
+        Target getTarget() {
+            Target target;
+            {
+                std::lock_guard<std::mutex> lock(target_mutex_);
+                target = target_;
+            }
+            return target;
+        }
         GimbalCmd solve(double dt_ms) {
             GimbalCmd gimbal_cmd;
             Target target;
@@ -419,6 +427,9 @@ namespace auto_aim {
         std::shared_ptr<wust_vl::video::Camera> camera
     ) {
         _impl->autoExposureControl(frame, camera);
+    }
+    Target AutoAim::getTarget() {
+        return _impl->getTarget();
     }
 } // namespace auto_aim
 } // namespace wust_vision
