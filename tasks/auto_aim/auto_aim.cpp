@@ -1,13 +1,11 @@
 #include "auto_aim.hpp"
 #include "tasks/auto_aim/armor_control/very_aimer.hpp"
+#include "tasks/auto_aim/armor_detect/armor_detector_factory.hpp"
 #include "tasks/auto_aim/armor_tracker/target.hpp"
 #include "tasks/auto_aim/armor_tracker/trackerv3.hpp"
 #include "tasks/auto_aim/armor_where/armor_where.hpp"
 #include "tasks/config.hpp"
 #include "wust_vl/common/concurrency/queues.hpp"
-// clang-format off
-#include "tasks/auto_aim/armor_detect/armor_detector_factory.hpp"
-// clang-format on
 namespace wust_vision {
 namespace auto_aim {
 

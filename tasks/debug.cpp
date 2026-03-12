@@ -835,7 +835,7 @@ void writeTargetLogToJson(
 
     // -------- RuneTarget 部分 --------
     nlohmann::json jr;
-    jr["tracking"] = rune_target.is_tracking;
+    jr["tracking"] = true;
     jr["id"] = static_cast<int>(rune_target.last_id);
 
     const auto age_ms_r =

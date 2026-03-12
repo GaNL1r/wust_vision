@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #pragma once
-#include "tasks/auto_aim/armor_detect/armor_detector_base.hpp"
+#include "armor_detector_base.hpp"
 #include "tasks/config.hpp"
 #include <string>
 #include <yaml-cpp/yaml.h>

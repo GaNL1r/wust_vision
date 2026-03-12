@@ -41,9 +41,6 @@ if [[ "$1" == "build" || "$1" == "rebuild" || "$1" == "run" ]]; then
     echo -e "${yellow}<--- Start CMake (Ninja) --->${reset}"
     cmake -S "$WORK_DIR" -B "$BUILD_DIR" \
         -G Ninja \
-        -DCMAKE_EXPORT_COMPILE_COMMANDS=YES \
-        -DCMAKE_CXX_COMPILER=clang++ \
-        -DCMAKE_C_COMPILER=clang
 
     if [ $? -ne 0 ]; then
         echo -e "${red}\n--- CMake Failed ---${reset}"

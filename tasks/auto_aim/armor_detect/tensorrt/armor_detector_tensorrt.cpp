@@ -12,15 +12,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "tasks/auto_aim/armor_detect/tensorrt/armor_detector_tensorrt.hpp"
-#include "cuda_infer/armor_infer.hpp"
-#include "tasks/auto_aim/armor_detect/armor_detector_common.hpp"
-#include "tasks/auto_aim/armor_detect/armor_infer.hpp"
-#include "tasks/utils.hpp"
-#include "wust_vl/common/concurrency/adaptive_resource_pool.hpp"
-#include "wust_vl/common/utils/logger.hpp"
-#include "wust_vl/common/utils/timer.hpp"
-#include "wust_vl/ml_net/tensorrt/tensorrt_net.hpp"
+#ifdef USE_TRT
+    #include "tasks/auto_aim/armor_detect/tensorrt/armor_detector_tensorrt.hpp"
+    #include "cuda_infer/armor_infer.hpp"
+    #include "tasks/auto_aim/armor_detect/armor_detector_common.hpp"
+    #include "tasks/auto_aim/armor_detect/armor_infer.hpp"
+    #include "tasks/utils.hpp"
+    #include "wust_vl/common/concurrency/adaptive_resource_pool.hpp"
+    #include "wust_vl/common/utils/logger.hpp"
+    #include "wust_vl/common/utils/timer.hpp"
+    #include "wust_vl/ml_net/tensorrt/tensorrt_net.hpp"
 namespace wust_vision {
 namespace auto_aim {
     static constexpr int MAX_SRC_IMG_W = 1920;
@@ -66,7 +67,7 @@ namespace auto_aim {
             output_dims_ = std::get<1>(input_output_dims);
 
             wust_vl::common::concurrency::AdaptiveResourcePool<Infer>::Params pool_params;
-            pool_params.resource_initializer = [=]() {
+            pool_params.resource_initializer = [&]() {
                 std::vector<std::unique_ptr<Infer>> infers;
                 for (int i = 0; i < max_infer_running; ++i) {
                     auto infer = std::make_unique<Infer>();
@@ -110,14 +111,14 @@ namespace auto_aim {
                 }
                 return infers;
             };
-            auto release_func = [](std::unique_ptr<Infer>& resource) {
+            auto release_func = [&](std::unique_ptr<Infer>& resource) {
                 if (resource) {
                     if (resource->cuda_infer) {
                         resource->cuda_infer.reset();
                     }
                 }
             };
-            auto restore_func = [=](size_t idx) -> std::unique_ptr<Infer> {
+            auto restore_func = [&](size_t idx) -> std::unique_ptr<Infer> {
                 auto infer = std::make_unique<Infer>();
                 auto ctx = trt_net_->getAContext();
                 infer->context = std::unique_ptr<nvinfer1::IExecutionContext>(ctx);
@@ -144,9 +145,9 @@ namespace auto_aim {
 
             pool_params.release_func = release_func;
 
-            pool_params.can_restore = [=](size_t active_count) { return false; };
+            pool_params.can_restore = [&](size_t active_count) { return false; };
 
-            pool_params.should_release = [=](size_t active_count) { return false; };
+            pool_params.should_release = [&](size_t active_count) { return false; };
 
             pool_params.logger = [](const std::string& msg) {
                 WUST_INFO("ArmorDetectorTrt:infer pool") << msg;
@@ -316,3 +317,4 @@ namespace auto_aim {
     }
 } // namespace auto_aim
 } // namespace wust_vision
+#endif

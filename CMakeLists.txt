@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.14)
+cmake_policy(SET CMP0111 NEW)
 project(wust_vision LANGUAGES CXX)
+
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_UNITY_BUILD ON)
-set(CMAKE_UNITY_BUILD_BATCH_SIZE 16) 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 set(CMAKE_BUILD_TYPE "Release")
 message(STATUS "--------------------CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}--------------------")
@@ -13,163 +13,135 @@ message(STATUS "--------------------CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}-------
 
 option(BUILD_WITH_TRT      "Enable TensorRT backend"   ON)
 option(BUILD_WITH_OPENVINO "Enable OpenVINO backend"   ON)
-option(BUILD_WITH_NCNN     "Enable NCNN backend"       ON)
+option(BUILD_WITH_NCNN     "Enable NCNN backend"       OFF)
 option(BUILD_WITH_ORT      "Enable ORT backend"        ON)
 
-include_directories(${PROJECT_SOURCE_DIR})
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
 
-# ------------------- Dependencies -------------------
-find_package(OpenCV      REQUIRED)
-find_package(Eigen3      REQUIRED)
-find_package(fmt         REQUIRED)
-find_package(yaml-cpp    REQUIRED)
-find_package(Ceres       REQUIRED)
-find_package(HikSDK      REQUIRED)
+
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS tasks/*.cpp)
+
+find_package(OpenCV REQUIRED)
+find_package(Eigen3 REQUIRED)
+find_package(fmt REQUIRED)
+find_package(yaml-cpp REQUIRED)
+find_package(Ceres REQUIRED)
+find_package(HikSDK REQUIRED)
 find_package(wust_vl REQUIRED)
+
+set(BUILD_DEFINITIONS "")
+set(BUILD_LIBS "")
+
 
 if(BUILD_WITH_OPENVINO)
     find_package(OpenVINO REQUIRED COMPONENTS Runtime ONNX)
     list(APPEND BUILD_DEFINITIONS USE_OPENVINO)
+    list(APPEND BUILD_LIBS openvino::runtime openvino::frontend::onnx)
 endif()
 
 if(BUILD_WITH_TRT)
     find_package(CUDAToolkit REQUIRED)
     set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};/home/hy/TensorRT-10.6.0.26")
+    set(CMAKE_CUDA_ARCHITECTURES 80 86)
     find_package(TensorRT REQUIRED)
-    include_directories(${TensorRT_INCLUDE_DIR})
-    include_directories(/usr/local/cuda/include)
-    set(CMAKE_CUDA_COMPILER /usr/local/cuda/bin/nvcc)
-    set(CMAKE_CUDA_ARCHITECTURES 86)
-    enable_language(CUDA)
-    set(CMAKE_CUDA_STANDARD 14)
-    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-    set(CMAKE_CUDA_COMPILER_LAUNCHER ccache)
     add_subdirectory(${CMAKE_SOURCE_DIR}/cuda_infer ${CMAKE_BINARY_DIR}/cuda_infer_build)
     list(APPEND BUILD_DEFINITIONS USE_TRT)
+    list(APPEND BUILD_LIBS TensorRT::TensorRT TensorRT::nvonnxparser CUDA::cudart cuda_infer)
 endif()
 
 if(BUILD_WITH_NCNN)
     find_package(ncnn REQUIRED)
     list(APPEND BUILD_DEFINITIONS USE_NCNN)
+    list(APPEND BUILD_LIBS ncnn)
 endif()
 
 if(BUILD_WITH_ORT)
     set(ort_root_path "/home/hy/onnxruntime-linux-x64-gpu-1.22.0")
     find_package(Ort REQUIRED)
+    include_directories(${Ort_INCLUDE_DIR})
     list(APPEND BUILD_DEFINITIONS USE_ORT)
+    list(APPEND BUILD_LIBS ${Ort_LIB})
 endif()
 
-add_library(project_options INTERFACE)
-target_compile_definitions(project_options INTERFACE ${BUILD_DEFINITIONS})
 
-include_directories(${EIGEN3_INCLUDE_DIR} ${OpenCV_INCLUDE_DIRS})
-
-add_library(project_min_deps INTERFACE)
-target_link_libraries(project_min_deps INTERFACE
+add_library(${PROJECT_NAME} STATIC ${SOURCES})
+target_compile_definitions(${PROJECT_NAME} PUBLIC ${BUILD_DEFINITIONS})
+target_include_directories(${PROJECT_NAME} PUBLIC
+    ${PROJECT_SOURCE_DIR}
+    ${OpenCV_INCLUDE_DIRS}
+)
+target_link_libraries(${PROJECT_NAME} PUBLIC
     wust_vl::wust_vl
     HikSDK::HikSDK
     yaml-cpp
     fmt::fmt
-    ${OpenCV_LIBS}
+    Eigen3::Eigen
     Ceres::ceres
-    utils
-    
+    ${OpenCV_LIBS}
+    ${BUILD_LIBS}
 )
 
-add_subdirectory(tasks/auto_aim)
-add_subdirectory(tasks/auto_buff)
-add_subdirectory(tasks/auto_sniper)
-add_subdirectory(tasks/auto_guidance)
-add_subdirectory(tasks)
 
-add_executable(standard src/standard.cpp)
-target_link_libraries(standard
-    project_min_deps
-    $<TARGET_OBJECTS:auto_aim>
-    ${WUST_AUTO_AIM_LIBS}
-    $<TARGET_OBJECTS:auto_buff>
-    ${WUST_AUTO_BUFF_LIBS}
-    tasks_common
-)
-add_executable(dart src/dart.cpp)
-target_link_libraries(dart
-    project_min_deps
-    yaml-cpp
-    $<TARGET_OBJECTS:auto_guidance>
-    ${WUST_auto_guidance_LIBS}
-    
+function(add_common_executable exe_name src_file)
+    add_executable(${exe_name} ${src_file})
+    target_link_libraries(${exe_name}  ${PROJECT_NAME})
+endfunction()
+
+add_common_executable(standard src/standard.cpp)
+add_common_executable(dart src/dart.cpp)
+add_common_executable(test_usbcamera test/test_usbcamera.cpp)
+
+
+set(ROS2_PACKAGES
+    ament_cmake
+    rclcpp
+    geometry_msgs
+    tf2_ros
+    tf2_geometry_msgs
+    sensor_msgs
+    visualization_msgs
+    sentry_interfase
 )
 
-add_executable(test_usbcamera test/test_usbcamera.cpp)
-target_link_libraries(test_usbcamera project_min_deps)
 
-find_package(ament_cmake QUIET)
-find_package(rclcpp QUIET)
-find_package(geometry_msgs QUIET)
-find_package(std_msgs QUIET)
-find_package(tf2_ros QUIET)
-find_package(sensor_msgs QUIET)
-find_package(visualization_msgs QUIET)
-find_package(sentry_interfase QUIET)
-set(ROS2_CORE_FOUND FALSE)
-set(ROS2_FULL_FOUND FALSE)
+foreach(pkg IN LISTS ROS2_PACKAGES)
+    find_package(${pkg} QUIET)
+endforeach()
 
-if(ament_cmake_FOUND AND rclcpp_FOUND)
-  set(ROS2_CORE_FOUND TRUE)
-endif()
 
-if(ament_cmake_FOUND AND rclcpp_FOUND  AND geometry_msgs_FOUND AND  tf2_ros_FOUND)
-  set(ROS2_FULL_FOUND TRUE)
-  
-endif()
-
-if(ROS2_CORE_FOUND)
-  message(STATUS "ROS2 core environment found, adding ros2 subdirectory.")
-  add_subdirectory(ros2)
-endif()
+set(ROS2_FULL_FOUND TRUE)
+foreach(pkg IN LISTS ROS2_PACKAGES)
+    if(NOT ${pkg}_FOUND)
+        set(ROS2_FULL_FOUND FALSE)
+        message(WARNING "ROS2 package ${pkg} not found")
+    endif()
+endforeach()
 
 if(ROS2_FULL_FOUND)
-  message(STATUS "ROS2 full environment found, compiling test_ros2 and sentry.")
-  include_directories(${geometry_msgs_INCLUDE_DIRS} ${sensor_msgs_INCLUDE_DIRS} ${rclcpp_INCLUDE_DIRS} ${rcl_interfaces_INCLUDE_DIRS} ${tf2_ros_INCLUDE_DIRS} ${wust_interfaces_INCLUDE_DIRS} ${visualization_msgs_INCLUDE_DIRS} ${sentry_interfase_INCLUDE_DIRS})
+    message(STATUS "ROS2 full environment found, compiling ROS2 targets ...")
 
-  add_executable(sentry src/sentry.cpp)
-  target_link_libraries(sentry
-    project_min_deps
-    $<TARGET_OBJECTS:auto_aim>
-    ${WUST_AUTO_AIM_LIBS}
-    $<TARGET_OBJECTS:auto_buff>
-    ${WUST_AUTO_BUFF_LIBS}
-    tasks_common
-    toros2
-  )
-  ament_target_dependencies(sentry rclcpp std_msgs geometry_msgs  tf2_ros visualization_msgs sentry_interfase)
-  add_executable(hero src/hero.cpp)
-  target_link_libraries(hero
-    project_min_deps
-    $<TARGET_OBJECTS:auto_aim>
-    ${WUST_AUTO_AIM_LIBS}
-    $<TARGET_OBJECTS:auto_buff>
-    ${WUST_AUTO_BUFF_LIBS}
-    tasks_common
-    toros2
-    auto_sniper
-  )
-  ament_target_dependencies(hero rclcpp std_msgs geometry_msgs  tf2_ros)
-  add_executable(sim src/sim.cpp)
-  target_link_libraries(sim
-    project_min_deps
-    $<TARGET_OBJECTS:auto_aim>
-    ${WUST_AUTO_AIM_LIBS}
-    $<TARGET_OBJECTS:auto_buff>
-    ${WUST_AUTO_BUFF_LIBS}
-    tasks_common
-    toros2
-  )
-  ament_target_dependencies(sim rclcpp std_msgs geometry_msgs  tf2_ros sensor_msgs )
-  add_executable(nav test/nav.cpp)
-  target_link_libraries(nav project_min_deps toros2)
-  ament_target_dependencies(nav rclcpp std_msgs geometry_msgs)
+
+    set(ROS2_INCLUDES)
+    foreach(pkg IN LISTS ROS2_PACKAGES)
+        if(TARGET ${pkg}::${pkg})
+            list(APPEND ROS2_INCLUDES ${${pkg}_INCLUDE_DIRS})
+        endif()
+    endforeach()
+    include_directories(${ROS2_INCLUDES})
+
+
+    macro(add_ros2_executable exe_name src_file)
+        add_executable(${exe_name} ${src_file})
+        target_link_libraries(${exe_name} ${PROJECT_NAME})
+        target_compile_definitions(${exe_name} PRIVATE ${BUILD_DEFINITIONS})
+        ament_target_dependencies(${exe_name} ${ROS2_PACKAGES})
+    endmacro()
+
+
+    add_ros2_executable(sentry src/sentry.cpp)
+    add_ros2_executable(hero src/hero.cpp)
+    add_ros2_executable(sim src/sim.cpp)
+    add_ros2_executable(nav test/nav.cpp)
 else()
-  message(WARNING "ROS2 dependencies incomplete, skipping ...")
+    message(WARNING "ROS2 dependencies incomplete, skipping ROS2 targets ...")
 endif()

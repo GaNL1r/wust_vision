@@ -334,10 +334,13 @@ namespace auto_buff {
         }
         void pushInput(CommonFrame& frame, bool is_big, bool debug) {
             frame.id = current_id_++;
-            auto_buff::RuneFan fan { .is_valid = false,
-                                     .timestamp = frame.img_frame.timestamp,
-                                     .id = frame.id,
-                                     .is_big = is_big };
+            auto_buff::RuneFan fan {
+                .is_valid = false,
+                .id = frame.id,
+                .is_big = is_big,
+                .timestamp = frame.img_frame.timestamp,
+
+            };
             cv::Mat debug_img;
             if (debug) {
                 debug_img = frame.img_frame.src_img.clone();

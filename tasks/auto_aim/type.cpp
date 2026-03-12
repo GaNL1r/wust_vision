@@ -1,4 +1,3 @@
-#pragma once
 #include "type.hpp"
 #include "tasks/config.hpp"
 #include "wust_vl/common/utils/logger.hpp"
@@ -74,6 +73,7 @@ namespace auto_aim {
             case ArmorColor::PURPLE:
                 return 3;
         }
+        return -1;
     }
 
     std::ostream& operator<<(std::ostream& os, const ArmorNumber& number) noexcept {
@@ -122,6 +122,7 @@ namespace auto_aim {
             case ArmorNumber::UNKNOWN:
                 return 8;
         }
+        return -1;
     }
     ArmorNumber armorNumberFromString(const std::string& s) noexcept {
         if (s == "SENTRY")

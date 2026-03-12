@@ -1,8 +1,10 @@
-#include "armor_detector_onnxruntime.hpp"
-#include "tasks/auto_aim/armor_detect/armor_detector_common.hpp"
-#include "tasks/auto_aim/armor_detect/armor_infer.hpp"
-#include "tasks/utils.hpp"
-#include "wust_vl/ml_net/onnxruntime/onnxruntime_net.hpp"
+#ifdef USE_ORT
+
+    #include "armor_detector_onnxruntime.hpp"
+    #include "tasks/auto_aim/armor_detect/armor_detector_common.hpp"
+    #include "tasks/auto_aim/armor_detect/armor_infer.hpp"
+    #include "tasks/utils.hpp"
+    #include "wust_vl/ml_net/onnxruntime/onnxruntime_net.hpp"
 namespace wust_vision {
 namespace auto_aim {
     struct ArmorDetectorOnnxRuntime::Impl {
@@ -136,3 +138,4 @@ namespace auto_aim {
     }
 } // namespace auto_aim
 } // namespace wust_vision
+#endif

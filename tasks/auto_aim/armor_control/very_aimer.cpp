@@ -1,4 +1,3 @@
-#pragma once
 #include "very_aimer.hpp"
 #include "tasks/auto_aim/armor_control/tinympc/tiny_api.hpp"
 #include "tasks/auto_aim/armor_control/tinympc/types.hpp"

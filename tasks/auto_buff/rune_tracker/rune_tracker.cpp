@@ -61,13 +61,13 @@ namespace auto_buff {
                     break;
             }
 
-            target_.is_tracking = (tracker_state == TRACKING || tracker_state == TEMP_LOST);
+            // target_.is_tracking = (tracker_state == TRACKING || tracker_state == TEMP_LOST);
 
             if (found)
                 ++found_count_;
-            if (target_.is_tracking) {
-                pre_v_roll_ = target_.v_roll();
-            }
+            // if (target_.is_tracking) {
+            //     pre_v_roll_ = target_.v_roll();
+            // }
         }
         bool initTarget(const auto_buff::RuneFan& fan) {
             if (!fan.is_valid || fan.fans.empty()) {

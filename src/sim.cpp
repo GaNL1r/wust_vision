@@ -24,11 +24,6 @@ public:
         if (thread_pool_)
             thread_pool_->waitUntilEmpty();
 
-#ifdef USE_NCNN
-        if (use_ncnn_count_ > 0) {
-            ncnn::destroy_gpu_instance();
-        }
-#endif
         if (ros2_) {
             ros2_.reset();
         }

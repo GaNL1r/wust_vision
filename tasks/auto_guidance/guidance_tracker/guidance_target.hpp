@@ -1,5 +1,5 @@
 #pragma once
-#include "tasks/auto_guidance/guidance_tracker/motion_models/imgbox_model.hpp"
+#include "motion_models/imgbox_model.hpp"
 #include "tasks/auto_guidance/type.hpp"
 #include <wust_vl/common/utils/timer.hpp>
 #include <yaml-cpp/yaml.h>

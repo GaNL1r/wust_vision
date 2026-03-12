@@ -12,12 +12,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-#include "tasks/auto_aim/armor_detect/openvino/armor_detector_openvino.hpp"
-#include "tasks/auto_aim/armor_detect/armor_detector_common.hpp"
-#include "tasks/auto_aim/armor_detect/armor_infer.hpp"
-#include "tasks/utils.hpp"
-#include "wust_vl/ml_net/openvino/openvino_net.hpp"
+#ifdef USE_OPENVINO
+    #include "tasks/auto_aim/armor_detect/openvino/armor_detector_openvino.hpp"
+    #include "tasks/auto_aim/armor_detect/armor_detector_common.hpp"
+    #include "tasks/auto_aim/armor_detect/armor_infer.hpp"
+    #include "tasks/utils.hpp"
+    #include "wust_vl/ml_net/openvino/openvino_net.hpp"
 namespace wust_vision {
 namespace auto_aim {
     struct ArmorDetectorOpenVino::Impl {
@@ -201,3 +201,4 @@ namespace auto_aim {
     }
 } // namespace auto_aim
 } // namespace wust_vision
+#endif

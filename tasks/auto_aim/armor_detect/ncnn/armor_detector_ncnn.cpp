@@ -1,7 +1,9 @@
-#include "tasks/auto_aim/armor_detect/ncnn/armor_detector_ncnn.hpp"
-#include "tasks/auto_aim/armor_detect/armor_detector_common.hpp"
-#include "tasks/auto_aim/armor_detect/armor_infer.hpp"
-#include "wust_vl/ml_net/ncnn/ncnn_net.hpp"
+
+#ifdef USE_NCNN
+    #include "tasks/auto_aim/armor_detect/ncnn/armor_detector_ncnn.hpp"
+    #include "tasks/auto_aim/armor_detect/armor_detector_common.hpp"
+    #include "tasks/auto_aim/armor_detect/armor_infer.hpp"
+    #include "wust_vl/ml_net/ncnn/ncnn_net.hpp"
 namespace wust_vision {
 namespace auto_aim {
 
@@ -217,3 +219,4 @@ namespace auto_aim {
     }
 } // namespace auto_aim
 } // namespace wust_vision
+#endif

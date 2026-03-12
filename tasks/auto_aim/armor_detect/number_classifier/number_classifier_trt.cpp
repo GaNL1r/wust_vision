@@ -12,9 +12,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-#include "number_classifier_trt.hpp"
-#include <wust_vl/common/utils/logger.hpp>
+#ifdef USE_TRT
+    #include "number_classifier_trt.hpp"
+    #include <wust_vl/common/utils/logger.hpp>
 namespace wust_vision {
 namespace auto_aim {
     NumberClassifierTRT::NumberClassifierTRT(
@@ -115,3 +115,4 @@ namespace auto_aim {
     }
 } // namespace auto_aim
 } // namespace wust_vision
+#endif

@@ -1,7 +1,9 @@
-#include "guidance_detector_openvino.hpp"
-#include "tasks/auto_guidance/guidance_detector/green_light_infer.hpp"
-#include "tasks/utils.hpp"
-#include "wust_vl/ml_net/openvino/openvino_net.hpp"
+#ifdef USE_OPENVINO
+
+    #include "guidance_detector_openvino.hpp"
+    #include "tasks/auto_guidance/guidance_detector/green_light_infer.hpp"
+    #include "tasks/utils.hpp"
+    #include "wust_vl/ml_net/openvino/openvino_net.hpp"
 namespace wust_vision {
 namespace auto_guidance {
     struct GuidanceDetectorOpenVino::Impl {
@@ -14,11 +16,11 @@ namespace auto_guidance {
             float nms_threshold = config["nms_threshold"].as<float>();
             float conf_threshold = config["conf_threshold"].as<float>();
             green_light_infer_ = GreenLightInfer::makeGreenLightInfer(GreenLightInfer::Params {
+                .input_w = 640,
+                .input_h = 384,
                 .conf_threshold = conf_threshold,
                 .nms_threshold = nms_threshold,
                 .top_k = top_k,
-                .input_h = 384,
-                .input_w = 640,
                 .use_norm = true });
             openvino_net_ = std::make_unique<wust_vl::ml_net::OpenvinoNet>();
             auto ppp_init_fun = [this](ov::preprocess::PrePostProcessor& ppp) {
@@ -32,7 +34,7 @@ namespace auto_guidance {
                     .preprocess()
                     .convert_element_type(ov::element::f32)
                     .convert_color(ov::preprocess::ColorFormat::RGB)
-                    .scale({ 255.f });
+                    .scale(255.f);
 
                 ppp.input().model().set_layout("NCHW");
 
@@ -109,3 +111,4 @@ namespace auto_guidance {
     }
 } // namespace auto_guidance
 } // namespace wust_vision
+#endif
