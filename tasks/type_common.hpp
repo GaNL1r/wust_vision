@@ -8,6 +8,7 @@
 #include "wust_vl/video/icamera.hpp"
 #include <any>
 #include <opencv2/opencv.hpp>
+#include <wust_vl/video/camera.hpp>
 namespace wust_vision {
 struct CommonFrame {
     wust_vl::video::ImageFrame img_frame;
@@ -17,20 +18,44 @@ struct CommonFrame {
     cv::Point2f offset = cv::Point2f(0, 0);
     std::any any_ctx;
 };
+
 enum class EnemyColor {
     RED = 0,
     BLUE = 1,
     WHITE = 2,
 };
 std::string enemyColorToString(EnemyColor color) noexcept;
-struct GridAndStride {
-    int grid0;
-    int grid1;
-    int stride;
+class InfantryMode {
+public:
+    enum class AttackMode { ARMOR = 0, SMALL_RUNE, BIG_RUNE, UNKNOWN };
+    static AttackMode toAttackMode(int value) noexcept {
+        switch (value) {
+            case 0:
+                return AttackMode::ARMOR;
+            case 1:
+                return AttackMode::SMALL_RUNE;
+            case 2:
+                return AttackMode::BIG_RUNE;
+            default:
+                return AttackMode::UNKNOWN;
+        }
+    }
+};
+class HeroMode {
+public:
+    enum class AttackMode { ARMOR = 0, SNIPER, UNKNOWN };
+    static AttackMode toAttackMode(int value) noexcept {
+        switch (value) {
+            case 0:
+                return AttackMode::ARMOR;
+            case 1:
+                return AttackMode::SNIPER;
+            default:
+                return AttackMode::UNKNOWN;
+        }
+    }
 };
 
-enum class AttackMode { ARMOR = 0, SMALL_RUNE, BIG_RUNE, UNKNOWN };
-AttackMode toAttackMode(int value) noexcept;
 struct Motion {
     double yaw, pitch, roll; // 欧拉角 (rad)
     double vyaw, vpitch, vroll; // 角速度
@@ -58,7 +83,12 @@ struct Motion {
         return a + diff * t;
     }
 };
-
+struct VisionCtx {
+    std::shared_ptr<wust_vl::common::utils::MotionBufferGeneric<Motion, 1024>> motion_buffer;
+    std::shared_ptr<wust_vl::video::Camera> camera;
+    double communication_delay_μs;
+    int mode;
+};
 static std::vector<cv::Point3f> AIM_TARGET_BLOCK = {
     { -0.025f, -0.025f, -0.025f }, // 0: 左下前
     { 0.025f, -0.025f, -0.025f }, // 1: 右下前

@@ -14,7 +14,7 @@
 #include "tasks/auto_aim/armor_detect/armor_detector_common.hpp"
 #include "tasks/auto_aim/armor_detect/armor_detector_base.hpp"
 #include "tasks/auto_aim/armor_detect/number_classifier/factory.hpp"
-#include "tasks/utils.hpp"
+#include "tasks/utils/utils.hpp"
 #include "wust_vl/common/utils/timer.hpp"
 namespace wust_vision {
 namespace auto_aim {

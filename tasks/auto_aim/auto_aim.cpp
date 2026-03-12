@@ -4,7 +4,9 @@
 #include "tasks/auto_aim/armor_tracker/target.hpp"
 #include "tasks/auto_aim/armor_tracker/trackerv3.hpp"
 #include "tasks/auto_aim/armor_where/armor_where.hpp"
-#include "tasks/config.hpp"
+#include "tasks/auto_aim/debug.hpp"
+#include "tasks/type_common.hpp"
+#include "tasks/utils/config.hpp"
 #include "wust_vl/common/concurrency/queues.hpp"
 namespace wust_vision {
 namespace auto_aim {
@@ -23,11 +25,11 @@ namespace auto_aim {
                 );
             }
         }
-        bool init(
+        Impl(
             const std::string& config_path,
-            int& use_detect_ncnn_count,
             TFConfig::Ptr tf_config,
-            const std::pair<cv::Mat, cv::Mat>& camera_info
+            const std::pair<cv::Mat, cv::Mat>& camera_info,
+            bool debug
         ) {
             tf_config_ = tf_config;
             camera_info_ = camera_info;
@@ -60,10 +62,11 @@ namespace auto_aim {
                 std::make_unique<wust_vl::common::concurrency::OrderedQueue<Armors>>(50, 500);
             latency_averager_ =
                 std::make_unique<wust_vl::common::concurrency::Averager<double>>(100);
-
-            return true;
         }
         void start() {
+            if (run_flag_) {
+                return;
+            }
             run_flag_ = true;
             processing_thread_ = wust_vl::common::concurrency::MonitoredThread::create(
                 "AutoAimProcessingThread",
@@ -122,23 +125,26 @@ namespace auto_aim {
             armors.id = frame.id;
             Eigen::Vector3d v = Eigen::Vector3d::Zero();
             Eigen::Matrix3d R_gimbal2odom = Eigen::Matrix3d::Identity();
-            if (shared_->motion_buffer) {
+            auto ctx = std::any_cast<VisionCtx>(frame.any_ctx);
+            std::pair<double, double> gimbal_py;
+            if (ctx.motion_buffer) {
                 const auto delay =
-                    std::chrono::microseconds(static_cast<int64_t>(shared_->communication_delay_μs)
-                    );
+                    std::chrono::microseconds(static_cast<int64_t>(ctx.communication_delay_μs));
                 const auto t_query = armors.timestamp + delay;
                 auto apply_motion = [&](const auto& att) {
                     v << att.data.vx, att.data.vy, att.data.vz;
                     R_gimbal2odom = Eigen::AngleAxisd(att.data.yaw, Eigen::Vector3d::UnitZ())
                         * Eigen::AngleAxisd(-att.data.pitch, Eigen::Vector3d::UnitY())
                         * Eigen::AngleAxisd(att.data.roll, Eigen::Vector3d::UnitX());
+                    gimbal_py = std::make_pair(att.data.pitch, att.data.yaw);
                 };
-                if (auto past_att = shared_->motion_buffer->get_interpolated(t_query)) {
+                if (auto past_att = ctx.motion_buffer->get_interpolated(t_query)) {
                     apply_motion(*past_att);
-                } else if (auto last_att = shared_->motion_buffer->get_last()) {
+                } else if (auto last_att = ctx.motion_buffer->get_last()) {
                     apply_motion(*last_att);
                 }
             }
+            autoExposureControl(frame.img_frame.src_img, ctx.camera);
             T_camera_to_odom_ = utils::computeCameraToOdomTransform(
                 R_gimbal2odom,
                 tf_config_->R_camera2gimbal,
@@ -162,6 +168,7 @@ namespace auto_aim {
                 dbg.detect_color = frame.detect_color;
                 dbg.armor_objs = sorted_objs;
                 dbg.expanded = frame.expanded;
+                dbg.gimbal_py = gimbal_py;
             }
         }
         void armorsCallback(const Armors& armors) {
@@ -195,7 +202,7 @@ namespace auto_aim {
             }
             return target;
         }
-        GimbalCmd solve(double dt_ms) {
+        GimbalCmd solve(double bullet_speed) {
             GimbalCmd gimbal_cmd;
             Target target;
             {
@@ -206,31 +213,12 @@ namespace auto_aim {
             const bool appear = target.checkTargetAppear();
             if (appear && target.target_state_.pos().norm() > 0.5) {
                 try {
-                    gimbal_cmd = very_aimer_->veryAim(
-                        target,
-                        shared_->bullet_speed,
-                        auto_aim_fsm_cl_.fsm_state_
-                    );
+                    gimbal_cmd =
+                        very_aimer_->veryAim(target, bullet_speed, auto_aim_fsm_cl_.fsm_state_);
                     aim_target = gimbal_cmd.aim_target;
                 } catch (...) {
                     WUST_ERROR(logger_) << "VeryAim error";
                 }
-                // double center_yaw =
-                //     std::atan2(target.target_state_.cy(), target.target_state_.cx());
-                // Eigen::Vector3d vel = target.target_state_.vel();
-                // double vx = vel.x();
-                // double vy = vel.y();
-
-                // double vx_center = std::cos(center_yaw) * vx + std::sin(center_yaw) * vy;
-                // double vy_center = -std::sin(center_yaw) * vx + std::cos(center_yaw) * vy;
-
-                // Eigen::Vector3d vel_center;
-                // vel_center << vx_center, vy_center, vel.z();
-                // if (vel_center.y() > -0.5) {
-                //     gimbal_cmd.fire_advice = false;
-                //     gimbal_cmd.enable_pitch_diff = 0.0;
-                //     gimbal_cmd.enable_yaw_diff = 0.0;
-                // }
             }
             if (gimbal_cmd.fire_advice) {
                 fire_count_++;
@@ -269,13 +257,17 @@ namespace auto_aim {
                 }
             }
         }
-        void setDebug(bool debug) {
-            debug_mode_ = debug;
+        void doDebug() {
+            debug_mode_ = true;
+            AutoAimDebug dbg;
+            {
+                std::lock_guard<std::mutex> lock(dbg_mutex_);
+                dbg = auto_aim_debug_;
+            }
+            drawDebugOverlayShm(dbg, camera_info_, false);
+            debuglog(dbg);
         }
-        DebugArmor getDebugFrame() {
-            std::lock_guard<std::mutex> lock(dbg_mutex_);
-            return auto_aim_debug_;
-        }
+
         void printStats() {
             utils::XSecOnce(
                 [&] {
@@ -353,7 +345,6 @@ namespace auto_aim {
         AutoAimFsmController auto_aim_fsm_cl_;
         AutoExposureCfg::Ptr auto_exposure_cfg_;
         cv::Rect expanded_;
-        GimbalCmd last_cmd_;
         int max_detect_armors_;
         bool run_flag_ = false;
         int detect_finish_count_ = 0;
@@ -363,71 +354,43 @@ namespace auto_aim {
         int timer_cout_ = 0;
         Target target_;
         bool debug_mode_ = false;
-        DebugArmor auto_aim_debug_;
+        AutoAimDebug auto_aim_debug_;
         std::unique_ptr<wust_vl::common::concurrency::Averager<double>> latency_averager_;
         TFConfig::Ptr tf_config_;
         std::pair<cv::Mat, cv::Mat> camera_info_;
-        std::shared_ptr<AutoAimShared> shared_;
         Eigen::Matrix4d T_camera_to_odom_;
         std::mutex target_mutex_;
         std::mutex dbg_mutex_;
-        void setShared(std::shared_ptr<AutoAimShared> shared) {
-            shared_ = shared;
-        }
     };
-    AutoAim::AutoAim(): _impl(std::make_unique<Impl>()) {}
+    AutoAim::AutoAim(
+        const std::string& config_path,
+        TFConfig::Ptr tf_config,
+        const std::pair<cv::Mat, cv::Mat>& camera_info,
+        bool debug
+    ):
+        _impl(std::make_unique<Impl>(config_path, tf_config, camera_info, debug)) {}
     AutoAim::~AutoAim() {
         _impl.reset();
     }
-    bool AutoAim::init(
-        const std::string& config_path,
-        int& use_detect_ncnn_count,
-        TFConfig::Ptr tf_config,
-        const std::pair<cv::Mat, cv::Mat>& camera_info
-    ) {
-        return _impl->init(config_path, use_detect_ncnn_count, tf_config, camera_info);
-    }
+
     void AutoAim::start() {
         _impl->start();
     }
     void AutoAim::pushInput(CommonFrame& frame) {
         _impl->pushInput(frame);
     }
-    void AutoAim::setDebug(bool debug) {
-        _impl->setDebug(debug);
+
+    GimbalCmd AutoAim::solve(double bullet_speed) {
+        return _impl->solve(bullet_speed);
     }
-    DebugArmor AutoAim::getDebugFrame() {
-        return _impl->getDebugFrame();
-    }
-    void AutoAim::setShared(std::shared_ptr<AutoAimShared> shared) {
-        _impl->setShared(shared);
-    }
-    GimbalCmd AutoAim::solve(double dt_ms) {
-        return _impl->solve(dt_ms);
-    }
-    bool AutoAim::isActive() {
-        if (_impl->processing_thread_->getStatus()
-            == wust_vl::common::concurrency::MonitoredThread::Status::Running)
-        {
-            return true;
-        } else {
-            return false;
-        }
-    }
-    void AutoAim::processingWait() {
-        _impl->processing_thread_->pause();
-    }
-    void AutoAim::processingUp() {
-        _impl->processing_thread_->resume();
-    }
-    void AutoAim::autoExposureControl(
-        const cv::Mat& frame,
-        std::shared_ptr<wust_vl::video::Camera> camera
-    ) {
-        _impl->autoExposureControl(frame, camera);
+    wust_vl::common::concurrency::MonitoredThread::Ptr AutoAim::getThread() {
+        return _impl->processing_thread_;
     }
     Target AutoAim::getTarget() {
         return _impl->getTarget();
+    }
+    void AutoAim::doDebug() {
+        _impl->doDebug();
     }
 } // namespace auto_aim
 } // namespace wust_vision

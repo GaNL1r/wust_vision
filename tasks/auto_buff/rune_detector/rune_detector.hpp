@@ -13,7 +13,7 @@ namespace auto_buff {
             return std::make_unique<RuneDetectorCV>(node);
         }
         ~RuneDetectorCV();
-        void pushInput(CommonFrame& frame, bool is_big, bool debug = false);
+        void pushInput(CommonFrame& frame, bool debug = false);
         void setCallback(DetectorCallback callback);
 
     private:

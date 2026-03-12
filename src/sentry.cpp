@@ -6,10 +6,11 @@
 #include "sentry_interfase/msg/mode.hpp"
 #include "sentry_interfase/msg/robo_state.hpp"
 #include "sentry_interfase/msg/target.hpp"
-#include "tasks/config.hpp"
-#include "tasks/main_base.hpp"
+#include "tasks/auto_aim/auto_aim.hpp"
 #include "tasks/packet_typedef.hpp"
 #include "tasks/type_common.hpp"
+#include "tasks/utils/config.hpp"
+#include "tasks/utils/main_base.hpp"
 #include "tasks/vision_base.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 #include <wust_vl/common/utils/timer.hpp>
@@ -17,7 +18,7 @@
 
 ENABLE_BACKWARD()
 namespace wust_vision {
-class vision: public VisionBase {
+class vision: public VisionBase<InfantryMode> {
 public:
     static constexpr const char* TARGET_MARKER = "target_marker";
 
@@ -28,6 +29,14 @@ public:
     }
     bool init(bool debug_mode) {
         VisionBase::init(debug_mode);
+        auto auto_aim =
+            auto_aim::AutoAim::create(auto_aim_config_, tf_config_, camera_info_, debug_mode);
+        modules_.emplace(InfantryMode::AttackMode::ARMOR, auto_aim);
+        modules_.emplace(InfantryMode::AttackMode::UNKNOWN, auto_aim);
+        auto auto_buff =
+            auto_buff::AutoBuff::create(auto_buff_config_, tf_config_, camera_info_, debug_mode);
+        modules_.emplace(InfantryMode::AttackMode::BIG_RUNE, auto_buff);
+        modules_.emplace(InfantryMode::AttackMode::SMALL_RUNE, auto_buff);
         rclcpp::init(0, nullptr);
         ros2_ = std::make_shared<Ros2Node>("vison_node");
         ros2_->add_subscription<geometry_msgs::msg::Twist>(
@@ -60,31 +69,34 @@ public:
         }
     }
     void timerBCallback(double dt_ms) {
-        AttackMode mode = toAttackMode(attack_mode_);
+        InfantryMode::AttackMode mode = InfantryMode::toAttackMode(attack_mode_);
         do {
-            if (mode == AttackMode::ARMOR) {
-                auto target = auto_aim_->getTarget();
-                if (!target.checkTargetAppear()) {
-                    break;
+            if (mode == InfantryMode::AttackMode::ARMOR) {
+                auto auto_aim = auto_aim::toAutoAim(modules_.at(mode));
+                if (auto_aim) {
+                    auto target = auto_aim->getTarget();
+                    if (!target.checkTargetAppear()) {
+                        break;
+                    }
+                    auto target_pos = target.target_state_.pos(); // world frame
+
+                    double big_yaw = 0.0;
+
+                    Eigen::Rotation2Dd rot(-big_yaw);
+
+                    Eigen::Vector2d pos_world(target_pos.x(), target_pos.y());
+                    Eigen::Vector2d pos_bigyaw = rot * pos_world;
+                    publishMarker(pos_bigyaw);
+                    sentry_interfase::msg::Target target_msg;
+                    target_msg.pos.x = pos_bigyaw.x();
+                    target_msg.pos.y = pos_bigyaw.y();
+                    target_msg.pos.z = 0.0;
+                    target_msg.color = detect_color_;
+                    target_msg.id = 0;
+                    target_msg.header.frame_id = "gimbal_yaw";
+                    target_msg.header.stamp = ros2_->now();
+                    ros2_->publish(TARGET_TOPIC, target_msg);
                 }
-                auto target_pos = target.target_state_.pos(); // world frame
-
-                double big_yaw = 0.0;
-
-                Eigen::Rotation2Dd rot(-big_yaw);
-
-                Eigen::Vector2d pos_world(target_pos.x(), target_pos.y());
-                Eigen::Vector2d pos_bigyaw = rot * pos_world;
-                publishMarker(pos_bigyaw);
-                sentry_interfase::msg::Target target_msg;
-                target_msg.pos.x = pos_bigyaw.x();
-                target_msg.pos.y = pos_bigyaw.y();
-                target_msg.pos.z = 0.0;
-                target_msg.color = detect_color_;
-                target_msg.id = 0;
-                target_msg.header.frame_id = "gimbal_yaw";
-                target_msg.header.stamp = ros2_->now();
-                ros2_->publish(TARGET_TOPIC, target_msg);
             }
 
         } while (0);
@@ -160,34 +172,34 @@ public:
         }
     }
     void processRefereeData(const ReceiveReferee& ref) {
-        AttackMode mode = toAttackMode(attack_mode_);
-        do {
-            if (mode == AttackMode::ARMOR) {
-                auto target = auto_aim_->getTarget();
-                if (!target.checkTargetAppear()) {
-                    break;
-                }
-                auto target_pos = target.target_state_.pos(); // world frame
+        InfantryMode::AttackMode mode = InfantryMode::toAttackMode(attack_mode_);
+        // do {
+        //     if (mode == AttackMode::ARMOR) {
+        //         auto target = auto_aim_->getTarget();
+        //         if (!target.checkTargetAppear()) {
+        //             break;
+        //         }
+        //         auto target_pos = target.target_state_.pos(); // world frame
 
-                double big_yaw = ref.big_yaw_in_world;
+        //         double big_yaw = ref.big_yaw_in_world;
 
-                Eigen::Rotation2Dd rot(-big_yaw);
+        //         Eigen::Rotation2Dd rot(-big_yaw);
 
-                Eigen::Vector2d pos_world(target_pos.x(), target_pos.y());
-                Eigen::Vector2d pos_bigyaw = rot * pos_world;
-                publishMarker(pos_bigyaw);
-                sentry_interfase::msg::Target target_msg;
-                target_msg.pos.x = pos_bigyaw.x();
-                target_msg.pos.y = pos_bigyaw.y();
-                target_msg.pos.z = 0.0;
-                target_msg.color = detect_color_;
-                target_msg.id = 0;
-                target_msg.header.frame_id = "gimbal_yaw";
-                target_msg.header.stamp = ros2_->now();
-                ros2_->publish(TARGET_TOPIC, target_msg);
-            }
+        //         Eigen::Vector2d pos_world(target_pos.x(), target_pos.y());
+        //         Eigen::Vector2d pos_bigyaw = rot * pos_world;
+        //         publishMarker(pos_bigyaw);
+        //         sentry_interfase::msg::Target target_msg;
+        //         target_msg.pos.x = pos_bigyaw.x();
+        //         target_msg.pos.y = pos_bigyaw.y();
+        //         target_msg.pos.z = 0.0;
+        //         target_msg.color = detect_color_;
+        //         target_msg.id = 0;
+        //         target_msg.header.frame_id = "gimbal_yaw";
+        //         target_msg.header.stamp = ros2_->now();
+        //         ros2_->publish(TARGET_TOPIC, target_msg);
+        //     }
 
-        } while (0);
+        // } while (0);
     }
     void publishMarker(const Eigen::Vector2d& pos) {
         visualization_msgs::msg::Marker marker;

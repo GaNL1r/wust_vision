@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-cmake_policy(SET CMP0111 NEW)
+cmake_policy(SET CMP0072 NEW)
 project(wust_vision LANGUAGES CXX)
 
 
@@ -70,7 +70,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     ${PROJECT_SOURCE_DIR}
     ${OpenCV_INCLUDE_DIRS}
 )
-target_link_libraries(${PROJECT_NAME} PUBLIC
+target_link_libraries(${PROJECT_NAME}
     wust_vl::wust_vl
     HikSDK::HikSDK
     yaml-cpp
@@ -80,20 +80,9 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     ${OpenCV_LIBS}
     ${BUILD_LIBS}
 )
-
-
-function(add_common_executable exe_name src_file)
-    add_executable(${exe_name} ${src_file})
-    target_link_libraries(${exe_name}  ${PROJECT_NAME})
-endfunction()
-
-add_common_executable(standard src/standard.cpp)
-add_common_executable(dart src/dart.cpp)
-add_common_executable(test_usbcamera test/test_usbcamera.cpp)
-
-
 set(ROS2_PACKAGES
     ament_cmake
+    rosidl_typesupport_cpp
     rclcpp
     geometry_msgs
     tf2_ros
@@ -101,7 +90,18 @@ set(ROS2_PACKAGES
     sensor_msgs
     visualization_msgs
     sentry_interfase
+    nav_msgs
 )
+
+
+
+function(add_common_executable exe_name src_file)
+    add_executable(${exe_name} ${src_file})
+    target_link_libraries(${exe_name}  ${PROJECT_NAME})
+endfunction()
+add_common_executable(standard src/standard.cpp)
+# add_common_executable(dart src/dart.cpp)
+add_common_executable(test_usbcamera test/test_usbcamera.cpp)
 
 
 foreach(pkg IN LISTS ROS2_PACKAGES)
@@ -119,7 +119,7 @@ endforeach()
 
 if(ROS2_FULL_FOUND)
     message(STATUS "ROS2 full environment found, compiling ROS2 targets ...")
-
+    list(APPEND BUILD_DEFINITIONS USE_ROS2)
 
     set(ROS2_INCLUDES)
     foreach(pkg IN LISTS ROS2_PACKAGES)
@@ -128,20 +128,24 @@ if(ROS2_FULL_FOUND)
         endif()
     endforeach()
     include_directories(${ROS2_INCLUDES})
+    find_package(Open3D REQUIRED)
 
-
+    target_link_libraries(${PROJECT_NAME} 
+        Open3D::Open3D 
+    )
+    ament_target_dependencies(${PROJECT_NAME}  ${ROS2_PACKAGES})
+    target_compile_definitions(${PROJECT_NAME}  PUBLIC ${BUILD_DEFINITIONS})
     macro(add_ros2_executable exe_name src_file)
         add_executable(${exe_name} ${src_file})
-        target_link_libraries(${exe_name} ${PROJECT_NAME})
-        target_compile_definitions(${exe_name} PRIVATE ${BUILD_DEFINITIONS})
-        ament_target_dependencies(${exe_name} ${ROS2_PACKAGES})
+        target_link_libraries(${exe_name} ${PROJECT_NAME} Open3D::Open3D )
     endmacro()
 
 
     add_ros2_executable(sentry src/sentry.cpp)
     add_ros2_executable(hero src/hero.cpp)
-    add_ros2_executable(sim src/sim.cpp)
+    # add_ros2_executable(sim src/sim.cpp)
     add_ros2_executable(nav test/nav.cpp)
 else()
     message(WARNING "ROS2 dependencies incomplete, skipping ROS2 targets ...")
 endif()
+

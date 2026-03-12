@@ -16,6 +16,8 @@
 #pragma once
 
 #include <cstdint>
+#include <fstream>
+#include <nlohmann/json.hpp>
 namespace wust_vision {
 constexpr uint8_t ID_ROBOT_CMD = 0x01;
 constexpr uint8_t ID_NAV_CMD = 0x02;
@@ -50,7 +52,45 @@ struct ReceiveAimINFO {
     uint8_t detect_color; // 0 red 1 blue
 
 } __attribute__((packed));
+inline void writeSerialLogToJson(const ReceiveAimINFO& aim) {
+    nlohmann::json j;
 
+    j["timestamp"] = aim.time_stamp;
+    j["yaw"] = aim.yaw;
+    j["pitch"] = aim.pitch;
+    j["roll"] = aim.roll;
+
+    j["yaw_vel"] = aim.yaw_vel;
+    j["pitch_vel"] = aim.pitch_vel;
+    j["roll_vel"] = aim.roll_vel;
+    j["v_x"] = aim.v_x;
+    j["v_y"] = aim.v_y;
+    j["v_z"] = aim.v_z;
+    j["manual_reset_count"] = aim.manual_reset_count;
+    j["bullet_speed"] = aim.bullet_speed;
+    j["controller_delay"] = aim.controller_delay;
+    j["detect_color"] = (aim.detect_color == 0 ? "Red" : "Blue");
+
+    // FPS 统计
+    static int frame_count = 0;
+    static double fps = 0.0;
+    static auto last_time = std::chrono::steady_clock::now();
+
+    ++frame_count;
+    const auto now = std::chrono::steady_clock::now();
+    const double elapsed = std::chrono::duration<double>(now - last_time).count();
+    if (elapsed >= 1.0) {
+        fps = frame_count / elapsed;
+        frame_count = 0;
+        last_time = now;
+    }
+    j["fps"] = fps;
+
+    std::ofstream file("/dev/shm/serial_log.json");
+    if (file.is_open()) {
+        file << j.dump(2);
+    }
+}
 struct SendRobotCmdData {
     uint8_t cmd_ID; //命令码
     uint32_t time_stamp;

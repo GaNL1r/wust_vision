@@ -1,5 +1,10 @@
 #include "armor_infer.hpp"
 namespace wust_vision::auto_aim::armor_infer {
+struct GridAndStride {
+    int grid0;
+    int grid1;
+    int stride;
+};
 [[nodiscard]] static inline std::vector<GridAndStride>
 generate_grids_and_stride(int target_w, int target_h, const std::vector<int>& strides) noexcept {
     std::vector<GridAndStride> grid_strides;

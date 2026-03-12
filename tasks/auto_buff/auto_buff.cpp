@@ -1,9 +1,11 @@
 #include "auto_buff.hpp"
+#include "tasks/auto_buff/debug.hpp"
 #include "tasks/auto_buff/rune_control/aimer.hpp"
 #include "tasks/auto_buff/rune_detector/rune_detector.hpp"
 #include "tasks/auto_buff/rune_tracker/rune_tracker.hpp"
 #include "tasks/auto_buff/rune_where/rune_where.hpp"
-#include "tasks/utils.hpp"
+#include "tasks/type_common.hpp"
+#include "tasks/utils/utils.hpp"
 namespace wust_vision {
 namespace auto_buff {
 
@@ -18,12 +20,13 @@ namespace auto_buff {
                 );
             }
         }
-        bool init(
+        Impl(
             const std::string& config_path,
-            int& use_detect_ncnn_count,
             TFConfig::Ptr tf_config,
-            const std::pair<cv::Mat, cv::Mat>& camera_info
+            const std::pair<cv::Mat, cv::Mat>& camera_info,
+            bool debug
         ) {
+            debug_mode_ = debug;
             auto_buff_config_parameter_ = wust_vl::common::utils::Parameter::create();
             auto_buff_config_parameter_->loadFromFile(config_path);
             auto_exposure_cfg_ = AutoExposureCfg::create();
@@ -56,9 +59,11 @@ namespace auto_buff {
 
             latency_averager_ =
                 std::make_unique<wust_vl::common::concurrency::Averager<double>>(100);
-            return true;
         }
         void start() {
+            if (run_flag_) {
+                return;
+            }
             run_flag_ = true;
             processing_thread_ = wust_vl::common::concurrency::MonitoredThread::create(
                 "AutoBuffProcessingThread",
@@ -70,7 +75,7 @@ namespace auto_buff {
                 processing_thread_
             );
         }
-        void pushInput(CommonFrame& frame, bool is_big) {
+        void pushInput(CommonFrame& frame) {
             img_recv_count_++;
             auto bbox = rune_target_.expanded(
                 T_camera_to_odom_,
@@ -83,7 +88,7 @@ namespace auto_buff {
                 frame.offset = cv::Point2f(bbox.x, bbox.y);
             }
             expanded_ = frame.expanded;
-            rune_detector_->pushInput(frame, is_big, debug_mode_);
+            rune_detector_->pushInput(frame, debug_mode_);
         }
         void runeDetectCallback(
             const auto_buff::RuneFan& fan,
@@ -93,24 +98,26 @@ namespace auto_buff {
             std::lock_guard<std::mutex> lock(callback_mutex_);
             Eigen::Vector3d v = Eigen::Vector3d::Zero();
             Eigen::Matrix3d R_gimbal2odom = Eigen::Matrix3d::Identity();
-            if (shared_->motion_buffer) {
+            auto ctx = std::any_cast<VisionCtx>(frame.any_ctx);
+            std::pair<double, double> gimbal_py;
+            if (ctx.motion_buffer) {
                 const auto delay =
-                    std::chrono::microseconds(static_cast<int64_t>(shared_->communication_delay_μs)
-                    );
-                const auto t_query = frame.img_frame.timestamp + delay;
+                    std::chrono::microseconds(static_cast<int64_t>(ctx.communication_delay_μs));
+                const auto t_query = fan.timestamp + delay;
                 auto apply_motion = [&](const auto& att) {
                     v << att.data.vx, att.data.vy, att.data.vz;
                     R_gimbal2odom = Eigen::AngleAxisd(att.data.yaw, Eigen::Vector3d::UnitZ())
                         * Eigen::AngleAxisd(-att.data.pitch, Eigen::Vector3d::UnitY())
                         * Eigen::AngleAxisd(att.data.roll, Eigen::Vector3d::UnitX());
+                    gimbal_py = std::make_pair(att.data.pitch, att.data.yaw);
                 };
-                if (auto past_att = shared_->motion_buffer->get_interpolated(t_query)) {
+                if (auto past_att = ctx.motion_buffer->get_interpolated(t_query)) {
                     apply_motion(*past_att);
-                } else if (auto last_att = shared_->motion_buffer->get_last()) {
+                } else if (auto last_att = ctx.motion_buffer->get_last()) {
                     apply_motion(*last_att);
                 }
             }
-
+            autoExposureControl(frame.img_frame.src_img, ctx.camera);
             Eigen::Matrix4d T_camera_to_odom = utils::computeCameraToOdomTransform(
                 R_gimbal2odom,
                 tf_config_->R_camera2gimbal,
@@ -118,6 +125,8 @@ namespace auto_buff {
             );
             T_camera_to_odom_ = T_camera_to_odom;
             auto_buff::RuneFan copy_fan = rune_where_->where(fan, T_camera_to_odom);
+            copy_fan.is_big =
+                InfantryMode::toAttackMode(ctx.mode) == InfantryMode::AttackMode::BIG_RUNE;
             rune_queue_->enqueue(copy_fan);
             if (debug_mode_) {
                 std::lock_guard<std::mutex> lock(dbg_mutex_);
@@ -126,6 +135,7 @@ namespace auto_buff {
                 auto_buff_debug_.expanded = frame.expanded;
                 auto_buff_debug_.pnp_distance =
                     copy_fan.fans.empty() ? 0.0 : copy_fan.fans[0].pos.norm();
+                auto_buff_debug_.gimbal_py = gimbal_py;
             }
 
             detect_finish_count_++;
@@ -175,7 +185,7 @@ namespace auto_buff {
                 auto_buff_debug_.power_rune = rune_target.getPowerRune();
             }
         }
-        GimbalCmd solve() {
+        GimbalCmd solve(double bullet_speed) {
             GimbalCmd gimbal_cmd;
             auto_buff::RuneTarget rune_target;
 
@@ -184,7 +194,7 @@ namespace auto_buff {
                 rune_target = rune_target_;
             }
             if (rune_target.checkTargetAppear()) {
-                gimbal_cmd = aimer_->aim(rune_target, shared_->bullet_speed);
+                gimbal_cmd = aimer_->aim(rune_target, bullet_speed);
             }
             if (gimbal_cmd.fire_advice) {
                 fire_count_++;
@@ -224,12 +234,15 @@ namespace auto_buff {
                 // }
             }
         }
-        void setDebug(bool debug) {
-            debug_mode_ = debug;
-        }
-        DebugRune getDebugFrame() {
-            std::lock_guard<std::mutex> lock(dbg_mutex_);
-            return auto_buff_debug_;
+        void doDebug() {
+            debug_mode_ = true;
+            AutoBuffDebug dbg;
+            {
+                std::lock_guard<std::mutex> lock(dbg_mutex_);
+                dbg = auto_buff_debug_;
+            }
+            drawDebugOverlayShm(dbg, camera_info_, false);
+            debuglog(dbg);
         }
         void printStats() {
             utils::XSecOnce(
@@ -306,69 +319,42 @@ namespace auto_buff {
         int fire_count_;
         std::chrono::steady_clock::time_point last_rune_target_time_;
         bool debug_mode_ = false;
-        DebugRune auto_buff_debug_;
+        AutoBuffDebug auto_buff_debug_;
         std::unique_ptr<wust_vl::common::concurrency::Averager<double>> latency_averager_;
         TFConfig::Ptr tf_config_;
         std::pair<cv::Mat, cv::Mat> camera_info_;
         wust_vl::common::utils::Parameter::Ptr auto_buff_config_parameter_;
         Eigen::Matrix4d T_camera_to_odom_;
-        std::shared_ptr<AutoBuffShared> shared_;
+
         std::mutex target_mutex_;
         std::mutex dbg_mutex_;
-        void setShared(std::shared_ptr<AutoBuffShared> shared) {
-            shared_ = shared;
-        }
     };
-    AutoBuff::AutoBuff(): _impl(std::make_unique<Impl>()) {}
+    AutoBuff::AutoBuff(
+        const std::string& config_path,
+        TFConfig::Ptr tf_config,
+        const std::pair<cv::Mat, cv::Mat>& camera_info,
+        bool debug
+    ):
+        _impl(std::make_unique<Impl>(config_path, tf_config, camera_info, debug)) {}
     AutoBuff::~AutoBuff() {
         _impl.reset();
-    }
-    bool AutoBuff::init(
-        const std::string& config_path,
-        int& use_detect_ncnn_count,
-        TFConfig::Ptr tf_config,
-        const std::pair<cv::Mat, cv::Mat>& camera_info
-    ) {
-        return _impl->init(config_path, use_detect_ncnn_count, tf_config, camera_info);
     }
     void AutoBuff::start() {
         _impl->start();
     }
-    void AutoBuff::pushInput(CommonFrame& frame, bool is_big) {
-        _impl->pushInput(frame, is_big);
+    void AutoBuff::pushInput(CommonFrame& frame) {
+        _impl->pushInput(frame);
     }
-    void AutoBuff::setDebug(bool debug) {
-        _impl->setDebug(debug);
+
+    GimbalCmd AutoBuff::solve(double bullet_speed) {
+        return _impl->solve(bullet_speed);
     }
-    DebugRune AutoBuff::getDebugFrame() {
-        return _impl->getDebugFrame();
+
+    wust_vl::common::concurrency::MonitoredThread::Ptr AutoBuff::getThread() {
+        return _impl->processing_thread_;
     }
-    GimbalCmd AutoBuff::solve() {
-        return _impl->solve();
-    }
-    void AutoBuff::setShared(std::shared_ptr<AutoBuffShared> shared) {
-        _impl->setShared(shared);
-    }
-    bool AutoBuff::isActive() {
-        if (_impl->processing_thread_->getStatus()
-            == wust_vl::common::concurrency::MonitoredThread::Status::Running)
-        {
-            return true;
-        } else {
-            return false;
-        }
-    }
-    void AutoBuff::processingWait() {
-        _impl->processing_thread_->pause();
-    }
-    void AutoBuff::processingUp() {
-        _impl->processing_thread_->resume();
-    }
-    void AutoBuff::autoExposureControl(
-        const cv::Mat& frame,
-        std::shared_ptr<wust_vl::video::Camera> camera
-    ) {
-        _impl->autoExposureControl(frame, camera);
+    void AutoBuff::doDebug() {
+        _impl->doDebug();
     }
 } // namespace auto_buff
 } // namespace wust_vision

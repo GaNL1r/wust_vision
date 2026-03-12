@@ -7,4 +7,5 @@ constexpr const char* CAMERA_CONFIG = "config/camera.yaml";
 constexpr const char* AUTO_AIM_CONFIG = "config/auto_aim.yaml";
 constexpr const char* AUTO_BUFF_CONFIG = "config/auto_buff.yaml";
 constexpr const char* AUTO_GUIDANCE_CONFIG = "config/auto_guidance.yaml";
+constexpr const char* AUTO_SNIPER_CONFIG = "config/auto_sniper.yaml";
 } // namespace wust_vision

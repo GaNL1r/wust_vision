@@ -16,18 +16,6 @@ std::string enemyColorToString(EnemyColor color) noexcept {
             return "UNKNOWN";
     }
 }
-AttackMode toAttackMode(int value) noexcept {
-    switch (value) {
-        case 0:
-            return AttackMode::ARMOR;
-        case 1:
-            return AttackMode::SMALL_RUNE;
-        case 2:
-            return AttackMode::BIG_RUNE;
-        default:
-            return AttackMode::UNKNOWN;
-    }
-}
 
 void AimTarget::predictSelf(double dt_sec) noexcept {
     if (!have_host)

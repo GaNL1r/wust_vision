@@ -1,6 +1,6 @@
 #pragma once
 #include "3rdparty/backward-cpp/backward.hpp"
-#include "tasks/ascii_banner.hpp"
+#include "tasks/utils/ascii_banner.hpp"
 #include "wust_vl/common/concurrency/monitored_thread.hpp"
 #include "wust_vl/common/utils/signal.hpp"
 
@@ -60,16 +60,16 @@ inline int runVisionMain(int argc, char** argv) {
                 const auto all_status =
                     wust_vl::common::concurrency::ThreadManager::instance().getAllThreadStatuses();
                 v.checkStateMatchMode();
-                for (auto& status: all_status) {
-                    if (status.second
-                        == wust_vl::common::concurrency::MonitoredThread::Status::Hung) {
-                        std::cerr << status.first << " is Hunging! Exiting program..." << std::endl;
-                        exit_code = -1;
-                        std::exit(exit_code);
+                // for (auto& status: all_status) {
+                //     if (status.second
+                //         == wust_vl::common::concurrency::MonitoredThread::Status::Hung) {
+                //         std::cerr << status.first << " is Hunging! Exiting program..." << std::endl;
+                //         exit_code = -1;
+                //         std::exit(exit_code);
 
-                        break;
-                    }
-                }
+                //         break;
+                //     }
+                // }
                 std::this_thread::sleep_for(std::chrono::milliseconds(1000));
             }
         }

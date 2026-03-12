@@ -1,6 +1,6 @@
 #include "tasks/auto_guidance/auto_guidance.hpp"
-#include "tasks/main_base.hpp"
-#include "tasks/utils.hpp"
+#include "tasks/utils/main_base.hpp"
+#include "tasks/utils/utils.hpp"
 #include "wust_vl/common/concurrency/ThreadPool.h"
 #include "wust_vl/common/drivers/serial_driver.hpp"
 #include "wust_vl/common/utils/logger.hpp"

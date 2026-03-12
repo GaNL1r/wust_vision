@@ -1,5 +1,5 @@
 #include "type.hpp"
-#include "tasks/config.hpp"
+#include "tasks/utils/config.hpp"
 #include "wust_vl/common/utils/logger.hpp"
 #include <numeric>
 namespace wust_vision {

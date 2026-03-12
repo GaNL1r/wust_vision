@@ -13,7 +13,7 @@
 // limitations under the License.
 #pragma once
 #include "armor_detector_base.hpp"
-#include "tasks/config.hpp"
+#include "tasks/utils/config.hpp"
 #include <string>
 #include <yaml-cpp/yaml.h>
 

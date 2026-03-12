@@ -3,7 +3,7 @@
     #include "armor_detector_onnxruntime.hpp"
     #include "tasks/auto_aim/armor_detect/armor_detector_common.hpp"
     #include "tasks/auto_aim/armor_detect/armor_infer.hpp"
-    #include "tasks/utils.hpp"
+    #include "tasks/utils/utils.hpp"
     #include "wust_vl/ml_net/onnxruntime/onnxruntime_net.hpp"
 namespace wust_vision {
 namespace auto_aim {

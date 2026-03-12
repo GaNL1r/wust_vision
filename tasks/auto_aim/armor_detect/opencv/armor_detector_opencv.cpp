@@ -20,7 +20,7 @@
 
 #include "tasks/auto_aim/armor_detect/opencv/armor_detector_opencv.hpp"
 #include "tasks/auto_aim/armor_detect/number_classifier/number_classifier.hpp"
-#include "tasks/utils.hpp"
+#include "tasks/utils/utils.hpp"
 namespace wust_vision {
 namespace auto_aim {
     struct ArmorDetectorOpenCV::Impl {

@@ -1,5 +1,5 @@
 #include "type.hpp"
-#include "tasks/utils.hpp"
+#include "tasks/utils/utils.hpp"
 namespace wust_vision {
 namespace auto_buff {
     void RunePan::draw(cv::Mat& img, const cv::Point2f& offset) const {

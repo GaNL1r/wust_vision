@@ -1,5 +1,5 @@
 #include "rune_detector.hpp"
-#include "tasks/utils.hpp"
+#include "tasks/utils/utils.hpp"
 namespace wust_vision {
 namespace auto_buff {
     struct RuneDetectorCV::Impl {
@@ -332,12 +332,11 @@ namespace auto_buff {
 
             return scale > 1.0f;
         }
-        void pushInput(CommonFrame& frame, bool is_big, bool debug) {
+        void pushInput(CommonFrame& frame, bool debug) {
             frame.id = current_id_++;
             auto_buff::RuneFan fan {
                 .is_valid = false,
                 .id = frame.id,
-                .is_big = is_big,
                 .timestamp = frame.img_frame.timestamp,
 
             };
@@ -473,8 +472,8 @@ namespace auto_buff {
     RuneDetectorCV::~RuneDetectorCV() {
         _impl.reset();
     }
-    void RuneDetectorCV::pushInput(CommonFrame& frame, bool is_big, bool debug) {
-        _impl->pushInput(frame, is_big, debug);
+    void RuneDetectorCV::pushInput(CommonFrame& frame, bool debug) {
+        _impl->pushInput(frame, debug);
     }
     void RuneDetectorCV::setCallback(DetectorCallback callback) {
         _impl->setCallback(callback);

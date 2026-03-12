@@ -17,7 +17,7 @@
     #include "cuda_infer/armor_infer.hpp"
     #include "tasks/auto_aim/armor_detect/armor_detector_common.hpp"
     #include "tasks/auto_aim/armor_detect/armor_infer.hpp"
-    #include "tasks/utils.hpp"
+    #include "tasks/utils/utils.hpp"
     #include "wust_vl/common/concurrency/adaptive_resource_pool.hpp"
     #include "wust_vl/common/utils/logger.hpp"
     #include "wust_vl/common/utils/timer.hpp"
