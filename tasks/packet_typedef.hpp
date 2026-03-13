@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <sys/types.h>
 namespace wust_vision {
 constexpr uint8_t ID_ROBOT_CMD = 0x01;
 constexpr uint8_t ID_NAV_CMD = 0x02;
@@ -120,10 +121,10 @@ struct NavRobotCmdData {
     float vx;
     float vy;
     float wz;
-    uint8_t mode;
+    uint8_t omni_camera_detect_id;
 } __attribute__((packed));
 
-struct ReceiveReferee //考核/rmul_2026
+struct ReceiveReferee //rmul_2026
 {
     uint8_t cmd_ID; //命令码
     uint32_t time_stamp;
@@ -132,6 +133,7 @@ struct ReceiveReferee //考核/rmul_2026
     int max_health;
     int cur_health;
     int cur_bullet;
+    uint8_t center_state; //0 为未被占领，1 为被己方占领，2 为被对方占领，3 为被双方占领
 
 } __attribute__((packed));
 } // namespace wust_vision

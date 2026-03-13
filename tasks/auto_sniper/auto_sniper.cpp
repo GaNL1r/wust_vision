@@ -1,7 +1,9 @@
+#ifdef USE_ROS2
 #include "auto_sniper.hpp"
 #include "ros2/tf.hpp"
 
 #include <Eigen/src/Core/Matrix.h>
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <open3d/utility/Eigen.h>
@@ -92,6 +94,7 @@ struct AutoSniper::Impl {
         auto pitch = k1_solver_->solvePitch(diff - self_pos_, bullet_speed);
         if (!pitch.has_value()) {
             cmd.appera = false;
+            std::cout << "no pitch" << std::endl;
             return cmd;
         }
         double yaw = std::atan2(diff.y(), diff.x());
@@ -109,9 +112,16 @@ struct AutoSniper::Impl {
         return cmd;
     }
     void publishTrajectoryMarker(const std::vector<Eigen::Vector3d>& traj) {
+        static auto last_pub_time = std::chrono::steady_clock::now();
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_pub_time);
+        if (elapsed.count() < 33) {
+            return;
+        }
+        last_pub_time = now;
+
         if (traj.empty())
             return;
-
         visualization_msgs::msg::Marker marker;
         marker.header.frame_id = target_frame_;
         marker.header.stamp = node_->now();
@@ -119,12 +129,12 @@ struct AutoSniper::Impl {
         marker.id = 0;
         marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
         marker.action = visualization_msgs::msg::Marker::ADD;
-        marker.scale.x = 0.1; // 线宽
+        marker.scale.x = 0.1;
         marker.color.r = 0.0;
         marker.color.g = 1.0;
         marker.color.b = 1.0;
         marker.color.a = 1.0;
-
+        marker.lifetime = rclcpp::Duration::from_seconds(1.0);
         for (auto& p: traj) {
             geometry_msgs::msg::Point pt;
             pt.x = p.x();
@@ -159,41 +169,47 @@ struct AutoSniper::Impl {
         }
 
         auto vis_cloud = std::make_shared<open3d::geometry::PointCloud>();
-
-        auto future = std::async(std::launch::async, [&]() {
-            pickBlocking(vis_cloud);
+        std::atomic<bool> picking = false;
+        auto future = std::async(std::launch::async, [&, self]() {
+            while (self->isAlive() && run_flag_) {
+                picking = true;
+                pickBlocking(vis_cloud);
+                picking = false;
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            }
         });
 
         while (self->isAlive() && run_flag_) {
-            self->heartbeat(); 
-
-            {
+            self->heartbeat();
+            if (!picking) {
                 std::lock_guard<std::mutex> lock(cloud_mutex_);
                 *vis_cloud = *vis_cloud_;
             }
 
-            if (future.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
-                break;
-            }
-
             std::this_thread::sleep_for(std::chrono::milliseconds(30));
         }
-
+        if (future.valid()) {
+            future.wait();
+        }
     }
+
     void pickBlocking(std::shared_ptr<open3d::geometry::PointCloud> pcd) {
         open3d::visualization::VisualizerWithEditing vis;
         vis.CreateVisualizerWindow("Pick points (close window when done)", 1280, 720);
         vis.AddGeometry(pcd);
         vis.Run();
-        auto& picked = vis.GetPickedPoints();
+
+        auto picked = vis.GetPickedPoints();
         if (!picked.empty()) {
-            target_pos_ = pcd->points_[picked.back()];
-            Eigen::Vector3d target_pos(target_pos_->x(), target_pos_->y(), target_pos_->z());
+            Eigen::Vector3d picked_pos = pcd->points_[picked.back()];
+            target_pos_ = Eigen::Vector3d(picked_pos);
+
             RCLCPP_INFO_STREAM(
                 rclcpp::get_logger("awm"),
-                " Target pos: " << target_pos.transpose() << " self pos: " << self_pos_.transpose()
+                " Target pos: " << picked_pos.transpose() << " self pos: " << self_pos_.transpose()
             );
         }
+
         vis.DestroyVisualizerWindow();
     }
 
@@ -287,3 +303,4 @@ GimbalCmd AutoSniper::solve(double bullet_speed) {
     return _impl->solve(bullet_speed);
 }
 } // namespace wust_vision::auto_sniper
+#endif

@@ -7,11 +7,42 @@ BIN_DIR="$WORK_DIR/bin"
 
 source "$WORK_DIR/env.bash"
 export VISION_ROOT="$WORK_DIR"
-
+export MVCAM_SDK_PATH=/opt/MVS
+export MVCAM_COMMON_RUNENV=/opt/MVS/lib
+export MVCAM_GENICAM_CLPROTOCOL=/opt/MVS/lib/CLProtocol
+export ALLUSERSPROFILE=/opt/MVS/MVFG
+export LD_LIBRARY_PATH=/opt/MVS/lib/64:/opt/MVS/lib/32:$LD_LIBRARY_PATH
 blue="\033[1;34m"
 yellow="\033[1;33m"
 reset="\033[0m"
 red="\033[1;31m"
+
+if [ "$EUID" -eq 0 ]; then
+    USER_HOME=$(getent passwd $SUDO_USER | cut -d: -f6)
+    COPY_BASHRC="$WORK_DIR/user_bashrc_copy.bash"
+
+    if [ -f "$USER_HOME/.bashrc" ]; then
+        # 复制 bashrc 到 WORK_DIR，并删除前10行
+        tail -n +11 "$USER_HOME/.bashrc" > "$COPY_BASHRC"
+        # 设置权限，普通用户可读
+        chmod 644 "$COPY_BASHRC"
+        chown $SUDO_USER:$SUDO_USER "$COPY_BASHRC"
+
+        echo -e "${yellow}Copied ~/.bashrc to $COPY_BASHRC with first 10 lines removed${reset}"
+
+        # 加载复制的 bashrc
+        source "$COPY_BASHRC"
+        echo -e "${yellow}Loaded bashrc from copy${reset}"
+    else
+        echo -e "${red}Original ~/.bashrc not found: $USER_HOME/.bashrc${reset}"
+    fi
+else
+    # 普通用户直接加载原 bashrc
+    if [ -f "$HOME/.bashrc" ]; then
+        source "$HOME/.bashrc"
+        echo -e "${yellow}Loaded bashrc from $HOME/.bashrc${reset}"
+    fi
+fi
 
 
 chmod 777 /dev/shm/debug_frame

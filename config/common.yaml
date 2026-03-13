@@ -1,6 +1,6 @@
-max_infer_running: 6
+max_infer_running: 1
 detect_color: 0
-attack_mode: 0
+attack_mode: 1
 debug_fps: 60
 tf:
   R_camera2gimbal: [0.0, 0.0, 1.0, -1.0, -0.0, 0.0, 0.0, -1.0, 0.0]
@@ -10,7 +10,7 @@ control:
   control_rate: 1000
   communication_delay_us: 0.000
   device_name: /dev/ttyACM0
-  use_serial: true
+  use_serial: false
   yaw_ramp: 0.0  #send_cmd = cmd.pos+cmd.vel*ramp
   pitch_ramp: 0.0
   

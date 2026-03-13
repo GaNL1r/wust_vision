@@ -87,12 +87,12 @@ public:
 
             t += dt;
 
-            double dx = pos.x() - start.x();
-            double dy = pos.y() - start.y();
+            double dx = std::abs(pos.x() - start.x());
+            double dy = std::abs(pos.y() - start.y());
             double horizontal_dist = std::sqrt(dx * dx + dy * dy);
             double target_dist = std::sqrt(diff.x() * diff.x() + diff.y() * diff.y());
 
-            if (horizontal_dist >= target_dist || (pos.z() <= target.z() && pos.z() <= start.z())) {
+            if (horizontal_dist >= target_dist) {
                 break;
             }
         }

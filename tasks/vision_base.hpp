@@ -157,7 +157,9 @@ public:
         run_flag_ = true;
         camera_->start();
         for (auto& module: modules_) {
-            module.second->start();
+            if (module.second) {
+                module.second->start();
+            }
         }
         if (timer_) {
             const auto timercallback =
@@ -233,7 +235,10 @@ public:
             }
             typename Mode::AttackMode mode = Mode::toAttackMode(attack_mode_);
             auto module = modules_.at(mode);
-            module->pushInput(frame);
+            if (module) {
+                module->pushInput(frame);
+            }
+
             infer_running_count_--;
         });
     }
@@ -242,12 +247,18 @@ public:
         const auto mode = Mode::toAttackMode(attack_mode_);
 
         auto this_module = modules_.at(mode);
+        if (!this_module) {
+            return;
+        }
         auto this_thread = this_module->getThread();
 
         auto pause_others = [&]() {
             auto self = this_module;
 
             for (auto& [_, module]: modules_) {
+                if (!module) {
+                    continue;
+                }
                 if (module != self) {
                     if (auto t = module->getThread()) {
                         t->pause();
@@ -276,6 +287,9 @@ public:
         try {
             typename Mode::AttackMode mode = Mode::toAttackMode(attack_mode_);
             auto module = modules_.at(mode);
+            if (!module) {
+                return;
+            }
             cmd = module->solve(bullet_speed_);
         } catch (const std::exception& e) {
             std::cout << "solve error: " << e.what() << std::endl;
@@ -346,7 +360,10 @@ public:
                     }
                     typename Mode::AttackMode mode = Mode::toAttackMode(attack_mode_);
                     auto module = modules_.at(mode);
-                    module->doDebug();
+                    if (module) {
+                        module->doDebug();
+                    }
+
                     utils::XSecOnce(
                         [this]() {
                             wust_vl::common::utils::ParameterManager::instance()
