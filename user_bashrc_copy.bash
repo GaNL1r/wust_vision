@@ -255,3 +255,5 @@ export LD_LIBRARY_PATH=/home/hy/onnxruntime-linux-x64-gpu-1.22.0/lib:$LD_LIBRARY
 export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
 export PATH=$JAVA_HOME/bin:$PATH
 source ~/acado/build/acado_env.sh
+
+source /usr/local/share/sentry_interfase/local_setup.bash

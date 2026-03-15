@@ -145,7 +145,7 @@ public:
             motion_buffer_ =
                 std::make_shared<wust_vl::common::utils::MotionBufferGeneric<Motion, 1024>>();
 
-            timer_ = std::make_unique<wust_vl::common::utils::Timer>();
+            timer_ = std::make_unique<wust_vl::common::utils::Timer>("solve");
 
             WUST_MAIN("main") << "vision init already!";
         } catch (std::exception& e) {

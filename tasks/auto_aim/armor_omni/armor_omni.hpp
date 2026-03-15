@@ -5,6 +5,7 @@ namespace wust_vision {
 namespace auto_aim {
     class ArmorOmni {
     public:
+        static constexpr const char* OMNI_CONFIG = "config/omni/omni.yaml";
         using Ptr = std::unique_ptr<ArmorOmni>;
         ArmorOmni(bool detect_color_init);
         static Ptr create(bool detect_color_init) {

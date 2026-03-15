@@ -3,7 +3,7 @@ type: hik_camera
 camera_info_path: ${VISION_ROOT}/config/camera_info.yaml
 
 hik_camera:
-  target_sn: DA1094115
+  target_sn: DA1094119
   adc_bit_depth: Bits_8
   pixel_format: BayerRG8 #RGB8Packed
   reverse_x: true
@@ -40,11 +40,11 @@ video_player:
   start_frame: 0
 
 uvc:
-  device_name: "/dev/v4l/by-id/usb-RYS_USB_Camera_200901010001-video-index0"
+  device_name: "/dev/v4l/by-path/pci-0000:00:14.0-usb-0:3.4:1.0-video-index0"
   fps: 60
   width: 1280
   height: 720
-  exposure: 40
+  exposure: 100.0
   gain: 10.0
   gamma: 100
   trigger_mode: false

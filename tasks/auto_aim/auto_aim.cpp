@@ -8,6 +8,7 @@
 #include "tasks/type_common.hpp"
 #include "tasks/utils/config.hpp"
 #include "wust_vl/common/concurrency/queues.hpp"
+
 namespace wust_vision {
 namespace auto_aim {
 
@@ -344,6 +345,7 @@ namespace auto_aim {
         ArmorWhere::Ptr armor_where_;
         AutoAimFsmController auto_aim_fsm_cl_;
         AutoExposureCfg::Ptr auto_exposure_cfg_;
+
         cv::Rect expanded_;
         int max_detect_armors_;
         bool run_flag_ = false;

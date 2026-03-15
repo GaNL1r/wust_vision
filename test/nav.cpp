@@ -38,7 +38,7 @@ public:
     void twistCb(const geometry_msgs::msg::Twist::SharedPtr msg) {
         NavRobotCmdData send_data;
         send_data.cmd_ID = ID_NAV_CMD;
-        send_data.check = true;
+        send_data.packet_type = ID_NAV_CONTROL;
         send_data.time_stamp =
             static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
                                       wust_vl::common::utils::time_utils::now().time_since_epoch()

@@ -113,15 +113,20 @@ struct SendRobotCmdData {
 
     uint8_t detect_color; // 0 red 1 blue
 } __attribute__((packed));
-
+constexpr uint8_t ID_NAV_CONTROL = 0;
+constexpr uint8_t ID_OMNI_CONTROL = 1;
+constexpr uint8_t ID_BT_CONTROL = 2;
 struct NavRobotCmdData {
     uint8_t cmd_ID; //命令码
     uint32_t time_stamp;
-    uint8_t check;
+    uint8_t packet_type; // 0 导航底盘控制  1 全向感知  2 决策信息
+    // 0 导航底盘控制
     float vx;
     float vy;
     float wz;
+    // 1 全向感知
     uint8_t omni_camera_detect_id;
+    // 2 决策信息
 } __attribute__((packed));
 
 struct ReceiveReferee //rmul_2026

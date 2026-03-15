@@ -81,7 +81,9 @@ namespace auto_guidance {
 
             // Process output data
             const auto output_shape = output.get_shape();
-            const cv::Mat output_buffer(output_shape[1], output_shape[2], CV_32F, output.data());
+            const float* ptr = output.data<const float>();
+            cv::Mat
+                output_buffer(output_shape[1], output_shape[2], CV_32F, const_cast<float*>(ptr));
             const auto objs_result =
                 green_light_infer_->postProcess(output_buffer, transform_matrix);
             if (infer_callback_) {

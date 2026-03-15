@@ -1,11 +1,12 @@
 #include "geometry_msgs/msg/twist.hpp"
 #include "ros2/ros2.hpp"
-#include "sentry_interfase/msg/detail/mode__struct.hpp"
-#include "sentry_interfase/msg/detail/robo_state__struct.hpp"
-#include "sentry_interfase/msg/detail/target__struct.hpp"
-#include "sentry_interfase/msg/mode.hpp"
-#include "sentry_interfase/msg/robo_state.hpp"
-#include "sentry_interfase/msg/target.hpp"
+#include "sentry_interfaces/msg/detail/mode__struct.hpp"
+#include "sentry_interfaces/msg/detail/robo_state__struct.hpp"
+#include "sentry_interfaces/msg/detail/target__struct.hpp"
+#include "sentry_interfaces/msg/mode.hpp"
+#include "sentry_interfaces/msg/robo_state.hpp"
+#include "sentry_interfaces/msg/target.hpp"
+#include "tasks/auto_aim/armor_omni/armor_omni.hpp"
 #include "tasks/auto_aim/auto_aim.hpp"
 #include "tasks/packet_typedef.hpp"
 #include "tasks/type_common.hpp"
@@ -15,7 +16,6 @@
 #include "visualization_msgs/msg/marker.hpp"
 #include <wust_vl/common/utils/timer.hpp>
 #include <yaml-cpp/node/parse.h>
-
 ENABLE_BACKWARD()
 namespace wust_vision {
 class vision: public VisionBase<InfantryMode> {
@@ -24,8 +24,7 @@ public:
 
     vision(): VisionBase(COMMON_CONFIG, CAMERA_CONFIG, AUTO_AIM_CONFIG, AUTO_BUFF_CONFIG) {}
     ~vision() {
-        run_flag_ = false;
-        rclcpp::shutdown();
+        armor_omni_.reset();
     }
     bool init(bool debug_mode) {
         VisionBase::init(debug_mode);
@@ -37,6 +36,11 @@ public:
             auto_buff::AutoBuff::create(auto_buff_config_, tf_config_, camera_info_, debug_mode);
         modules_.emplace(InfantryMode::AttackMode::BIG_RUNE, auto_buff);
         modules_.emplace(InfantryMode::AttackMode::SMALL_RUNE, auto_buff);
+        serial_->set_receive_callback(
+            std::bind(&vision::serialCallback, this, std::placeholders::_1, std::placeholders::_2)
+        );
+        timer_B_ = std::make_unique<wust_vl::common::utils::Timer>("10hz");
+        armor_omni_ = auto_aim::ArmorOmni::create(detect_color_);
         rclcpp::init(0, nullptr);
         ros2_ = std::make_shared<Ros2Node>("vison_node");
         ros2_->add_subscription<geometry_msgs::msg::Twist>(
@@ -44,29 +48,26 @@ public:
             std::bind(&vision::twistCb, this, std::placeholders::_1),
             rclcpp::QoS(10)
         );
-        ros2_->add_subscription<sentry_interfase::msg::Mode>(
+        ros2_->add_subscription<sentry_interfaces::msg::Mode>(
             MODE_TOPIC,
             std::bind(&vision::modeCb, this, std::placeholders::_1)
         );
         ros2_->add_publisher<visualization_msgs::msg::Marker>(TARGET_MARKER);
-        ros2_->add_publisher<sentry_interfase::msg::Target>(TARGET_TOPIC);
-        ros2_->add_publisher<sentry_interfase::msg::RoboState>(ROBO_STATE_TOPIC);
-        serial_->set_receive_callback(
-            std::bind(&vision::serialCallback, this, std::placeholders::_1, std::placeholders::_2)
-        );
-        timer_B_ = std::make_unique<wust_vl::common::utils::Timer>();
+        ros2_->add_publisher<sentry_interfaces::msg::Target>(TARGET_TOPIC);
+        ros2_->add_publisher<sentry_interfaces::msg::RoboState>(ROBO_STATE_TOPIC);
         return true;
     }
 
     void start() {
         VisionBase::start();
-        ros2_->start();
-        if (timer_) {
+        if (timer_B_) {
             const auto timercallback =
                 std::bind(&vision::timerBCallback, this, std::placeholders::_1);
             const double rate_hz = 10.0;
-            timer_->start(rate_hz, timercallback);
+            timer_B_->start(rate_hz, timercallback);
         }
+        armor_omni_->start();
+        ros2_->start();
     }
     void timerBCallback(double dt_ms) {
         InfantryMode::AttackMode mode = InfantryMode::toAttackMode(attack_mode_);
@@ -75,6 +76,11 @@ public:
                 auto auto_aim = auto_aim::toAutoAim(modules_.at(mode));
                 if (auto_aim) {
                     auto target = auto_aim->getTarget();
+                    if (armor_omni_) {
+                        armor_omni_->setDetectColor(detect_color_);
+                        armor_omni_->updateMainTracking(target.checkTargetAppear());
+                    }
+
                     if (!target.checkTargetAppear()) {
                         break;
                     }
@@ -87,7 +93,7 @@ public:
                     Eigen::Vector2d pos_world(target_pos.x(), target_pos.y());
                     Eigen::Vector2d pos_bigyaw = rot * pos_world;
                     publishMarker(pos_bigyaw);
-                    sentry_interfase::msg::Target target_msg;
+                    sentry_interfaces::msg::Target target_msg;
                     target_msg.pos.x = pos_bigyaw.x();
                     target_msg.pos.y = pos_bigyaw.y();
                     target_msg.pos.z = 0.0;
@@ -100,26 +106,17 @@ public:
             }
 
         } while (0);
-        sentry_interfase::msg::RoboState robo_state_msg;
-        auto sim = YAML::LoadFile("/home/hy/wust_vision/sim.yaml");
-        robo_state_msg.cur_hp = sim["cur_hp"].as<double>();
-        robo_state_msg.max_hp = sim["max_hp"].as<double>();
-        ros2_->publish(ROBO_STATE_TOPIC, robo_state_msg);
-        auto now = std::chrono::steady_clock::now();
-        auto dt = wust_vl::common::utils::time_utils::durationSec(last_cmd_time_, now);
-        if (dt > 1) {
+        if (armor_omni_) {
             NavRobotCmdData send_data;
             send_data.cmd_ID = ID_NAV_CMD;
-            send_data.check = true;
+            send_data.packet_type = ID_OMNI_CONTROL;
             send_data.time_stamp = static_cast<uint32_t>(
                 std::chrono::duration_cast<std::chrono::milliseconds>(
                     wust_vl::common::utils::time_utils::now().time_since_epoch()
                 )
                     .count()
             );
-            send_data.vx = 0.0;
-            send_data.vy = 0.0;
-            send_data.wz = 0.0;
+            send_data.omni_camera_detect_id = armor_omni_->getBestTarget();
             if (serial_) {
                 serial_->write(std::move(wust_vl::common::drivers::toVector(send_data)));
             }
@@ -170,36 +167,7 @@ public:
             std::cerr << "serialCallback exception: " << e.what() << std::endl;
         }
     }
-    void processRefereeData(const ReceiveReferee& ref) {
-        InfantryMode::AttackMode mode = InfantryMode::toAttackMode(attack_mode_);
-        // do {
-        //     if (mode == AttackMode::ARMOR) {
-        //         auto target = auto_aim_->getTarget();
-        //         if (!target.checkTargetAppear()) {
-        //             break;
-        //         }
-        //         auto target_pos = target.target_state_.pos(); // world frame
-
-        //         double big_yaw = ref.big_yaw_in_world;
-
-        //         Eigen::Rotation2Dd rot(-big_yaw);
-
-        //         Eigen::Vector2d pos_world(target_pos.x(), target_pos.y());
-        //         Eigen::Vector2d pos_bigyaw = rot * pos_world;
-        //         publishMarker(pos_bigyaw);
-        //         sentry_interfase::msg::Target target_msg;
-        //         target_msg.pos.x = pos_bigyaw.x();
-        //         target_msg.pos.y = pos_bigyaw.y();
-        //         target_msg.pos.z = 0.0;
-        //         target_msg.color = detect_color_;
-        //         target_msg.id = 0;
-        //         target_msg.header.frame_id = "gimbal_yaw";
-        //         target_msg.header.stamp = ros2_->now();
-        //         ros2_->publish(TARGET_TOPIC, target_msg);
-        //     }
-
-        // } while (0);
-    }
+    void processRefereeData(const ReceiveReferee& ref) {}
     void publishMarker(const Eigen::Vector2d& pos) {
         visualization_msgs::msg::Marker marker;
 
@@ -230,14 +198,14 @@ public:
 
         ros2_->publish(TARGET_MARKER, marker);
     }
-    void modeCb(const sentry_interfase::msg::Mode::SharedPtr msg) {
+    void modeCb(const sentry_interfaces::msg::Mode::SharedPtr msg) {
         last_mode_ = msg->mode;
     }
     int last_mode_ = 0;
     void twistCb(const geometry_msgs::msg::Twist::SharedPtr msg) {
         NavRobotCmdData send_data;
         send_data.cmd_ID = ID_NAV_CMD;
-        send_data.check = true;
+        send_data.packet_type = ID_NAV_CONTROL;
         send_data.time_stamp =
             static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
                                       wust_vl::common::utils::time_utils::now().time_since_epoch()
@@ -254,6 +222,7 @@ public:
     }
     std::shared_ptr<Ros2Node> ros2_;
     std::unique_ptr<wust_vl::common::utils::Timer> timer_B_;
+    auto_aim::ArmorOmni::Ptr armor_omni_;
     std::chrono::steady_clock::time_point last_cmd_time_;
     bool use_sim_ = false;
 };

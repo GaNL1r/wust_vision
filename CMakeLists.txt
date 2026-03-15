@@ -96,7 +96,7 @@ set(ROS2_PACKAGES
     tf2_geometry_msgs
     sensor_msgs
     visualization_msgs
-    sentry_interfase
+    sentry_interfaces
     nav_msgs
 )
 

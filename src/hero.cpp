@@ -17,8 +17,6 @@ public:
             auto_aim::AutoAim::create(auto_aim_config_, tf_config_, camera_info_, debug_mode);
         modules_.emplace(HeroMode::AttackMode::ARMOR, auto_aim);
         modules_.emplace(HeroMode::AttackMode::UNKNOWN, auto_aim);
-
-        camera_->setFrameCallback(std::bind(&vision::frameCallback, this, std::placeholders::_1));
         rclcpp::init(0, nullptr);
         ros2_ = std::make_shared<Ros2Node>("vison_node");
         auto auto_sniper = auto_sniper::AutoSniper::create(*ros2_);
@@ -28,11 +26,6 @@ public:
 
     void start() {
         VisionBase::start();
-        if (timer_) {
-            auto timercallback = std::bind(&vision::timerCallback, this, std::placeholders::_1);
-            double rate_hz = control_config_->control_rate_param.get();
-            timer_->start(rate_hz, timercallback);
-        }
         ros2_->start();
     }
 

@@ -74,13 +74,13 @@ namespace auto_aim {
                         .preprocess()
                         .convert_element_type(ov::element::f32)
                         .convert_color(ov::preprocess::ColorFormat::RGB)
-                        .scale({ scale });
+                        .scale(scale);
                 } else {
                     ppp.input()
                         .preprocess()
                         .convert_element_type(ov::element::f32)
                         .convert_color(ov::preprocess::ColorFormat::BGR)
-                        .scale({ scale });
+                        .scale(scale);
                 }
 
                 ppp.input().model().set_layout("NCHW");
@@ -120,7 +120,9 @@ namespace auto_aim {
             // Process output data
             const auto output_shape = output.get_shape();
 
-            const cv::Mat output_buffer(output_shape[1], output_shape[2], CV_32F, output.data());
+            const float* ptr = output.data<const float>();
+            cv::Mat
+                output_buffer(output_shape[1], output_shape[2], CV_32F, const_cast<float*>(ptr));
 
             // Parsed variable
             auto objs_result = armor_infer_->postProcess(output_buffer);
