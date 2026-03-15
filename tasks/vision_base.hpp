@@ -318,6 +318,8 @@ public:
         send_data.yaw = cmd_yaw + cmd.v_yaw * control_config_->yaw_ramp_param.get();
         send_data.v_pitch = cmd.v_pitch;
         send_data.v_yaw = cmd.v_yaw;
+        send_data.a_pitch = cmd.a_pitch;
+        send_data.a_yaw = cmd.a_yaw;
         send_data.target_yaw = cmd.target_yaw;
         send_data.target_pitch = cmd.target_pitch;
         send_data.enable_pitch_diff = cmd.enable_pitch_diff;

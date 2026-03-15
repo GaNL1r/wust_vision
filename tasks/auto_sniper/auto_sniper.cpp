@@ -1,33 +1,34 @@
 #ifdef USE_ROS2
-#include "auto_sniper.hpp"
-#include "ros2/tf.hpp"
+    #include "auto_sniper.hpp"
+    #include "ros2/tf.hpp"
 
-#include <Eigen/src/Core/Matrix.h>
-#include <atomic>
-#include <memory>
-#include <mutex>
-#include <open3d/utility/Eigen.h>
-#include <optional>
-#include <rclcpp/logger.hpp>
-#include <rclcpp/logging.hpp>
-#include <thread>
-#include <vector>
+    #include <Eigen/src/Core/Matrix.h>
+    #include <atomic>
+    #include <memory>
+    #include <mutex>
+    #include <open3d/utility/Eigen.h>
+    #include <optional>
+    #include <rclcpp/logger.hpp>
+    #include <rclcpp/logging.hpp>
+    #include <thread>
+    #include <vector>
 
-#include <Eigen/Dense>
+    #include <Eigen/Dense>
 
-#include <nav_msgs/msg/odometry.hpp>
-#include <open3d/Open3D.h>
-#include <rclcpp/node.hpp>
-#include <rclcpp/rclcpp.hpp>
+    #include <nav_msgs/msg/odometry.hpp>
+    #include <open3d/Open3D.h>
+    #include <rclcpp/node.hpp>
+    #include <rclcpp/rclcpp.hpp>
 
-#include "k1_solver.hpp"
-#include "tasks/type_common.hpp"
-#include "tasks/utils/config.hpp"
-#include "voxel_map.hpp"
-#include <sensor_msgs/msg/point_cloud2.hpp>
-#include <sensor_msgs/point_cloud2_iterator.hpp>
-#include <visualization_msgs/msg/marker.hpp>
-#include <yaml-cpp/yaml.h>
+    #include "k1_solver.hpp"
+    #include "offset_helper.hpp"
+    #include "tasks/type_common.hpp"
+    #include "tasks/utils/config.hpp"
+    #include "voxel_map.hpp"
+    #include <sensor_msgs/msg/point_cloud2.hpp>
+    #include <sensor_msgs/point_cloud2_iterator.hpp>
+    #include <visualization_msgs/msg/marker.hpp>
+    #include <yaml-cpp/yaml.h>
 namespace wust_vision::auto_sniper {
 
 struct AutoSniper::Impl {
@@ -52,6 +53,8 @@ struct AutoSniper::Impl {
             solver_config["k1"].as<double>(),
             solver_config["g"].as<double>()
         );
+        target_armor_z_ = solver_config["target_armor_z"].as<double>();
+        offset_helper_ = OffsetHelper::create(config["offset_helper"]);
         pointcloud_sub_ = node_->create_subscription<sensor_msgs::msg::PointCloud2>(
             "/cloud_registered",
             rclcpp::SensorDataQoS(),
@@ -90,7 +93,10 @@ struct AutoSniper::Impl {
             cmd.appera = false;
             return cmd;
         }
-        auto diff = target_pos_.value() - self_pos_;
+        auto self_pos = Eigen::Vector3d(self_pos_.x(), self_pos_.y(), 0.0);
+        auto target_pos =
+            Eigen::Vector3d(target_pos_.value().x(), target_pos_.value().y(), target_armor_z_);
+        auto diff = target_pos - self_pos;
         auto pitch = k1_solver_->solvePitch(diff - self_pos_, bullet_speed);
         if (!pitch.has_value()) {
             cmd.appera = false;
@@ -101,8 +107,10 @@ struct AutoSniper::Impl {
         auto traj =
             k1_solver_->computeTrajectory(self_pos_, target_pos_.value(), bullet_speed, 0.01);
         publishTrajectoryMarker(traj);
-        cmd.target_pitch = pitch.value();
-        cmd.target_yaw = yaw;
+        auto control_pitch = pitch.value() + offset_helper_->getPitchOffset(diff.norm());
+        auto control_yaw = yaw + offset_helper_->getYawOffset(diff.norm());
+        cmd.target_pitch = control_pitch;
+        cmd.target_yaw = control_yaw;
         cmd.appera = true;
         cmd.yaw = yaw;
         cmd.pitch = pitch.value();
@@ -276,9 +284,11 @@ struct AutoSniper::Impl {
     };
     SlidingVoxelMap<3, Cell>::Ptr voxel_map_;
     K1BallisticSolver::Ptr k1_solver_;
+    OffsetHelper::Ptr offset_helper_;
     wust_vl::common::concurrency::MonitoredThread::Ptr vis_thread_;
     bool run_flag_ = false;
     std::mutex cloud_mutex_;
+    double target_armor_z_ = 0.0;
 };
 AutoSniper::AutoSniper(rclcpp::Node& node) {
     _impl = std::make_unique<Impl>(node);

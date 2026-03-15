@@ -138,6 +138,10 @@ void debuglog(const AutoAimDebug& dbg_armor) {
     log.fly_time_log.handleOnce(i_use.fly_time, j);
     log.control_a_yaw_log.handleOnce(i_use.a_yaw / 180.0 * M_PI, j);
     log.control_a_pitch_log.handleOnce(i_use.a_pitch / 180.0 * M_PI, j);
+    log.yaw_diff_log.handleOnce(
+        std::abs(dbg_armor.gimbal_py.second * 180.0 / M_PI - dbg_armor.gimbal_cmd.yaw),
+        j
+    );
 
     std::ofstream file("/dev/shm/cmd_log.json");
     if (file.is_open()) {

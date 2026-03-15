@@ -135,10 +135,15 @@ struct Predict {
         auto& r = x1[(int)StateID::R];
         auto& l = x1[(int)StateID::L];
         r = std::clamp(r, T(0.1), T(0.5));
+        if (r < T(0.1) || r > T(0.5)) {
+            r = T(0.25);
+            l = T(0);
+        }
         T sum = r + l;
-        sum = std::clamp(sum, T(0.1), T(0.5));
-
-        l = sum - r;
+        if (sum < T(0.1) || sum > T(0.5)) {
+            r = T(0.25);
+            l = T(0);
+        }
         auto& h = x1[(int)StateID::H];
         h = std::clamp(h, T(-0.5), T(0.5));
     }

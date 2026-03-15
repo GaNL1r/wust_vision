@@ -120,7 +120,6 @@ public:
             send_data.vx = 0.0;
             send_data.vy = 0.0;
             send_data.wz = 0.0;
-            send_data.mode = last_mode_;
             if (serial_) {
                 serial_->write(std::move(wust_vl::common::drivers::toVector(send_data)));
             }
@@ -247,7 +246,7 @@ public:
         send_data.vx = -msg->linear.y;
         send_data.vy = msg->linear.x;
         send_data.wz = msg->angular.z;
-        send_data.mode = last_mode_;
+
         if (serial_) {
             serial_->write(std::move(wust_vl::common::drivers::toVector(send_data)));
         }
