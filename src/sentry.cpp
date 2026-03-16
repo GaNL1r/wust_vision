@@ -155,7 +155,7 @@ public:
 
                 auto referee_data = wust_vl::common::drivers::fromVector<ReceiveReferee>(buf);
 
-                // processRefereeData(referee_data);
+                processRefereeData(referee_data);
             }
 
             else
@@ -167,7 +167,15 @@ public:
             std::cerr << "serialCallback exception: " << e.what() << std::endl;
         }
     }
-    void processRefereeData(const ReceiveReferee& ref) {}
+    void processRefereeData(const ReceiveReferee& ref) {
+        sentry_interfaces::msg::RoboState robo_state;
+        robo_state.game_time = ref.game_time;
+        robo_state.cur_hp = ref.cur_health;
+        robo_state.max_hp = ref.max_health;
+        robo_state.cur_bullet = ref.cur_bullet;
+        robo_state.center_state = ref.center_state;
+        ros2_->publish(ROBO_STATE_TOPIC, robo_state);
+    }
     void publishMarker(const Eigen::Vector2d& pos) {
         visualization_msgs::msg::Marker marker;
 

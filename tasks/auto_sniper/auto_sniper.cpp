@@ -89,32 +89,35 @@ struct AutoSniper::Impl {
     }
     GimbalCmd solve(double bullet_speed) noexcept {
         GimbalCmd cmd;
-        if (!target_pos_.has_value()) {
+        if (!target_pos_in_map_.has_value()) {
             cmd.appera = false;
             return cmd;
         }
-        auto self_pos = Eigen::Vector3d(self_pos_.x(), self_pos_.y(), 0.0);
-        auto target_pos =
-            Eigen::Vector3d(target_pos_.value().x(), target_pos_.value().y(), target_armor_z_);
-        auto diff = target_pos - self_pos;
-        auto pitch = k1_solver_->solvePitch(diff - self_pos_, bullet_speed);
+        Eigen::Vector3d target_pos_in_self = self_in_map_.inverse() * target_pos_in_map_.value();
+        target_pos_in_self.z() = target_armor_z_;
+        auto pitch = k1_solver_->solvePitch(target_pos_in_self, bullet_speed);
         if (!pitch.has_value()) {
             cmd.appera = false;
             std::cout << "no pitch" << std::endl;
             return cmd;
         }
-        double yaw = std::atan2(diff.y(), diff.x());
-        auto traj =
-            k1_solver_->computeTrajectory(self_pos_, target_pos_.value(), bullet_speed, 0.01);
+        double yaw = std::atan2(target_pos_in_self.y(), target_pos_in_self.x());
+        auto traj = k1_solver_->computeTrajectory(
+            self_in_map_.translation(),
+            target_pos_in_map_.value(),
+            bullet_speed,
+            0.01
+        );
         publishTrajectoryMarker(traj);
-        auto control_pitch = pitch.value() + offset_helper_->getPitchOffset(diff.norm());
-        auto control_yaw = yaw + offset_helper_->getYawOffset(diff.norm());
+        auto control_pitch =
+            pitch.value() + offset_helper_->getPitchOffset(target_pos_in_self.norm());
+        auto control_yaw = yaw + offset_helper_->getYawOffset(target_pos_in_self.norm());
         cmd.target_pitch = control_pitch;
         cmd.target_yaw = control_yaw;
         cmd.appera = true;
         cmd.yaw = yaw;
         cmd.pitch = pitch.value();
-        cmd.distance = diff.norm();
+        cmd.distance = target_pos_in_self.norm();
         cmd.enable_pitch_diff = 0.5;
         cmd.enable_yaw_diff = 0.5;
         return cmd;
@@ -154,21 +157,22 @@ struct AutoSniper::Impl {
         traj_pub_->publish(marker);
     }
     void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
-        auto T = tf_->getTransform(target_frame_, msg->header.frame_id, msg->header.stamp);
+        auto T = tf_->getTransform(target_frame_, "gimbal_yaw", msg->header.stamp);
 
         if (!T.has_value()) {
             return;
         }
+        self_in_map_ = T.value().cast<double>();
+        // Eigen::Isometry3f
+        // Eigen::Vector4f p(
+        //     msg->pose.pose.position.x,
+        //     msg->pose.pose.position.y,
+        //     msg->pose.pose.position.z,
+        //     1.0f
+        // );
 
-        Eigen::Vector4f p(
-            msg->pose.pose.position.x,
-            msg->pose.pose.position.y,
-            msg->pose.pose.position.z,
-            1.0f
-        );
-
-        auto p_target = T.value() * p;
-        self_pos_ = Eigen::Vector3d(p_target.x(), p_target.y(), p_target.z());
+        // auto p_target = T.value() * p;
+        // self_pos_ = Eigen::Vector3d(p_target.x(), p_target.y(), p_target.z());
     }
 
     void visualizeLoop(wust_vl::common::concurrency::MonitoredThread::Ptr self) {
@@ -210,11 +214,12 @@ struct AutoSniper::Impl {
         auto picked = vis.GetPickedPoints();
         if (!picked.empty()) {
             Eigen::Vector3d picked_pos = pcd->points_[picked.back()];
-            target_pos_ = Eigen::Vector3d(picked_pos);
+            target_pos_in_map_ = Eigen::Vector3d(picked_pos);
 
             RCLCPP_INFO_STREAM(
                 rclcpp::get_logger("awm"),
-                " Target pos: " << picked_pos.transpose() << " self pos: " << self_pos_.transpose()
+                " Target pos: " << picked_pos.transpose()
+                                << " self pos: " << self_in_map_.translation().transpose()
             );
         }
 
@@ -272,8 +277,7 @@ struct AutoSniper::Impl {
     std::string target_frame_ = "map";
 
     rclcpp::Node* node_;
-    Eigen::Vector3d self_pos_ = Eigen::Vector3d::Zero();
-    std::optional<Eigen::Vector3d> target_pos_ = std::nullopt;
+    std::optional<Eigen::Vector3d> target_pos_in_map_ = std::nullopt;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_sub_;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr traj_pub_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odometry_sub_;
@@ -289,6 +293,7 @@ struct AutoSniper::Impl {
     bool run_flag_ = false;
     std::mutex cloud_mutex_;
     double target_armor_z_ = 0.0;
+    Eigen::Isometry3d self_in_map_ = Eigen::Isometry3d::Identity();
 };
 AutoSniper::AutoSniper(rclcpp::Node& node) {
     _impl = std::make_unique<Impl>(node);

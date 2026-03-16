@@ -9,6 +9,7 @@ namespace auto_buff {
         is_big_ = false;
         start_time_ = fan.timestamp;
         target_config_ = target_config;
+        fitter_.setWindow(target_config_->big_window_sec_param.get());
         auto f = MModel::Predict(0.005);
         auto h = MModel::Measure(0);
         auto u_q = [this]() {
@@ -142,10 +143,10 @@ namespace auto_buff {
                 last_id = id;
             has_match = true;
         }
-        bool no_change = false;
+        bool no_change = true;
         for (auto id: update_ids) {
-            if (id == last_id)
-                no_change = true;
+            if (id != last_id)
+                no_change = false;
         }
         if (!no_change && update_ids.size() > 1)
             last_id = update_ids[0];

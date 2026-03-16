@@ -765,30 +765,36 @@ struct VeryAimer::Impl {
         if (armor_num > 0) {
             int best_idx = -1;
 
-            // if (target.tracked_id_ != ArmorNumber::OUTPOST) {
-            //     const double coming_angle = config_->comming_angle_param.get() * M_PI / 180.0;
-            //     const double leaving_angle = config_->leaving_angle_param.get() * M_PI / 180.0;
+            if (target.tracked_id_ != ArmorNumber::OUTPOST) {
+                const double coming_angle = config_->comming_angle_param.get() * M_PI / 180.0;
+                const double leaving_angle = config_->leaving_angle_param.get() * M_PI / 180.0;
 
-            //     for (int i = 0; i < armor_num; ++i) {
-            //         if (std::abs(delta_angles[i]) > coming_angle)
-            //             continue;
+                for (int i = 0; i < armor_num; ++i) {
+                    if (std::abs(delta_angles[i]) > coming_angle)
+                        continue;
 
-            //         if (target.target_state_.vyaw() > 0 && delta_angles[i] < leaving_angle)
-            //             best_idx = i;
-            //         if (target.target_state_.vyaw() < 0 && delta_angles[i] > -leaving_angle)
-            //             best_idx = i;
-            //     }
-            // }
+                    if (target.target_state_.vyaw() > 0 && delta_angles[i] < leaving_angle)
+                        best_idx = i;
+                    if (target.target_state_.vyaw() < 0 && delta_angles[i] > -leaving_angle)
+                        best_idx = i;
+                }
+            }
 
             if (best_idx < 0) {
                 std::vector<int> all(armor_num);
                 std::iota(all.begin(), all.end(), 0);
                 best_idx = pick_best_by_min_delta(all);
             }
-            if (aim_pair) {
+            if (aim_pair&&target.tracked_id_ != ArmorNumber::OUTPOST) {
                 std::vector<int> all;
-                all.push_back(0);
-                all.push_back(2);
+                if (target.target_state_.h() > 0) {
+                    all.push_back(1);
+                    all.push_back(3);
+                } else {
+                    all.push_back(0);
+                    all.push_back(2);
+                }
+
                 best_idx = pick_best_by_min_delta(all);
             }
 
@@ -1193,6 +1199,15 @@ struct VeryAimer::Impl {
         }
 
         cmd.aim_target = build->aim_target;
+        // int best_id = 0;
+        // double min_diff = 1e9;
+        // for (int i = 0; i < build->aim_traj.cp_vec.size(); i++) {
+        //     if (build->aim_traj.cp_vec[i].d_angle < min_diff) {
+        //         min_diff = build->aim_traj.cp_vec[i].d_angle;
+        //         best_id = i;
+        //     }
+        // }
+        // double wait_t = build->aim_traj.getPrefixTimeAtIdx(best_id);
 
         double target_yaw = build->cp0.yaw;
         double target_pitch = build->cp0.pitch;
@@ -1220,7 +1235,7 @@ struct VeryAimer::Impl {
         const double half_t = build->target_traj.getPrefixTimeAtIdx(half_horizon);
 
         const auto cs = build->getControlState(half_t);
-
+        // const auto cs = build->getControlState(wait_t);
         const double yaw = angles::normalize_angle(cs.yaw_state.p + build->cp0.yaw);
 
         cmd.yaw = rad2deg(yaw);

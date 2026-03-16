@@ -25,7 +25,7 @@ armor_tracker:
   max_yaw_diff_deg: 60.0
   max_dis_diff: 3.0
   match_gate: 50
-  qxyz_common: [200.0, 200.0, 1.0]
+  qxyz_common: [20.0, 20.0, 1.0]
   qyaw_common: 100.0
   qxyz_output: [10.0, 10.0, 0.5]
   qyaw_output: 0.01
@@ -42,26 +42,26 @@ armor_tracker:
   yaw_r_log_ratio: 0.02
   esekf_iter_num: 5
 
-auto_aim_fsm:
-  single_whole_up: 1.0 
-  single_whole_down: 0.5
-  whole_pair_up: 1.5 
-  whole_pair_down: 1.5 #1s内至少换2次板子  2pi  否则轨迹规划无意义
-  pair_center_up: 16.5
-  pair_center_down: 15.0
-  transfer_thresh: 50
-
 # auto_aim_fsm:
-#   single_whole_up: 2.5 
-#   single_whole_down: 1.0
-#   whole_pair_up: 7.5 
-#   whole_pair_down: 6.5 #1s内至少换2次板子  2pi  否则轨迹规划无意义
+#   single_whole_up: 1.0 
+#   single_whole_down: 0.5
+#   whole_pair_up: 1.5 
+#   whole_pair_down: 0.5 #1s内至少换2次板子  2pi  否则轨迹规划无意义
 #   pair_center_up: 16.5
 #   pair_center_down: 15.0
 #   transfer_thresh: 50
 
+auto_aim_fsm:
+  single_whole_up: 2.5 
+  single_whole_down: 1.0
+  whole_pair_up: 10.5 
+  whole_pair_down: 6.5 #1s内至少换2次板子  2pi  否则轨迹规划无意义
+  pair_center_up: 16.5
+  pair_center_down: 15.0
+  transfer_thresh: 50
+
 very_aimer:
-  fuck_test: false
+  fuck_test: true
   fuck_test_thresh: 0.5
   type: "seg" #seg or mpc
   
@@ -69,26 +69,26 @@ very_aimer:
   
   sample_horizon: 500
 
-  control_delay: 0.05
+  control_delay: 0.1
   delay_enable_fire_error: 0.0035
   
-  max_yaw_acc: 5
+  max_yaw_acc: 15
   #全向yaw加速度测算37
   max_pitch_acc: 25
   
 
-  prediction_delay: 0.1
+  prediction_delay: 0.00
   comming_angle: 60
   leaving_angle: 20
 
-  yaw_limit_deg: 40
-  shooting_range_h: 0.2
-  shooting_range_w: 0.2
+  yaw_limit_deg: 30
+  shooting_range_h: 0.1
+  shooting_range_w: 0.1
   min_enable_pitch_deg: 0.25
   min_enable_yaw_deg: 0.25
   base_offset:
-      yaw: 2.0
-      pitch: 2.0
+      yaw: 1.0
+      pitch: 2.5
   trajectory_offset:
     - d_max: 3
       d_min: 0

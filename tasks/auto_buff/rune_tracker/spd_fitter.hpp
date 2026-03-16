@@ -16,8 +16,15 @@ namespace auto_buff {
         struct P {
             double a, w, t0;
         };
+        static constexpr double a_min_ = 0.780;
+        static constexpr double a_max_ = 1.045;
+        static constexpr double w_min_ = 1.884;
+        static constexpr double w_max_ = 2.000;
 
-        SinSpeedFitter() = default;
+        SinSpeedFitter() {}
+        void setWindow(double w) {
+            window_sec_ = w;
+        }
 
         SinSpeedFitter(const SinSpeedFitter& other) {
             std::scoped_lock lock(other.mtx_);
@@ -252,10 +259,7 @@ namespace auto_buff {
         int sign_ = 1;
         std::atomic<bool> fitting_ { false };
 
-        const double a_min_ = 0.780;
-        const double a_max_ = 1.045;
-        const double w_min_ = 1.884;
-        const double w_max_ = 2.000;
+        double window_sec_ = 1.0;
     };
 } // namespace auto_buff
 } // namespace wust_vision

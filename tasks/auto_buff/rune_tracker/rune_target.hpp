@@ -26,6 +26,7 @@ namespace auto_buff {
         GEN_PARAM(double, dis_r);
         GEN_PARAM(double, yaw_r);
         GEN_PARAM(double, roll_r);
+        GEN_PARAM(double, big_window_sec);
         using Ptr = std::shared_ptr<RuneTargetConfig>;
         RuneTargetConfig() {}
         static Ptr create() {
@@ -44,6 +45,7 @@ namespace auto_buff {
             yp_r_param.load(node);
             dis_r_param.load(node);
             roll_r_param.load(node);
+            big_window_sec_param.load(node);
         }
     };
 
