@@ -125,7 +125,7 @@ struct NavRobotCmdData {
     float vy;
     float wz;
     // 1 全向感知
-    uint8_t omni_camera_detect_id;
+    int omni_camera_detect_id;
     // 2 决策信息
 } __attribute__((packed));
 

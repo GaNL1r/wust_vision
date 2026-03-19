@@ -1,5 +1,3 @@
-id: 0
-
 type: uvc
 
 camera_info_path: ${VISION_ROOT}/config/camera_info.yaml
@@ -42,11 +40,11 @@ video_player:
   start_frame: 0
 
 uvc:
-  device_name: "/dev/v4l/by-path/pci-0000:00:14.0-usb-0:9.1:1.0-video-index0"
-  fps: 30
+  device_name: "/dev/v4l/by-path/pci-0000:00:14.0-usb-0:3.4:1.0-video-index0"
+  fps: 60
   width: 1280
   height: 720
-  exposure: 200
+  exposure: 100.0
   gain: 10.0
   gamma: 100
   trigger_mode: true

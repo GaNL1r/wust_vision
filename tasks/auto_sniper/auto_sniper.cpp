@@ -1,4 +1,6 @@
-#ifdef USE_ROS2
+#include "3rdparty/angles.h"
+//#ifdef USE_ROS2
+#ifdef FUCK
     #include "auto_sniper.hpp"
     #include "ros2/tf.hpp"
 
@@ -32,8 +34,12 @@
 namespace wust_vision::auto_sniper {
 
 struct AutoSniper::Impl {
-    Impl(rclcpp::Node& node) {
+    Impl(
+        rclcpp::Node& node,
+        std::shared_ptr<wust_vl::common::utils::MotionBufferGeneric<Motion, 1024>> motion_buffer
+    ) {
         node_ = &node;
+        motion_buffer_ = motion_buffer;
         tf_ = TF::create(*node_);
         auto config = YAML::LoadFile(AUTO_SNIPER_CONFIG);
         auto map_config = config["map"];
@@ -101,25 +107,38 @@ struct AutoSniper::Impl {
             std::cout << "no pitch" << std::endl;
             return cmd;
         }
-        double yaw = std::atan2(target_pos_in_self.y(), target_pos_in_self.x());
+        double yaw =
+            angles::normalize_angle(std::atan2(target_pos_in_self.y(), target_pos_in_self.x()));
         auto traj = k1_solver_->computeTrajectory(
             self_in_map_.translation(),
             target_pos_in_map_.value(),
             bullet_speed,
             0.01
         );
+        double yaw_deg = angles::to_degrees(yaw);
+        double pitch_deg = angles::to_degrees(pitch.value());
         publishTrajectoryMarker(traj);
-        auto control_pitch =
-            pitch.value() + offset_helper_->getPitchOffset(target_pos_in_self.norm());
-        auto control_yaw = yaw + offset_helper_->getYawOffset(target_pos_in_self.norm());
+
+        auto control_pitch = pitch_deg + offset_helper_->getPitchOffset(target_pos_in_self.norm());
+
+        auto control_yaw = yaw_deg + offset_helper_->getYawOffset(target_pos_in_self.norm());
+        if (auto last_att = motion_buffer_->get_last()) {
+            control_yaw += angles::to_degrees(last_att->data.yaw);
+        }
+        cmd.appera = true;
         cmd.target_pitch = control_pitch;
         cmd.target_yaw = control_yaw;
         cmd.appera = true;
-        cmd.yaw = yaw;
-        cmd.pitch = pitch.value();
+        cmd.yaw = control_yaw;
+        cmd.pitch = control_pitch;
         cmd.distance = target_pos_in_self.norm();
         cmd.enable_pitch_diff = 0.5;
         cmd.enable_yaw_diff = 0.5;
+        static int count = 0;
+        count++;
+        if (count % 100 == 0) {
+            std::cout << cmd.yaw << "  " << cmd.pitch << std::endl;
+        }
         return cmd;
     }
     void publishTrajectoryMarker(const std::vector<Eigen::Vector3d>& traj) {
@@ -294,9 +313,13 @@ struct AutoSniper::Impl {
     std::mutex cloud_mutex_;
     double target_armor_z_ = 0.0;
     Eigen::Isometry3d self_in_map_ = Eigen::Isometry3d::Identity();
+    std::shared_ptr<wust_vl::common::utils::MotionBufferGeneric<Motion, 1024>> motion_buffer_;
 };
-AutoSniper::AutoSniper(rclcpp::Node& node) {
-    _impl = std::make_unique<Impl>(node);
+AutoSniper::AutoSniper(
+    rclcpp::Node& node,
+    std::shared_ptr<wust_vl::common::utils::MotionBufferGeneric<Motion, 1024>> motion_buffer
+) {
+    _impl = std::make_unique<Impl>(node, motion_buffer);
 }
 AutoSniper::~AutoSniper() {
     _impl.reset();

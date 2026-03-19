@@ -1,9 +1,11 @@
 #include "armor_omni.hpp"
+#include "tasks/auto_aim/type.hpp"
 #include "wust_vl/common/concurrency/ThreadPool.h"
 #include "wust_vl/common/utils/timer.hpp"
 #include "wust_vl/video/camera.hpp"
 // clang-format off
 #include "tasks/auto_aim/armor_detect/armor_detector_factory.hpp"
+#include <opencv2/highgui.hpp>
 // clang-format on
 
 namespace wust_vision::auto_aim {
@@ -83,7 +85,7 @@ struct ArmorOmni::Impl {
         fps_ = config_["fps"].as<int>(30);
         active_time_ = config_["active_time"].as<double>(0.5);
         max_infer_running_ = config_["max_infer_running"].as<int>(0);
-
+        min_score_ = config_["min_score"].as<double>();
         const std::string armor_detect_backend =
             config_["armor_detect_backend"].as<std::string>("");
 
@@ -105,6 +107,7 @@ struct ArmorOmni::Impl {
             std::make_unique<wust_vl::common::concurrency::ThreadPool>(max_infer_running_);
 
         timer_ = std::make_unique<wust_vl::common::utils::Timer>("omni");
+        latency_averager_ = std::make_unique<wust_vl::common::concurrency::Averager<double>>(100);
     }
 
     void start() noexcept {
@@ -200,12 +203,24 @@ struct ArmorOmni::Impl {
     ArmorDetectCallback(const std::vector<ArmorObject>& objs, const CommonFrame& frame) noexcept {
         auto one = std::any_cast<One::Ptr>(frame.any_ctx);
 
-        for (auto& obj: objs) {
+        for (const auto& obj: objs) {
+            if (obj.color == ArmorColor::NONE || obj.color == ArmorColor::PURPLE) {
+                continue;
+            }
             std::lock_guard<std::mutex> lock(active_results_mutex_);
-
             active_results_.emplace_back(obj, obj.confidence, one, frame.img_frame.timestamp);
         }
+        // if(one->self_id==1)
+        // {
+        //     cv::imshow("a",frame.img_frame.src_img);
+        //     cv::waitKey(1);
+        // }
+        const auto now = std::chrono::steady_clock::now();
 
+        const auto latency_ms =
+            wust_vl::common::utils::time_utils::durationMs(frame.img_frame.timestamp, now);
+        latency_averager_->add(latency_ms);
+        latency_ms_ = latency_averager_->average();
         detect_count_++;
 
         printStats();
@@ -236,8 +251,8 @@ struct ArmorOmni::Impl {
             return;
         }
 
-        double max_score = -1;
-
+        double max_score = min_score_;
+        best_target_ = -1;
         for (size_t i = 0; i < ones_.size(); ++i) {
             if (ones_[i]->total_score > max_score) {
                 max_score = ones_[i]->total_score;
@@ -249,7 +264,8 @@ struct ArmorOmni::Impl {
     void printStats() {
         utils::XSecOnce(
             [&] {
-                WUST_INFO("armor_omni") << "det: " << detect_count_ << " best: " << best_target_;
+                WUST_INFO("armor_omni") << "det: " << detect_count_ << " best: " << best_target_
+                                        << " lat: " << latency_ms_;
 
                 detect_count_ = 0;
             },
@@ -280,10 +296,12 @@ struct ArmorOmni::Impl {
     std::unique_ptr<wust_vl::common::utils::Timer> timer_;
 
     ArmorDetectorBase::Ptr armor_detector_;
-
+    std::unique_ptr<wust_vl::common::concurrency::Averager<double>> latency_averager_;
     int best_target_ = -1;
 
     int detect_count_ = 0;
+    double latency_ms_;
+    double min_score_ = 10.0;
 };
 
 ArmorOmni::ArmorOmni(bool detect_color_init): _impl(std::make_unique<Impl>(detect_color_init)) {}

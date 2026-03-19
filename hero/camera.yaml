@@ -1,15 +1,13 @@
-id: 0
-
-type: uvc
+type: video_player
 
 camera_info_path: ${VISION_ROOT}/config/camera_info.yaml
 
 hik_camera:
-  target_sn: DA1094119
+  target_sn: DA1094115
   adc_bit_depth: Bits_8
   pixel_format: BayerRG8 #RGB8Packed
-  reverse_x: false
-  reverse_y: false
+  reverse_x: true
+  reverse_y: true
   width: 1440
   height: 1080
   offset_x: 0
@@ -25,7 +23,7 @@ hik_camera:
   use_raw: false
   use_rgb: false
   use_ea: false
-  use_cuda_cvt: false
+  use_cuda_cvt: true
 
   
 video_player:
@@ -37,16 +35,16 @@ video_player:
   #path: /home/hy/wust_data/video/jiao.avi
   #path: /home/hy/Z_LION_AutoAim2025/src/auto_aim_publisher/videos/sample.avi
   #path: /home/hy/wust_data/record/20251111_134416_187.avi
-  path: /home/hy/rune_dl/runeA.mp4
+  path: /home/hy/data/video_save/5.21成都.mp4
   #path: /home/hy/wust_data/video/Sentry.mp4
   start_frame: 0
 
 uvc:
-  device_name: "/dev/v4l/by-path/pci-0000:00:14.0-usb-0:9.1:1.0-video-index0"
-  fps: 30
+  device_name: "/dev/v4l/by-path/pci-0000:00:14.0-usb-0:3.4:1.0-video-index0"
+  fps: 60
   width: 1280
   height: 720
-  exposure: 200
+  exposure: 100.0
   gain: 10.0
   gamma: 100
-  trigger_mode: true
+  trigger_mode: false

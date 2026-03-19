@@ -175,13 +175,14 @@ namespace auto_buff {
                 prev_fly_time = iter_fly_time;
             }
 
-            // 预测最终位置，考虑系统延迟
             const double predict_time = prev_fly_time + aimer_config_->prediction_delay_param.get();
             target.predictWithFitter(predict_time);
             const auto cp = getControlPoint(target, bullet_speed);
-            RuneTarget target_prev, target_next = target;
-            // 离散控制点
-            const double dt = 0.01; // 10ms 前后差分
+            // RuneTarget target_prev, target_next = target;
+            RuneTarget target_prev = target;
+            RuneTarget target_next = target;
+
+            const double dt = 0.01;
             target_prev.predictWithFitter(-dt);
             auto cp_prev = getControlPoint(target_prev, bullet_speed);
 
@@ -201,10 +202,14 @@ namespace auto_buff {
             cmd.aim_target = aim_target;
             cmd.yaw = cp.yaw * 180.0 / M_PI;
             cmd.pitch = cp.pitch * 180.0 / M_PI;
-            cmd.v_yaw = yaw_speed * 180.0 / M_PI; // 转为度/秒
-            cmd.v_pitch = pitch_speed * 180.0 / M_PI;
-            cmd.a_yaw = yaw_acc * 180.0 / M_PI; // 转为度/秒²
-            cmd.a_pitch = pitch_acc * 180.0 / M_PI;
+            // cmd.v_yaw = yaw_speed * 180.0 / M_PI; // 转为度/秒
+            // cmd.v_pitch = pitch_speed * 180.0 / M_PI;
+            // cmd.a_yaw = yaw_acc * 180.0 / M_PI; // 转为度/秒²
+            // cmd.a_pitch = pitch_acc * 180.0 / M_PI;
+            cmd.v_yaw = 0.0; // 转为度/秒
+            cmd.v_pitch = 0.0;
+            cmd.a_yaw = 0.0; // 转为度/秒²
+            cmd.a_pitch = 0.0;
             const auto [enable_yaw, enable_pitch] = calEnableDiff(cp.aim_pos);
             cmd.fire_advice = true;
             cmd.enable_yaw_diff = enable_yaw;

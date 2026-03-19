@@ -8,9 +8,15 @@ namespace auto_sniper {
     class AutoSniper: public IModule {
     public:
         using Ptr = std::shared_ptr<AutoSniper>;
-        AutoSniper(rclcpp::Node& node);
-        static Ptr create(rclcpp::Node& node) {
-            return std::make_shared<AutoSniper>(node);
+        AutoSniper(
+            rclcpp::Node& node,
+            std::shared_ptr<wust_vl::common::utils::MotionBufferGeneric<Motion, 1024>> motion_buffer
+        );
+        static Ptr create(
+            rclcpp::Node& node,
+            std::shared_ptr<wust_vl::common::utils::MotionBufferGeneric<Motion, 1024>> motion_buffer
+        ) {
+            return std::make_shared<AutoSniper>(node, motion_buffer);
         }
         ~AutoSniper();
         void start() override;

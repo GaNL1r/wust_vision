@@ -52,7 +52,6 @@ namespace auto_buff {
     class RuneTarget {
     public:
         RuneTarget() = default;
-        RuneTarget& operator=(const RuneTarget&) = default;
         RuneTarget(
             const auto_buff::RuneFan& fan,
             RuneTargetConfig::Ptr target_config,

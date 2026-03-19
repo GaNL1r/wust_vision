@@ -1,14 +1,15 @@
 max_infer_running: 6
 detect_color: 0
-attack_mode: 0
+attack_mode: 1
 debug_fps: 60
 tf:
+  # R_camera2gimbal: [0.0, -0.2079117, 0.9781476,-1.0, 0.0, 0.0,0.0, -0.9781476, -0.2079117] #英雄
   R_camera2gimbal: [0.0, 0.0, 1.0, -1.0, -0.0, 0.0, 0.0, -1.0, 0.0]
   t_camera2gimbal:
-    [0.000434347168653831, 0.0141232476052895, 0.00736106400231024]
+    [0.000434347168653831, -0.10141232476052895, 0.00736106400231024]
 control:
   control_rate: 1000
-  communication_delay_us: 100.000
+  communication_delay_us: 1000.000
   device_name: /dev/ttyACM0
   use_serial: true
   yaw_ramp: 0.0  #send_cmd = cmd.pos+cmd.vel*ramp
@@ -22,8 +23,8 @@ logger:
   use_simplelog: true
 
 shoot:
-  bullet_speed: 26.0
-  rate: 3
+  bullet_speed: 12.0
+  rate: 2
 
 record:
   use_record: false

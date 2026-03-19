@@ -1,0 +1,7 @@
+armor_detect_backend: tensorrt
+
+cameras: [/home/hy/wust_vision/config/omni/camera1.yaml, /home/hy/wust_vision/config/omni/camera2.yaml]
+
+fps: 60
+max_infer_running: 3
+active_time: 1.0

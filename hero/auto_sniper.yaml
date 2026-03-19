@@ -1,0 +1,27 @@
+map:
+  voxel_size: 0.1
+  min_pos: [-5.0,-10.0,-1.0]
+  max_pos: [20.0,10.0,1.0]
+
+  
+solver:
+  k1: 0.0190
+  g: 9.81
+  target_armor_z: 0.5
+
+offset_helper:
+  order: 5
+  yaw_base_offset: 0.0
+  pitch_base_offset: 0.0
+  offset_table:
+  - distance: 2.0
+    yaw: 0.0
+    pitch: 0.0
+
+  - distance: 3.0
+    yaw: 0.0
+    pitch: 0.0
+
+  - distance: 4.0
+    yaw: 0.0
+    pitch: 0.0

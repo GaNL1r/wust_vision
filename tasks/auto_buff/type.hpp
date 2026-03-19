@@ -3,8 +3,8 @@
 
 namespace wust_vision {
 namespace auto_buff {
-    constexpr double RUNE_PAN_BOX_DIS = 0.15;
-    constexpr double RUNE_R2PANCENTER = 0.7;
+    constexpr double RUNE_PAN_BOX_DIS = 0.16;
+    constexpr double RUNE_R2PANCENTER = 0.75;
     struct RuneCenter {
         cv::Point2f center;
         cv::RotatedRect rr;

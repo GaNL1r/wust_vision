@@ -3,11 +3,11 @@ type: hik_camera
 camera_info_path: ${VISION_ROOT}/config/camera_info.yaml
 
 hik_camera:
-  target_sn: DA1094115
+  target_sn: DA3038891
   adc_bit_depth: Bits_8
   pixel_format: BayerRG8 #RGB8Packed
-  reverse_x: true
-  reverse_y: true
+  reverse_x: false
+  reverse_y: false
   width: 1440
   height: 1080
   offset_x: 0

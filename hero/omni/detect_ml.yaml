@@ -27,7 +27,7 @@ armor_detector:
   
   tensorrt:
     conf_threshold: 0.2
-    model_path: ${VISION_ROOT}/model/opt-1208-001.onnx
+    model_path: /home/hy/data/armor_box/runs/detect/runs/train/armor_box320n/weights/best.onnx
     device_id: 0
     nms_threshold: 0.3
     top_k: 128
@@ -35,15 +35,15 @@ armor_detector:
     min_free_mem_ratio: 0.1
     use_cuda_pre: false
     log_time: false
-    model_type: tup
+    model_type: box320
   openvino:
     conf_threshold: 0.2
     device_name: CPU
-    model_path: ${VISION_ROOT}/model/opt-1208-001.onnx
+    model_path: /home/hy/data/armor_box/yolo26_320_int8_ort.onnx
     nms_threshold: 0.3
     top_k: 128
-    use_throughputmode: false
-    model_type: tup
+    use_throughputmode: true
+    model_type: box320
   onnxruntime:
     conf_threshold: 0.2
     model_path: ${VISION_ROOT}/model/opt-1208-001.onnx

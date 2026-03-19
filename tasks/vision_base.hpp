@@ -366,13 +366,13 @@ public:
                         module->doDebug();
                     }
 
-                    utils::XSecOnce(
-                        [this]() {
-                            wust_vl::common::utils::ParameterManager::instance()
-                                .allReloadFromOldPath();
-                        },
-                        1.0
-                    );
+                    // utils::XSecOnce(
+                    //     [this]() {
+                    //         wust_vl::common::utils::ParameterManager::instance()
+                    //             .allReloadFromOldPath();
+                    //     },
+                    //     1.0
+                    // );
 
                 } catch (std::exception& e) {
                     std::cout << "debug thread error: " << e.what() << std::endl;
@@ -391,7 +391,8 @@ public:
         if (!this->run_flag_) {
             return;
         }
-        //detect_color_ = aim_data.detect_color;
+        detect_color_ = aim_data.detect_color;
+        bullet_speed_ = aim_data.bullet_speed;
         const double roll = -(aim_data.roll) * M_PI / 180.0;
         const double pitch = (aim_data.pitch) * M_PI / 180.0;
         const double yaw = (aim_data.yaw) * M_PI / 180.0;
@@ -399,7 +400,7 @@ public:
         const double v_pitch = aim_data.pitch_vel * M_PI / 180.0;
         const double v_yaw = aim_data.yaw_vel * M_PI / 180.0;
         vyaw_avg.add(v_yaw);
-        //updateBulletSpeed(aim_data.bullet_speed);
+
         const double v_x = 0.0;
         const double v_y = 0.0;
         const double v_z = 0.0;

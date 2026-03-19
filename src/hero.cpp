@@ -19,7 +19,7 @@ public:
         modules_.emplace(HeroMode::AttackMode::UNKNOWN, auto_aim);
         rclcpp::init(0, nullptr);
         ros2_ = std::make_shared<Ros2Node>("vison_node");
-        auto auto_sniper = auto_sniper::AutoSniper::create(*ros2_);
+        auto auto_sniper = auto_sniper::AutoSniper::create(*ros2_, motion_buffer_);
         modules_.emplace(HeroMode::AttackMode::SNIPER, auto_sniper);
         return true;
     }

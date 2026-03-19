@@ -1,4 +1,5 @@
 #include "rune_target.hpp"
+#include <iostream>
 namespace wust_vision {
 namespace auto_buff {
     RuneTarget::RuneTarget(
@@ -74,11 +75,11 @@ namespace auto_buff {
     RuneTarget::computeMeasurementCovariance(const Eigen::Matrix<double, MModel::Z_N, 1>& z) const {
         Eigen::Matrix<double, MModel::Z_N, MModel::Z_N> r;
         // clang-format off
-    r << target_config_->yp_r_param.get() , 0 , 0 ,  0 , 0,
-         0 , target_config_->yp_r_param.get() , 0 ,  0 , 0,
-         0 , 0 , target_config_->dis_r_param.get() , 0 , 0,
-         0 , 0 , 0 , target_config_->yaw_r_param.get() , 0,
-         0 , 0 , 0 , 0 , target_config_->roll_r_param.get();
+        r << target_config_->yp_r_param.get() , 0 , 0 ,  0 , 0,
+            0 , target_config_->yp_r_param.get() , 0 ,  0 , 0,
+            0 , 0 , target_config_->dis_r_param.get() , 0 , 0,
+            0 , 0 , 0 , target_config_->yaw_r_param.get() , 0,
+            0 , 0 , 0 , 0 , target_config_->roll_r_param.get();
         // clang-format on
         return r;
     }
@@ -150,8 +151,8 @@ namespace auto_buff {
         }
         if (!no_change && update_ids.size() > 1)
             last_id = update_ids[0];
-        if (update_ids.size() > 1)
-            is_big_ = true;
+        // if (update_ids.size() > 1)
+        //     is_big_ = true;
         double tostart =
             wust_vl::common::utils::time_utils::durationSec(start_time_, fans.timestamp);
         fitter_.update(tostart, v_roll());

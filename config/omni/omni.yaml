@@ -1,7 +1,8 @@
-armor_detect_backend: tensorrt
+armor_detect_backend: openvino
 
-cameras: [/home/hy/wust_vision/config/omni/camera1.yaml, /home/hy/wust_vision/config/omni/camera2.yaml]
+cameras: [/home/nuc/wust_vision/config/omni/camera0.yaml, /home/nuc/wust_vision/config/omni/camera1.yaml]
 
 fps: 60
 max_infer_running: 3
 active_time: 1.0
+min_score: 15.0

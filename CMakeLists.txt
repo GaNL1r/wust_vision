@@ -71,7 +71,7 @@ if(BUILD_WITH_ORT)
 endif()
 
 
-add_library(${PROJECT_NAME} STATIC ${SOURCES})
+add_library(${PROJECT_NAME} SHARED ${SOURCES})
 target_compile_definitions(${PROJECT_NAME} PUBLIC ${BUILD_DEFINITIONS})
 target_include_directories(${PROJECT_NAME} PUBLIC
     ${PROJECT_SOURCE_DIR}
@@ -135,16 +135,16 @@ if(ROS2_FULL_FOUND)
         endif()
     endforeach()
     include_directories(${ROS2_INCLUDES})
-    find_package(Open3D REQUIRED)
+    # find_package(Open3D REQUIRED)
 
-    target_link_libraries(${PROJECT_NAME} 
-        Open3D::Open3D 
-    )
+    # target_link_libraries(${PROJECT_NAME} 
+    #     Open3D::Open3D 
+    # )
     ament_target_dependencies(${PROJECT_NAME}  ${ROS2_PACKAGES})
     target_compile_definitions(${PROJECT_NAME}  PUBLIC ${BUILD_DEFINITIONS})
     macro(add_ros2_executable exe_name src_file)
         add_executable(${exe_name} ${src_file})
-        target_link_libraries(${exe_name} ${PROJECT_NAME} Open3D::Open3D )
+        target_link_libraries(${exe_name} ${PROJECT_NAME} )
     endmacro()
 
 

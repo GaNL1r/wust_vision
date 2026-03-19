@@ -218,20 +218,20 @@ namespace auto_buff {
                 self->heartbeat();
                 printStats();
                 auto_buff::RuneFan auto_buff;
-                bool skip;
-                if (rune_queue_->dequeue_wait(auto_buff, skip)) {
-                    runeTargetCallback(auto_buff);
-                    tracker_finish_count_++;
-                    if (skip) {
-                        WUST_DEBUG(logger_) << "OrderQueue skip";
-                    }
-                }
-                // if (rune_queue_->try_dequeue(auto_buff)) {
+                // bool skip;
+                // if (rune_queue_->dequeue_wait(auto_buff, skip)) {
                 //     runeTargetCallback(auto_buff);
                 //     tracker_finish_count_++;
-                // } else {
-                //     std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                //     if (skip) {
+                //         WUST_DEBUG(logger_) << "OrderQueue skip";
+                //     }
                 // }
+                if (rune_queue_->try_dequeue(auto_buff)) {
+                    runeTargetCallback(auto_buff);
+                    tracker_finish_count_++;
+                } else {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                }
             }
         }
         void doDebug() {

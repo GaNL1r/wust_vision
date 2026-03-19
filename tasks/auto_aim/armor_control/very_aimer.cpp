@@ -7,6 +7,7 @@
 #include "traj.hpp"
 #include "wust_vl/common/utils/manual_compensator.hpp"
 #include "wust_vl/common/utils/parameter.hpp"
+#include <wust_vl/common/utils/logger.hpp>
 namespace wust_vision::auto_aim {
 
 struct VeryAimer::Impl {
@@ -785,7 +786,7 @@ struct VeryAimer::Impl {
                 std::iota(all.begin(), all.end(), 0);
                 best_idx = pick_best_by_min_delta(all);
             }
-            if (aim_pair&&target.tracked_id_ != ArmorNumber::OUTPOST) {
+            if (aim_pair && target.tracked_id_ != ArmorNumber::OUTPOST) {
                 std::vector<int> all;
                 if (target.target_state_.h() > 0) {
                     all.push_back(1);
@@ -794,7 +795,7 @@ struct VeryAimer::Impl {
                     all.push_back(0);
                     all.push_back(2);
                 }
-
+                all.push_back(0);
                 best_idx = pick_best_by_min_delta(all);
             }
 
@@ -813,11 +814,18 @@ struct VeryAimer::Impl {
                 aim_target_pos.x() * aim_target_pos.x() + aim_target_pos.y() * aim_target_pos.y()
             )
         );
-        try {
-            trajectory_compensator_config_->trajectory_compensator
-                ->compensate(aim_target_pos, raw_pitch, bullet_speed);
-        } catch (std::exception& e) {
-            std::cout << "compensate error: " << e.what() << std::endl;
+        // try {
+        //     trajectory_compensator_config_->trajectory_compensator
+        //         ->compensate(aim_target_pos, raw_pitch, bullet_speed);
+        // } catch (std::exception& e) {
+        //     std::cout << "compensate error: " << e.what() << std::endl;
+        // }
+        if (!trajectory_compensator_config_->trajectory_compensator
+                 ->compensate(aim_target_pos, raw_pitch, bullet_speed))
+        {
+            WUST_ERROR("very_aimer") << " traj compense error";
+
+            break_this_ = true;
         }
 
         double control_pitch = raw_pitch;
@@ -831,6 +839,7 @@ struct VeryAimer::Impl {
         cp.yaw = control_yaw;
         cp.xyza.head<3>() = aim_target_pos;
         cp.xyza[3] = diff_yaw;
+
         return cp;
     }
     std::tuple<double, double>
@@ -842,6 +851,7 @@ struct VeryAimer::Impl {
         double shooting_range_pitch =
             std::abs(atan2(config_->shooting_range_h_param.get() / 2, distance));
         double yaw_factor = 0.0;
+
         const double yaw_rad = diff_yaw;
         if (auto_aim_fsm != AutoAimFsm::AIM_SINGLE_ARMOR) {
             if (std::abs(yaw_rad) <= config_->yaw_limit_deg_param.get() / 180.0 * M_PI) {
@@ -908,20 +918,29 @@ struct VeryAimer::Impl {
             enable_pitch_diff(ep) {}
     };
     inline FireResult canFireAtTime(const VeryAimerTrajBase::Ptr& traj, double t) const noexcept {
-        const auto target_delay = traj->getTargetState(t + config_->control_delay_param.get());
-        const auto control_delay = traj->getControlState(t + config_->control_delay_param.get());
+        auto cal_delay = [&](double _t) {
+            const auto target_delay = traj->getTargetState(_t + config_->control_delay_param.get());
+            const auto control_delay =
+                traj->getControlState(_t + config_->control_delay_param.get());
 
-        if (std::hypot(
-                angles::normalize_angle(target_delay.yaw_state.p + traj->cp0.yaw)
-                    - angles::normalize_angle(control_delay.yaw_state.p + traj->cp0.yaw),
-                angles::normalize_angle(target_delay.pitch_state.p)
-                    - angles::normalize_angle(control_delay.pitch_state.p)
-            )
-            >= config_->delay_enable_fire_error_param.get())
-        {
+            if (std::hypot(
+                    angles::normalize_angle(target_delay.yaw_state.p + traj->cp0.yaw)
+                        - angles::normalize_angle(control_delay.yaw_state.p + traj->cp0.yaw),
+                    angles::normalize_angle(target_delay.pitch_state.p)
+                        - angles::normalize_angle(control_delay.pitch_state.p)
+                )
+                >= config_->delay_enable_fire_error_param.get())
+            {
+                return false;
+            }
+            return true;
+        };
+        if (!cal_delay(t)) {
             return { false, 0, 0 };
         }
-
+        if (!cal_delay(-t)) {
+            return { false, 0, 0 };
+        }
         const auto target = traj->getTargetState(t);
         const auto control = traj->getControlState(t);
         const auto aim = traj->aim_traj.getStateAtTime(t);
@@ -1152,8 +1171,11 @@ struct VeryAimer::Impl {
 
             const auto iter_poss = iteration_target[iter].getArmorPositions();
 
-            const double iter_fly_time = trajectory_compensator_config_->trajectory_compensator
-                                             ->getFlyingTime(iter_poss[iter_select], bullet_speed);
+            const double iter_fly_time =
+                trajectory_compensator_config_->trajectory_compensator->getFlyingTime(
+                    iter_poss[roughly_select],
+                    bullet_speed
+                );
 
             if (std::abs(iter_fly_time - prev_fly_time) < 1e-3)
                 break;
@@ -1199,15 +1221,6 @@ struct VeryAimer::Impl {
         }
 
         cmd.aim_target = build->aim_target;
-        // int best_id = 0;
-        // double min_diff = 1e9;
-        // for (int i = 0; i < build->aim_traj.cp_vec.size(); i++) {
-        //     if (build->aim_traj.cp_vec[i].d_angle < min_diff) {
-        //         min_diff = build->aim_traj.cp_vec[i].d_angle;
-        //         best_id = i;
-        //     }
-        // }
-        // double wait_t = build->aim_traj.getPrefixTimeAtIdx(best_id);
 
         double target_yaw = build->cp0.yaw;
         double target_pitch = build->cp0.pitch;
@@ -1278,6 +1291,9 @@ struct VeryAimer::Impl {
         cmd.fire_advice = fire.fire;
 
         cmd.appera = cmd.isValid();
+        if (break_this_) {
+            cmd.appera = false;
+        }
         if (!cmd.appera) {
             reset();
             WUST_WARN("very_aimer") << "nan!";
@@ -1308,6 +1324,7 @@ struct VeryAimer::Impl {
     }
 
     GimbalCmd veryAim(Target target, double bullet_speed, const AutoAimFsm& auto_aim_fsm) {
+        break_this_ = false;
         if (type_ == Type::Mpc) {
             return veryAimMpc(target, bullet_speed, auto_aim_fsm);
         } else if (type_ == Type::Seg) {
@@ -1319,6 +1336,7 @@ struct VeryAimer::Impl {
     TrajectoryCompensatorConfig::Ptr trajectory_compensator_config_;
     wust_vl::common::utils::Parameter::Ptr auto_aim_config_parameter_;
     VeryAimerConfig::Ptr config_;
+    mutable bool break_this_ = false;
 };
 VeryAimer::VeryAimer(wust_vl::common::utils::Parameter::Ptr auto_aim_config_parameter) {
     _impl = std::make_unique<Impl>(auto_aim_config_parameter);

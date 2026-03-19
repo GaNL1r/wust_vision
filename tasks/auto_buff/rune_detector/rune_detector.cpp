@@ -1,5 +1,6 @@
 #include "rune_detector.hpp"
 #include "tasks/utils/utils.hpp"
+#include <opencv2/highgui.hpp>
 namespace wust_vision {
 namespace auto_buff {
     struct RuneDetectorCV::Impl {
@@ -11,10 +12,24 @@ namespace auto_buff {
         void setCallback(DetectorCallback callback) {
             callback_ = callback;
         }
-        cv::Mat preProcess(const cv::Mat& src, bool use_red) {
+        cv::Mat preProcess(const cv::Mat& src, bool use_red = false) {
+            // cv::Mat bin;
+            // cv::cvtColor(src, bin, cv::COLOR_RGB2GRAY);
+            // cv::threshold(bin, bin, params_.bin_threshold, 255, cv::THRESH_BINARY);
+            std::vector<cv::Mat> channels;
+            cv::split(src, channels); // BGR
+
+            cv::Mat diff;
+            if (use_red) {
+                cv::subtract(channels[2], channels[0], diff); // R - B
+            } else {
+                cv::subtract(channels[0], channels[2], diff); // B - R
+            }
+
             cv::Mat bin;
-            cv::cvtColor(src, bin, cv::COLOR_RGB2GRAY);
-            cv::threshold(bin, bin, params_.bin_threshold, 255, cv::THRESH_BINARY);
+            cv::threshold(diff, bin, params_.bin_threshold, 255, cv::THRESH_BINARY);
+            // cv::imshow("bin", bin);
+            // cv::waitKey(1);
             return bin;
         }
         inline auto_buff::RuneCenter getRuneCenter(

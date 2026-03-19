@@ -1,0 +1,83 @@
+backend: opencv
+
+max_infer_running: 6
+
+detector:
+  openvino: 
+    model_path: /home/hy/2026_dart_guide/assets/Katrin.xml
+    top_k: 128
+    conf_threshold: 0.2
+    nms_threshold: 0.5
+    device_type: CPU
+    use_throughputmode: false
+  opencv:
+    gui: true
+    HSV:
+      lowH: 25
+      highH: 85
+      lowS: 50
+      highS: 255
+      lowV: 150
+      highV: 255
+    contours:
+      min_area: 100
+      max_area: 50000
+      min_aspect_ratio: 0.5
+      min_fill_ratio: 0.7
+
+tracker:
+  lost_time_thres: 2.0
+  tracking_thres: 10
+  target:
+    xy_r: 0.05
+    wh_r: 0.05
+    q_xy: 100
+    q_wh: 100
+    iter_num: 2
+    max_dis_diff: 2.0
+
+
+logger:
+  log_level: INFO
+  log_path: /home/hy/wust_log
+  use_logcli: true
+  use_logfile: true
+  use_simplelog: true
+
+control:
+  control_rate: 100
+  communication_delay_us: 1100
+  pitch_avg_windows: 1
+  device_name: /dev/ttyACM_RMc
+  use_serial: true
+
+
+
+camera:
+  type: hik_camera
+  camera_info_path: ${VISION_ROOT}/config/camera_info.yaml
+
+  hik_camera:
+    target_sn: DA1094119 #DA3038891
+    acquisition_frame_rate: 80
+    adc_bit_depth: Bits_12
+    exposure_time: 5000
+    gain: 16.9
+    gamma: 0.5 #Bayer用不了
+    pixel_format: BayerRG8
+    use_raw: false
+    acquisition_frame_rate_enable: false
+    reverse_x: false
+    reverse_y: false
+    
+  video_player:
+    fps: 12
+    loop: true
+    use_cvt: true
+    #path: /home/hy/wust_data/video/aaa.mp4
+    #path: /home/hy/wust_data/video/jiao.avi
+    #path: /home/hy/Z_LION_AutoAim2025/src/auto_aim_publisher/videos/sample.avi
+    #path: /home/hy/wust_data/record/20251111_134416_187.avi
+    path: /home/hy/下载/sp_vision_25/records/1.avi
+    #path: /home/hy/wust_data/video/Sentry.mp4
+    start_frame: 0
