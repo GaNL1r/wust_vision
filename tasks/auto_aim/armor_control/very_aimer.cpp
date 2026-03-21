@@ -795,7 +795,6 @@ struct VeryAimer::Impl {
                     all.push_back(0);
                     all.push_back(2);
                 }
-                all.push_back(0);
                 best_idx = pick_best_by_min_delta(all);
             }
 
