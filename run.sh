@@ -4,7 +4,6 @@ WORK_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 BUILD_DIR="$WORK_DIR/build"
 CONFIG_DIR="$WORK_DIR/config"
 BIN_DIR="$WORK_DIR/bin"
-
 source "$WORK_DIR/env.bash"
 export VISION_ROOT="$WORK_DIR"
 export MVCAM_SDK_PATH=/opt/MVS
@@ -35,6 +34,7 @@ if [ "$EUID" -eq 0 ]; then
         echo -e "${yellow}Loaded bashrc from copy${reset}"
     else
         echo -e "${red}Original ~/.bashrc not found: $USER_HOME/.bashrc${reset}"
+        source "$COPY_BASHRC"
     fi
 else
     # 普通用户直接加载原 bashrc

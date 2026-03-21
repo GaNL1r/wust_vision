@@ -8,7 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK_DIR="$(dirname "$SCRIPT_DIR")"
 
 ACTION=$1 
-echo "正在操作： standard"
+echo "正在操作： sentry"
 echo "📂  脚本路径: $SCRIPT_DIR"
 echo "🏗  工作区路径: $WORK_DIR"
 echo "🧾  目标 Service 文件: $SERVICE_FILE"
@@ -55,7 +55,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=${WORK_DIR}
-ExecStart=${WORK_DIR}/run.sh run standard false
+ExecStart=${WORK_DIR}/run.sh run sentry false
 Restart=always
 RestartSec=5
 StandardOutput=journal

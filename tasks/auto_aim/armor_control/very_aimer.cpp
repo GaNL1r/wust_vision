@@ -814,18 +814,13 @@ struct VeryAimer::Impl {
                 aim_target_pos.x() * aim_target_pos.x() + aim_target_pos.y() * aim_target_pos.y()
             )
         );
-        // try {
-        //     trajectory_compensator_config_->trajectory_compensator
-        //         ->compensate(aim_target_pos, raw_pitch, bullet_speed);
-        // } catch (std::exception& e) {
-        //     std::cout << "compensate error: " << e.what() << std::endl;
-        // }
         if (!trajectory_compensator_config_->trajectory_compensator
                  ->compensate(aim_target_pos, raw_pitch, bullet_speed))
         {
             WUST_ERROR("very_aimer") << " traj compense error";
 
             break_this_ = true;
+            return cp;
         }
 
         double control_pitch = raw_pitch;
@@ -1293,10 +1288,6 @@ struct VeryAimer::Impl {
         cmd.appera = cmd.isValid();
         if (break_this_) {
             cmd.appera = false;
-        }
-        if (!cmd.appera) {
-            reset();
-            WUST_WARN("very_aimer") << "nan!";
         }
 
         return cmd;

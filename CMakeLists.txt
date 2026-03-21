@@ -149,8 +149,6 @@ if(ROS2_FULL_FOUND)
 
 
     add_ros2_executable(sentry src/sentry.cpp)
-    add_ros2_executable(hero src/hero.cpp)
-    # add_ros2_executable(sim src/sim.cpp)
     add_ros2_executable(nav test/nav.cpp)
 else()
     message(WARNING "ROS2 dependencies incomplete, skipping ROS2 targets ...")

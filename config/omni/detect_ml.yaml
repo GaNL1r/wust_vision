@@ -33,16 +33,16 @@ armor_detector:
     top_k: 128
     max_infer_running: 3
     min_free_mem_ratio: 0.1
-    use_cuda_pre: false
+    use_cuda_pre: true
     log_time: false
     model_type: tup
   openvino:
     conf_threshold: 0.2
-    device_name: CPU
+    device_name: GPU
     model_path: ${VISION_ROOT}/model/opt-1208-001.onnx
     nms_threshold: 0.3
     top_k: 128
-    use_throughputmode: false
+    use_throughputmode: true
     model_type: tup
   onnxruntime:
     conf_threshold: 0.2
