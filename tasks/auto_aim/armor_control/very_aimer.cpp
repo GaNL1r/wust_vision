@@ -738,8 +738,9 @@ struct VeryAimer::Impl {
 
         if (aim_first && target.tracked_id_ != ArmorNumber::OUTPOST && armor_num > 0) {
             std::vector<int> candidates;
-            for (int i = 0; i < armor_num; ++i)
-                if (std::abs(delta_angles[i]) <= 90.0 / 57.3)
+            constexpr double in_first = 60.0 / 57.3;
+            for (int i = 0; i < armor_num; ++i) 
+                if (std::abs(delta_angles[i]) <= in_first)
                     candidates.push_back(i);
 
             if (!candidates.empty()) {
