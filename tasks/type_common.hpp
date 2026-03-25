@@ -56,7 +56,7 @@ public:
     }
 };
 
-struct Motion {
+struct CarMotion {
     double yaw, pitch, roll; // 欧拉角 (rad)
     double vyaw, vpitch, vroll; // 角速度
     double vx, vy, vz; // 线速度
@@ -83,8 +83,33 @@ struct Motion {
         return a + diff * t;
     }
 };
+struct BigYaw {
+    double big_yaw;
+    static double unwrap_angle(double prev, double curr) noexcept {
+        double d = curr - prev;
+        while (d > M_PI) {
+            curr -= 2.0 * M_PI;
+            d -= 2.0 * M_PI;
+        }
+        while (d < -M_PI) {
+            curr += 2.0 * M_PI;
+            d += 2.0 * M_PI;
+        }
+        return curr;
+    }
+
+    // 角度插值（wrap-safe）
+    static double interp_angle(double a, double b, double t) noexcept {
+        double diff = b - a;
+        while (diff > M_PI)
+            diff -= 2.0 * M_PI;
+        while (diff < -M_PI)
+            diff += 2.0 * M_PI;
+        return a + diff * t;
+    }
+};
 struct VisionCtx {
-    std::shared_ptr<wust_vl::common::utils::MotionBufferGeneric<Motion, 1024>> motion_buffer;
+    std::shared_ptr<wust_vl::common::utils::MotionBufferGeneric<CarMotion, 1024>> motion_buffer;
     std::shared_ptr<wust_vl::video::Camera> camera;
     double communication_delay_μs;
     int mode;
@@ -311,21 +336,24 @@ struct TrajectoryCompensatorConfig: public wust_vl::common::utils::ParamGroup {
 };
 } // namespace wust_vision
 template<>
-struct wust_vl::common::utils::MotionTraits<wust_vision::Motion> {
-    static void unwrap(const wust_vision::Motion& prev, wust_vision::Motion& curr) noexcept {
-        curr.yaw = wust_vision::Motion::unwrap_angle(prev.yaw, curr.yaw);
-        curr.pitch = wust_vision::Motion::unwrap_angle(prev.pitch, curr.pitch);
-        curr.roll = wust_vision::Motion::unwrap_angle(prev.roll, curr.roll);
+struct wust_vl::common::utils::MotionTraits<wust_vision::CarMotion> {
+    static void unwrap(const wust_vision::CarMotion& prev, wust_vision::CarMotion& curr) noexcept {
+        curr.yaw = wust_vision::CarMotion::unwrap_angle(prev.yaw, curr.yaw);
+        curr.pitch = wust_vision::CarMotion::unwrap_angle(prev.pitch, curr.pitch);
+        curr.roll = wust_vision::CarMotion::unwrap_angle(prev.roll, curr.roll);
         // 速度部分不需要 unwrap
     }
 
-    static wust_vision::Motion
-    interpolate(const wust_vision::Motion& a, const wust_vision::Motion& b, double t) noexcept {
-        wust_vision::Motion out;
+    static wust_vision::CarMotion interpolate(
+        const wust_vision::CarMotion& a,
+        const wust_vision::CarMotion& b,
+        double t
+    ) noexcept {
+        wust_vision::CarMotion out;
         // 欧拉角 wrap-safe 插值
-        out.yaw = wust_vision::Motion::interp_angle(a.yaw, b.yaw, t);
-        out.pitch = wust_vision::Motion::interp_angle(a.pitch, b.pitch, t);
-        out.roll = wust_vision::Motion::interp_angle(a.roll, b.roll, t);
+        out.yaw = wust_vision::CarMotion::interp_angle(a.yaw, b.yaw, t);
+        out.pitch = wust_vision::CarMotion::interp_angle(a.pitch, b.pitch, t);
+        out.roll = wust_vision::CarMotion::interp_angle(a.roll, b.roll, t);
 
         // 角速度和线速度线性插值
         out.vyaw = a.vyaw + (b.vyaw - a.vyaw) * t;
@@ -334,6 +362,19 @@ struct wust_vl::common::utils::MotionTraits<wust_vision::Motion> {
         out.vx = a.vx + (b.vx - a.vx) * t;
         out.vy = a.vy + (b.vy - a.vy) * t;
         out.vz = a.vz + (b.vz - a.vz) * t;
+        return out;
+    }
+};
+template<>
+struct wust_vl::common::utils::MotionTraits<wust_vision::BigYaw> {
+    static void unwrap(const wust_vision::BigYaw& prev, wust_vision::BigYaw& curr) noexcept {
+        curr.big_yaw = wust_vision::BigYaw::unwrap_angle(prev.big_yaw, curr.big_yaw);
+    }
+
+    static wust_vision::BigYaw
+    interpolate(const wust_vision::BigYaw& a, const wust_vision::BigYaw& b, double t) noexcept {
+        wust_vision::BigYaw out;
+        out.big_yaw = wust_vision::BigYaw::interp_angle(a.big_yaw, b.big_yaw, t);
         return out;
     }
 };

@@ -212,7 +212,7 @@ namespace auto_aim {
             }
             AimTarget aim_target;
             const bool appear = target.checkTargetAppear();
-            if (appear && target.target_state_.pos().norm() > 0.5) {
+            if (appear && target.target_state_.pos().norm() > 0.1) {
                 try {
                     gimbal_cmd =
                         very_aimer_->veryAim(target, bullet_speed, auto_aim_fsm_cl_.fsm_state_);
@@ -393,6 +393,12 @@ namespace auto_aim {
     }
     void AutoAim::doDebug() {
         _impl->doDebug();
+    }
+    wust_vl::common::utils::Parameter::Ptr AutoAim::getParameter() {
+        return _impl->auto_aim_config_parameter_;
+    }
+    VeryAimer::Ptr AutoAim::getVeryAimer() {
+        return _impl->very_aimer_;
     }
 } // namespace auto_aim
 } // namespace wust_vision

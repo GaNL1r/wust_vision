@@ -6,6 +6,7 @@
 #include "sentry_interfaces/msg/mode.hpp"
 #include "sentry_interfaces/msg/robo_state.hpp"
 #include "sentry_interfaces/msg/target.hpp"
+#include "tasks/auto_aim/armor_control/very_aimer.hpp"
 #include "tasks/auto_aim/armor_omni/armor_omni.hpp"
 #include "tasks/auto_aim/auto_aim.hpp"
 #include "tasks/packet_typedef.hpp"
@@ -14,6 +15,8 @@
 #include "tasks/utils/main_base.hpp"
 #include "tasks/vision_base.hpp"
 #include "visualization_msgs/msg/marker.hpp"
+#include <cmath>
+#include <memory>
 #include <wust_vl/common/utils/timer.hpp>
 #include <yaml-cpp/node/parse.h>
 ENABLE_BACKWARD()
@@ -36,11 +39,20 @@ public:
             auto_buff::AutoBuff::create(auto_buff_config_, tf_config_, camera_info_, debug_mode);
         modules_.emplace(InfantryMode::AttackMode::BIG_RUNE, auto_buff);
         modules_.emplace(InfantryMode::AttackMode::SMALL_RUNE, auto_buff);
+
         serial_->set_receive_callback(
             std::bind(&vision::serialCallback, this, std::placeholders::_1, std::placeholders::_2)
         );
         timer_B_ = std::make_unique<wust_vl::common::utils::Timer>("10hz");
-        armor_omni_ = auto_aim::ArmorOmni::create(detect_color_);
+        big_yaw_motion_buffer_ =
+            std::make_shared<wust_vl::common::utils::MotionBufferGeneric<BigYaw, 1024>>();
+        // auto very_aimer_copy = std::make_shared<auto_aim::VeryAimer>(*auto_aim->getVeryAimer());
+        auto_aim::ArmorOmni::Ctx omni_ctx = {
+            .car_motion_buffer = motion_buffer_,
+            .big_yaw_motion_buffer = big_yaw_motion_buffer_,
+            .very_aimer = auto_aim->getVeryAimer(),
+        };
+        armor_omni_ = auto_aim::ArmorOmni::create(detect_color_, omni_ctx);
         rclcpp::init(0, nullptr);
         ros2_ = std::make_shared<Ros2Node>("vison_node");
         ros2_->add_subscription<geometry_msgs::msg::Twist>(
@@ -60,6 +72,12 @@ public:
 
     void start() {
         VisionBase::start();
+        if (timer_) {
+            const auto timercallback =
+                std::bind(&vision::timerCallback, this, std::placeholders::_1);
+            const double rate_hz = control_config_->control_rate_param.get();
+            timer_->start(rate_hz, timercallback);
+        }
         if (timer_B_) {
             const auto timercallback =
                 std::bind(&vision::timerBCallback, this, std::placeholders::_1);
@@ -68,6 +86,60 @@ public:
         }
         armor_omni_->start();
         ros2_->start();
+    }
+    void timerCallback(double dt_ms) {
+        if (!run_flag_) {
+            return;
+        }
+
+        GimbalCmd cmd;
+        try {
+            InfantryMode::AttackMode mode = InfantryMode::toAttackMode(attack_mode_);
+            auto module = modules_.at(mode);
+            if (!module) {
+                return;
+            }
+            cmd = module->solve(bullet_speed_);
+        } catch (const std::exception& e) {
+            std::cout << "solve error: " << e.what() << std::endl;
+        }
+        if (!cmd.isValid()) {
+            return;
+        }
+        if (!cmd.appera && armor_omni_) {
+            cmd = armor_omni_->solve(bullet_speed_);
+        }
+        last_cmd_ = cmd;
+
+        double cmd_pitch = cmd.pitch;
+        double cmd_yaw = cmd.yaw;
+        SendRobotCmdData send_data;
+        send_data.cmd_ID = ID_ROBOT_CMD;
+        send_data.time_stamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::steady_clock::now().time_since_epoch()
+        )
+                                   .count();
+        if (cmd.distance > 0.5) {
+            send_data.appear = cmd.appera;
+        } else {
+            send_data.appear = false;
+        }
+
+        send_data.detect_color = detect_color_;
+        send_data.pitch = cmd_pitch + cmd.v_pitch * control_config_->pitch_ramp_param.get();
+        send_data.yaw = cmd_yaw + cmd.v_yaw * control_config_->yaw_ramp_param.get();
+        send_data.v_pitch = cmd.v_pitch;
+        send_data.v_yaw = cmd.v_yaw;
+        send_data.a_pitch = cmd.a_pitch;
+        send_data.a_yaw = cmd.a_yaw;
+        send_data.target_yaw = cmd.target_yaw;
+        send_data.target_pitch = cmd.target_pitch;
+        send_data.enable_pitch_diff = cmd.enable_pitch_diff;
+        send_data.enable_yaw_diff = cmd.enable_yaw_diff;
+        send_data.shoot_rate = shoot_config_->rate_param.get();
+        if (serial_) {
+            serial_->write(std::move(wust_vl::common::drivers::toVector(send_data)));
+        }
     }
     void timerBCallback(double dt_ms) {
         InfantryMode::AttackMode mode = InfantryMode::toAttackMode(attack_mode_);
@@ -106,27 +178,22 @@ public:
             }
 
         } while (0);
-        if (armor_omni_) {
-            NavRobotCmdData send_data;
-            send_data.cmd_ID = ID_NAV_CMD;
-            send_data.packet_type = ID_OMNI_CONTROL;
-            send_data.time_stamp = static_cast<uint32_t>(
-                std::chrono::duration_cast<std::chrono::milliseconds>(
-                    wust_vl::common::utils::time_utils::now().time_since_epoch()
-                )
-                    .count()
-            );
-            send_data.omni_camera_detect_id = armor_omni_->getBestTarget();
-            if (serial_) {
-                serial_->write(std::move(wust_vl::common::drivers::toVector(send_data)));
-            }
-        }
+        // if (armor_omni_) {
+        //     NavRobotCmdData send_data;
+        //     send_data.cmd_ID = ID_NAV_CMD;
+        //     send_data.packet_type = ID_OMNI_CONTROL;
+        //     send_data.time_stamp = static_cast<uint32_t>(
+        //         std::chrono::duration_cast<std::chrono::milliseconds>(
+        //             wust_vl::common::utils::time_utils::now().time_since_epoch()
+        //         )
+        //             .count()
+        //     );
+        //     send_data.omni_camera_detect_id = armor_omni_->getBestTarget();
+        //     if (serial_) {
+        //         serial_->write(std::move(wust_vl::common::drivers::toVector(send_data)));
+        //     }
+        // }
     }
-
-    void handleAim(const ReceiveAimINFO& aim_data) {
-        VisionBase::processAimData(aim_data);
-    }
-    void handleReferee(const ReceiveReferee& ref) {}
 
     void serialCallback(const uint8_t* data, std::size_t len) {
         if (len < 1)
@@ -168,6 +235,16 @@ public:
         }
     }
     void processRefereeData(const ReceiveReferee& ref) {
+        if (debug_mode_) {
+            updateSerialLog(ref);
+            flushSerialLog();
+        }
+        const auto now = std::chrono::steady_clock::now();
+        double big_yaw_rad = ref.big_yaw_in_world / 180.0 * M_PI;
+        if (big_yaw_motion_buffer_) {
+            BigYaw big_yaw { .big_yaw = big_yaw_rad };
+            big_yaw_motion_buffer_->push(big_yaw, now);
+        }
         sentry_interfaces::msg::RoboState robo_state;
         robo_state.game_time = ref.game_time;
         robo_state.cur_hp = ref.cur_health;
@@ -232,6 +309,8 @@ public:
     std::unique_ptr<wust_vl::common::utils::Timer> timer_B_;
     auto_aim::ArmorOmni::Ptr armor_omni_;
     std::chrono::steady_clock::time_point last_cmd_time_;
+    std::shared_ptr<wust_vl::common::utils::MotionBufferGeneric<BigYaw, 1024>>
+        big_yaw_motion_buffer_;
     bool use_sim_ = false;
 };
 } // namespace wust_vision

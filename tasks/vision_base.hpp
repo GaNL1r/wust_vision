@@ -143,7 +143,7 @@ public:
                 max_infer_running_config_->max_infer_running
             );
             motion_buffer_ =
-                std::make_shared<wust_vl::common::utils::MotionBufferGeneric<Motion, 1024>>();
+                std::make_shared<wust_vl::common::utils::MotionBufferGeneric<CarMotion, 1024>>();
 
             timer_ = std::make_unique<wust_vl::common::utils::Timer>("solve");
 
@@ -407,11 +407,12 @@ public:
 
         const auto now = std::chrono::steady_clock::now();
         if (motion_buffer_) {
-            Motion motion { yaw, pitch, roll, 0.0, v_pitch, v_roll, v_x, v_y, v_z };
+            CarMotion motion { yaw, pitch, roll, 0.0, v_pitch, v_roll, v_x, v_y, v_z };
             motion_buffer_->push(motion, now);
         }
         if (debug_mode_) {
-            writeSerialLogToJson(aim_data);
+            updateSerialLog(aim_data);
+            flushSerialLog();
         }
 
         static auto last_push_time = std::chrono::steady_clock::now();
@@ -603,7 +604,7 @@ public:
     std::shared_ptr<wust_vl::video::Camera> camera_;
     std::shared_ptr<wust_vl::common::drivers::SerialDriver> serial_;
     std::unique_ptr<wust_vl::common::utils::Timer> timer_;
-    std::shared_ptr<wust_vl::common::utils::MotionBufferGeneric<Motion, 1024>> motion_buffer_;
+    std::shared_ptr<wust_vl::common::utils::MotionBufferGeneric<CarMotion, 1024>> motion_buffer_;
     std::shared_ptr<wust_vl::common::utils::Recorder<Eigen::Vector3d>> rotate_writer_;
     RotateReaderCSV::RotateReaderCSVPtr rotate_reader_;
     std::shared_ptr<wust_vl::common::utils::Recorder<cv::Mat>> img_writer_;

@@ -1,5 +1,4 @@
-id: 1
-
+yaw_in_big_yaw_deg: 90.0
 type: uvc
 
 camera_info_path: ${VISION_ROOT}/config/camera_info.yaml

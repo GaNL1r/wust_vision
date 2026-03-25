@@ -1,8 +1,37 @@
 armor_detect_backend: openvino
 
-cameras: [/home/nuc/wust_vision/config/omni/camera0.yaml, /home/nuc/wust_vision/config/omni/camera1.yaml]
+cameras: ["${VISION_ROOT}/config/omni/camera0.yaml", "${VISION_ROOT}/config/omni/camera1.yaml"]
 
 fps: 60
 max_infer_running: 3
 active_time: 1.0
 min_score: 15.0
+
+armor_where:
+  yaw_opt:
+    mode: golden
+    golden_search_side_deg: 60
+  distance_fix_a2: 0.0
+
+armor_tracker:
+  lost_time_thres: 1.0
+  tracking_thres: 5
+  max_yaw_diff_deg: 90.0
+  max_dis_diff: 3.0
+  match_gate: 50
+  qxyz_common: [1.0, 1.0, 1.0]
+  qyaw_common: 1.0
+  qxyz_output: [1.0, 1.0, 0.5]
+  qyaw_output: 0.01
+  q_r: 0.0000001
+  q_l: 0.0000001
+  q_h: 0.0000001
+  q_outpost_dz: 0.5
+  yp_r: 2e-3
+  dis_r_front: 0.5
+  dis_r_side: 2.5
+  dis2_r_ratio: 0.1
+  yaw_r_base_front: 0.2
+  yaw_r_base_side: 0.06
+  yaw_r_log_ratio: 0.02
+  esekf_iter_num: 1

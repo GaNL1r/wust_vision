@@ -9,7 +9,7 @@ tf:
 control:
   control_rate: 1000
   communication_delay_us: 100.000
-  device_name: /dev/ttyACM0
+  device_name: /dev/stm32_acm
   use_serial: true
   yaw_ramp: 0.0  #send_cmd = cmd.pos+cmd.vel*ramp
   pitch_ramp: 0.0

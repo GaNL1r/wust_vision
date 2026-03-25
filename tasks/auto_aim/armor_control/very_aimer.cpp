@@ -3,6 +3,7 @@
 #include "tasks/auto_aim/armor_control/tinympc/types.hpp"
 #include "tasks/auto_aim/armor_tracker/target.hpp"
 #include "tasks/auto_aim/auto_aim_fsm.hpp"
+#include "tasks/auto_aim/type.hpp"
 #include "tasks/type_common.hpp"
 #include "traj.hpp"
 #include "wust_vl/common/utils/manual_compensator.hpp"
@@ -501,7 +502,8 @@ struct VeryAimer::Impl {
         GEN_PARAM(double, leaving_angle);
         GEN_PARAM(double, yaw_limit_deg);
         GEN_PARAM(double, shooting_range_h);
-        GEN_PARAM(double, shooting_range_w);
+        GEN_PARAM(double, shooting_range_w_small);
+        GEN_PARAM(double, shooting_range_w_big);
         GEN_PARAM(double, min_enable_pitch_deg);
         GEN_PARAM(double, min_enable_yaw_deg);
         GEN_PARAM(bool, fuck_test);
@@ -550,7 +552,8 @@ struct VeryAimer::Impl {
             } else {
             }
             shooting_range_h_param.load(node);
-            shooting_range_w_param.load(node);
+            shooting_range_w_small_param.load(node);
+            shooting_range_w_big_param.load(node);
             yaw_limit_deg_param.load(node);
             min_enable_pitch_deg_param.load(node);
             min_enable_yaw_deg_param.load(node);
@@ -739,7 +742,7 @@ struct VeryAimer::Impl {
         if (aim_first && target.tracked_id_ != ArmorNumber::OUTPOST && armor_num > 0) {
             std::vector<int> candidates;
             constexpr double in_first = 60.0 / 57.3;
-            for (int i = 0; i < armor_num; ++i) 
+            for (int i = 0; i < armor_num; ++i)
                 if (std::abs(delta_angles[i]) <= in_first)
                     candidates.push_back(i);
 
@@ -837,12 +840,21 @@ struct VeryAimer::Impl {
 
         return cp;
     }
-    std::tuple<double, double>
-    calEnableDiff(Eigen::Vector3d aim_target_pos, double diff_yaw, const AutoAimFsm& auto_aim_fsm)
-        const noexcept {
+    std::tuple<double, double> calEnableDiff(
+        Eigen::Vector3d aim_target_pos,
+        double diff_yaw,
+        const AutoAimFsm& auto_aim_fsm,
+        bool is_big
+    ) const noexcept {
         const double distance = aim_target_pos.norm();
-        double shooting_range_yaw =
-            std::abs(atan2(config_->shooting_range_w_param.get() / 2, distance));
+        double shooting_range_yaw;
+        if (!is_big) {
+            shooting_range_yaw =
+                std::abs(atan2(config_->shooting_range_w_small_param.get() / 2, distance));
+        } else {
+            shooting_range_yaw =
+                std::abs(atan2(config_->shooting_range_w_big_param.get() / 2, distance));
+        }
         double shooting_range_pitch =
             std::abs(atan2(config_->shooting_range_h_param.get() / 2, distance));
         double yaw_factor = 0.0;
@@ -912,7 +924,8 @@ struct VeryAimer::Impl {
             enable_yaw_diff(ey),
             enable_pitch_diff(ep) {}
     };
-    inline FireResult canFireAtTime(const VeryAimerTrajBase::Ptr& traj, double t) const noexcept {
+    inline FireResult
+    canFireAtTime(const VeryAimerTrajBase::Ptr& traj, double t, bool is_big) const noexcept {
         auto cal_delay = [&](double _t) {
             const auto target_delay = traj->getTargetState(_t + config_->control_delay_param.get());
             const auto control_delay =
@@ -943,7 +956,8 @@ struct VeryAimer::Impl {
         const double target_yaw = angles::normalize_angle(target.yaw_state.p + traj->cp0.yaw);
         const double control_yaw = angles::normalize_angle(control.yaw_state.p + traj->cp0.yaw);
 
-        const auto [enable_yaw, enable_pitch] = calEnableDiff(aim.pos, aim.d_angle, traj->fsm);
+        const auto [enable_yaw, enable_pitch] =
+            calEnableDiff(aim.pos, aim.d_angle, traj->fsm, is_big);
 
         return { std::abs(angles::shortest_angular_distance(target_yaw, control_yaw)) <= enable_yaw
                      && std::abs(angles::shortest_angular_distance(
@@ -1262,8 +1276,9 @@ struct VeryAimer::Impl {
 
         cmd.distance = build->fin_aim_pos.norm();
         cmd.fly_time = predict.fly_time;
-
-        auto fire = canFireAtTime(build, half_t);
+        bool is_big =
+            target.tracked_id_ == ArmorNumber::NO1 || target.tracked_id_ == ArmorNumber::BASE;
+        auto fire = canFireAtTime(build, half_t, is_big);
         if (config_->fuck_test_param.get()) {
             double center_yaw = std::atan2(target.target_state_.cy(), target.target_state_.cx());
             Eigen::Vector3d vel = target.target_state_.vel();

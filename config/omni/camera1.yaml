@@ -1,8 +1,7 @@
-id: 0
-
+yaw_in_big_yaw_deg: 107.0
 type: uvc
 
-camera_info_path: ${VISION_ROOT}/config/camera_info.yaml
+camera_info_path: ${VISION_ROOT}/config/omni/camera_info.yaml
 
 hik_camera:
   target_sn: DA1094119

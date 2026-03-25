@@ -1,5 +1,6 @@
 #pragma once
 
+#include "tasks/auto_aim/armor_control/very_aimer.hpp"
 #include "tasks/auto_aim/armor_tracker/target.hpp"
 #include "tasks/imodule.hpp"
 #include "tasks/type_common.hpp"
@@ -33,6 +34,8 @@ namespace auto_aim {
         Target getTarget();
         GimbalCmd solve(double bullet_speed) override;
         wust_vl::common::concurrency::MonitoredThread::Ptr getThread() override;
+        wust_vl::common::utils::Parameter::Ptr getParameter();
+        VeryAimer::Ptr getVeryAimer();
         struct Impl;
         std::unique_ptr<Impl> _impl;
     };

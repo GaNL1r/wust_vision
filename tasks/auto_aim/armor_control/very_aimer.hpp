@@ -13,10 +13,10 @@ enum class AutoAimFsm;
 class Target;
 class VeryAimer {
 public:
-    using Ptr = std::unique_ptr<VeryAimer>;
+    using Ptr = std::shared_ptr<VeryAimer>;
     VeryAimer(wust_vlParamterPtr auto_aim_config_parameter);
     static Ptr create(wust_vlParamterPtr auto_aim_config_parameter) {
-        return std::make_unique<VeryAimer>(auto_aim_config_parameter);
+        return std::make_shared<VeryAimer>(auto_aim_config_parameter);
     };
     ~VeryAimer();
     [[nodiscard]] GimbalCmd

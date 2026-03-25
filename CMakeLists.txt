@@ -21,6 +21,10 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
 
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS tasks/*.cpp)
 
+
+list(FILTER SOURCES EXCLUDE REGEX "tasks/auto_guidance/.*")
+list(FILTER SOURCES EXCLUDE REGEX "tasks/auto_sniper/.*")
+
 find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(fmt REQUIRED)
