@@ -76,17 +76,17 @@ void drawDebugArmorContent(
         2
     );
 
-    // static std::deque<std::pair<Eigen::Vector3d, double>> traj3d;
+    {
+        // static std::deque<std::pair<Eigen::Vector3d, double>> traj3d;
 
-    // double _now =
-    //     std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+        // double _now =
+        //     std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
 
-    // traj3d.emplace_back(aim_target.pos, _now);
+        // traj3d.emplace_back(aim_target.pos, _now);
 
-    // while (!traj3d.empty() && _now - traj3d.front().second > 1.0)
-    //     traj3d.pop_front();
-    aim_target.tf(dbg.T_camera_to_odom.inverse());
-    if (!aim_target.is_old) {
+        // while (!traj3d.empty() && _now - traj3d.front().second > 1.0)
+        //     traj3d.pop_front();
+        aim_target.tf(dbg.T_camera_to_odom.inverse());
         const auto pts = aim_target.toPts(camera_info.first, camera_info.second);
 
         if (!pts.empty()) {
@@ -642,7 +642,7 @@ void debuglog(const AutoAimDebug& dbg_armor) {
         }
     }
     GimbalCmd i_use;
-    if (dbg_armor.gimbal_cmd.appera) {
+    if (dbg_armor.gimbal_cmd.appear) {
         i_use = dbg_armor.gimbal_cmd;
     } else {
         i_use = last_cmd_;
@@ -650,8 +650,8 @@ void debuglog(const AutoAimDebug& dbg_armor) {
     last_cmd_ = i_use;
     nlohmann::json j;
     log.time_log.handleOnce(t, j);
-    log.raw_yaw_log.handleOnce(i_use.raw_yaw, j);
-    log.raw_pitch_log.handleOnce(i_use.raw_pitch, j);
+    log.raw_yaw_log.handleOnce(i_use.target_yaw, j);
+    log.raw_pitch_log.handleOnce(i_use.target_pitch, j);
     log.yaw_log.handleOnce(i_use.yaw, j);
     log.pitch_log.handleOnce(i_use.pitch, j);
     log.armor_yaw_log.handleOnce(armor_yaw * 180.0 / M_PI, j);

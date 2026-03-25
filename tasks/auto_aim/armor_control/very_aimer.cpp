@@ -1212,7 +1212,7 @@ struct VeryAimer::Impl {
     ) {
         GimbalCmd cmd;
         if (!trajectory_compensator_config_->trajectory_compensator) {
-            cmd.appera = false;
+            cmd.appear = false;
             return cmd;
         }
 
@@ -1225,7 +1225,7 @@ struct VeryAimer::Impl {
             build = build_fn(target, predict.fin_target_select, bullet_speed, auto_aim_fsm);
         } catch (...) {
             WUST_WARN("very_aimer") << "build failed";
-            cmd.appera = false;
+            cmd.appear = false;
             return cmd;
         }
 
@@ -1257,7 +1257,6 @@ struct VeryAimer::Impl {
         const double half_t = build->target_traj.getPrefixTimeAtIdx(half_horizon);
 
         const auto cs = build->getControlState(half_t);
-        // const auto cs = build->getControlState(wait_t);
         const double yaw = angles::normalize_angle(cs.yaw_state.p + build->cp0.yaw);
 
         cmd.yaw = rad2deg(yaw);
@@ -1269,10 +1268,8 @@ struct VeryAimer::Impl {
         cmd.a_pitch = rad2deg(cs.pitch_state.a);
 
         cmd.target_yaw = rad2deg(target_yaw);
-        cmd.target_pitch = rad2deg(target_pitch);
 
-        cmd.raw_yaw = cmd.target_yaw;
-        cmd.raw_pitch = cmd.target_pitch;
+        cmd.target_pitch = rad2deg(target_pitch);
 
         cmd.distance = build->fin_aim_pos.norm();
         cmd.fly_time = predict.fly_time;
@@ -1300,9 +1297,9 @@ struct VeryAimer::Impl {
         cmd.enable_pitch_diff = rad2deg(fire.enable_pitch_diff);
         cmd.fire_advice = fire.fire;
 
-        cmd.appera = cmd.isValid();
+        cmd.appear = cmd.isValid();
         if (break_this_) {
-            cmd.appera = false;
+            cmd.appear = false;
         }
 
         return cmd;

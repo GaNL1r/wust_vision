@@ -17,19 +17,6 @@ std::string enemyColorToString(EnemyColor color) noexcept {
     }
 }
 
-void AimTarget::predictSelf(double dt_sec) noexcept {
-    if (!have_host)
-        return;
-
-    const Eigen::Vector3d rel_pos = pos - host_pos;
-
-    const double theta = host_v_yaw * dt_sec;
-
-    Eigen::Matrix3d R;
-    R = Eigen::AngleAxisd(theta, Eigen::Vector3d::UnitZ());
-
-    pos = host_pos + R * rel_pos + host_vel * dt_sec;
-}
 void AimTarget::tf(Eigen::Matrix4d T_camera_to_odom) noexcept {
     const Eigen::Vector4d pos_camera(pos.x(), pos.y(), pos.z(), 1.0);
     const Eigen::Vector4d pos_odom = T_camera_to_odom * pos_camera;

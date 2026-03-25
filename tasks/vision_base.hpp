@@ -308,7 +308,7 @@ public:
         )
                                    .count();
         if (cmd.distance > 0.5) {
-            send_data.appear = cmd.appera;
+            send_data.appear = cmd.appear;
         } else {
             send_data.appear = false;
         }

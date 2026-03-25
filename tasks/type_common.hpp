@@ -130,84 +130,15 @@ struct AimTarget {
     Eigen::Vector3d pos = Eigen::Vector3d(0, 0, 0);
     Eigen::Vector3d vel = Eigen::Vector3d(0, 0, 0);
 
-    bool have_host = false;
-    Eigen::Vector3d host_pos = Eigen::Vector3d(0, 0, 0);
-    Eigen::Vector3d host_vel = Eigen::Vector3d(0, 0, 0);
-
-    double host_v_yaw = 0;
-
-    double shoot_pitch = 0;
-    int idx = -1;
-    bool is_big_armor = false;
-    bool is_old = false;
-
-    double dt = 0.0;
-
     Eigen::Quaterniond ori;
     std::vector<Eigen::Vector4d> armor_posandyaw;
-    void predictSelf(double dt_sec) noexcept;
-    double calYaw(double self_v_yaw = 0) const noexcept {
-        return angles::normalize_angle(std::atan2(pos.y(), pos.x()) - self_v_yaw * dt);
-    }
 
-    double calRawPitch() const noexcept {
-        return std::atan2(pos.z(), std::sqrt(pos.x() * pos.x() + pos.y() * pos.y()));
-    }
-
-    double distance() const noexcept {
-        return pos.norm();
-    }
-
-    double calVYaw() const noexcept {
-        double x = pos.x();
-        double y = pos.y();
-        double vx = vel.x();
-        double vy = vel.y();
-
-        double denom = x * x + y * y;
-        if (denom < 1e-6)
-            return 0.0;
-
-        return (x * vy - y * vx) / denom;
-    }
-    double calHostVYaw() const noexcept {
-        double x = host_pos.x();
-        double y = host_pos.y();
-        double vx = host_vel.x();
-        double vy = host_vel.y();
-
-        double denom = x * x + y * y;
-        if (denom < 1e-6)
-            return 0.0;
-
-        return (x * vy - y * vx) / denom;
-    }
-
-    double calVPitch() const noexcept {
-        double x = pos.x();
-        double y = pos.y();
-        double z = pos.z();
-        double vx = vel.x();
-        double vy = vel.y();
-        double vz = vel.z();
-
-        double rho2 = x * x + y * y;
-        double rho = std::sqrt(rho2);
-        double r2 = rho2 + z * z;
-
-        if (r2 < 1e-12 || rho < 1e-6)
-            return 0.0;
-
-        return (x * z * vx + y * z * vy - rho2 * vz) / (r2 * rho);
-    }
     void tf(Eigen::Matrix4d T_camera_to_odom) noexcept;
     std::vector<cv::Point2f>
     toPts(const cv::Mat& camera_intrinsic, const cv::Mat& camera_distortion) noexcept;
 };
 struct GimbalCmd {
     std::chrono::steady_clock::time_point timestamp;
-    double raw_yaw = 0;
-    double raw_pitch = 0;
     double pitch = 0;
     double yaw = 0;
     double target_yaw = 0;
@@ -221,15 +152,14 @@ struct GimbalCmd {
     double enable_yaw_diff = 0;
     double enable_pitch_diff = 0;
     double fly_time = 0;
-    bool appera = false;
+    bool appear = false;
     AimTarget aim_target;
-    double score = 0;
     inline bool isValid() const noexcept {
         auto bad = [](double x) { return std::isnan(x) || std::isinf(x); };
 
-        if (bad(raw_yaw) || bad(raw_pitch) || bad(pitch) || bad(yaw) || bad(target_yaw)
-            || bad(target_pitch) || bad(target_pitch) || bad(v_yaw) || bad(v_pitch) || bad(distance)
-            || bad(enable_yaw_diff) || bad(enable_pitch_diff))
+        if (bad(pitch) || bad(yaw) || bad(target_yaw) || bad(target_pitch) || bad(target_pitch)
+            || bad(v_yaw) || bad(v_pitch) || bad(distance) || bad(enable_yaw_diff)
+            || bad(enable_pitch_diff))
             return false;
 
         return true;

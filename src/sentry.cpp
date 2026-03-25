@@ -106,7 +106,7 @@ public:
         if (!cmd.isValid()) {
             return;
         }
-        if (!cmd.appera && armor_omni_) {
+        if (!cmd.appear && armor_omni_) {
             cmd = armor_omni_->solve(bullet_speed_);
         }
         last_cmd_ = cmd;
@@ -120,7 +120,7 @@ public:
         )
                                    .count();
         if (cmd.distance > 0.5) {
-            send_data.appear = cmd.appera;
+            send_data.appear = cmd.appear;
         } else {
             send_data.appear = false;
         }
@@ -178,21 +178,6 @@ public:
             }
 
         } while (0);
-        // if (armor_omni_) {
-        //     NavRobotCmdData send_data;
-        //     send_data.cmd_ID = ID_NAV_CMD;
-        //     send_data.packet_type = ID_OMNI_CONTROL;
-        //     send_data.time_stamp = static_cast<uint32_t>(
-        //         std::chrono::duration_cast<std::chrono::milliseconds>(
-        //             wust_vl::common::utils::time_utils::now().time_since_epoch()
-        //         )
-        //             .count()
-        //     );
-        //     send_data.omni_camera_detect_id = armor_omni_->getBestTarget();
-        //     if (serial_) {
-        //         serial_->write(std::move(wust_vl::common::drivers::toVector(send_data)));
-        //     }
-        // }
     }
 
     void serialCallback(const uint8_t* data, std::size_t len) {

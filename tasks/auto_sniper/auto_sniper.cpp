@@ -96,14 +96,14 @@ struct AutoSniper::Impl {
     GimbalCmd solve(double bullet_speed) noexcept {
         GimbalCmd cmd;
         if (!target_pos_in_map_.has_value()) {
-            cmd.appera = false;
+            cmd.appear = false;
             return cmd;
         }
         Eigen::Vector3d target_pos_in_self = self_in_map_.inverse() * target_pos_in_map_.value();
         target_pos_in_self.z() = target_armor_z_;
         auto pitch = k1_solver_->solvePitch(target_pos_in_self, bullet_speed);
         if (!pitch.has_value()) {
-            cmd.appera = false;
+            cmd.appear = false;
             std::cout << "no pitch" << std::endl;
             return cmd;
         }
@@ -125,10 +125,10 @@ struct AutoSniper::Impl {
         if (auto last_att = motion_buffer_->get_last()) {
             control_yaw += angles::to_degrees(last_att->data.yaw);
         }
-        cmd.appera = true;
+        cmd.appear = true;
         cmd.target_pitch = control_pitch;
         cmd.target_yaw = control_yaw;
-        cmd.appera = true;
+        cmd.appear = true;
         cmd.yaw = control_yaw;
         cmd.pitch = control_pitch;
         cmd.distance = target_pos_in_self.norm();

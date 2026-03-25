@@ -170,7 +170,6 @@ namespace utils {
         cv::cv2eigen(cv_mat, eigen_mat);
         return eigen_mat;
     }
-    /// 将相机坐标系下的位置转换到 odom 坐标系
     Eigen::Vector3d transformPosition(
         const Eigen::Vector3d& pos_camera,
         const Eigen::Matrix4d& T_camera_to_odom
@@ -180,7 +179,6 @@ namespace utils {
         return pos_odom.head<3>();
     }
 
-    /// 将相机坐标系下的姿态转换到 odom 坐标系
     Eigen::Quaterniond transformOrientation(
         const Eigen::Quaterniond& q_camera,
         const Eigen::Matrix4d& T_camera_to_odom
@@ -435,7 +433,7 @@ namespace utils {
         return false;
     }
 
-    /// 主函数：计算线段与 RotatedRect 的交点
+
     std::vector<cv::Point2f> intersectLineRotatedRect(
         const cv::RotatedRect& rect,
         const cv::Point2f& line_p1,
@@ -443,11 +441,9 @@ namespace utils {
     ) {
         std::vector<cv::Point2f> intersections;
 
-        // 1. 获取旋转矩形四个角点
         cv::Point2f vertices[4];
         rect.points(vertices);
 
-        // 2. 遍历矩形四条边，检测交点
         for (int i = 0; i < 4; i++) {
             const cv::Point2f p1 = vertices[i];
             const cv::Point2f p2 = vertices[(i + 1) % 4];

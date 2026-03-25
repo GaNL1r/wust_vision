@@ -9,7 +9,6 @@
 #include "wust_vl/video/camera.hpp"
 // clang-format off
 #include "tasks/auto_aim/armor_detect/armor_detector_factory.hpp"
-#include <opencv2/highgui.hpp>
 // clang-format on
 #include "tasks/auto_aim/armor_tracker/trackerv3.hpp"
 #include "tasks/auto_aim/armor_where/armor_where.hpp"
@@ -364,7 +363,7 @@ struct ArmorOmni::Impl {
                 WUST_ERROR("omni") << "VeryAim error";
             }
         } else {
-            gimbal_cmd.appera = false;
+            gimbal_cmd.appear = false;
         }
         return gimbal_cmd;
     }

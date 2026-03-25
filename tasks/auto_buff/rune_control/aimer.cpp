@@ -217,7 +217,7 @@ namespace auto_buff {
             cmd.target_yaw = cp.yaw * 180.0 / M_PI;
             cmd.target_pitch = cp.pitch * 180.0 / M_PI;
             cmd.fly_time = prev_fly_time;
-            cmd.appera = true;
+            cmd.appear = true;
 
             return cmd;
         }

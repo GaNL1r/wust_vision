@@ -47,7 +47,7 @@ namespace auto_guidance {
         TargetConfig target_config_;
         bool is_inited_ = false;
         bool is_tracking_ = false;
-        bool checkAppera() {
+        bool checkappear() {
             return is_tracking_
                 && wust_vl::common::utils::time_utils::durationSec(
                        timestamp_,

@@ -28,7 +28,7 @@ struct ReceiveAimINFO {
     float yaw;
     float pitch;
     float roll;
-    float ins_sum;
+
     float yaw_vel;
     float pitch_vel;
     float roll_vel;
@@ -38,9 +38,6 @@ struct ReceiveAimINFO {
     float v_z;
 
     float bullet_speed;
-    float controller_delay;
-
-    uint8_t manual_reset_count;
     uint8_t detect_color; // 0 red 1 blue
 } __attribute__((packed));
 
@@ -55,6 +52,42 @@ struct ReceiveReferee {
     int cur_bullet;
 
     uint8_t center_state;
+} __attribute__((packed));
+struct SendRobotCmdData {
+    uint8_t cmd_ID;
+    uint32_t time_stamp;
+
+    uint8_t appear;
+    uint8_t shoot_rate = 3;
+
+    float pitch;
+    float yaw;
+
+    float target_yaw;
+    float target_pitch;
+
+    float enable_yaw_diff;
+    float enable_pitch_diff;
+
+    float v_yaw;
+    float v_pitch;
+    float a_yaw;
+    float a_pitch;
+
+    uint8_t detect_color;
+} __attribute__((packed));
+
+constexpr uint8_t ID_NAV_CONTROL = 0;
+
+struct NavRobotCmdData {
+    uint8_t cmd_ID;
+    uint32_t time_stamp;
+    uint8_t packet_type;
+
+    float vx;
+    float vy;
+    float wz;
+
 } __attribute__((packed));
 
 struct SerialLogBuffer {
@@ -107,9 +140,6 @@ inline void updateSerialLog(const ReceiveAimINFO& aim) {
     j["v_z"] = aim.v_z;
 
     j["bullet_speed"] = aim.bullet_speed;
-    j["controller_delay"] = aim.controller_delay;
-
-    j["manual_reset_count"] = aim.manual_reset_count;
     j["detect_color"] = (aim.detect_color == 0 ? "Red" : "Blue");
 
     buf.dirty = true;
@@ -159,45 +189,5 @@ inline void flushSerialLog() {
 
     last_flush = now;
 }
-
-struct SendRobotCmdData {
-    uint8_t cmd_ID;
-    uint32_t time_stamp;
-
-    uint8_t appear;
-    uint8_t shoot_rate = 3;
-
-    float pitch;
-    float yaw;
-
-    float target_yaw;
-    float target_pitch;
-
-    float enable_yaw_diff;
-    float enable_pitch_diff;
-
-    float v_yaw;
-    float v_pitch;
-    float a_yaw;
-    float a_pitch;
-
-    uint8_t detect_color;
-} __attribute__((packed));
-
-constexpr uint8_t ID_NAV_CONTROL = 0;
-constexpr uint8_t ID_OMNI_CONTROL = 1;
-constexpr uint8_t ID_BT_CONTROL = 2;
-
-struct NavRobotCmdData {
-    uint8_t cmd_ID;
-    uint32_t time_stamp;
-    uint8_t packet_type;
-
-    float vx;
-    float vy;
-    float wz;
-
-    int omni_camera_detect_id;
-} __attribute__((packed));
 
 } // namespace wust_vision

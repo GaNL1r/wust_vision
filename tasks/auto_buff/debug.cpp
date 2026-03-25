@@ -26,7 +26,7 @@ void drawDebugRuneContent(
         2
     );
     aim_target.tf(dbg.T_camera_to_odom.inverse());
-    if (!aim_target.is_old) {
+    {
         const auto pts = aim_target.toPts(camera_info.first, camera_info.second);
         if (!pts.empty()) {
             cv::Scalar color = cv::Scalar(255, 255, 255);
@@ -206,7 +206,7 @@ void debuglog(const AutoBuffDebug& dbg_rune) {
     }
 
     GimbalCmd i_use;
-    if (dbg_rune.gimbal_cmd.appera) {
+    if (dbg_rune.gimbal_cmd.appear) {
         i_use = dbg_rune.gimbal_cmd;
     } else {
         i_use = last_cmd_;
@@ -214,8 +214,8 @@ void debuglog(const AutoBuffDebug& dbg_rune) {
     last_cmd_ = i_use;
     nlohmann::json j;
     log.time_log.handleOnce(t, j);
-    log.raw_yaw_log.handleOnce(i_use.raw_yaw, j);
-    log.raw_pitch_log.handleOnce(i_use.raw_pitch, j);
+    log.raw_yaw_log.handleOnce(i_use.target_yaw, j);
+    log.raw_pitch_log.handleOnce(i_use.target_pitch, j);
     log.yaw_log.handleOnce(i_use.yaw, j);
     log.pitch_log.handleOnce(i_use.pitch, j);
     log.rune_obs_log.handleOnce(dbg_rune.obs_angle, j);
