@@ -89,7 +89,6 @@ namespace utils {
             std::swap(axis0, axis2);
         Eigen::Quaterniond q;
 
-        // 生成四元数
         if (axis0 == 0 && axis1 == 1 && axis2 == 2)
             q = qx * qy * qz;
         else if (axis0 == 0 && axis1 == 2 && axis2 == 1)

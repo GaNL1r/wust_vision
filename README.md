@@ -1,6 +1,6 @@
 # <img src="https://s21.ax1x.com/2025/08/12/pVwPPKS.png" width="40">WUST_VISION
 武汉科技大学崇实战队视觉代码仓库
-
+## 本项目已经不再维护，现已转移至 https://github.com/WUST-RM/awakening
 ## 写在前面
 本项目基于[中南大学FYT战队2024赛季视觉框架开源](https://github.com/CSU-FYT-Vision/FYT2024_vision),华南师范大学PIONEER战队@chenjunnn[rm_vision](https://github.com/chenjunnn/rm_vision)修改与适配，参考了深圳北理莫斯科大学北极熊战队/四川大学火锅战队/沈阳航空航天大学TUP战队/北京科技大学Reborn战队/同济大学superpower战队/河北科技大学Actor&Thinker战队的部分代码与模型，感谢以上开源为本队以及本人的帮助(排名不分先后)
 
