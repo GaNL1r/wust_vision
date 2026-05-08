@@ -9,8 +9,12 @@ tf:
 control:
   control_rate: 1000
   communication_delay_us: 100.000
-  device_name: /dev/stm32_acm
   use_serial: true
+  serial_type: physical
+  receive_gimbal_id: 1
+  receive_shoot_id: 2
+  send_gimbal_id: 1
+  send_shoot_id: 2
   yaw_ramp: 0.0  #send_cmd = cmd.pos+cmd.vel*ramp
   pitch_ramp: 0.0
   

@@ -6,7 +6,7 @@
 #include "tasks/utils/sinple_img_rotate_saver.hpp"
 #include "tasks/utils/utils.hpp"
 #include "wust_vl/common/concurrency/ThreadPool.h"
-#include "wust_vl/common/drivers/serial_driver.hpp"
+#include "tasks/vision_serial_adapter.hpp"
 #include <fmt/core.h>
 #include <map>
 #include <vector>
@@ -77,6 +77,9 @@ public:
         auto_buff_config_(auto_buff_config) {}
     ~VisionBase() {
         run_flag_ = false;
+        if (serial_adapter_) {
+            serial_adapter_->stop();
+        }
         if (debug_thread_.joinable()) {
             debug_thread_.join();
         }
@@ -167,8 +170,8 @@ public:
             const double rate_hz = control_config_->control_rate_param.get();
             timer_->start(rate_hz, timercallback);
         }
-        if (serial_) {
-            serial_->start();
+        if (serial_adapter_) {
+            serial_adapter_->start();
         } else if (rotate_reader_) {
             rotate_reader_->replay([this](const Eigen::Vector3d& ypr) {
                 ReceiveAimINFO aim_data;
@@ -188,20 +191,34 @@ public:
             img_writer_->start();
         }
     }
-    void serialCallback(const uint8_t* data, std::size_t len) {
-        if (len != sizeof(ReceiveAimINFO)) {
-            return;
-        }
-        try {
-            const std::vector<uint8_t> buf(data, data + len);
-            const ReceiveAimINFO aim_data =
-                wust_vl::common::drivers::fromVector<ReceiveAimINFO>(buf);
-            processAimData(aim_data);
+    void onSerialReceive(double yaw_rad, double pitch_rad, double roll_rad,
+                         double bullet_speed, int detect_color, int mode) {
+        if (!run_flag_) return;
 
-        } catch (const std::exception& e) {
-            std::cerr << "serialCallback exception: " << e.what() << std::endl;
-        } catch (...) {
-            std::cerr << "serialCallback unknown exception" << std::endl;
+        detect_color_ = detect_color;
+        bullet_speed_ = bullet_speed;
+
+        // vision 协议的 mode 可用于切换攻击模式
+        if (mode >= 0 && mode <= 2) {
+            attack_mode_ = mode;
+        }
+
+        // roll 取负号，与原 processAimData 保持一致
+        const auto now = std::chrono::steady_clock::now();
+        if (motion_buffer_) {
+            CarMotion motion{yaw_rad, pitch_rad, -roll_rad, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+            motion_buffer_->push(motion, now);
+        }
+
+        static auto last_push_time = std::chrono::steady_clock::now();
+        const auto elapsed =
+            std::chrono::duration_cast<std::chrono::milliseconds>(now - last_push_time).count();
+        if (elapsed >= 10) {
+            if (rotate_writer_) {
+                rotate_writer_->push(Eigen::Vector3d(
+                    yaw_rad * 180.0 / M_PI, pitch_rad * 180.0 / M_PI, roll_rad * 180.0 / M_PI));
+            }
+            last_push_time = now;
         }
     }
     void frameCallback(wust_vl::video::ImageFrame& img_frame) {
@@ -301,32 +318,13 @@ public:
 
         double cmd_pitch = cmd.pitch;
         double cmd_yaw = cmd.yaw;
-        SendRobotCmdData send_data;
-        send_data.cmd_ID = ID_ROBOT_CMD;
-        send_data.time_stamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                   std::chrono::steady_clock::now().time_since_epoch()
-        )
-                                   .count();
-        if (cmd.distance > 0.5) {
-            send_data.appear = cmd.appear;
-        } else {
-            send_data.appear = false;
-        }
 
-        send_data.detect_color = detect_color_;
-        send_data.pitch = cmd_pitch + cmd.v_pitch * control_config_->pitch_ramp_param.get();
-        send_data.yaw = cmd_yaw + cmd.v_yaw * control_config_->yaw_ramp_param.get();
-        send_data.v_pitch = cmd.v_pitch;
-        send_data.v_yaw = cmd.v_yaw;
-        send_data.a_pitch = cmd.a_pitch;
-        send_data.a_yaw = cmd.a_yaw;
-        send_data.target_yaw = cmd.target_yaw;
-        send_data.target_pitch = cmd.target_pitch;
-        send_data.enable_pitch_diff = cmd.enable_pitch_diff;
-        send_data.enable_yaw_diff = cmd.enable_yaw_diff;
-        send_data.shoot_rate = shoot_config_->rate_param.get();
-        if (serial_) {
-            serial_->write(std::move(wust_vl::common::drivers::toVector(send_data)));
+        // vision 协议只发送 yaw, pitch, fire_flag
+        if (serial_adapter_) {
+            double send_yaw = cmd_yaw + cmd.v_yaw * control_config_->yaw_ramp_param.get();
+            double send_pitch = cmd_pitch + cmd.v_pitch * control_config_->pitch_ramp_param.get();
+            bool fire = cmd.fire_advice && cmd.appear && (cmd.distance > 0.5);
+            serial_adapter_->send(send_yaw, send_pitch, fire);
         }
     }
     bool isWebRunning() {
@@ -387,7 +385,7 @@ public:
     }
 
     void processAimData(const ReceiveAimINFO& aim_data) {
-        static wust_vl::common::concurrency::Averager<double> vyaw_avg(100);
+        // 保留此函数以支持回放模式
         if (!this->run_flag_) {
             return;
         }
@@ -396,29 +394,17 @@ public:
         const double roll = -(aim_data.roll) * M_PI / 180.0;
         const double pitch = (aim_data.pitch) * M_PI / 180.0;
         const double yaw = (aim_data.yaw) * M_PI / 180.0;
-        const double v_roll = aim_data.roll_vel * M_PI / 180.0;
-        const double v_pitch = aim_data.pitch_vel * M_PI / 180.0;
-        const double v_yaw = aim_data.yaw_vel * M_PI / 180.0;
-        vyaw_avg.add(v_yaw);
-
-        const double v_x = 0.0;
-        const double v_y = 0.0;
-        const double v_z = 0.0;
 
         const auto now = std::chrono::steady_clock::now();
         if (motion_buffer_) {
-            CarMotion motion { yaw, pitch, roll, 0.0, v_pitch, v_roll, v_x, v_y, v_z };
+            CarMotion motion { yaw, pitch, roll, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
             motion_buffer_->push(motion, now);
-        }
-        if (debug_mode_) {
-            updateSerialLog(aim_data);
-            flushSerialLog();
         }
 
         static auto last_push_time = std::chrono::steady_clock::now();
         const auto elapsed =
             std::chrono::duration_cast<std::chrono::milliseconds>(now - last_push_time).count();
-        if (elapsed >= 10) { // 至少间隔 10ms（100Hz）
+        if (elapsed >= 10) {
             if (rotate_writer_) {
                 rotate_writer_->push(Eigen::Vector3d(aim_data.yaw, aim_data.pitch, aim_data.roll));
             }
@@ -462,28 +448,27 @@ public:
                 yaw_ramp_param.set(node["yaw_ramp"].as<double>());
                 pitch_ramp_param.set(node["pitch_ramp"].as<double>());
                 control_rate_param.set(node["control_rate"].as<double>());
-                std::string device_name = node["device_name"].as<std::string>();
-                base->serial_ = std::make_shared<wust_vl::common::drivers::SerialDriver>();
                 bool use_serial = node["use_serial"].as<bool>();
                 if (use_serial) {
-                    wust_vl::common::drivers::SerialDriver::SerialPortConfig cfg {
-                        /*baud*/ 115200,
-                        /*csize*/ 8,
-                        boost::asio::serial_port_base::parity::none,
-                        boost::asio::serial_port_base::stop_bits::one,
-                        boost::asio::serial_port_base::flow_control::none
-                    };
-                    base->serial_->init_port(device_name, cfg);
-                    base->serial_->set_receive_callback(std::bind(
-                        &VisionBase::serialCallback,
-                        base,
-                        std::placeholders::_1,
-                        std::placeholders::_2
-
-                    ));
-                    base->serial_->set_error_callback([&](const boost::system::error_code& ec) {
-                        WUST_ERROR("serial") << "serial error: " << ec.message();
-                    });
+                    base->serial_adapter_ = std::make_shared<VisionSerialAdapter>();
+                    short gimbal_recv_id = node["receive_gimbal_id"].as<short>(1);
+                    short shoot_recv_id = node["receive_shoot_id"].as<short>(2);
+                    short gimbal_send_id = node["send_gimbal_id"].as<short>(1);
+                    short shoot_send_id = node["send_shoot_id"].as<short>(2);
+                    if (!base->serial_adapter_->initialize(
+                            common_config_,
+                            gimbal_recv_id, shoot_recv_id,
+                            gimbal_send_id, shoot_send_id)) {
+                        WUST_ERROR("serial") << "Failed to initialize serial adapter";
+                        base->serial_adapter_.reset();
+                    } else {
+                        base->serial_adapter_->setReceiveCallback(
+                            [base](double yaw_rad, double pitch_rad, double roll_rad,
+                                   double bullet_speed, int detect_color, int mode) {
+                                base->onSerialReceive(yaw_rad, pitch_rad, roll_rad,
+                                                     bullet_speed, detect_color, mode);
+                            });
+                    }
                 }
                 first_load = true;
             } else {
@@ -602,7 +587,7 @@ public:
     std::unique_ptr<wust_vl::common::concurrency::ThreadPool> thread_pool_;
     std::map<typename Mode::AttackMode, IModule::Ptr> modules_;
     std::shared_ptr<wust_vl::video::Camera> camera_;
-    std::shared_ptr<wust_vl::common::drivers::SerialDriver> serial_;
+    VisionSerialAdapter::Ptr serial_adapter_;
     std::unique_ptr<wust_vl::common::utils::Timer> timer_;
     std::shared_ptr<wust_vl::common::utils::MotionBufferGeneric<CarMotion, 1024>> motion_buffer_;
     std::shared_ptr<wust_vl::common::utils::Recorder<Eigen::Vector3d>> rotate_writer_;
